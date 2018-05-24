@@ -1,3 +1,5 @@
+# Shamelessly stolen from https://owensd.io/2015/01/13/compiling-swift-without-xcode/
+
 # A simple build script for building projects.
 #
 # usage: make [CONFIG=debug|release]
