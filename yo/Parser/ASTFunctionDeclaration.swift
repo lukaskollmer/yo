@@ -8,11 +8,11 @@
 
 import Foundation
 
-struct ASTFunctionDeclaration: ASTNode {
+struct ASTFunctionDeclaration: ASTStatement {
     let name: ASTIdentifier
     let parameters: [ASTIdentifier]
     let localVariables: [ASTIdentifier]
-    let body: [ASTNode]
+    let body: [ASTStatement]
     
     
     var mangledName: String {
