@@ -13,30 +13,37 @@ import Foundation
 class BytecodeCompiler {
     
     private enum WIPInstruction {
-        case label(String)
-        case operation(Operation, Int)
+        case label(String)                  // A label
+        case operation(Operation, Int)      // A "finalized" instruction
+        case unresolved(Operation, String)  // An instruction that takes an address as parameter, which will be resolved later (after all codegen finished)
     }
     
     private var instructions = [WIPInstruction]()
+    private var counter = 0
     
     // Scope info
     fileprivate typealias GlobalFunctionsInfo = [String: Int]
     private var scope = Scope(type: .global)
     private var globalFunctions = GlobalFunctionsInfo()
     
+    
     init() {
     }
+    
     
     func generateInstructions(for ast: [ASTNode]) -> [Instruction] {
         return _generateInstructions(for: ast).enumerated().map { (index: Int, instruction: WIPInstruction) -> Instruction in
             switch instruction {
             case .operation(let operation, let immediate):
                 return operation.encode(withImmediate: immediate)
+            case .unresolved(let operation, let label):
+                return operation.encode(withImmediate: getAddress(ofLabel: label))
             case .label(_):
                 return 0
             }
         }
     }
+    
     
     private func _generateInstructions(for ast: [ASTNode]) -> [WIPInstruction] {
         if case .global = scope.type {
@@ -53,8 +60,9 @@ class BytecodeCompiler {
         
         if case .global = scope.type {
             // update the bootstrapping code
-            add("end")
+            add(label: "end")
             instructions[0] = .operation(.push, getAddress(ofLabel: "main"))
+            instructions[3] = .operation(.jump, getAddress(ofLabel: "end"))
         }
         
         
@@ -70,8 +78,12 @@ private extension BytecodeCompiler {
         instructions.append(.operation(operation, immediate))
     }
     
-    func add(_ label: String) {
+    func add(label: String) {
         instructions.append(.label(label))
+    }
+    
+    func add(_ operation: Operation, unresolvedLabel: String) {
+        instructions.append(.unresolved(operation, unresolvedLabel))
     }
     
     func getAddress(ofLabel label: String) -> Int {
@@ -111,6 +123,12 @@ private extension BytecodeCompiler {
         } else if let unary = node as? ASTUnary {
             handle(unary: unary)
             
+        } else if let ifStatement = node as? ASTIfStatement {
+            handle(ifStatement: ifStatement)
+            
+        } else if let composite = node as? ASTComposite {
+            handle(composite: composite)
+            
         } else if let noop = node as? ASTNoop {
             
         } else {
@@ -133,7 +151,7 @@ private extension BytecodeCompiler {
         scope = Scope(type: .function(function.mangledName), parameters: function.parameters, localVariables: function.localVariables)
         
         // function entry point
-        add(function.mangledName)
+        add(label: function.mangledName)
         globalFunctions[function.mangledName] = function.parameters.count
         
         // allocate space for local variables?
@@ -146,9 +164,53 @@ private extension BytecodeCompiler {
     }
     
     
+    func handle(composite: ASTComposite) {
+        composite.statements.forEach(handle)
+    }
+    
+    
     func handle(return returnStatement: ASTReturnStatement) {
         handle(node: returnStatement.returnValueExpression)
         add(.ret, scope.size)
+    }
+    
+    
+    func handle(ifStatement: ASTIfStatement) {
+        guard case .function(let functionName) = scope.type else {
+            fatalError("global if statement")
+        }
+        
+        let _counter = counter.advanced(by: 1)
+        let generateLabel: (String) -> String = { "\(functionName)_if_\(_counter)_body_\($0)" }
+        
+        let hasElseBranch = ifStatement.elseBranch != nil
+        
+        // 1. handle the condition
+        handle(condition: ifStatement.condition)
+        
+        // 2. handle if jump
+        // if the condition is false, we fall through to the else branch (or the end, if there is no else branch)
+        add(.jump, unresolvedLabel: generateLabel("main"))
+        
+        // 3. handle the else jump
+        add(.push, -1)
+        add(.jump, unresolvedLabel: generateLabel(hasElseBranch ? "else" : "end"))
+        
+        // 4. handle the if branch
+        add(label: generateLabel("main"))
+        handle(node: ifStatement.body)
+        add(.push, -1)
+        add(.jump, unresolvedLabel: generateLabel("end"))
+        
+        // 5. handle the else branch
+        if hasElseBranch {
+            add(label: generateLabel("else"))
+            handle(node: ifStatement.elseBranch!) // we can safely unwrap this bc of the earlier
+            add(.jump, unresolvedLabel: generateLabel("end"))
+        }
+        
+        // 6. handle the end of the if statement
+        add(label: generateLabel("end"))
     }
     
     
@@ -200,5 +262,39 @@ private extension BytecodeCompiler {
     
     func handle(numberLiteral: ASTNumberLiteral) {
         add(.push, numberLiteral.value)
+    }
+    
+    
+    
+    func handle(condition: ASTCondition) {
+        if let comparison = condition as? ASTComparison {
+            handle(comparison: comparison)
+        } else {
+            fatalError("unhandled condition \(condition)")
+        }
+    }
+    
+    
+    func handle(comparison: ASTComparison) {
+        handle(node: comparison.rhs)
+        handle(node: comparison.lhs)
+        
+        switch comparison.operator {
+        case .equal:
+            add(.eq)
+        case .notEqual:
+            add(.eq)
+            add(.not)
+        case .less:
+            add(.lt)
+        case .greater:
+            add(.le)
+            add(.not)
+        case .lessEqual:
+            add(.le)
+        case .greaterEqual:
+            add(.lt)
+            add(.not)
+        }
     }
 }

@@ -68,6 +68,19 @@ private extension BytecodeInterpreter {
         
         case .mod:
             try stack.push(try stack.pop() % stack.pop())
+            
+        case .not:
+            try stack.push(~(try stack.pop()))
+            
+        case .eq:
+            try stack.push((try stack.pop() == stack.pop()) ? -1 : 0)
+            
+        case .lt:
+            try stack.push((try stack.pop() < stack.pop()) ? -1 : 0)
+            
+        case .le:
+            try stack.push((try stack.pop() <= stack.pop()) ? -1 : 0)
+        
         
         case .push:
             try stack.push(immediate)

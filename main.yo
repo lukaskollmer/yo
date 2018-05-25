@@ -6,6 +6,10 @@ fn abs(x) {
   }
 }
 
+fn mul(x) {
+    ret x * 2;
+}
+
 fn main() {
-  ret abs(5);
+  ret abs(-12);
 }

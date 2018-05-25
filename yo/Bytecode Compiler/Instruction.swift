@@ -43,6 +43,13 @@ enum Operation: Int {
     case div
     case mod
     
+    case not
+    
+    // comparisons
+    case eq
+    case lt
+    case le
+    
     // mmemory access
     case push   // push the immediate onto the stack
     case load   // copies the value in the frame at the index specified by the immediate onto the stack
