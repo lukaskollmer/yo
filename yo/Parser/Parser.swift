@@ -127,22 +127,9 @@ private extension Parser {
             fatalError("expected closing parens after function signature")
         }
         
-        guard case .openingCurlyBrackets = next().type else {
-            fatalError("expected a { after the function signature")
-            //throw ParserError.other("expected a { after the function signature")
-        }
+        next()
         
-        next() // step into the function body
-        
-        var functionBody = [ASTNode]()
-        functionBody.append(try parseStatement())
-        
-        guard case .closingCurlyBrackets = currentToken.type else {
-            fatalError("expected a } after the function body")
-            //throw ParserError.other("expected a } after the function body")
-        }
-        
-        next() // step out of the function body
+        let functionBody = try parseComposite().statements
         
         return ASTFunctionDeclaration(
             name: ASTIdentifier(name: functionName),
@@ -150,6 +137,26 @@ private extension Parser {
             localVariables: [],
             body: functionBody
         )
+    }
+    
+    func parseComposite() throws -> ASTComposite {
+        guard case .openingCurlyBrackets = currentToken.type else {
+            fatalError("composite has to start with opening curly braces")
+        }
+        
+        next() // step into the composite
+        
+        var statements = [ASTStatement]()
+        
+        while let statement = try? parseStatement() {
+            statements.append(statement)
+            if case .closingCurlyBrackets = currentToken.type {
+                next()
+                break
+            }
+        }
+        
+        return ASTComposite(statements: statements)
     }
     
     
