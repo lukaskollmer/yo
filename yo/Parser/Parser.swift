@@ -169,6 +169,11 @@ private extension Parser {
     func parseExpression() throws -> ASTExpression {
         Log.info("\(#function), \(currentToken)")
         
+        if case .minus = currentToken.type { // unary
+            next()
+            return ASTUnary(expression: try parseExpression())
+        }
+        
         guard let expression: ASTExpression = (try? parseNumberLiteral()) ?? (try? parseIdentifier()) else {
             //fatalError("ugh")
             throw ParserError.other("unable to find an expression. got \(currentToken) instead")

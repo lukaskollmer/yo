@@ -88,6 +88,9 @@ private extension BytecodeCompiler {
         } else if let identifier = node as? ASTIdentifier {
             handle(identifier: identifier)
             
+        } else if let unary = node as? ASTUnary {
+            handle(unary: unary)
+            
         } else if let noop = node as? ASTNoop {
             
         } else {
@@ -162,6 +165,10 @@ private extension BytecodeCompiler {
         handle(node: binop.lhs)
         
         add(binop.operator.operation)
+    }
+    
+    func handle(unary: ASTUnary) {
+        handle(binop: ASTBinop(lhs: ASTNumberLiteral(value: -1), operator: .mul, rhs: unary.expression))
     }
     
     
