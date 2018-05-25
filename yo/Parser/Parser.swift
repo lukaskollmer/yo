@@ -113,7 +113,7 @@ private extension Parser {
                     elseBody = try parseComposite()
                 }
                 
-                return ASTIfStatement(condition: condition, body: body, elseBody: elseBody)
+                return ASTIfStatement(condition: condition, body: body, elseBranch: elseBody)
                 
                 
                 

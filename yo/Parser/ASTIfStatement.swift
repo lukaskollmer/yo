@@ -12,5 +12,5 @@ import Foundation
 struct ASTIfStatement: ASTStatement {
     let condition: ASTCondition
     let body: ASTStatement
-    let elseBody: ASTStatement?
+    let elseBranch: ASTStatement?
 }
