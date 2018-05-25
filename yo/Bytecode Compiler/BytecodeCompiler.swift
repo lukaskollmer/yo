@@ -43,7 +43,6 @@ class BytecodeCompiler {
             // add the bootstrapping instructions
             add(.noop) // push main, will be replaced later
             add(.call, 0)
-            add(.noop)
             add(.push, -1)
             add(.jump, 0) // jump end, will be replaced later
         }
@@ -56,7 +55,6 @@ class BytecodeCompiler {
             // update the bootstrapping code
             add("end")
             instructions[0] = .operation(.push, getAddress(ofLabel: "main"))
-            instructions[4] = .operation(.jump, getAddress(ofLabel: "end"))
         }
         
         
