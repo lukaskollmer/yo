@@ -12,28 +12,33 @@ import Foundation
 /// Class that compiles an AST to bytecode instructions
 class BytecodeCompiler {
     
-    private var instructions = [Instruction]()
+    private enum WIPInstruction {
+        case label(String)
+        case operation(Operation, Int)
+    }
+    
+    private var instructions = [WIPInstruction]()
     
     // Scope info
-    fileprivate typealias GlobalFunctionsInfo = [String: (address: Int, argc: Int)]
+    fileprivate typealias GlobalFunctionsInfo = [String: Int]
     private var scope = Scope(type: .global)
     private var globalFunctions = GlobalFunctionsInfo()
     
     init() {
     }
     
-    fileprivate init(parent: BytecodeCompiler) {
-        self.scope = parent.scope
-        self.globalFunctions = parent.globalFunctions
-    }
-    
-    fileprivate init(function: ASTFunctionDeclaration, globalFunctions: GlobalFunctionsInfo) {
-        self.scope = Scope(type: .function(function.mangledName), parameters: function.parameters, localVariables: function.localVariables)
-        self.globalFunctions = globalFunctions
-    }
-    
-    
     func generateInstructions(for ast: [ASTNode]) -> [Instruction] {
+        return _generateInstructions(for: ast).enumerated().map { (index: Int, instruction: WIPInstruction) -> Instruction in
+            switch instruction {
+            case .operation(let operation, let immediate):
+                return operation.encode(withImmediate: immediate)
+            case .label(_):
+                return 0
+            }
+        }
+    }
+    
+    private func _generateInstructions(for ast: [ASTNode]) -> [WIPInstruction] {
         if case .global = scope.type {
             // add the bootstrapping instructions
             add(.noop) // push main, will be replaced later
@@ -49,9 +54,9 @@ class BytecodeCompiler {
         
         if case .global = scope.type {
             // update the bootstrapping code
-            add(.noop) // end label
-            instructions[0] = Operation.push.encode(withImmediate: globalFunctions["main"]!.address)
-            instructions[4] = Operation.jump.encode(withImmediate: instructions.count - 1)
+            add("end")
+            instructions[0] = .operation(.push, getAddress(ofLabel: "main"))
+            instructions[4] = .operation(.jump, getAddress(ofLabel: "end"))
         }
         
         
@@ -64,8 +69,25 @@ class BytecodeCompiler {
 private extension BytecodeCompiler {
     
     func add(_ operation: Operation, _ immediate: Int = 0) {
-        instructions.append(operation.encode(withImmediate: immediate))
+        instructions.append(.operation(operation, immediate))
     }
+    
+    func add(_ label: String) {
+        instructions.append(.label(label))
+    }
+    
+    func getAddress(ofLabel label: String) -> Int {
+        print(instructions)
+        return instructions.index { instruction -> Bool in
+            if case .label(let name) = instruction {
+                return name == label
+            }
+            return false
+        }!
+    }
+}
+
+private extension BytecodeCompiler {
 
     
     func handle(node: ASTNode) {
@@ -105,18 +127,24 @@ private extension BytecodeCompiler {
     
     
     func handle(function: ASTFunctionDeclaration) {
-        // we create a new codegen for the function body
-        let codegen = BytecodeCompiler(function: function, globalFunctions: self.globalFunctions)
+        // Save the current scope
+        let previousScope = scope
+        
+        // Update the scope. This is important because we need knowledge about the function's
+        // parameters and local variables when generating instructions for the function body
+        scope = Scope(type: .function(function.mangledName), parameters: function.parameters, localVariables: function.localVariables)
         
         // function entry point
-        add(.noop)
-        globalFunctions[function.mangledName] = (instructions.count, function.parameters.count)
+        add(function.mangledName)
+        globalFunctions[function.mangledName] = function.parameters.count
         
-        // arguments + local variables // TODO // TODO what does the comment mean?
+        // allocate space for local variables?
         
+        // Generate instructions for the function body
+        function.body.forEach(handle)
         
-        // function body
-        instructions.append(contentsOf: codegen.generateInstructions(for: function.body))
+        // Restore the old scope
+        scope = previousScope
     }
     
     
@@ -133,7 +161,7 @@ private extension BytecodeCompiler {
     // MARK: Handle Expressions
     
     func handle(functionCall: ASTFunctionCall) {
-        guard let (address, argc) = globalFunctions[functionCall.functionName] else {
+        guard let argc = globalFunctions[functionCall.functionName] else {
             fatalError("trying to call non-existent function")
         }
         
@@ -148,7 +176,7 @@ private extension BytecodeCompiler {
         
         
         // push the address onto the stack
-        add(.push, address)
+        add(.push, getAddress(ofLabel: functionCall.functionName)) // TODO allow calling not yet declared functions
         
         // call w/ the passed number of arguments
         add(.call, functionCall.arguments.count)
