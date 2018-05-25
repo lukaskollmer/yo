@@ -53,7 +53,6 @@ private extension Parser {
     
     @discardableResult
     private func next() -> Token {
-        // TODO stop incrementing on EOF?
         currentPosition += 1
         return tokens[currentPosition]
     }
@@ -103,7 +102,6 @@ private extension Parser {
                 guard case .openingCurlyBrackets = currentToken.type else {
                     fatalError("expected { after condition")
                 }
-                print("NEXT NEXT NEXT")
                 
                 let body = try parseComposite()
                 var elseBody: ASTComposite?
@@ -126,7 +124,6 @@ private extension Parser {
     
     
     func parseFunction() throws -> ASTFunctionDeclaration {
-        print(#function)
         guard
             case .fn = currentToken.type,
             case .identifier(let functionName) = next().type,
@@ -189,7 +186,6 @@ private extension Parser {
     
     
     func parseExpression() throws -> ASTExpression {
-        Log.info("\(#function), \(currentToken)")
         
         if case .minus = currentToken.type { // unary
             next()

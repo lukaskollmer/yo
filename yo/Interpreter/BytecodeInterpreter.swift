@@ -44,10 +44,10 @@ private extension BytecodeInterpreter {
     func eval(_ instruction: InstructionDescriptor, _ instructionPointer: inout Int) throws {
         let immediate = instruction.immediate
         
-        Log.info("")
-        Log.info("")
-        Log.info("[eval] ip=\(instructionPointer) op=\(instruction.operation) imm=\(immediate)")
-        Log.info("[eval] ip=\(instructionPointer) stack before: \(stack)")
+        //Log.info("")
+        //Log.info("")
+        //Log.info("[eval] ip=\(instructionPointer) op=\(instruction.operation) imm=\(immediate)")
+        //Log.info("[eval] ip=\(instructionPointer) stack before: \(stack)")
         
         
         switch instruction.operation {
@@ -124,7 +124,7 @@ private extension BytecodeInterpreter {
             try stack.push(returnValue)
         }
         
-        Log.info("[eval] ip=\(instructionPointer) stack after: \(stack)")
+        //Log.info("[eval] ip=\(instructionPointer) stack after: \(stack)")
         
     }
 }

@@ -27,12 +27,10 @@ class BytecodeCompiler {
     private var globalFunctions = GlobalFunctionsInfo()
     
     
-    init() {
-    }
     
     
     func generateInstructions(for ast: [ASTNode]) -> [Instruction] {
-        return _generateInstructions(for: ast).enumerated().map { (index: Int, instruction: WIPInstruction) -> Instruction in
+        return _generateInstructions(for: ast).enumerated().map { index, instruction in
             switch instruction {
             case .operation(let operation, let immediate):
                 return operation.encode(withImmediate: immediate)
@@ -87,8 +85,7 @@ private extension BytecodeCompiler {
     }
     
     func getAddress(ofLabel label: String) -> Int {
-        print(instructions)
-        return instructions.index { instruction -> Bool in
+        return instructions.index { instruction in
             if case .label(let name) = instruction {
                 return name == label
             }
@@ -129,7 +126,7 @@ private extension BytecodeCompiler {
         } else if let composite = node as? ASTComposite {
             handle(composite: composite)
             
-        } else if let noop = node as? ASTNoop {
+        } else if let _ = node as? ASTNoop {
             
         } else {
             fatalError("unhandled node \(node)")

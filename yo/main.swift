@@ -40,38 +40,16 @@ else {
     exit(1)
 }
 
-
-//let tokens = Tokenizer.tokenize(source: rawSource)
-Log.info("")
-Log.info("")
-Log.info("===== LEXER =====")
-Log.info("")
 let tokens = try Lexer(source: rawSource).tokenize()
-for token in tokens { print(token) }
 
-Log.info("")
-Log.info("")
-Log.info("===== PARSER =====")
-Log.info("")
 let parser = Parser(tokens: tokens)
 let ast = try parser.parse()
-Log.info("ast: \(ast)")
 
-
-Log.info("")
-Log.info("")
-Log.info("===== Codegen =====")
-Log.info("")
 let compiler = BytecodeCompiler()
 let instructions = compiler.generateInstructions(for: ast)
 
-Log.info("generated instructions")
-for (index, instruction) in instructions.enumerated() {
-    let info = InstructionDescriptor(instruction: instruction)
-    Log.info("  [\(String(format:"%02d", index))] \(info.operation) \(info.immediate)")
-}
-
-
-print(try BytecodeInterpreter(instructions: instructions).run())
+let interpreter = BytecodeInterpreter(instructions: instructions)
+let retval = try interpreter.run()
+print(retval)
 
 
