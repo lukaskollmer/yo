@@ -22,6 +22,12 @@ private let tokenMapping: [String: TokenType] = [
     "{"     : .openingCurlyBrackets,
     "}"     : .closingCurlyBrackets,
     
+    "+"     : .plus,
+    "-"     : .minus,
+    "*"     : .asterik,
+    "/"     : .forwardSlash,
+    "%"     : .percentageSign,
+    
     // keywords
     "import": .import,
     "fn"    : .fn,

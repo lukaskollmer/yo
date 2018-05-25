@@ -25,6 +25,8 @@
 		80EAA47A20B75F4B0043A6F6 /* Stack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47920B75F4B0043A6F6 /* Stack.swift */; };
 		80EAA47C20B7629C0043A6F6 /* Instruction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47B20B7629C0043A6F6 /* Instruction.swift */; };
 		80EAA47E20B8060B0043A6F6 /* ASTFunctionCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47D20B8060B0043A6F6 /* ASTFunctionCall.swift */; };
+		80EAA48020B826730043A6F6 /* ASTBinop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47F20B826730043A6F6 /* ASTBinop.swift */; };
+		80EAA48220B82D990043A6F6 /* ASTIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48120B82D990043A6F6 /* ASTIdentifier.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -59,6 +61,8 @@
 		80EAA47920B75F4B0043A6F6 /* Stack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stack.swift; sourceTree = "<group>"; };
 		80EAA47B20B7629C0043A6F6 /* Instruction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Instruction.swift; sourceTree = "<group>"; };
 		80EAA47D20B8060B0043A6F6 /* ASTFunctionCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTFunctionCall.swift; sourceTree = "<group>"; };
+		80EAA47F20B826730043A6F6 /* ASTBinop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTBinop.swift; sourceTree = "<group>"; };
+		80EAA48120B82D990043A6F6 /* ASTIdentifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTIdentifier.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -113,6 +117,8 @@
 				80EAA46F20B758BE0043A6F6 /* ASTNumberLiteral.swift */,
 				80EAA47120B75BE20043A6F6 /* ASTNoop.swift */,
 				80EAA47D20B8060B0043A6F6 /* ASTFunctionCall.swift */,
+				80EAA47F20B826730043A6F6 /* ASTBinop.swift */,
+				80EAA48120B82D990043A6F6 /* ASTIdentifier.swift */,
 			);
 			path = Parser;
 			sourceTree = "<group>";
@@ -203,6 +209,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				804834E520B6EAF1009E59FC /* ASTNode.swift in Sources */,
+				80EAA48220B82D990043A6F6 /* ASTIdentifier.swift in Sources */,
 				804834ED20B6F311009E59FC /* Lexer.swift in Sources */,
 				80EAA47520B75EE40043A6F6 /* BytecodeCompiler.swift in Sources */,
 				80EAA46820B742720043A6F6 /* ASTImportStatement.swift in Sources */,
@@ -215,6 +222,7 @@
 				80EAA46C20B74B920043A6F6 /* ASTReturnStatement.swift in Sources */,
 				804834DC20B6D699009E59FC /* extensions.swift in Sources */,
 				80EAA47820B75F370043A6F6 /* BytecodeInterpreter.swift in Sources */,
+				80EAA48020B826730043A6F6 /* ASTBinop.swift in Sources */,
 				80EAA47A20B75F4B0043A6F6 /* Stack.swift in Sources */,
 				804834F020B6F36B009E59FC /* Token.swift in Sources */,
 				80EAA47020B758BE0043A6F6 /* ASTNumberLiteral.swift in Sources */,

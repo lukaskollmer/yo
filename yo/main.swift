@@ -66,9 +66,9 @@ let compiler = BytecodeCompiler(ast: ast)
 let instructions = compiler.generateInstructions()
 
 Log.info("generated instructions")
-for instruction in instructions {
+for (index, instruction) in instructions.enumerated() {
     let info = InstructionDescriptor(instruction: instruction)
-    Log.info("  \(info.operation) \(info.immediate)")
+    Log.info("  [\(String(format:"%02d", index))] \(info.operation) \(info.immediate)")
 }
 
 

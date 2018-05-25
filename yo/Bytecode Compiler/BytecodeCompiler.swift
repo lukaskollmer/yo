@@ -67,6 +67,9 @@ private extension BytecodeCompiler {
         } else if let functionCall = node as? ASTFunctionCall {
             handle(functionCall: functionCall)
             
+        } else if let binop = node as? ASTBinop {
+            handle(binop: binop)
+            
         } else if let noop = node as? ASTNoop {
             
         } else {
@@ -74,6 +77,10 @@ private extension BytecodeCompiler {
         }
         
     }
+    
+    
+    
+    // MARK: Handle Statements
     
     
     func handle(function: ASTFunctionDeclaration) {
@@ -95,10 +102,11 @@ private extension BytecodeCompiler {
     }
     
     
-    func handle(numberLiteral: ASTNumberLiteral) {
-        add(.load, numberLiteral.value)
-    }
     
+    
+    
+    
+    // MARK: Handle Expressions
     
     func handle(functionCall: ASTFunctionCall) {
         guard let address = functionAddresses[functionCall.functionName] else {
@@ -112,5 +120,22 @@ private extension BytecodeCompiler {
         
         // call w/ the passed number of arguments
         add(.call, functionCall.arguments.count)
+    }
+    
+    
+    func handle(binop: ASTBinop) {
+        handle(node: binop.rhs)
+        handle(node: binop.lhs)
+        
+        add(binop.operator.operation)
+    }
+    
+    
+    func handle(numberLiteral: ASTNumberLiteral) {
+        add(.load, numberLiteral.value)
+    }
+    
+    func handle(identifier: ASTIdentifier) {
+        
     }
 }

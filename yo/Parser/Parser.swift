@@ -8,6 +8,12 @@
 
 import Foundation
 
+
+// MARK: Constants
+private let BinopTokenTypes: [TokenType] = [.plus, .minus, .asterik, .forwardSlash, .percentageSign]
+
+
+// MARK: Errors
 enum ParserError: Error {
     case expectedIdentifier // expected an identifier, but didn't get one
     case other(String)
@@ -73,8 +79,9 @@ private extension Parser {
             case .EOF:
                 currentPosition += 1 // stop parsing
                 return ASTNoop()
-            default: fatalError("unhandled token \(currentToken)")
+            default: fatalError("unexpected top level token: \(currentToken)")
             }
+            
         } else {
             // not a top level statement
             switch currentToken.type {
@@ -82,7 +89,8 @@ private extension Parser {
                 next()
                 let expression = try parseExpression()
                 guard case .semicolon = currentToken.type else {
-                    throw ParserError.other("expected a semicolon")
+                    fatalError("expected a semicolon")
+                    //throw ParserError.other("expected a semicolon")
                 }
                 next()
                 return ASTReturnStatement(returnValueExpression: expression)
@@ -117,12 +125,14 @@ private extension Parser {
             case .identifier(let argumentName):
                 arguments.append(argumentName)
             default:
-                throw ParserError.other("function argument declaration isn't an identifier (got \(currentToken.type)")
+                fatalError("function argument declaration isn't an identifier (got \(currentToken.type)")
+                //throw ParserError.other("function argument declaration isn't an identifier (got \(currentToken.type)")
             }
         } while !finishedSignatureParsing
         
         guard case .openingCurlyBrackets = next().type else {
-            throw ParserError.other("expected a { after the function signature")
+            fatalError("expected a { after the function signature")
+            //throw ParserError.other("expected a { after the function signature")
         }
         
         next() // step into the function body
@@ -131,7 +141,8 @@ private extension Parser {
         functionBody.append(try parseStatement())
         
         guard case .closingCurlyBrackets = currentToken.type else {
-            throw ParserError.other("expected a } after the function body")
+            fatalError("expected a } after the function body")
+            //throw ParserError.other("expected a } after the function body")
         }
         
         next() // step out of the function body
@@ -147,17 +158,52 @@ private extension Parser {
     
     
     func parseExpression() throws -> ASTExpression {
-        print(#function, currentToken)
+        Log.info("\(#function), \(currentToken)")
+        
+        guard let expression: ASTExpression = (try? parseNumberLiteral()) ?? (try? parseIdentifier()) else {
+            fatalError("ugh")
+        }
+        
+        if BinopTokenTypes.contains(currentToken.type), let binopOperator = ASTBinop.Operator(tokenType: currentToken.type) {
+            next()
+            return ASTBinop(lhs: expression, operator: binopOperator, rhs: try parseExpression())
+        }
+        
+        if let identifier = expression as? ASTIdentifier, case TokenType.openingParentheses = currentToken.type {
+            // identifier, followed by an opening parentheses -> function call
+            
+            if case .closingParentheses = next().type {
+                next()
+                return ASTFunctionCall(functionName: identifier.name, arguments: []) // TODO parse arguments
+            }
+            
+            fatalError("aaargh")
+            
+        }
+        
+        return expression
         
         switch currentToken.type {
         case .numberLiteral(let value):
             next() // TODO refactor this out of the switch?
+            
+            //if let binop = try? parseExpression(), binop is ASTBinop {
+            //    Log.info("FOUND A BINOP")
+            //}
+            
+            if BinopTokenTypes.contains(currentToken.type), let binopOperator = ASTBinop.Operator(tokenType: currentToken.type) {
+                next()
+                let rhs = try parseExpression()
+                //return ASTBinop(lhs: value, operator: binopOperator, rhs: rhs)
+            }
+            
             return ASTNumberLiteral(value: value)
             
         case .identifier(_):
             switch peek().type {
             case .openingParentheses: // function call
-                return try parseFunctionCall()
+                //return try parseFunctionCall()
+                break
             default:
                 unhandledToken(currentToken)
             }
@@ -166,26 +212,27 @@ private extension Parser {
             unhandledToken(currentToken)
         }
         
-        fatalError("lol wtf")
     }
     
     
     
     
-    func parseFunctionCall() throws -> ASTFunctionCall {
-        guard
-            case .identifier(let name) = currentToken.type,
-            case .openingParentheses = next().type
-        else {
-            throw ParserError.other("ugh")
-        }
-        
-        if case .closingParentheses = next().type {
+    func parseNumberLiteral() throws -> ASTNumberLiteral {
+        if case .numberLiteral(let value) = currentToken.type {
             next()
-            return ASTFunctionCall(functionName: name, arguments: []) // TODO parse arguments
+            return ASTNumberLiteral(value: value)
         }
         
-        fatalError("aaargh")
+        throw ParserError.other("not a number")
+    }
+    
+    func parseIdentifier() throws -> ASTIdentifier {
+        if case .identifier(let name) = currentToken.type {
+            next()
+            return ASTIdentifier(name: name)
+        }
+        
+        throw ParserError.other("not an identifier")
     }
 }
 

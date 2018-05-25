@@ -16,11 +16,17 @@ struct Token {
 
 
 
-enum TokenType {
+enum TokenType: Equatable, Hashable {
     
     // literals
     case stringLiteral(String)
     case numberLiteral(Int) // TODO make all numbers doubles. Maybe use a public typealias?
+    
+    case plus
+    case minus
+    case asterik
+    case forwardSlash
+    case percentageSign
     
     // other
     case semicolon
@@ -38,7 +44,5 @@ enum TokenType {
     case ret
     
     case EOF
-    
-    
 }
 

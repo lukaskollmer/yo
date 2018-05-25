@@ -1,7 +1,17 @@
-# Top Level Expressions
+# Top Level Statements
 
-topLevelExpression := $import|$type_decl|$function_decl
+topLevelExpression := <import>|<type_decl>|<function_decl>
 
-import := `import $string_literal;`
-type_decl := `type $identifier($identifier*);`
-function_decl := `fn $identifier($identifier*) {}`
+import := import <string_literal>;
+#type_decl := type <identifier>(<identifier>*); # TODO
+function_decl := fn <identifier>(<identifier>*) {<expression>|<statement>*}
+
+
+# Expressions
+<expression> =
+#string_literal := ".*"
+number_literal := [0-9]+
+identifier := [_a-zA-Z][_a-zA-Z0-9]*
+function_call := <identifier>(ε|<expression>(, <expression>)*)
+<unop> <expression>
+<expression> <binop> <expression>

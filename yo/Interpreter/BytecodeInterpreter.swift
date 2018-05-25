@@ -58,16 +58,16 @@ private extension BytecodeInterpreter {
             try stack.push(try stack.pop() + stack.pop())
             
         case .sub:
-            break
+            try stack.push(try stack.pop() - stack.pop())
         
         case .mul:
-            break
+            try stack.push(try stack.pop() * stack.pop())
         
         case .div:
-            break
+            try stack.push(try stack.pop() / stack.pop())
         
         case .mod:
-            break
+            try stack.push(try stack.pop() % stack.pop())
         
         case .load:
             try stack.push(immediate)
