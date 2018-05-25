@@ -27,6 +27,7 @@
 		80EAA47E20B8060B0043A6F6 /* ASTFunctionCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47D20B8060B0043A6F6 /* ASTFunctionCall.swift */; };
 		80EAA48020B826730043A6F6 /* ASTBinop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47F20B826730043A6F6 /* ASTBinop.swift */; };
 		80EAA48220B82D990043A6F6 /* ASTIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48120B82D990043A6F6 /* ASTIdentifier.swift */; };
+		80EAA48420B83C670043A6F6 /* Scope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48320B83C670043A6F6 /* Scope.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -63,6 +64,7 @@
 		80EAA47D20B8060B0043A6F6 /* ASTFunctionCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTFunctionCall.swift; sourceTree = "<group>"; };
 		80EAA47F20B826730043A6F6 /* ASTBinop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTBinop.swift; sourceTree = "<group>"; };
 		80EAA48120B82D990043A6F6 /* ASTIdentifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTIdentifier.swift; sourceTree = "<group>"; };
+		80EAA48320B83C670043A6F6 /* Scope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scope.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -137,6 +139,7 @@
 			isa = PBXGroup;
 			children = (
 				80EAA47420B75EE40043A6F6 /* BytecodeCompiler.swift */,
+				80EAA48320B83C670043A6F6 /* Scope.swift */,
 				80EAA47B20B7629C0043A6F6 /* Instruction.swift */,
 			);
 			path = "Bytecode Compiler";
@@ -209,6 +212,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				804834E520B6EAF1009E59FC /* ASTNode.swift in Sources */,
+				80EAA48420B83C670043A6F6 /* Scope.swift in Sources */,
 				80EAA48220B82D990043A6F6 /* ASTIdentifier.swift in Sources */,
 				804834ED20B6F311009E59FC /* Lexer.swift in Sources */,
 				80EAA47520B75EE40043A6F6 /* BytecodeCompiler.swift in Sources */,

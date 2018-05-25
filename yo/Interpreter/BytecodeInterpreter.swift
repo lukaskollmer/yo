@@ -46,8 +46,8 @@ private extension BytecodeInterpreter {
         
         Log.info("")
         Log.info("")
-        Log.info("[eval] op=\(instruction.operation) imm=\(immediate)")
-        Log.info("[eval] stack before: \(stack)")
+        Log.info("[eval] ip=\(instructionPointer) op=\(instruction.operation) imm=\(immediate)")
+        Log.info("[eval] ip=\(instructionPointer) stack before: \(stack)")
         
         
         switch instruction.operation {
@@ -69,8 +69,11 @@ private extension BytecodeInterpreter {
         case .mod:
             try stack.push(try stack.pop() % stack.pop())
         
-        case .load:
+        case .push:
             try stack.push(immediate)
+            
+        case .load:
+            try stack.push(stack.getFrameElement(atIndex: immediate))
             
         case .jump:
             if try stack.pop() == -1 {
@@ -81,9 +84,15 @@ private extension BytecodeInterpreter {
             let destinationInstructionPointer = try stack.pop()
             
             // TODO handle arguments
+            var args = [Int]()
+            for _ in 0..<immediate {
+                args.append(try stack.pop())
+            }
             
             try stack.push(stack.framePointer)
             try stack.push(instructionPointer + 1)
+            
+            try args.reversed().forEach { try stack.push($0) }
             
             stack.framePointer = stack.stackPointer
             instructionPointer = destinationInstructionPointer
@@ -92,13 +101,17 @@ private extension BytecodeInterpreter {
         case .ret:
             let returnValue = try stack.pop()
             
+            for _ in 0..<immediate {
+                _ = try stack.pop()
+            }
+            
             instructionPointer = try stack.pop()
             stack.framePointer = try stack.pop()
             
             try stack.push(returnValue)
         }
         
-        Log.info("[eval] stack after: \(stack)")
+        Log.info("[eval] ip=\(instructionPointer) stack after: \(stack)")
         
     }
 }

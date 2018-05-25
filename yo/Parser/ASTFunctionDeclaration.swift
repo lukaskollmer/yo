@@ -9,12 +9,13 @@
 import Foundation
 
 struct ASTFunctionDeclaration: ASTNode {
-    let name: String
-    let arguments: [String]
+    let name: ASTIdentifier
+    let parameters: [ASTIdentifier]
+    let localVariables: [ASTIdentifier]
     let body: [ASTNode]
     
     
     var mangledName: String {
-        return name
+        return name.name
     }
 }

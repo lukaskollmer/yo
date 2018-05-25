@@ -1,7 +1,7 @@
-fn get42() {
-  ret 42 - 12;
+fn double(x, y) {
+  ret y - x;
 }
 
 fn main() {
-    ret get42();
+    ret double(7, 8);
 }

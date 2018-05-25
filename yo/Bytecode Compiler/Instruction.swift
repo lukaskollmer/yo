@@ -44,7 +44,8 @@ enum Operation: Int {
     case mod
     
     // mmemory access
-    case load   // push the immediate onto the stack
+    case push   // push the immediate onto the stack
+    case load   // copies the value in the frame at the index specified by the immediate onto the stack
     
     case call
     case jump

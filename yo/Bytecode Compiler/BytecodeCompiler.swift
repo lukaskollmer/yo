@@ -12,32 +12,48 @@ import Foundation
 /// Class that compiles an AST to bytecode instructions
 class BytecodeCompiler {
     
-    private let ast: [ASTNode]
     private var instructions = [Instruction]()
     
-    private var functionAddresses = [String: Int]()
+    // Scope info
+    fileprivate typealias GlobalFunctionsInfo = [String: (address: Int, argc: Int)]
+    private var scope = Scope(type: .global)
+    private var globalFunctions = GlobalFunctionsInfo()
     
-    init(ast: [ASTNode]) {
-        self.ast = ast
+    init() {
     }
     
-    func generateInstructions() -> [Instruction] {
-        // add the bootstrapping instructions
-        add(.noop) // push main, will be replaced later
-        add(.call, 0)
-        add(.noop)
-        add(.load, -1)
-        add(.jump, 0) // jump end, will be replaced later
-        
-        for topLevelNode in ast {
-            handle(node: topLevelNode)
+    fileprivate init(parent: BytecodeCompiler) {
+        self.scope = parent.scope
+        self.globalFunctions = parent.globalFunctions
+    }
+    
+    fileprivate init(function: ASTFunctionDeclaration, globalFunctions: GlobalFunctionsInfo) {
+        self.scope = Scope(type: .function(function.mangledName), parameters: function.parameters, localVariables: function.localVariables)
+        self.globalFunctions = globalFunctions
+    }
+    
+    
+    func generateInstructions(for ast: [ASTNode]) -> [Instruction] {
+        if case .global = scope.type {
+            // add the bootstrapping instructions
+            add(.noop) // push main, will be replaced later
+            add(.call, 0)
+            add(.noop)
+            add(.push, -1)
+            add(.jump, 0) // jump end, will be replaced later
         }
         
+        for node in ast {
+            handle(node: node)
+        }
         
-        // update the bootstrapping code
-        add(.noop) // end label
-        instructions[0] = Operation.load.encode(withImmediate: functionAddresses["main"]!)
-        instructions[4] = Operation.jump.encode(withImmediate: instructions.count - 1)
+        if case .global = scope.type {
+            // update the bootstrapping code
+            add(.noop) // end label
+            instructions[0] = Operation.push.encode(withImmediate: globalFunctions["main"]!.address)
+            instructions[4] = Operation.jump.encode(withImmediate: instructions.count - 1)
+        }
+        
         
         return instructions
     }
@@ -50,8 +66,7 @@ private extension BytecodeCompiler {
     func add(_ operation: Operation, _ immediate: Int = 0) {
         instructions.append(operation.encode(withImmediate: immediate))
     }
-    
-    
+
     
     func handle(node: ASTNode) {
         
@@ -70,6 +85,9 @@ private extension BytecodeCompiler {
         } else if let binop = node as? ASTBinop {
             handle(binop: binop)
             
+        } else if let identifier = node as? ASTIdentifier {
+            handle(identifier: identifier)
+            
         } else if let noop = node as? ASTNoop {
             
         } else {
@@ -84,21 +102,24 @@ private extension BytecodeCompiler {
     
     
     func handle(function: ASTFunctionDeclaration) {
-        // function entry point
-        functionAddresses[function.mangledName] = instructions.count
-        add(.noop)
+        // we create a new codegen for the function body
+        let codegen = BytecodeCompiler(function: function, globalFunctions: self.globalFunctions)
         
-        // arguments + local variables // TODO
+        // function entry point
+        add(.noop)
+        globalFunctions[function.mangledName] = (instructions.count, function.parameters.count)
+        
+        // arguments + local variables // TODO // TODO what does the comment mean?
         
         
         // function body
-        function.body.forEach(handle) // this will always call `handle(node:)`
+        instructions.append(contentsOf: codegen.generateInstructions(for: function.body))
     }
     
     
     func handle(return returnStatement: ASTReturnStatement) {
         handle(node: returnStatement.returnValueExpression)
-        add(.ret, 1) // TODO calculate the correct immediate
+        add(.ret, scope.size)
     }
     
     
@@ -109,17 +130,30 @@ private extension BytecodeCompiler {
     // MARK: Handle Expressions
     
     func handle(functionCall: ASTFunctionCall) {
-        guard let address = functionAddresses[functionCall.functionName] else {
+        guard let (address, argc) = globalFunctions[functionCall.functionName] else {
             fatalError("trying to call non-existent function")
         }
         
+        guard argc == functionCall.arguments.count else {
+            fatalError("wrong argc")
+        }
+        
         // todo push arguments on the stack
+        for arg in functionCall.arguments.reversed() {
+            handle(node: arg)
+        }
+        
         
         // push the address onto the stack
-        add(.load, address)
+        add(.push, address)
         
         // call w/ the passed number of arguments
         add(.call, functionCall.arguments.count)
+    }
+    
+    
+    func handle(identifier: ASTIdentifier) {
+        add(.load, scope.index(of: identifier.name))
     }
     
     
@@ -132,10 +166,6 @@ private extension BytecodeCompiler {
     
     
     func handle(numberLiteral: ASTNumberLiteral) {
-        add(.load, numberLiteral.value)
-    }
-    
-    func handle(identifier: ASTIdentifier) {
-        
+        add(.push, numberLiteral.value)
     }
 }

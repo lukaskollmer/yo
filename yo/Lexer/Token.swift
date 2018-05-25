@@ -29,6 +29,7 @@ enum TokenType: Equatable, Hashable {
     case percentageSign
     
     // other
+    case comma
     case semicolon
     case openingParentheses
     case closingParentheses

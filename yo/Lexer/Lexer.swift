@@ -12,10 +12,13 @@ import Foundation
 
 // MARK: Constants
 
-private let ignoredCharacters: [Unicode.Scalar] = [" ", "\n"]
-private let set = CharacterSet(charactersIn: " .+-*/;(){}\n") // TODO give this a more descriptive name
+// set of characters we ignore
+private let ignoredCharacters: [Unicode.Scalar] = [" ", "\n"] // TODO what about CharacterSet.whitespace?
+// set of characters that delimit whetever we're currently lexing (ie the x in `(x` )
+private let delimiters = CharacterSet(charactersIn: " .,+-*/;(){}\n") // TODO give this a more descriptive name
 
 private let tokenMapping: [String: TokenType] = [
+    ","     : .comma,
     ";"     : .semicolon,
     "("     : .openingParentheses,
     ")"     : .closingParentheses,
@@ -58,12 +61,16 @@ class Lexer {
         
         for (index, char) in scalars.enumerated() { // tbh i have no idea what i'm doing here
             if ignoredCharacters.contains(char) { continue }
+            
             currentToken.unicodeScalars.append(char)
             
             let isLast = index == scalars.count - 1
-            
             if !isLast {
-                if set.contains(scalars[index + 1]) {
+                let next = scalars[index + 1]
+                // handle the current token, if
+                // a) the next scalar is a delimiter
+                // b) the current character is a delimiter (this catches things like `(x` in a function signature)
+                if delimiters.contains(next) || delimiters.contains(char) {
                     try handleRawToken(currentToken, endLocation: index)
                     currentToken = ""
                 }

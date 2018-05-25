@@ -113,22 +113,19 @@ private extension Parser {
             throw ParserError.expectedIdentifier
         }
         
-        var arguments = [String]()
+        next() // step into the function signature
+        var parameters = [ASTIdentifier]()
         
-        // TODO this can be improved
-        var finishedSignatureParsing = false
-        repeat {
-            print(peek().type)
-            switch next().type {
-            case .closingParentheses:
-                finishedSignatureParsing = true
-            case .identifier(let argumentName):
-                arguments.append(argumentName)
-            default:
-                fatalError("function argument declaration isn't an identifier (got \(currentToken.type)")
-                //throw ParserError.other("function argument declaration isn't an identifier (got \(currentToken.type)")
+        while let parameter = try? parseIdentifier() {
+            parameters.append(parameter)
+            if case .comma = currentToken.type {
+                next()
             }
-        } while !finishedSignatureParsing
+        }
+        
+        guard case .closingParentheses = currentToken.type else {
+            fatalError("expected closing parens after function signature")
+        }
         
         guard case .openingCurlyBrackets = next().type else {
             fatalError("expected a { after the function signature")
@@ -147,7 +144,12 @@ private extension Parser {
         
         next() // step out of the function body
         
-        return ASTFunctionDeclaration(name: functionName, arguments: arguments, body: functionBody)
+        return ASTFunctionDeclaration(
+            name: ASTIdentifier(name: functionName),
+            parameters: parameters,
+            localVariables: [],
+            body: functionBody
+        )
     }
     
     
@@ -161,7 +163,8 @@ private extension Parser {
         Log.info("\(#function), \(currentToken)")
         
         guard let expression: ASTExpression = (try? parseNumberLiteral()) ?? (try? parseIdentifier()) else {
-            fatalError("ugh")
+            //fatalError("ugh")
+            throw ParserError.other("unable to find an expression. got \(currentToken) instead")
         }
         
         if BinopTokenTypes.contains(currentToken.type), let binopOperator = ASTBinop.Operator(tokenType: currentToken.type) {
@@ -171,10 +174,22 @@ private extension Parser {
         
         if let identifier = expression as? ASTIdentifier, case TokenType.openingParentheses = currentToken.type {
             // identifier, followed by an opening parentheses -> function call
+            next() // jump into the function call
             
-            if case .closingParentheses = next().type {
+            var arguments = [ASTExpression]()
+            
+            while let argument = try? parseExpression() {
+                arguments.append(argument)
+                
+                if case .comma = currentToken.type {
+                    next()
+                }
+            }
+            
+            
+            if case .closingParentheses = currentToken.type {
                 next()
-                return ASTFunctionCall(functionName: identifier.name, arguments: []) // TODO parse arguments
+                return ASTFunctionCall(functionName: identifier.name, arguments: arguments)
             }
             
             fatalError("aaargh")
@@ -182,36 +197,6 @@ private extension Parser {
         }
         
         return expression
-        
-        switch currentToken.type {
-        case .numberLiteral(let value):
-            next() // TODO refactor this out of the switch?
-            
-            //if let binop = try? parseExpression(), binop is ASTBinop {
-            //    Log.info("FOUND A BINOP")
-            //}
-            
-            if BinopTokenTypes.contains(currentToken.type), let binopOperator = ASTBinop.Operator(tokenType: currentToken.type) {
-                next()
-                let rhs = try parseExpression()
-                //return ASTBinop(lhs: value, operator: binopOperator, rhs: rhs)
-            }
-            
-            return ASTNumberLiteral(value: value)
-            
-        case .identifier(_):
-            switch peek().type {
-            case .openingParentheses: // function call
-                //return try parseFunctionCall()
-                break
-            default:
-                unhandledToken(currentToken)
-            }
-            
-        default:
-            unhandledToken(currentToken)
-        }
-        
     }
     
     
@@ -225,6 +210,8 @@ private extension Parser {
         
         throw ParserError.other("not a number")
     }
+    
+    
     
     func parseIdentifier() throws -> ASTIdentifier {
         if case .identifier(let name) = currentToken.type {

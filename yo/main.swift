@@ -47,7 +47,7 @@ Log.info("")
 Log.info("===== LEXER =====")
 Log.info("")
 let tokens = try Lexer(source: rawSource).tokenize()
-//Log.info("tokens: \(tokens)")
+for token in tokens { print(token) }
 
 Log.info("")
 Log.info("")
@@ -62,8 +62,8 @@ Log.info("")
 Log.info("")
 Log.info("===== Codegen =====")
 Log.info("")
-let compiler = BytecodeCompiler(ast: ast)
-let instructions = compiler.generateInstructions()
+let compiler = BytecodeCompiler()
+let instructions = compiler.generateInstructions(for: ast)
 
 Log.info("generated instructions")
 for (index, instruction) in instructions.enumerated() {
