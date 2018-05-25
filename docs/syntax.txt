@@ -1,0 +1,7 @@
+# Top Level Expressions
+
+topLevelExpression := $import|$type_decl|$function_decl
+
+import := `import $string_literal;`
+type_decl := `type $identifier($identifier*);`
+function_decl := `fn $identifier($identifier*) {}`

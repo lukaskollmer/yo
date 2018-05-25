@@ -1,0 +1,7 @@
+fn get42() {
+  ret 42;
+}
+
+fn main() {
+    ret get42();
+}

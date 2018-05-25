@@ -8,6 +8,23 @@
 
 /* Begin PBXBuildFile section */
 		8001BC8220B6CF8500B55D00 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8001BC8120B6CF8500B55D00 /* main.swift */; };
+		804834DC20B6D699009E59FC /* extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834DB20B6D699009E59FC /* extensions.swift */; };
+		804834DE20B6D962009E59FC /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834DD20B6D962009E59FC /* Log.swift */; };
+		804834E020B6E27D009E59FC /* Tokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834DF20B6E27D009E59FC /* Tokenizer.swift */; };
+		804834E320B6EABD009E59FC /* Parser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834E220B6EABD009E59FC /* Parser.swift */; };
+		804834E520B6EAF1009E59FC /* ASTNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834E420B6EAF1009E59FC /* ASTNode.swift */; };
+		804834ED20B6F311009E59FC /* Lexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834EC20B6F311009E59FC /* Lexer.swift */; };
+		804834F020B6F36B009E59FC /* Token.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834EF20B6F36B009E59FC /* Token.swift */; };
+		80EAA46820B742720043A6F6 /* ASTImportStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA46720B742720043A6F6 /* ASTImportStatement.swift */; };
+		80EAA46A20B7468B0043A6F6 /* ASTFunctionDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA46920B7468B0043A6F6 /* ASTFunctionDeclaration.swift */; };
+		80EAA46C20B74B920043A6F6 /* ASTReturnStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA46B20B74B920043A6F6 /* ASTReturnStatement.swift */; };
+		80EAA47020B758BE0043A6F6 /* ASTNumberLiteral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA46F20B758BE0043A6F6 /* ASTNumberLiteral.swift */; };
+		80EAA47220B75BE20043A6F6 /* ASTNoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47120B75BE20043A6F6 /* ASTNoop.swift */; };
+		80EAA47520B75EE40043A6F6 /* BytecodeCompiler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47420B75EE40043A6F6 /* BytecodeCompiler.swift */; };
+		80EAA47820B75F370043A6F6 /* BytecodeInterpreter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47720B75F370043A6F6 /* BytecodeInterpreter.swift */; };
+		80EAA47A20B75F4B0043A6F6 /* Stack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47920B75F4B0043A6F6 /* Stack.swift */; };
+		80EAA47C20B7629C0043A6F6 /* Instruction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47B20B7629C0043A6F6 /* Instruction.swift */; };
+		80EAA47E20B8060B0043A6F6 /* ASTFunctionCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47D20B8060B0043A6F6 /* ASTFunctionCall.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -25,6 +42,23 @@
 /* Begin PBXFileReference section */
 		8001BC7E20B6CF8500B55D00 /* yo */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = yo; sourceTree = BUILT_PRODUCTS_DIR; };
 		8001BC8120B6CF8500B55D00 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		804834DB20B6D699009E59FC /* extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = extensions.swift; sourceTree = "<group>"; };
+		804834DD20B6D962009E59FC /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
+		804834DF20B6E27D009E59FC /* Tokenizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokenizer.swift; sourceTree = "<group>"; };
+		804834E220B6EABD009E59FC /* Parser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Parser.swift; sourceTree = "<group>"; };
+		804834E420B6EAF1009E59FC /* ASTNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTNode.swift; sourceTree = "<group>"; };
+		804834EC20B6F311009E59FC /* Lexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lexer.swift; sourceTree = "<group>"; };
+		804834EF20B6F36B009E59FC /* Token.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Token.swift; sourceTree = "<group>"; };
+		80EAA46720B742720043A6F6 /* ASTImportStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTImportStatement.swift; sourceTree = "<group>"; };
+		80EAA46920B7468B0043A6F6 /* ASTFunctionDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTFunctionDeclaration.swift; sourceTree = "<group>"; };
+		80EAA46B20B74B920043A6F6 /* ASTReturnStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTReturnStatement.swift; sourceTree = "<group>"; };
+		80EAA46F20B758BE0043A6F6 /* ASTNumberLiteral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTNumberLiteral.swift; sourceTree = "<group>"; };
+		80EAA47120B75BE20043A6F6 /* ASTNoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTNoop.swift; sourceTree = "<group>"; };
+		80EAA47420B75EE40043A6F6 /* BytecodeCompiler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BytecodeCompiler.swift; sourceTree = "<group>"; };
+		80EAA47720B75F370043A6F6 /* BytecodeInterpreter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BytecodeInterpreter.swift; sourceTree = "<group>"; };
+		80EAA47920B75F4B0043A6F6 /* Stack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stack.swift; sourceTree = "<group>"; };
+		80EAA47B20B7629C0043A6F6 /* Instruction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Instruction.swift; sourceTree = "<group>"; };
+		80EAA47D20B8060B0043A6F6 /* ASTFunctionCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTFunctionCall.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,8 +92,57 @@
 			isa = PBXGroup;
 			children = (
 				8001BC8120B6CF8500B55D00 /* main.swift */,
+				804834DB20B6D699009E59FC /* extensions.swift */,
+				804834DD20B6D962009E59FC /* Log.swift */,
+				80EAA47620B75F240043A6F6 /* Interpreter */,
+				80EAA47320B75EDA0043A6F6 /* Bytecode Compiler */,
+				804834EE20B6F34C009E59FC /* Lexer */,
+				804834E120B6EAB2009E59FC /* Parser */,
 			);
 			path = yo;
+			sourceTree = "<group>";
+		};
+		804834E120B6EAB2009E59FC /* Parser */ = {
+			isa = PBXGroup;
+			children = (
+				804834E220B6EABD009E59FC /* Parser.swift */,
+				804834E420B6EAF1009E59FC /* ASTNode.swift */,
+				80EAA46720B742720043A6F6 /* ASTImportStatement.swift */,
+				80EAA46920B7468B0043A6F6 /* ASTFunctionDeclaration.swift */,
+				80EAA46B20B74B920043A6F6 /* ASTReturnStatement.swift */,
+				80EAA46F20B758BE0043A6F6 /* ASTNumberLiteral.swift */,
+				80EAA47120B75BE20043A6F6 /* ASTNoop.swift */,
+				80EAA47D20B8060B0043A6F6 /* ASTFunctionCall.swift */,
+			);
+			path = Parser;
+			sourceTree = "<group>";
+		};
+		804834EE20B6F34C009E59FC /* Lexer */ = {
+			isa = PBXGroup;
+			children = (
+				804834DF20B6E27D009E59FC /* Tokenizer.swift */,
+				804834EC20B6F311009E59FC /* Lexer.swift */,
+				804834EF20B6F36B009E59FC /* Token.swift */,
+			);
+			path = Lexer;
+			sourceTree = "<group>";
+		};
+		80EAA47320B75EDA0043A6F6 /* Bytecode Compiler */ = {
+			isa = PBXGroup;
+			children = (
+				80EAA47420B75EE40043A6F6 /* BytecodeCompiler.swift */,
+				80EAA47B20B7629C0043A6F6 /* Instruction.swift */,
+			);
+			path = "Bytecode Compiler";
+			sourceTree = "<group>";
+		};
+		80EAA47620B75F240043A6F6 /* Interpreter */ = {
+			isa = PBXGroup;
+			children = (
+				80EAA47720B75F370043A6F6 /* BytecodeInterpreter.swift */,
+				80EAA47920B75F4B0043A6F6 /* Stack.swift */,
+			);
+			path = Interpreter;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -119,7 +202,24 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				804834E520B6EAF1009E59FC /* ASTNode.swift in Sources */,
+				804834ED20B6F311009E59FC /* Lexer.swift in Sources */,
+				80EAA47520B75EE40043A6F6 /* BytecodeCompiler.swift in Sources */,
+				80EAA46820B742720043A6F6 /* ASTImportStatement.swift in Sources */,
+				80EAA47E20B8060B0043A6F6 /* ASTFunctionCall.swift in Sources */,
+				804834DE20B6D962009E59FC /* Log.swift in Sources */,
+				804834E020B6E27D009E59FC /* Tokenizer.swift in Sources */,
+				80EAA46A20B7468B0043A6F6 /* ASTFunctionDeclaration.swift in Sources */,
+				804834E320B6EABD009E59FC /* Parser.swift in Sources */,
 				8001BC8220B6CF8500B55D00 /* main.swift in Sources */,
+				80EAA46C20B74B920043A6F6 /* ASTReturnStatement.swift in Sources */,
+				804834DC20B6D699009E59FC /* extensions.swift in Sources */,
+				80EAA47820B75F370043A6F6 /* BytecodeInterpreter.swift in Sources */,
+				80EAA47A20B75F4B0043A6F6 /* Stack.swift in Sources */,
+				804834F020B6F36B009E59FC /* Token.swift in Sources */,
+				80EAA47020B758BE0043A6F6 /* ASTNumberLiteral.swift in Sources */,
+				80EAA47C20B7629C0043A6F6 /* Instruction.swift in Sources */,
+				80EAA47220B75BE20043A6F6 /* ASTNoop.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
