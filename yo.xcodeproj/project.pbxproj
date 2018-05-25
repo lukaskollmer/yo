@@ -28,8 +28,10 @@
 		80EAA48020B826730043A6F6 /* ASTBinop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47F20B826730043A6F6 /* ASTBinop.swift */; };
 		80EAA48220B82D990043A6F6 /* ASTIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48120B82D990043A6F6 /* ASTIdentifier.swift */; };
 		80EAA48420B83C670043A6F6 /* Scope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48320B83C670043A6F6 /* Scope.swift */; };
+		80EAA48620B855650043A6F6 /* ASTCondition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48520B855650043A6F6 /* ASTCondition.swift */; };
 		80EAA48820B857860043A6F6 /* ASTComposite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48720B857860043A6F6 /* ASTComposite.swift */; };
 		80EAA48A20B85BA00043A6F6 /* ASTUnary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48920B85BA00043A6F6 /* ASTUnary.swift */; };
+		80EAA48C20B863CE0043A6F6 /* ASTIfStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48B20B863CE0043A6F6 /* ASTIfStatement.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -67,8 +69,10 @@
 		80EAA47F20B826730043A6F6 /* ASTBinop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTBinop.swift; sourceTree = "<group>"; };
 		80EAA48120B82D990043A6F6 /* ASTIdentifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTIdentifier.swift; sourceTree = "<group>"; };
 		80EAA48320B83C670043A6F6 /* Scope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scope.swift; sourceTree = "<group>"; };
+		80EAA48520B855650043A6F6 /* ASTCondition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTCondition.swift; sourceTree = "<group>"; };
 		80EAA48720B857860043A6F6 /* ASTComposite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTComposite.swift; sourceTree = "<group>"; };
 		80EAA48920B85BA00043A6F6 /* ASTUnary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTUnary.swift; sourceTree = "<group>"; };
+		80EAA48B20B863CE0043A6F6 /* ASTIfStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTIfStatement.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -125,6 +129,8 @@
 				80EAA47D20B8060B0043A6F6 /* ASTFunctionCall.swift */,
 				80EAA47F20B826730043A6F6 /* ASTBinop.swift */,
 				80EAA48120B82D990043A6F6 /* ASTIdentifier.swift */,
+				80EAA48520B855650043A6F6 /* ASTCondition.swift */,
+				80EAA48B20B863CE0043A6F6 /* ASTIfStatement.swift */,
 				80EAA48720B857860043A6F6 /* ASTComposite.swift */,
 				80EAA48920B85BA00043A6F6 /* ASTUnary.swift */,
 			);
@@ -217,6 +223,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				80EAA48620B855650043A6F6 /* ASTCondition.swift in Sources */,
 				80EAA48820B857860043A6F6 /* ASTComposite.swift in Sources */,
 				804834E520B6EAF1009E59FC /* ASTNode.swift in Sources */,
 				80EAA48420B83C670043A6F6 /* Scope.swift in Sources */,
@@ -235,6 +242,7 @@
 				80EAA48A20B85BA00043A6F6 /* ASTUnary.swift in Sources */,
 				80EAA47820B75F370043A6F6 /* BytecodeInterpreter.swift in Sources */,
 				80EAA48020B826730043A6F6 /* ASTBinop.swift in Sources */,
+				80EAA48C20B863CE0043A6F6 /* ASTIfStatement.swift in Sources */,
 				80EAA47A20B75F4B0043A6F6 /* Stack.swift in Sources */,
 				804834F020B6F36B009E59FC /* Token.swift in Sources */,
 				80EAA47020B758BE0043A6F6 /* ASTNumberLiteral.swift in Sources */,

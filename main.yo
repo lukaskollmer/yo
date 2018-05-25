@@ -1,7 +1,11 @@
-fn double(x, y) {
-  ret y - x;
+fn abs(x) {
+  if x < 0 {
+    ret x * -1;
+  } else {
+    ret x;
+  }
 }
 
 fn main() {
-    ret double(7, 8);
+  ret abs(5);
 }

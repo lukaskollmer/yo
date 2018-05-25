@@ -28,6 +28,13 @@ enum TokenType: Equatable, Hashable {
     case forwardSlash
     case percentageSign
     
+    case equal
+    case notEqual
+    case less
+    case greater
+    case lessEqual
+    case greaterEqual
+    
     // other
     case comma
     case semicolon
@@ -43,6 +50,8 @@ enum TokenType: Equatable, Hashable {
     case `import`
     case fn
     case ret
+    case `if`
+    case `else`
     
     case EOF
 }

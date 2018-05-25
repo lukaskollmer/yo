@@ -67,7 +67,9 @@ private extension Parser {
 private extension Parser {
     
     
-    func parseStatement(isTopLevel: Bool = false) throws -> ASTNode {
+    // MARK: Statements
+    
+    func parseStatement(isTopLevel: Bool = false) throws -> ASTStatement {
         
         if isTopLevel {
             // Currently parsing a top level expression
@@ -95,6 +97,26 @@ private extension Parser {
                 next()
                 return ASTReturnStatement(returnValueExpression: expression)
                 
+            case .if:
+                next()
+                let condition = try parseCondition()
+                guard case .openingCurlyBrackets = currentToken.type else {
+                    fatalError("expected { after condition")
+                }
+                print("NEXT NEXT NEXT")
+                
+                let body = try parseComposite()
+                var elseBody: ASTComposite?
+                
+                if case .else = currentToken.type {
+                    next()
+                    elseBody = try parseComposite()
+                }
+                
+                return ASTIfStatement(condition: condition, body: body, elseBody: elseBody)
+                
+                
+                
             default: fatalError("unhandled token \(currentToken)")
             }
         }
@@ -103,7 +125,7 @@ private extension Parser {
     }
     
     
-    func parseFunction() throws -> ASTNode {
+    func parseFunction() throws -> ASTFunctionDeclaration {
         print(#function)
         guard
             case .fn = currentToken.type,
@@ -163,7 +185,7 @@ private extension Parser {
     
     
     
-    
+    // MARK: Expressions
     
     
     func parseExpression() throws -> ASTExpression {
@@ -184,7 +206,7 @@ private extension Parser {
             return ASTBinop(lhs: expression, operator: binopOperator, rhs: try parseExpression())
         }
         
-        if let identifier = expression as? ASTIdentifier, case TokenType.openingParentheses = currentToken.type {
+        if let identifier = expression as? ASTIdentifier, case .openingParentheses = currentToken.type {
             // identifier, followed by an opening parentheses -> function call
             next() // jump into the function call
             
@@ -233,5 +255,21 @@ private extension Parser {
         
         throw ParserError.other("not an identifier")
     }
+    
+    
+    
+    
+    func parseCondition() throws -> ASTCondition {
+        // TODO add support for `<cond> && <cond>` and `!<expr>` conditions
+        
+        let lhs = try parseExpression()
+        let comparisonOperator = ASTComparison.Operator(tokenType: currentToken.type)
+        next()
+        let rhs = try parseExpression()
+        
+        return ASTComparison(lhs: lhs, operator: comparisonOperator, rhs: rhs)
+        
+    }
 }
+
 
