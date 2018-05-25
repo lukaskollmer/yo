@@ -126,6 +126,9 @@ private extension BytecodeCompiler {
         } else if let composite = node as? ASTComposite {
             handle(composite: composite)
             
+        } else if let assignment = node as? ASTAssignment {
+            handle(assignment: assignment)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -208,6 +211,15 @@ private extension BytecodeCompiler {
         
         // 6. handle the end of the if statement
         add(label: generateLabel("end"))
+    }
+    
+    func handle(assignment: ASTAssignment) {
+        guard let target = assignment.target as? ASTIdentifier else {
+            fatalError("can only assign to variables as of right now")
+        }
+        
+        handle(node: assignment.value)
+        add(.store, scope.index(of: target.name))
     }
     
     

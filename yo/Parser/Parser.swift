@@ -114,6 +114,28 @@ private extension Parser {
                 return ASTIfStatement(condition: condition, body: body, elseBranch: elseBody)
                 
                 
+            case .identifier(let name):
+                // a statement starting e/ an identifier can be:
+                // - a simple assignment
+                // - a subscript assignment // TODO
+                // - a function call with discarded return value // TODO
+                let expression = try parseExpression()
+                print(expression, currentToken)
+                
+                if case .equalsSign = currentToken.type {
+                    next()
+                    let assignedValue = try parseExpression()
+                    guard case .semicolon = currentToken.type else {
+                        fatalError("assignment should end w/ semicolon")
+                    }
+                    
+                    next()
+                    return ASTAssignment(target: expression, value: assignedValue)
+                    
+                }
+                fatalError()
+                
+                
                 
             default: fatalError("unhandled token \(currentToken)")
             }

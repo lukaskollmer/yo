@@ -53,6 +53,7 @@ enum Operation: Int {
     // mmemory access
     case push   // push the immediate onto the stack
     case load   // copies the value in the frame at the index specified by the immediate onto the stack
+    case store
     
     case call
     case jump

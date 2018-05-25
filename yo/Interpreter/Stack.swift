@@ -53,8 +53,8 @@ class Stack<T> {
         return value
     }
     
-    func pushFrame(_ newValue: T, index: Int) {
-        backing[framePointer + index] = newValue
+    func pushFrame(index: Int, value: T) {
+        backing[framePointer + index] = value
     }
     
     func getFrameElement(atIndex index: Int) -> T {

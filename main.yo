@@ -1,9 +1,10 @@
 fn abs(x) {
-  if x < 0 {
-    ret x * -1;
-  } else {
-    ret x;
-  }
+    x = -5;
+    if x < 0 {
+        ret x * -1;
+    } else {
+        ret x;
+    }
 }
 
 fn mul(x) {
@@ -11,5 +12,5 @@ fn mul(x) {
 }
 
 fn main() {
-  ret abs(-12);
+    ret abs(-12);
 }

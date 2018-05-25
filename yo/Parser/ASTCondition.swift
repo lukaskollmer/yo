@@ -36,7 +36,7 @@ struct ASTComparison: ASTCondition {
         
         init(tokenType: TokenType) {
             let mapping: [TokenType: Operator] = [
-                .equal:        .equal,
+                .equals:       .equal,
                 .notEqual:     .notEqual,
                 .less:         .less,
                 .greater:      .greater,

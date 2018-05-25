@@ -88,6 +88,9 @@ private extension BytecodeInterpreter {
         case .load:
             try stack.push(stack.getFrameElement(atIndex: immediate))
             
+        case .store:
+            stack.pushFrame(index: immediate, value: try stack.pop())
+            
         case .jump:
             if try stack.pop() == -1 {
                 instructionPointer = immediate

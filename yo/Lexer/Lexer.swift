@@ -31,8 +31,11 @@ private let tokenMapping: [String: TokenType] = [
     "/"     : .forwardSlash,
     "%"     : .percentageSign,
     
+    // assignment
+    "="     : .equalsSign,
+    
     // comparisions
-    "=="    : .equal,
+    "=="    : .equals,
     "!="    : .notEqual,
     "<"     : .less,
     ">"     : .greater,

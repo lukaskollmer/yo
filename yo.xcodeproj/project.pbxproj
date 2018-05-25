@@ -32,6 +32,7 @@
 		80EAA48820B857860043A6F6 /* ASTComposite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48720B857860043A6F6 /* ASTComposite.swift */; };
 		80EAA48A20B85BA00043A6F6 /* ASTUnary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48920B85BA00043A6F6 /* ASTUnary.swift */; };
 		80EAA48C20B863CE0043A6F6 /* ASTIfStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48B20B863CE0043A6F6 /* ASTIfStatement.swift */; };
+		80EAA49020B899980043A6F6 /* ASTAssignment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48F20B899980043A6F6 /* ASTAssignment.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -73,6 +74,7 @@
 		80EAA48720B857860043A6F6 /* ASTComposite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTComposite.swift; sourceTree = "<group>"; };
 		80EAA48920B85BA00043A6F6 /* ASTUnary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTUnary.swift; sourceTree = "<group>"; };
 		80EAA48B20B863CE0043A6F6 /* ASTIfStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTIfStatement.swift; sourceTree = "<group>"; };
+		80EAA48F20B899980043A6F6 /* ASTAssignment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTAssignment.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -133,6 +135,7 @@
 				80EAA48B20B863CE0043A6F6 /* ASTIfStatement.swift */,
 				80EAA48720B857860043A6F6 /* ASTComposite.swift */,
 				80EAA48920B85BA00043A6F6 /* ASTUnary.swift */,
+				80EAA48F20B899980043A6F6 /* ASTAssignment.swift */,
 			);
 			path = Parser;
 			sourceTree = "<group>";
@@ -246,6 +249,7 @@
 				80EAA47A20B75F4B0043A6F6 /* Stack.swift in Sources */,
 				804834F020B6F36B009E59FC /* Token.swift in Sources */,
 				80EAA47020B758BE0043A6F6 /* ASTNumberLiteral.swift in Sources */,
+				80EAA49020B899980043A6F6 /* ASTAssignment.swift in Sources */,
 				80EAA47C20B7629C0043A6F6 /* Instruction.swift in Sources */,
 				80EAA47220B75BE20043A6F6 /* ASTNoop.swift in Sources */,
 			);

@@ -22,18 +22,19 @@ enum TokenType: Equatable, Hashable {
     case stringLiteral(String)
     case numberLiteral(Int) // TODO make all numbers doubles. Maybe use a public typealias?
     
-    case plus
-    case minus
-    case asterik
-    case forwardSlash
-    case percentageSign
+    case plus           // +
+    case minus          // -
+    case asterik        // *
+    case forwardSlash   // /
+    case percentageSign // %
     
-    case equal
-    case notEqual
-    case less
-    case greater
-    case lessEqual
-    case greaterEqual
+    case equalsSign     // =
+    case equals         // ==
+    case notEqual       // !=
+    case less           // <
+    case greater        // >
+    case lessEqual      // <=
+    case greaterEqual   // >=
     
     // other
     case comma
