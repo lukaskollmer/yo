@@ -211,9 +211,6 @@ private extension Parser {
         next()
         let returnType = try parseIdentifier()
         
-        
-        //next()
-        
         let functionBody = try parseComposite().statements
         let localVariables = functionBody.filter { $0 is ASTVariableDeclaration } as! [ASTVariableDeclaration]
         
