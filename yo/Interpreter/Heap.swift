@@ -35,22 +35,64 @@ class Heap<T> {
     
     // returns the address of the beginning of the allocated space
     func alloc(size: Int) -> Int {
-        // TODO
-        return -1
+        guard size > 0 else {
+            fatalError()
+        }
+        
+        if allocations.isEmpty {
+            allocations.append((0, size))
+            return 0
+        }
+        
+        let numberOfAllocations = allocations.count
+        for i in 0..<numberOfAllocations {
+            let allocation = allocations[i]
+            
+            if i < numberOfAllocations - 1 {
+                let nextAllocation = allocations[i + 1]
+                let addressOfNextAllocation = nextAllocation.address
+                
+                if addressOfNextAllocation > allocation.address + allocation.size + size - 1 {
+                    let newAddress = allocation.address + allocation.size
+                    allocations.append((newAddress, size))
+                    return newAddress
+                }
+            }
+        }
+        
+        let lastAllocation = allocations[numberOfAllocations - 1]
+        let newAddress = lastAllocation.address + lastAllocation.size
+        
+        allocations.append((newAddress, size))
+        return newAddress
     }
     
-    // marks the
+    
     func free(address: Int) {
-        // TODO
+        // TODO add an option to override the freed data w/ initialValue
+        let index = allocations.index { $0.address == address }!
+        allocations.remove(at: index)
     }
     
+    // TODO
+    // returns the highest address used by the heap
+    // used to throw an error when the stack grows into currently allocated heap space
     fileprivate var usedHeapSize: Int {
         let sorted = allocations.sorted(by: { (val0, val1) -> Bool in
             val0.address > val1.address
         })
         
-        
         return -1
+    }
+    
+    
+    subscript(index: Int) -> T {
+        get {
+            return backing[index]
+        }
+        set {
+            backing[index] = newValue
+        }
     }
 }
 
