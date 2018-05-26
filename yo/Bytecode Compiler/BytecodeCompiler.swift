@@ -29,7 +29,6 @@ class BytecodeCompiler {
     
     
     init() {
-        
         // fill the functions table w/ all native functions
         for nativeFunction in Runtime.builtins {
             globalFunctions[nativeFunction.key] = nativeFunction.value.argc
@@ -38,8 +37,21 @@ class BytecodeCompiler {
     
     
     
-    func generateInstructions(for ast: [ASTNode]) -> [Instruction] {
-        return _generateInstructions(for: ast).enumerated().map { index, instruction in
+     func generateInstructions(for ast: [ASTNode]) -> [Instruction] {
+        if case .global = scope.type {
+            // add the bootstrapping instructions
+            add(.push, unresolvedLabel: "main")
+            add(.call, 0)
+            add(.push, -1)
+            add(.jump, unresolvedLabel: "end")
+        }
+        
+        for node in ast {
+            handle(node: node)
+        }
+        add(label: "end")
+        
+        return instructions.enumerated().map { index, instruction in
             switch instruction {
             case .operation(let operation, let immediate):
                 return operation.encode(withImmediate: immediate)
@@ -49,31 +61,6 @@ class BytecodeCompiler {
                 return 0
             }
         }
-    }
-    
-    
-    private func _generateInstructions(for ast: [ASTNode]) -> [WIPInstruction] {
-        if case .global = scope.type {
-            // add the bootstrapping instructions
-            add(.noop) // push main, will be replaced later
-            add(.call, 0)
-            add(.push, -1)
-            add(.jump, 0) // jump end, will be replaced later
-        }
-        
-        for node in ast {
-            handle(node: node)
-        }
-        
-        if case .global = scope.type {
-            // update the bootstrapping code
-            add(label: "end")
-            instructions[0] = .operation(.push, getAddress(ofLabel: "main"))
-            instructions[3] = .operation(.jump, getAddress(ofLabel: "end"))
-        }
-        
-        
-        return instructions
     }
     
 }
