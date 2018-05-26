@@ -66,3 +66,38 @@ enum Operation: Int {
         return (immediate << 7) | self.rawValue
     }
 }
+
+
+// String + padding
+extension String {
+    
+    enum PadDirection {
+        case left, right
+    }
+    
+    func padding<T: StringProtocol>(_ padDirection: PadDirection, toLength length: Int, withPad pad: T) -> String {
+        switch padDirection {
+        case .right:
+            return self.padding(toLength: length, withPad: pad, startingAt: 0)
+        case .left:
+            return String.init(repeating: pad as! String, count: length - self.count) + self
+        }
+    }
+}
+
+
+extension Array where Element == Instruction {
+    var fancyDescription: String {
+        var desc = [String]()
+        
+        for (idx, element) in self.enumerated() {
+            let instruction = InstructionDescriptor(instruction: element)
+            
+            let lineNumber = String(describing: idx).padding(.left, toLength: 3, withPad: "0")
+            let operation = String(describing: instruction.operation).padding(.right, toLength: 7, withPad: " ")
+            desc.append("  [\(lineNumber)] \(operation) \(instruction.immediate)")
+        }
+        
+        return desc.joined(separator: "\n")
+    }
+}
