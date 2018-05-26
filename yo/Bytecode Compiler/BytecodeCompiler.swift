@@ -28,6 +28,15 @@ class BytecodeCompiler {
     
     
     
+    init() {
+        
+        // fill the functions table w/ all native functions
+        for nativeFunction in Runtime.builtins {
+            globalFunctions[nativeFunction.key] = nativeFunction.value.argc
+        }
+    }
+    
+    
     
     func generateInstructions(for ast: [ASTNode]) -> [Instruction] {
         return _generateInstructions(for: ast).enumerated().map { index, instruction in
@@ -245,7 +254,11 @@ private extension BytecodeCompiler {
         
         
         // push the address onto the stack
-        add(.push, getAddress(ofLabel: functionCall.functionName)) // TODO allow calling not yet declared functions
+        if let builtin = Runtime.builtins[functionCall.functionName] {
+            add(.push, builtin.address)
+        } else {
+            add(.push, getAddress(ofLabel: functionCall.functionName)) // TODO allow calling not yet declared functions
+        }
         
         // call w/ the passed number of arguments
         add(.call, functionCall.arguments.count)

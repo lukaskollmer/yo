@@ -33,6 +33,7 @@
 		80EAA48A20B85BA00043A6F6 /* ASTUnary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48920B85BA00043A6F6 /* ASTUnary.swift */; };
 		80EAA48C20B863CE0043A6F6 /* ASTIfStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48B20B863CE0043A6F6 /* ASTIfStatement.swift */; };
 		80EAA49020B899980043A6F6 /* ASTAssignment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48F20B899980043A6F6 /* ASTAssignment.swift */; };
+		80EAA49220B89C580043A6F6 /* Runtime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49120B89C580043A6F6 /* Runtime.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -75,6 +76,7 @@
 		80EAA48920B85BA00043A6F6 /* ASTUnary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTUnary.swift; sourceTree = "<group>"; };
 		80EAA48B20B863CE0043A6F6 /* ASTIfStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTIfStatement.swift; sourceTree = "<group>"; };
 		80EAA48F20B899980043A6F6 /* ASTAssignment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTAssignment.swift; sourceTree = "<group>"; };
+		80EAA49120B89C580043A6F6 /* Runtime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runtime.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -164,6 +166,7 @@
 			isa = PBXGroup;
 			children = (
 				80EAA47720B75F370043A6F6 /* BytecodeInterpreter.swift */,
+				80EAA49120B89C580043A6F6 /* Runtime.swift */,
 				80EAA47920B75F4B0043A6F6 /* Stack.swift */,
 			);
 			path = Interpreter;
@@ -229,6 +232,7 @@
 				80EAA48620B855650043A6F6 /* ASTCondition.swift in Sources */,
 				80EAA48820B857860043A6F6 /* ASTComposite.swift in Sources */,
 				804834E520B6EAF1009E59FC /* ASTNode.swift in Sources */,
+				80EAA49220B89C580043A6F6 /* Runtime.swift in Sources */,
 				80EAA48420B83C670043A6F6 /* Scope.swift in Sources */,
 				80EAA48220B82D990043A6F6 /* ASTIdentifier.swift in Sources */,
 				804834ED20B6F311009E59FC /* Lexer.swift in Sources */,

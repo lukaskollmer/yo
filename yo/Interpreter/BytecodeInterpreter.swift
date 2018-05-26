@@ -23,15 +23,27 @@ class BytecodeInterpreter {
     func run() throws -> Int {
         var instructionPointer = 0
         
-        while instructionPointer < instructions.count && instructionPointer != -1 {
-            let instruction = instructions[instructionPointer]
-            let previousInstructionPointer = instructionPointer
+        while instructionPointer < instructions.count && instructionPointer != -1 { // -1 is HALT (TODO implement)
             
-            try eval(instruction, &instructionPointer)
-            
-            if instructionPointer == previousInstructionPointer {
-                instructionPointer += 1
+            // check whether we're calling a native function (native functions have a negative "virtual" address)
+            if instructionPointer < 0 {
+                let nativeFunction = Runtime.getNativeFunction(withAddress: instructionPointer)
+                nativeFunction.imp(stack)
+                
+                // return from the native function
+                try eval(InstructionDescriptor(instruction: Operation.ret.encode(withImmediate: nativeFunction.argc)), &instructionPointer)
+                
+            } else {
+                let instruction = instructions[instructionPointer]
+                let previousInstructionPointer = instructionPointer
+                
+                try eval(instruction, &instructionPointer)
+                
+                if instructionPointer == previousInstructionPointer {
+                    instructionPointer += 1
+                }
             }
+            
         }
         
         
@@ -40,7 +52,7 @@ class BytecodeInterpreter {
 }
 
 
-private extension BytecodeInterpreter {
+extension BytecodeInterpreter {
     func eval(_ instruction: InstructionDescriptor, _ instructionPointer: inout Int) throws {
         let immediate = instruction.immediate
         
@@ -99,7 +111,6 @@ private extension BytecodeInterpreter {
         case .call:
             let destinationInstructionPointer = try stack.pop()
             
-            // TODO handle arguments
             var args = [Int]()
             for _ in 0..<immediate {
                 args.append(try stack.pop())
@@ -112,7 +123,6 @@ private extension BytecodeInterpreter {
             
             stack.framePointer = stack.stackPointer
             instructionPointer = destinationInstructionPointer
-        
             
         case .ret:
             let returnValue = try stack.pop()
@@ -128,6 +138,5 @@ private extension BytecodeInterpreter {
         }
         
         //Log.info("[eval] ip=\(instructionPointer) stack after: \(stack)")
-        
     }
 }

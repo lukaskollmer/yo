@@ -55,8 +55,8 @@ enum Operation: Int {
     case load   // copies the value in the frame at the index specified by the immediate onto the stack
     case store
     
-    case call
     case jump
+    case call
     case ret
     
     

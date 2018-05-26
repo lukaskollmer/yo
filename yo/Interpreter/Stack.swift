@@ -60,6 +60,10 @@ class Stack<T> {
     func getFrameElement(atIndex index: Int) -> T {
         return backing[framePointer + index]
     }
+    
+    func peek(offset: Int = 0) -> T {
+        return backing[stackPointer + offset]
+    }
 }
 
 extension Stack: CustomStringConvertible {
