@@ -40,6 +40,7 @@ enum TokenType: Equatable, Hashable {
     case doublePipe
     
     // other
+    case period
     case comma
     case colon
     case semicolon
@@ -53,6 +54,7 @@ enum TokenType: Equatable, Hashable {
     
     // keywords
     case `import`
+    case type
     case fn
     case ret
     case val

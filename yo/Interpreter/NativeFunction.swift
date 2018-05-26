@@ -15,8 +15,7 @@ extension Runtime {
     typealias NativeFunction = (argc: Int, address: Int, imp: NativeFunctionImp)
     
     static let builtins: [String: NativeFunction] = [
-        "__version": (0, -999, printVersion),
-        "__add"    : (2, -998, add)
+        "alloc"    : (1, -998, alloc)
     ]
     
     
@@ -28,12 +27,10 @@ extension Runtime {
     }
     
     
-    private static func printVersion(_ stack: StackView<Int>) {
-        print("OH MY FUCKING GOD THIS ACTUALLY WORKS")
-        try! stack.push(-100)
-    }
+    // MARK: Native functions
     
-    private static func add(_ stack: StackView<Int>) {
-        try! stack.push(stack.peek() + stack.peek(offset: -1))
+    private static func alloc(_ stack: StackView<Int>) {
+        let size = stack.peek()
+        try! stack.push(stack.heap.alloc(size: size))
     }
 }

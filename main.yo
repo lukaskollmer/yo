@@ -1,3 +1,5 @@
+type Date(day: int, month: int, year: int);
+
 fn abs(x: int): int {
     val m: int;
     if x < 0 {
@@ -14,11 +16,16 @@ fn mul(x: int): int {
 fn main(): int {
     val x: int;
     val y: int;
+    val date: Date;
+
+    date = Date::new(2, 6, 1998);
+
+    ret date.year;
 
     x = 0;
     y = 1;
 
-    while x < 7 && (2*y) < 100 {
+    while x < 7 && 2 * y < 100 {
         y = y * 2;
         x = x + 1;
     }

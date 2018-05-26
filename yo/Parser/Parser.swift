@@ -73,11 +73,13 @@ private extension Parser {
         
         if isTopLevel {
             // Currently parsing a top level expression
-            // The only allowed top level statement is `fn` // TODO add import and type
+            // The only allowed top level statement are `fn` and `type` // TODO add import
             
             switch currentToken.type {
             case .fn:
                 return try parseFunction()
+            case .type:
+                return try parseTypeDeclaration()
             case .EOF:
                 currentPosition += 1 // stop parsing
                 return ASTNoop()
@@ -179,16 +181,35 @@ private extension Parser {
     }
     
     
-    func parseFunction() throws -> ASTFunctionDeclaration {
-        guard
-            case .fn = currentToken.type,
-            case .identifier(let functionName) = next().type,
-            case .openingParentheses = next().type
-        else {
-            throw ParserError.expectedIdentifier
+    
+    
+    
+    func parseTypeDeclaration() throws -> ASTTypeDeclaration {
+        guard case .type = currentToken.type else {
+            fatalError()
         }
+        next()
         
-        next() // step into the function signature
+        let name = try parseIdentifier()
+        guard case .openingParentheses = currentToken.type else {
+            fatalError()
+        }
+        next()
+        
+        let attributes = try parseParameterList()
+        guard
+            case .closingParentheses = currentToken.type,
+            case .semicolon = next().type
+        else {
+            fatalError()
+        }
+        next()
+        
+        return ASTTypeDeclaration(name: name, attributes: attributes)
+    }
+    
+    
+    func parseParameterList() throws -> [ASTVariableDeclaration] {
         var parameters = [ASTVariableDeclaration]()
         
         while let parameter = try? parseIdentifier() {
@@ -201,6 +222,21 @@ private extension Parser {
                 next()
             }
         }
+        return parameters
+    }
+    
+    
+    func parseFunction() throws -> ASTFunctionDeclaration {
+        guard
+            case .fn = currentToken.type,
+            case .identifier(let functionName) = next().type,
+            case .openingParentheses = next().type
+        else {
+            throw ParserError.expectedIdentifier
+        }
+        
+        next() // step into the function signature
+        let parameters = try parseParameterList()
         
         guard
             case .closingParentheses = currentToken.type,
@@ -222,6 +258,7 @@ private extension Parser {
             body: functionBody
         )
     }
+    
     
     func parseComposite() throws -> ASTComposite {
         guard case .openingCurlyBrackets = currentToken.type else {
@@ -278,31 +315,74 @@ private extension Parser {
             return ASTBinop(lhs: expression, operator: binopOperator, rhs: try parseExpression())
         }
         
-        if let identifier = expression as? ASTIdentifier, case .openingParentheses = currentToken.type {
-            // identifier, followed by an opening parentheses -> function call
-            next() // jump into the function call
+        if let identifier = expression as? ASTIdentifier {
             
-            var arguments = [ASTExpression]()
-            
-            while let argument = try? parseExpression() {
-                arguments.append(argument)
+            if case .period = currentToken.type, case .identifier(_) = peek().type {
+                next()
                 
-                if case .comma = currentToken.type {
-                    next()
+                let memberName = try parseIdentifier()
+                
+                if case .openingParentheses = currentToken.type {
+                    fatalError("member function calls aren't a thing (yet?)")
+                } else {
+                    // member variable access
+                    return ASTTypeMemberAccess(target: identifier, memberName: memberName)
                 }
             }
             
-            
-            if case .closingParentheses = currentToken.type {
-                next()
-                return ASTFunctionCall(functionName: identifier.name, arguments: arguments)
+            if case .openingParentheses = currentToken.type {
+                // identifier, followed by an opening parentheses -> function call
+                next() // jump into the function call
+                
+                let arguments = try parseExpressionList()
+                
+                if case .closingParentheses = currentToken.type {
+                    next()
+                    return ASTFunctionCall(functionName: identifier.name, arguments: arguments)
+                }
+                
+                fatalError("aaargh")
             }
             
-            fatalError("aaargh")
+            if case .colon = currentToken.type, case .colon = peek().type {
+                // identifier, followed by 2 colons -> static member call
+                next()
+                next()
+                let memberName = try parseIdentifier()
+                guard case .openingParentheses = currentToken.type else {
+                    fatalError("static member call missing opening parens")
+                }
+                next()
+                
+                let arguments = try parseExpressionList()
+                
+                guard case .closingParentheses = currentToken.type, case .semicolon = next().type else {
+                    fatalError("expected ); after static member call")
+                }
+                //next()
+                
+                return ASTFunctionCall(functionName: SymbolMangling.mangleStaticMember(ofType: identifier.name, memberName: memberName.name), arguments: arguments)
+                
+            }
             
         }
         
         return expression
+    }
+    
+    
+    func parseExpressionList() throws -> [ASTExpression] {
+        var expressions = [ASTExpression]()
+        
+        while let expression = try? parseExpression() {
+            expressions.append(expression)
+            
+            if case .comma = currentToken.type {
+                next()
+            }
+        }
+        
+        return expressions
     }
     
     

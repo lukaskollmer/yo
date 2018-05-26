@@ -21,6 +21,7 @@ private let ignoredCharacters: [Unicode.Scalar] = [" ", "\n"] // TODO what about
 private let delimiters = CharacterSet(charactersIn: " .,+-*/;:(){}\n") // TODO give this a more descriptive name
 
 private let tokenMapping: [String: TokenType] = [
+    "."     : .period,
     ","     : .comma,
     ":"     : .colon,
     ";"     : .semicolon,
@@ -51,6 +52,7 @@ private let tokenMapping: [String: TokenType] = [
     
     // keywords
     "import": .import,
+    "type"  : .type,
     "fn"    : .fn,
     "ret"   : .ret,
     "val"   : .val,

@@ -98,13 +98,11 @@ extension BytecodeInterpreter {
             try stack.push((try stack.pop() <= stack.pop()) ? -1 : 0)
         
         
+        // Stack operations
         case .alloc:
             for _ in 0..<immediate {
                 try stack.push(0)
             }
-            
-        case .alloch:
-            break // TODO
         
         case .push:
             try stack.push(immediate)
@@ -115,6 +113,22 @@ extension BytecodeInterpreter {
         case .store:
             stack.pushFrame(index: immediate, value: try stack.pop())
             
+            
+        // Heap operations
+        case .loadh:
+            let address = try stack.pop()
+            let offset  = try stack.pop()
+            try stack.push(heap[address + offset])
+            
+        case .storeh:
+            let address = try stack.pop()
+            let offset  = try stack.pop()
+            let value   = try stack.pop()
+            heap[address + offset] = value
+            
+        
+            
+        // jump/call/ret
         case .jump:
             if try stack.pop() == -1 {
                 instructionPointer = immediate

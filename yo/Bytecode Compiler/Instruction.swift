@@ -54,10 +54,11 @@ enum Operation: Int {
     case alloc  // reserve stack space for local variables
     case push   // push the immediate onto the stack
     case load   // copies the value in the frame at the index specified by the immediate onto the stack
-    case store
+    case store  // pops a value off the stack and stores it in the frame, at the index specified by the immediate
     
     // heap operations
-    case alloch // allocate space on the heap
+    case loadh  // read a value from an array allocated on the heap
+    case storeh // write a value to an array allocated on the heap
     
     case jump
     case call

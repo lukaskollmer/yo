@@ -17,6 +17,6 @@ struct ASTFunctionDeclaration: ASTStatement {
     
     
     var mangledName: String {
-        return name.name
+        return name.name // TODO run this through `SymbolMangling`
     }
 }

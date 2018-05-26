@@ -25,6 +25,7 @@ class BytecodeCompiler {
     fileprivate typealias GlobalFunctionsInfo = [String: Int]
     private var scope = Scope(type: .global)
     private var globalFunctions = GlobalFunctionsInfo()
+    private var typeCache = TypeCache()
     
     
     
@@ -132,6 +133,18 @@ private extension BytecodeCompiler {
         } else if let comparison = node as? ASTComparison {
             handle(comparison: comparison)
             
+        } else if let typeDeclaration = node as? ASTTypeDeclaration {
+            handle(typeDeclaration: typeDeclaration)
+            
+        } else if let arraySetter = node as? ASTArraySetter {
+            handle(arraySetter: arraySetter)
+            
+        } else if let arrayGetter = node as? ASTArrayGetter {
+            handle(arrayGetter: arrayGetter)
+            
+        } else if let memberAccess = node as? ASTTypeMemberAccess {
+            handle(memberAccess: memberAccess)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -143,6 +156,34 @@ private extension BytecodeCompiler {
     
     
     // MARK: Handle Statements
+    
+    
+    func handle(typeDeclaration: ASTTypeDeclaration) {
+        // 1. register the type w/ the type system
+        typeCache.register(type: typeDeclaration)
+        
+        
+        
+        // 2. generate an initializer
+        let _self = ASTIdentifier(name: "self")
+        let initializer = ASTFunctionDeclaration(
+            name: ASTIdentifier(name: SymbolMangling.mangleStaticMember(ofType: typeDeclaration.name.name, memberName: "new")),
+            parameters: typeDeclaration.attributes,
+            returnType: typeDeclaration.name,
+            localVariables: [ASTVariableDeclaration(identifier: _self, typename: typeDeclaration.name)],
+            body: [
+                // 1. allocate space on the heap
+                ASTAssignment(target: _self, value: ASTFunctionCall(functionName: "alloc", arguments: [ASTNumberLiteral(value: typeDeclaration.attributes.count)])),
+                // 2. go through the parameters and fill the attributes
+                ASTComposite(statements: typeDeclaration.attributes.enumerated().map { ASTArraySetter(target: _self, offset: ASTNumberLiteral(value: $0.offset), value: $0.element.identifier) }),
+                
+                // 3. return the newly created object
+                ASTReturnStatement(returnValueExpression: _self)
+            ]
+        )
+        
+        handle(function: initializer)
+    }
     
     
     func handle(function: ASTFunctionDeclaration) {
@@ -181,6 +222,21 @@ private extension BytecodeCompiler {
     func handle(return returnStatement: ASTReturnStatement) {
         handle(node: returnStatement.returnValueExpression)
         add(.ret, scope.size)
+    }
+    
+    func handle(arraySetter: ASTArraySetter) {
+        handle(node: arraySetter.value)
+        handle(node: arraySetter.offset)
+        handle(node: arraySetter.target)
+        
+        add(.storeh)
+    }
+    
+    func handle(arrayGetter: ASTArrayGetter) {
+        handle(node: arrayGetter.offset)
+        handle(node: arrayGetter.target)
+        
+        add(.loadh)
     }
     
     
@@ -245,9 +301,6 @@ private extension BytecodeCompiler {
     }
     
     
-    
-    
-    
     func handle(assignment: ASTAssignment) {
         guard let target = assignment.target as? ASTIdentifier else {
             fatalError("can only assign to variables as of right now")
@@ -256,7 +309,6 @@ private extension BytecodeCompiler {
         handle(node: assignment.value)
         add(.store, scope.index(of: target.name))
     }
-    
     
     
     
@@ -293,6 +345,20 @@ private extension BytecodeCompiler {
     
     func handle(identifier: ASTIdentifier) {
         add(.load, scope.index(of: identifier.name))
+    }
+    
+    func handle(memberAccess: ASTTypeMemberAccess) {
+        let typename = scope.type(of: memberAccess.target.name)
+        let membername = memberAccess.memberName.name
+        
+        guard typeCache.type(typename, hasMember: membername) else {
+            fatalError("type '\(typename)' doesn't have member '\(membername)'")
+        }
+        
+        let offset = typeCache.offset(ofMember: membername, inType: typename)
+        add(.push, offset)
+        handle(identifier: memberAccess.target)
+        add(.loadh)
     }
     
     

@@ -9,7 +9,6 @@
 import Foundation
 
 
-// TODO add support for type info?
 struct Scope {
     enum ScopeType {
         case global
@@ -19,6 +18,7 @@ struct Scope {
     let type: ScopeType
     private var symbols = [String]()
     private var numberOfParameters = 0
+    private var types = [String: String]()
     
     
     init(type: ScopeType) {
@@ -29,8 +29,11 @@ struct Scope {
         self.type = type
         numberOfParameters = parameters.count
         
-        symbols.append(contentsOf: parameters.map { $0.identifier.name })
+        symbols.append(contentsOf: parameters.map     { $0.identifier.name })
         symbols.append(contentsOf: localVariables.map { $0.identifier.name })
+        
+        parameters.forEach     { types[$0.identifier.name] = $0.typename.name }
+        localVariables.forEach { types[$0.identifier.name] = $0.typename.name }
     }
     
     var size: Int {
@@ -46,5 +49,9 @@ struct Scope {
         } else {
             return index - numberOfParameters
         }
+    }
+    
+    func type(of name: String) -> String {
+        return types[name]!
     }
 }
