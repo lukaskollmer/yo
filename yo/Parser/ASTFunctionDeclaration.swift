@@ -11,7 +11,7 @@ import Foundation
 struct ASTFunctionDeclaration: ASTStatement {
     let name: ASTIdentifier
     let parameters: [ASTVariableDeclaration]
-    let retyrnType: ASTIdentifier
+    let returnType: ASTIdentifier
     let localVariables: [ASTVariableDeclaration]
     let body: [ASTStatement]
     

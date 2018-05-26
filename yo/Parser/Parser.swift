@@ -220,7 +220,7 @@ private extension Parser {
         return ASTFunctionDeclaration(
             name: ASTIdentifier(name: functionName),
             parameters: parameters,
-            retyrnType: returnType,
+            returnType: returnType,
             localVariables: localVariables,
             body: functionBody
         )
