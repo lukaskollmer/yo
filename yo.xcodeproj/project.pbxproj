@@ -120,6 +120,7 @@
 				80EAA47320B75EDA0043A6F6 /* Bytecode Compiler */,
 				804834EE20B6F34C009E59FC /* Lexer */,
 				804834E120B6EAB2009E59FC /* Parser */,
+				80EAA49F20B9C2610043A6F6 /* AST */,
 			);
 			path = yo;
 			sourceTree = "<group>";
@@ -128,7 +129,6 @@
 			isa = PBXGroup;
 			children = (
 				804834E220B6EABD009E59FC /* Parser.swift */,
-				80EAA49F20B9C2610043A6F6 /* AST */,
 			);
 			path = Parser;
 			sourceTree = "<group>";
