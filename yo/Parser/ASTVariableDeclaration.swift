@@ -9,6 +9,7 @@
 import Foundation
 
 
-struct ASTVariableDeclaration: ASTStatement {
+struct ASTVariableDeclaration: ASTStatement, Equatable {
+    
     let identifier: ASTIdentifier
 }

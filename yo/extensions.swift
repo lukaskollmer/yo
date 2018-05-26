@@ -30,3 +30,10 @@ extension String {
         return self.unicodeScalars.first(where: { !set.contains($0) }) == nil
     }
 }
+
+
+extension Array where Element: Equatable {
+    func intersection(with otherArray: [Element]) -> [Element] {
+        return self.filter(otherArray.contains)
+    }
+}

@@ -9,6 +9,6 @@
 import Foundation
 
 
-struct ASTIdentifier: ASTExpression {
+struct ASTIdentifier: ASTExpression, Equatable {
     let name: String
 }

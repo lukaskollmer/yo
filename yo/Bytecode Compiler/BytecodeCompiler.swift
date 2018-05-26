@@ -155,6 +155,10 @@ private extension BytecodeCompiler {
     
     
     func handle(function: ASTFunctionDeclaration) {
+        guard function.localVariables.intersection(with: function.parameters).isEmpty else {
+            fatalError("local variable cannot (yet?) shadow parameter")
+        }
+        
         // Save the current scope
         let previousScope = scope
         
