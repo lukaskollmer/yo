@@ -102,6 +102,9 @@ extension BytecodeInterpreter {
             for _ in 0..<immediate {
                 try stack.push(0)
             }
+            
+        case .alloch:
+            break // TODO
         
         case .push:
             try stack.push(immediate)

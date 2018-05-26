@@ -41,6 +41,7 @@ enum TokenType: Equatable, Hashable {
     
     // other
     case comma
+    case colon
     case semicolon
     case openingParentheses
     case closingParentheses

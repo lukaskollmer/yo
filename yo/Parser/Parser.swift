@@ -133,11 +133,20 @@ private extension Parser {
             case .val: // variable declaration
                 next()
                 let name = try parseIdentifier()
+                guard case .colon = currentToken.type else {
+                    // TODO a colon is only required in some instances:
+                    // val foo: int;
+                    // val foo = bar(); // not required in this case since we can infer the type from bar's return type
+                    // TODO implement that
+                    fatalError("missing colon after variable name")
+                }
+                next()
+                let typename = try parseIdentifier()
                 guard case .semicolon = currentToken.type else {
                     fatalError("variable declaration should end w/ a semicolon")
                 }
                 next()
-                return ASTVariableDeclaration(identifier: name)
+                return ASTVariableDeclaration(identifier: name, typename: typename)
                 
                 
             case .identifier(let name):
@@ -183,17 +192,27 @@ private extension Parser {
         var parameters = [ASTVariableDeclaration]()
         
         while let parameter = try? parseIdentifier() {
-            parameters.append(ASTVariableDeclaration(identifier: parameter))
+            guard case .colon = currentToken.type else {
+                fatalError()
+            }
+            next()
+            parameters.append(ASTVariableDeclaration(identifier: parameter, typename: try parseIdentifier()))
             if case .comma = currentToken.type {
                 next()
             }
         }
         
-        guard case .closingParentheses = currentToken.type else {
+        guard
+            case .closingParentheses = currentToken.type,
+            case .colon = next().type
+        else {
             fatalError("expected closing parens after function signature")
         }
-        
         next()
+        let returnType = try parseIdentifier()
+        
+        
+        //next()
         
         let functionBody = try parseComposite().statements
         let localVariables = functionBody.filter { $0 is ASTVariableDeclaration } as! [ASTVariableDeclaration]
@@ -201,6 +220,7 @@ private extension Parser {
         return ASTFunctionDeclaration(
             name: ASTIdentifier(name: functionName),
             parameters: parameters,
+            retyrnType: returnType,
             localVariables: localVariables,
             body: functionBody
         )

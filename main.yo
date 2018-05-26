@@ -1,28 +1,27 @@
-fn abs(x) {
-    x = -5;
-    x = -__add(1, 3);
+fn abs(x: int): int {
+    val m: int;
     if x < 0 {
-        ret x * -2;
+        ret -x;
     } else {
         ret x;
     }
 }
 
-fn mul(x) {
+fn mul(x: int): int {
     ret x * 2;
 }
 
-fn main() {
-    val x;
-    val y;
+fn main(): int {
+    val x: int;
+    val y: int;
 
     x = 0;
     y = 1;
 
-    while x < 7 && y < 50 {
+    while x < 7 && (2*y) < 100 {
         y = y * 2;
         x = x + 1;
     }
 
-    ret y;
+    ret abs(-12);
 }

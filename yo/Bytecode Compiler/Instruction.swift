@@ -50,11 +50,14 @@ enum Operation: Int {
     case lt
     case le
     
-    // mmemory access
+    // stack operations
     case alloc  // reserve stack space for local variables
     case push   // push the immediate onto the stack
     case load   // copies the value in the frame at the index specified by the immediate onto the stack
     case store
+    
+    // heap operations
+    case alloch // allocate space on the heap
     
     case jump
     case call
