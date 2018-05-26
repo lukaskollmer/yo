@@ -12,6 +12,9 @@ import Foundation
 
 // MARK: Constants
 
+private let identifierStartCharacters = CharacterSet.letters.union(.init(charactersIn: "_"))
+private let identifierCharacters = CharacterSet.alphanumerics.union(identifierStartCharacters)
+
 // set of characters we ignore
 private let ignoredCharacters: [Unicode.Scalar] = [" ", "\n"] // TODO what about CharacterSet.whitespace?
 // set of characters that delimit whetever we're currently lexing (ie the x in `(x` )
@@ -115,7 +118,7 @@ class Lexer {
             return type
         }
         
-        if CharacterSet.letters.contains(token.unicodeScalars.first!) && token.allScalarsInCharacterSet(.alphanumerics) {
+        if identifierStartCharacters.contains(token.unicodeScalars.first!) && token.allScalarsInCharacterSet(identifierCharacters) {
             return .identifier(token)
         }
         
