@@ -240,6 +240,17 @@ private extension Parser {
             return ASTUnary(expression: try parseExpression())
         }
         
+        if case .openingParentheses = currentToken.type {
+            next()
+            let expression = try parseExpression()
+            guard case .closingParentheses = currentToken.type else {
+                fatalError(") missing after expr starting with (")
+            }
+            
+            next()
+            return expression
+        }
+        
         guard let expression: ASTExpression = (try? parseNumberLiteral()) ?? (try? parseIdentifier()) else {
             //fatalError("ugh")
             throw ParserError.other("unable to find an expression. got \(currentToken) instead")
