@@ -120,7 +120,6 @@ private extension Parser {
                 // - a subscript assignment // TODO
                 // - a function call with discarded return value // TODO
                 let expression = try parseExpression()
-                print(expression, currentToken)
                 
                 if case .equalsSign = currentToken.type {
                     next()
