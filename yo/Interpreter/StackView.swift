@@ -11,7 +11,7 @@ import Foundation
 
 // A wrapper around a `Heap<T>` that implements a `Stack<T>` growing from the end of the heap
 class StackView<T> {
-    let heap: Heap<T>
+    unowned let heap: Heap<T> // TODO does unowned make sense here?
     let size: Int
     
     var stackPointer = -1
