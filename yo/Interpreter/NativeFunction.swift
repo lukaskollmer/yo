@@ -11,7 +11,7 @@ import Foundation
 
 extension Runtime {
     
-    typealias NativeFunctionImp = (Stack<Int>) -> ()
+    typealias NativeFunctionImp = (StackView<Int>) -> ()
     typealias NativeFunction = (argc: Int, address: Int, imp: NativeFunctionImp)
     
     static let builtins: [String: NativeFunction] = [
@@ -28,12 +28,12 @@ extension Runtime {
     }
     
     
-    private static func printVersion(_ stack: Stack<Int>) {
+    private static func printVersion(_ stack: StackView<Int>) {
         print("OH MY FUCKING GOD THIS ACTUALLY WORKS")
         try! stack.push(-100)
     }
     
-    private static func add(_ stack: Stack<Int>) {
+    private static func add(_ stack: StackView<Int>) {
         try! stack.push(stack.peek() + stack.peek(offset: -1))
     }
 }
