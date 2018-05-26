@@ -128,21 +128,7 @@
 			isa = PBXGroup;
 			children = (
 				804834E220B6EABD009E59FC /* Parser.swift */,
-				804834E420B6EAF1009E59FC /* ASTNode.swift */,
-				80EAA46720B742720043A6F6 /* ASTImportStatement.swift */,
-				80EAA46920B7468B0043A6F6 /* ASTFunctionDeclaration.swift */,
-				80EAA46B20B74B920043A6F6 /* ASTReturnStatement.swift */,
-				80EAA46F20B758BE0043A6F6 /* ASTNumberLiteral.swift */,
-				80EAA47120B75BE20043A6F6 /* ASTNoop.swift */,
-				80EAA47D20B8060B0043A6F6 /* ASTFunctionCall.swift */,
-				80EAA47F20B826730043A6F6 /* ASTBinop.swift */,
-				80EAA48120B82D990043A6F6 /* ASTIdentifier.swift */,
-				80EAA48520B855650043A6F6 /* ASTCondition.swift */,
-				80EAA48720B857860043A6F6 /* ASTComposite.swift */,
-				80EAA48920B85BA00043A6F6 /* ASTUnary.swift */,
-				80EAA48F20B899980043A6F6 /* ASTAssignment.swift */,
-				80EAA49520B95BB60043A6F6 /* ASTVariableDeclaration.swift */,
-				80EAA49920B965CE0043A6F6 /* ASTConditionalStatement.swift */,
+				80EAA49F20B9C2610043A6F6 /* AST */,
 			);
 			path = Parser;
 			sourceTree = "<group>";
@@ -176,6 +162,28 @@
 				80EAA49D20B9C0470043A6F6 /* StackView.swift */,
 			);
 			path = Interpreter;
+			sourceTree = "<group>";
+		};
+		80EAA49F20B9C2610043A6F6 /* AST */ = {
+			isa = PBXGroup;
+			children = (
+				804834E420B6EAF1009E59FC /* ASTNode.swift */,
+				80EAA46720B742720043A6F6 /* ASTImportStatement.swift */,
+				80EAA46920B7468B0043A6F6 /* ASTFunctionDeclaration.swift */,
+				80EAA46B20B74B920043A6F6 /* ASTReturnStatement.swift */,
+				80EAA46F20B758BE0043A6F6 /* ASTNumberLiteral.swift */,
+				80EAA47120B75BE20043A6F6 /* ASTNoop.swift */,
+				80EAA47D20B8060B0043A6F6 /* ASTFunctionCall.swift */,
+				80EAA47F20B826730043A6F6 /* ASTBinop.swift */,
+				80EAA48120B82D990043A6F6 /* ASTIdentifier.swift */,
+				80EAA48520B855650043A6F6 /* ASTCondition.swift */,
+				80EAA48720B857860043A6F6 /* ASTComposite.swift */,
+				80EAA48920B85BA00043A6F6 /* ASTUnary.swift */,
+				80EAA48F20B899980043A6F6 /* ASTAssignment.swift */,
+				80EAA49520B95BB60043A6F6 /* ASTVariableDeclaration.swift */,
+				80EAA49920B965CE0043A6F6 /* ASTConditionalStatement.swift */,
+			);
+			path = AST;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
