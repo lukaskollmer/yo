@@ -94,6 +94,11 @@ extension BytecodeInterpreter {
             try stack.push((try stack.pop() <= stack.pop()) ? -1 : 0)
         
         
+        case .alloc:
+            for _ in 0..<immediate {
+                try stack.push(0)
+            }
+        
         case .push:
             try stack.push(immediate)
             

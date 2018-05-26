@@ -113,6 +113,15 @@ private extension Parser {
                 
                 return ASTIfStatement(condition: condition, body: body, elseBranch: elseBody)
                 
+            case .val: // variable declaration
+                next()
+                let name = try parseIdentifier()
+                guard case .semicolon = currentToken.type else {
+                    fatalError("variable declaration should end w/ a semicolon")
+                }
+                next()
+                return ASTVariableDeclaration(identifier: name)
+                
                 
             case .identifier(let name):
                 // a statement starting e/ an identifier can be:
@@ -154,10 +163,10 @@ private extension Parser {
         }
         
         next() // step into the function signature
-        var parameters = [ASTIdentifier]()
+        var parameters = [ASTVariableDeclaration]()
         
         while let parameter = try? parseIdentifier() {
-            parameters.append(parameter)
+            parameters.append(ASTVariableDeclaration(identifier: parameter))
             if case .comma = currentToken.type {
                 next()
             }
@@ -170,11 +179,12 @@ private extension Parser {
         next()
         
         let functionBody = try parseComposite().statements
+        let localVariables = functionBody.filter { $0 is ASTVariableDeclaration } as! [ASTVariableDeclaration]
         
         return ASTFunctionDeclaration(
             name: ASTIdentifier(name: functionName),
             parameters: parameters,
-            localVariables: [],
+            localVariables: localVariables,
             body: functionBody
         )
     }

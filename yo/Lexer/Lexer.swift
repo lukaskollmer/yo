@@ -49,6 +49,7 @@ private let tokenMapping: [String: TokenType] = [
     "import": .import,
     "fn"    : .fn,
     "ret"   : .ret,
+    "val"   : .val,
     "if"    : .if,
     "else"  : .else,
     

@@ -10,8 +10,8 @@ import Foundation
 
 struct ASTFunctionDeclaration: ASTStatement {
     let name: ASTIdentifier
-    let parameters: [ASTIdentifier]
-    let localVariables: [ASTIdentifier]
+    let parameters: [ASTVariableDeclaration]
+    let localVariables: [ASTVariableDeclaration]
     let body: [ASTStatement]
     
     

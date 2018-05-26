@@ -138,6 +138,9 @@ private extension BytecodeCompiler {
         } else if let assignment = node as? ASTAssignment {
             handle(assignment: assignment)
             
+        } else if let _ = node as? ASTVariableDeclaration {
+            // we don't need to explicitly handle variable declarations since that info is also passed in the ASTFunctionDeclaration node
+            // TODO we might be able to remove all variable declarations from the a function's body statements?
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -164,6 +167,8 @@ private extension BytecodeCompiler {
         globalFunctions[function.mangledName] = function.parameters.count
         
         // allocate space for local variables?
+        let numberOfLocalVariables = scope.size - function.parameters.count
+        add(.alloc, numberOfLocalVariables)
         
         // Generate instructions for the function body
         function.body.forEach(handle)

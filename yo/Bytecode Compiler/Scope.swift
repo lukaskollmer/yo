@@ -25,12 +25,12 @@ struct Scope {
         self.type = type
     }
     
-    init(type: ScopeType, parameters: [ASTIdentifier], localVariables: [ASTIdentifier]) {
+    init(type: ScopeType, parameters: [ASTVariableDeclaration], localVariables: [ASTVariableDeclaration]) {
         self.type = type
         numberOfParameters = parameters.count
         
-        symbols.append(contentsOf: parameters.map { $0.name })
-        symbols.append(contentsOf: localVariables.map { $0.name })
+        symbols.append(contentsOf: parameters.map { $0.identifier.name })
+        symbols.append(contentsOf: localVariables.map { $0.identifier.name })
     }
     
     var size: Int {

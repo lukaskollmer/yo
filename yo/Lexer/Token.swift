@@ -51,6 +51,7 @@ enum TokenType: Equatable, Hashable {
     case `import`
     case fn
     case ret
+    case val
     case `if`
     case `else`
     

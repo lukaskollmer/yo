@@ -13,5 +13,7 @@ fn mul(x) {
 }
 
 fn main() {
-    ret abs(-12);
+    val x;
+    x = 1234;
+    ret x;
 }

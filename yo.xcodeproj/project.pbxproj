@@ -35,6 +35,7 @@
 		80EAA49020B899980043A6F6 /* ASTAssignment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48F20B899980043A6F6 /* ASTAssignment.swift */; };
 		80EAA49220B89C580043A6F6 /* NativeFunction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49120B89C580043A6F6 /* NativeFunction.swift */; };
 		80EAA49420B95A9A0043A6F6 /* Runtime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49320B95A9A0043A6F6 /* Runtime.swift */; };
+		80EAA49620B95BB60043A6F6 /* ASTVariableDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49520B95BB60043A6F6 /* ASTVariableDeclaration.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -79,6 +80,7 @@
 		80EAA48F20B899980043A6F6 /* ASTAssignment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTAssignment.swift; sourceTree = "<group>"; };
 		80EAA49120B89C580043A6F6 /* NativeFunction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeFunction.swift; sourceTree = "<group>"; };
 		80EAA49320B95A9A0043A6F6 /* Runtime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runtime.swift; sourceTree = "<group>"; };
+		80EAA49520B95BB60043A6F6 /* ASTVariableDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTVariableDeclaration.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -140,6 +142,7 @@
 				80EAA48720B857860043A6F6 /* ASTComposite.swift */,
 				80EAA48920B85BA00043A6F6 /* ASTUnary.swift */,
 				80EAA48F20B899980043A6F6 /* ASTAssignment.swift */,
+				80EAA49520B95BB60043A6F6 /* ASTVariableDeclaration.swift */,
 			);
 			path = Parser;
 			sourceTree = "<group>";
@@ -247,6 +250,7 @@
 				80EAA46A20B7468B0043A6F6 /* ASTFunctionDeclaration.swift in Sources */,
 				804834E320B6EABD009E59FC /* Parser.swift in Sources */,
 				8001BC8220B6CF8500B55D00 /* main.swift in Sources */,
+				80EAA49620B95BB60043A6F6 /* ASTVariableDeclaration.swift in Sources */,
 				80EAA46C20B74B920043A6F6 /* ASTReturnStatement.swift in Sources */,
 				80EAA49420B95A9A0043A6F6 /* Runtime.swift in Sources */,
 				804834DC20B6D699009E59FC /* extensions.swift in Sources */,
