@@ -129,6 +129,9 @@ private extension BytecodeCompiler {
         } else if let conditionalStatement = node as? ASTConditionalStatement {
             handle(conditionalStatement: conditionalStatement)
             
+        } else if let comparison = node as? ASTComparison {
+            handle(comparison: comparison)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -314,6 +317,9 @@ private extension BytecodeCompiler {
     func handle(condition: ASTCondition) {
         if let comparison = condition as? ASTComparison {
             handle(comparison: comparison)
+            
+        } else if let binaryCondition = condition as? ASTBinaryCondition {
+            handle(binaryCondition: binaryCondition)
         } else {
             fatalError("unhandled condition \(condition)")
         }
@@ -341,5 +347,29 @@ private extension BytecodeCompiler {
             add(.lt)
             add(.not)
         }
+    }
+    
+    
+    func handle(binaryCondition: ASTBinaryCondition) {
+        // evaluate both conditions (lhs and rhs), order doesn't matter
+        handle(node: binaryCondition.lhs)
+        handle(node: binaryCondition.rhs)
+        
+        // the last two values on the stack are now one of these options:
+        // -1, -1   (lhs: true  | rhs: true )
+        // -1,  0   (lhs: true  | rhs: false)
+        //  0, -1   (lhs: false | rhs: true )
+        //  0,  0   (lhs: false | rhs: false)
+        
+        // we now add the last two entries on the stack
+        // if the result is -2, both are true
+        // if the result is -1, one of them is true
+        // if the result is  0, both are false
+        
+        let expectedResult = binaryCondition.operator == .and ? -2 : -1
+        
+        add(.add)
+        add(.push, expectedResult)
+        add(.eq)
     }
 }

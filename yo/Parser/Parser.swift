@@ -11,6 +11,7 @@ import Foundation
 
 // MARK: Constants
 private let BinopTokenTypes: [TokenType] = [.plus, .minus, .asterik, .forwardSlash, .percentageSign]
+private let BinaryConditionTokenTypes: [TokenType] = [.doubleAmpersand, .doublePipe]
 
 
 // MARK: Errors
@@ -100,7 +101,14 @@ private extension Parser {
                 let initialTokenType = currentToken.type
                 
                 next()
-                let condition = try parseCondition()
+                var condition = try parseCondition()
+                
+                if let op = ASTBinaryCondition.Operator(tokenType: currentToken.type) {
+                    next()
+                    let rhs = try parseCondition()
+                    condition = ASTBinaryCondition(lhs: condition, operator: op, rhs: rhs)
+                }
+                
                 guard case .openingCurlyBrackets = currentToken.type else {
                     fatalError("expected { after condition")
                 }
@@ -299,7 +307,7 @@ private extension Parser {
         // TODO add support for `<cond> && <cond>` and `!<expr>` conditions
         
         let lhs = try parseExpression()
-        let comparisonOperator = ASTComparison.Operator(tokenType: currentToken.type)
+        let comparisonOperator = ASTComparison.Operator(tokenType: currentToken.type)! // TODO don't force unwrap this
         next()
         let rhs = try parseExpression()
         

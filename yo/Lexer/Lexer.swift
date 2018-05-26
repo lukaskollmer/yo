@@ -45,6 +45,9 @@ private let tokenMapping: [String: TokenType] = [
     "<="    : .lessEqual,
     ">="    : .greaterEqual,
     
+    "&&"    : .doubleAmpersand,
+    "||"    : .doublePipe,
+    
     // keywords
     "import": .import,
     "fn"    : .fn,

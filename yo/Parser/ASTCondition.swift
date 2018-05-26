@@ -17,6 +17,16 @@ struct ASTBinaryCondition: ASTCondition {
     enum Operator {
         case and
         case or
+        
+        init?(tokenType: TokenType) {
+            switch tokenType {
+            case .doubleAmpersand:
+                self = .and
+            case .doublePipe:
+                self = .or
+            default: return nil
+            }
+        }
     }
     
     let lhs: ASTCondition
@@ -34,17 +44,17 @@ struct ASTComparison: ASTCondition {
         case lessEqual
         case greaterEqual
         
-        init(tokenType: TokenType) {
-            let mapping: [TokenType: Operator] = [
-                .equals:       .equal,
-                .notEqual:     .notEqual,
-                .less:         .less,
-                .greater:      .greater,
-                .lessEqual:    .lessEqual,
-                .greaterEqual: .greaterEqual
-            ]
+        init?(tokenType: TokenType) {
             
-            self = mapping[tokenType]!
+            switch tokenType {
+            case .equals:       self = .equal
+            case .notEqual:     self = .notEqual
+            case.less:          self = .less
+            case.greater:       self = .greater
+            case.lessEqual:     self = .lessEqual
+            case.greaterEqual:  self = .greaterEqual
+            default:            return nil
+            }
         }
     }
     

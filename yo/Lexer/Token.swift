@@ -36,6 +36,9 @@ enum TokenType: Equatable, Hashable {
     case lessEqual      // <=
     case greaterEqual   // >=
     
+    case doubleAmpersand
+    case doublePipe
+    
     // other
     case comma
     case semicolon
