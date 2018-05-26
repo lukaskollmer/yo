@@ -96,7 +96,9 @@ private extension Parser {
                 next()
                 return ASTReturnStatement(returnValueExpression: expression)
                 
-            case .if:
+            case .if, .while:
+                let initialTokenType = currentToken.type
+                
                 next()
                 let condition = try parseCondition()
                 guard case .openingCurlyBrackets = currentToken.type else {
@@ -104,14 +106,21 @@ private extension Parser {
                 }
                 
                 let body = try parseComposite()
+                
+                if case .while = initialTokenType {
+                    return ASTConditionalStatement(condition: condition, body: body, kind: .while)
+                }
+                
+                // if statement, which means we also need to check for a potential else branch
                 var elseBody: ASTComposite?
                 
                 if case .else = currentToken.type {
                     next()
                     elseBody = try parseComposite()
                 }
+                return ASTConditionalStatement(condition: condition, body: body, kind: .if(elseBody))
                 
-                return ASTIfStatement(condition: condition, body: body, elseBranch: elseBody)
+                
                 
             case .val: // variable declaration
                 next()

@@ -129,9 +129,6 @@ private extension BytecodeCompiler {
         } else if let unary = node as? ASTUnary {
             handle(unary: unary)
             
-        } else if let ifStatement = node as? ASTIfStatement {
-            handle(ifStatement: ifStatement)
-            
         } else if let composite = node as? ASTComposite {
             handle(composite: composite)
             
@@ -141,6 +138,10 @@ private extension BytecodeCompiler {
         } else if let _ = node as? ASTVariableDeclaration {
             // we don't need to explicitly handle variable declarations since that info is also passed in the ASTFunctionDeclaration node
             // TODO we might be able to remove all variable declarations from the a function's body statements?
+            
+        } else if let conditionalStatement = node as? ASTConditionalStatement {
+            handle(conditionalStatement: conditionalStatement)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -193,43 +194,69 @@ private extension BytecodeCompiler {
     }
     
     
-    func handle(ifStatement: ASTIfStatement) {
+    
+    
+    
+    
+    
+    func handle(conditionalStatement: ASTConditionalStatement) {
         guard case .function(let functionName) = scope.type else {
             fatalError("global if statement")
         }
         
         let _counter = counter.advanced(by: 1)
-        let generateLabel: (String) -> String = { "\(functionName)_if_\(_counter)_body_\($0)" }
+        let generateLabel: (String) -> String = { "\(functionName)_ifwhile_\(_counter)_\($0)" } // TOOD replace `ifwhile` w/ just if or while?
         
-        let hasElseBranch = ifStatement.elseBranch != nil
+        
+        
         
         // 1. handle the condition
-        handle(condition: ifStatement.condition)
+        // we only need a label for the condition if this is a while statement
+        if case .while = conditionalStatement.kind {
+            add(label: generateLabel("cond"))
+        }
+        handle(condition: conditionalStatement.condition)
         
-        // 2. handle if jump
+        // 2. handle the jump to the body if the condition is true
         // if the condition is false, we fall through to the else branch (or the end, if there is no else branch)
-        add(.jump, unresolvedLabel: generateLabel("main"))
+        add(.jump, unresolvedLabel: generateLabel("body"))
         
         // 3. handle the else jump
+        // if this is a while loop, we just jump to the end
+        // if this is an if statement that has an else branch, we jump there, otherwise to the end
         add(.push, -1)
-        add(.jump, unresolvedLabel: generateLabel(hasElseBranch ? "else" : "end"))
-        
-        // 4. handle the if branch
-        add(label: generateLabel("main"))
-        handle(node: ifStatement.body)
-        add(.push, -1)
-        add(.jump, unresolvedLabel: generateLabel("end"))
-        
-        // 5. handle the else branch
-        if hasElseBranch {
-            add(label: generateLabel("else"))
-            handle(node: ifStatement.elseBranch!) // we can safely unwrap this bc of the earlier
+        if case .if(let elseBranch) = conditionalStatement.kind, elseBranch != nil {
+            add(.jump, unresolvedLabel: generateLabel("else"))
+        } else {
             add(.jump, unresolvedLabel: generateLabel("end"))
         }
         
-        // 6. handle the end of the if statement
+        
+        // 4. handle the body
+        add(label: generateLabel("body"))
+        handle(composite: conditionalStatement.body)
+        
+        // depending on whether this is an if or while statement, we jump to the end (if) or the condition (while)
+        add(.push, -1)
+        if case .while = conditionalStatement.kind {
+            add(.jump, unresolvedLabel: generateLabel("cond"))
+        } else {
+            add(.jump, unresolvedLabel: generateLabel("end"))
+        }
+        
+        // 5. if this is an if statement w/ an else branch, handle the else branch
+        if case .if(let elseBranch) = conditionalStatement.kind, let elseBranch_ = elseBranch {
+            add(label: generateLabel("else"))
+            handle(composite: elseBranch_)
+        }
+        
+        // 6. handle the end label
         add(label: generateLabel("end"))
     }
+    
+    
+    
+    
     
     func handle(assignment: ASTAssignment) {
         guard let target = assignment.target as? ASTIdentifier else {

@@ -54,6 +54,7 @@ enum TokenType: Equatable, Hashable {
     case val
     case `if`
     case `else`
+    case `while`
     
     case EOF
 }
