@@ -10,7 +10,6 @@
 		8001BC8220B6CF8500B55D00 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8001BC8120B6CF8500B55D00 /* main.swift */; };
 		804834DC20B6D699009E59FC /* extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834DB20B6D699009E59FC /* extensions.swift */; };
 		804834DE20B6D962009E59FC /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834DD20B6D962009E59FC /* Log.swift */; };
-		804834E020B6E27D009E59FC /* Tokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834DF20B6E27D009E59FC /* Tokenizer.swift */; };
 		804834E320B6EABD009E59FC /* Parser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834E220B6EABD009E59FC /* Parser.swift */; };
 		804834E520B6EAF1009E59FC /* ASTNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834E420B6EAF1009E59FC /* ASTNode.swift */; };
 		804834ED20B6F311009E59FC /* Lexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834EC20B6F311009E59FC /* Lexer.swift */; };
@@ -55,7 +54,6 @@
 		8001BC8120B6CF8500B55D00 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		804834DB20B6D699009E59FC /* extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = extensions.swift; sourceTree = "<group>"; };
 		804834DD20B6D962009E59FC /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
-		804834DF20B6E27D009E59FC /* Tokenizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokenizer.swift; sourceTree = "<group>"; };
 		804834E220B6EABD009E59FC /* Parser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Parser.swift; sourceTree = "<group>"; };
 		804834E420B6EAF1009E59FC /* ASTNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTNode.swift; sourceTree = "<group>"; };
 		804834EC20B6F311009E59FC /* Lexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lexer.swift; sourceTree = "<group>"; };
@@ -150,7 +148,6 @@
 		804834EE20B6F34C009E59FC /* Lexer */ = {
 			isa = PBXGroup;
 			children = (
-				804834DF20B6E27D009E59FC /* Tokenizer.swift */,
 				804834EC20B6F311009E59FC /* Lexer.swift */,
 				804834EF20B6F36B009E59FC /* Token.swift */,
 			);
@@ -247,7 +244,6 @@
 				80EAA47E20B8060B0043A6F6 /* ASTFunctionCall.swift in Sources */,
 				804834DE20B6D962009E59FC /* Log.swift in Sources */,
 				80EAA49A20B965CE0043A6F6 /* ASTConditionalStatement.swift in Sources */,
-				804834E020B6E27D009E59FC /* Tokenizer.swift in Sources */,
 				80EAA46A20B7468B0043A6F6 /* ASTFunctionDeclaration.swift in Sources */,
 				804834E320B6EABD009E59FC /* Parser.swift in Sources */,
 				8001BC8220B6CF8500B55D00 /* main.swift in Sources */,
