@@ -1,28 +1,9 @@
-fn abs(x: int): int {
-    if x < 0 {
-        ret -x;
-    } else {
-        ret x;
-    }
-}
-
-
-
-type Date(year: int, month: int, day: int);
-
-impl Date {
-    fn yearsBetween(self: Date, otherDate: Date): int {
-        ret abs(self.year - otherDate.year);
-    }
-}
-
+type Date(year: int, month: int);
 
 fn main(): int {
-    val now:  Date;
-    val then: Date;
+    val d: Date;
+    d = Date::new(1, 12);
 
-    now = Date::new(2018, 5, 27);
-    then = Date::new(1998, 6, 2);
-
-    ret now.yearsBetween(then);
+    d.month = 24;
+    ret d.month;
 }

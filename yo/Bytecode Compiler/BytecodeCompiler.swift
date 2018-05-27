@@ -142,14 +142,17 @@ private extension BytecodeCompiler {
         } else if let arrayGetter = node as? ASTArrayGetter {
             handle(arrayGetter: arrayGetter)
             
-        } else if let memberAccess = node as? ASTTypeMemberAccess {
-            handle(memberAccess: memberAccess)
+        } else if let memberGetter = node as? ASTTypeMemberGetter {
+            handle(memberGetter: memberGetter)
             
         } else if let typeImplementation = node as? ASTTypeImplementation {
             handle(typeImplementation: typeImplementation)
             
         } else if let typeMemberFunctionCall = node as? ASTTypeMemberFunctionCall {
             handle(typeMemberFunctionCall: typeMemberFunctionCall)
+            
+        } else if let memberSetter = node as? ASTTypeMemberSetter {
+            handle(memberSetter: memberSetter)
             
         } else if let _ = node as? ASTNoop {
             
@@ -371,9 +374,9 @@ private extension BytecodeCompiler {
         add(.load, scope.index(of: identifier.name))
     }
     
-    func handle(memberAccess: ASTTypeMemberAccess) {
-        let typename = scope.type(of: memberAccess.target.name)
-        let membername = memberAccess.memberName.name
+    func handle(memberGetter: ASTTypeMemberGetter) {
+        let typename = scope.type(of: memberGetter.target.name)
+        let membername = memberGetter.memberName.name
         
         guard typeCache.type(typename, hasMember: membername) else {
             fatalError("type '\(typename)' doesn't have member '\(membername)'")
@@ -381,8 +384,26 @@ private extension BytecodeCompiler {
         
         let offset = typeCache.offset(ofMember: membername, inType: typename)
         add(.push, offset)
-        handle(identifier: memberAccess.target)
+        handle(identifier: memberGetter.target)
         add(.loadh)
+    }
+    
+    
+    func handle(memberSetter: ASTTypeMemberSetter) {
+        let typename = scope.type(of: memberSetter.target.name)
+        let membername = memberSetter.memberName.name
+        
+        guard typeCache.type(typename, hasMember: membername) else {
+            fatalError("type '\(typename)' doesn't have member '\(membername)'")
+        }
+        
+        handle(node: memberSetter.newValue)
+        
+        let offset = typeCache.offset(ofMember: membername, inType: typename)
+        add(.push, offset)
+        
+        handle(identifier: memberSetter.target)
+        add(.storeh)
     }
     
     

@@ -169,7 +169,7 @@ private extension Parser {
                 // - a subscript assignment // TODO
                 // - a function call with discarded return value // TODO
                 //let expression = try parseExpression()
-                let expression = try parseIdentifier()
+                let identifier = try parseIdentifier()
                 
                 if case .equalsSign = currentToken.type {
                     next()
@@ -179,7 +179,7 @@ private extension Parser {
                     }
                     
                     next()
-                    return ASTAssignment(target: expression, value: assignedValue)
+                    return ASTAssignment(target: identifier, value: assignedValue)
                 }
                 
                 if case .openingSquareBrackets = currentToken.type {
@@ -198,7 +198,32 @@ private extension Parser {
                     }
                     next()
                     
-                    return ASTArraySetter(target: expression, offset: offset, value: assignedValue)
+                    return ASTArraySetter(target: identifier, offset: offset, value: assignedValue)
+                }
+                
+                
+                if case .period = currentToken.type, case .identifier(_) = next().type {
+                    // <identifier>.<identifier>
+                    // either a member setter or a member function call
+                    
+                    let memberName = try parseIdentifier()
+                    
+                    if case .openingParentheses = currentToken.type {
+                        // member function call // TODO
+                        fatalError("not yet implemented")
+                    }
+                    
+                    if case .equalsSign = currentToken.type {
+                        // member assignment
+                        next()
+                        let assignedValue = try parseExpression()
+                        guard case .semicolon = currentToken.type else {
+                            fatalError("expected ; after member assignment")
+                        }
+                        next()
+                        
+                        return ASTTypeMemberSetter(target: identifier, memberName: memberName, newValue: assignedValue)
+                    }
                 }
                 fatalError()
                 
@@ -248,7 +273,11 @@ private extension Parser {
                 fatalError()
             }
             next()
-            parameters.append(ASTVariableDeclaration(identifier: parameter, typename: try parseIdentifier()))
+            let typename = try parseIdentifier()
+            if case .openingSquareBrackets = currentToken.type, case .closingSquareBrackets = next().type {
+                next()
+            }
+            parameters.append(ASTVariableDeclaration(identifier: parameter, typename: typename))
             if case .comma = currentToken.type {
                 next()
             }
@@ -465,7 +494,7 @@ private extension Parser {
             fatalError("member function calls aren't a thing (yet?)")
         } else {
             // member variable access
-            return ASTTypeMemberAccess(target: identifier, memberName: memberName)
+            return ASTTypeMemberGetter(target: identifier, memberName: memberName)
         }
     }
     
