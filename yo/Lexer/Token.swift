@@ -55,7 +55,7 @@ enum TokenType: Equatable, Hashable {
     
     
     // keywords
-    case `import`
+    case use
     case type
     case impl
     case `static`

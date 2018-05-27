@@ -73,13 +73,15 @@ private extension Parser {
         
         if isTopLevel {
             // Currently parsing a top level expression
-            // The only allowed top level statement are `type`, `impl` and `fn` // TODO add import
+            // The only allowed top level statement are `use`, `type`, `impl` and `fn`
             
             switch currentToken.type {
-            case .fn:
-                return try parseFunction()
+            case .use:
+                return try parseImport()
             case .type:
                 return try parseTypeDeclaration()
+            case .fn:
+                return try parseFunction()
             case .impl:
                 return try parseImplementation()
             case .EOF:
@@ -276,7 +278,9 @@ private extension Parser {
                 }
                 fatalError()
                 
-                
+            
+            case .use, .type, .impl, .fn:
+                fatalError("\(currentToken.type) may only be used as a top level statement")
                 
             default: fatalError("unhandled token \(currentToken)")
             }
@@ -286,6 +290,20 @@ private extension Parser {
     }
     
     
+    
+    
+    func parseImport() throws -> ASTStatement {
+        guard case .use = currentToken.type else {
+            fatalError("not an import")
+        }
+        
+        guard case .stringLiteral(let moduleName) = next().type, case .semicolon = next().type else {
+            fatalError("use keyword should be followed by a string literal, followed by a semicolon")
+        }
+        next()
+        
+        return ASTImportStatement(moduleName: moduleName, isInternal: true) // TODO somwhow decide whether the module is internal or not
+    }
     
     
     

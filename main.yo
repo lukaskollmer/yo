@@ -1,24 +1,4 @@
-type Array(count: int, backing: int[]);
-
-// TODO make the array automatically grow
-impl Array {
-    static fn create(): Array {
-        val array: Array;
-
-        array = Array::new(0, alloc(3));
-        ret array;
-    }
-
-    fn add(self: Array, object: int): int {
-        self.backing[self.count] = object;
-        self.count = self.count + 1;
-        ret self.count;
-    }
-
-    fn get(self: Array, index: int): int {
-        ret self.backing[index];
-    }
-}
+use "std/array";
 
 fn f(): int {
     val x: int[];
@@ -43,20 +23,21 @@ fn f(): int {
 
 
 fn main(): int {
-    f();
+    //ret f();
 
-    ret 0;
     val array: Array;
     array = Array::create();
-    retain(array);
+//    retain(array);
 
     array.add(10);
     array.add(20);
 
-    val retval: int;
-    retval = array.get(1);
-    release(array);
-    ret retval;
+    ret array.get(0);
+
+//    val retval: int;
+//    retval = array.get(1);
+//    release(array);
+//    ret retval;
 
     //ret array.get(1);
 

@@ -37,3 +37,12 @@ extension Array where Element: Equatable {
         return self.filter(otherArray.contains)
     }
 }
+
+
+extension Dictionary {
+    mutating func insert(contentsOf other: Dictionary<Key, Value>) {
+        for (key, value) in other {
+            self[key] = value
+        }
+    }
+}

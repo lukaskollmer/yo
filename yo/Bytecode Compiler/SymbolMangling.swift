@@ -19,4 +19,8 @@ enum SymbolMangling {
         return typename + "__" + memberName
     }
     
+    static func mangleGlobalFunction(name: String) -> String {
+        return name
+    }
+    
 }

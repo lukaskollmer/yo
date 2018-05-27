@@ -53,7 +53,7 @@ private let tokenMapping: [String: TokenType] = [
     "||"    : .doublePipe,
     
     // keywords
-    "import": .import,
+    "use"   : .use,
     "type"  : .type,
     "impl"  : .impl,
     "static": .static,
@@ -90,15 +90,18 @@ class Lexer {
         // set to true when we encounter two forward slashes
         // we then ignore everything until the next line break
         var currentlyParsingComment = false
+        var currentlyParsingStringLiteral = false
         
         for (index, char) in scalars.enumerated() { // tbh i have no idea what i'm doing here
-            if ignoredCharacters.contains(char) || (!currentlyParsingComment && char == "\n") { continue }
+            if (ignoredCharacters.contains(char) && !currentlyParsingStringLiteral) || (!currentlyParsingComment && char == "\n") { continue }
             
             currentToken.unicodeScalars.append(char)
             
             let isLast = index == scalars.count - 1
             if !isLast {
                 let next = scalars[index + 1]
+                
+                // Comment parsing
                 
                 if currentlyParsingComment && char == "\n" {
                     // currently parsing a comment & reached a newline
@@ -113,10 +116,30 @@ class Lexer {
                     continue
                 }
                 
+                
+                // String literal parsing
+                
+                if currentToken == "\"" && !currentlyParsingStringLiteral {
+                    currentlyParsingStringLiteral = true
+                    continue
+                }
+                
+                if char == "\"" && currentlyParsingStringLiteral {
+                    // TODO continue string literal parsing if the previous character was \ (escape sequence)
+                    currentlyParsingStringLiteral = false
+                    let string = NSString(string: currentToken).substring(with: NSRange(location: 1, length: currentToken.count - 2))
+                    try handleRawToken(currentToken, endLocation: index, type: TokenType.stringLiteral(string))
+                    currentToken = ""
+                    continue
+                }
+                
+                
+                
+                
                 // handle the current token, if
                 // a) the next scalar is a delimiter
                 // b) the current character is a delimiter (this catches things like `(x` in a function signature)
-                if delimiters.contains(next) || delimiters.contains(char) {
+                if !currentlyParsingStringLiteral && (delimiters.contains(next) || delimiters.contains(char)) {
                     try handleRawToken(currentToken, endLocation: index)
                     currentToken = ""
                 }
@@ -130,10 +153,10 @@ class Lexer {
         return tokens
     }
     
-    private func handleRawToken(_ rawToken: String, endLocation: Int) throws {
+    private func handleRawToken(_ rawToken: String, endLocation: Int, type: TokenType? = nil) throws {
         
         let start = (endLocation + 1) - rawToken.count
-        tokens.append(Token(type: try getType(token: rawToken), range: start..<endLocation))
+        tokens.append(Token(type: type != nil ? type! : try getType(token: rawToken), range: start..<endLocation))
     }
     
     

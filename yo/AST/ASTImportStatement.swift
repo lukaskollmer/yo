@@ -8,5 +8,8 @@
 
 import Foundation
 
-struct ASTImportStatement: ASTNode {
+
+struct ASTImportStatement: ASTStatement {
+    let moduleName: String
+    let isInternal: Bool // as of right now, only internal modules are supported
 }

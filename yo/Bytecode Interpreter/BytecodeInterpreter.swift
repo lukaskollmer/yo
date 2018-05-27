@@ -51,7 +51,7 @@ class BytecodeInterpreter {
         }
         
         
-        print("heap after: \(heap.backing)")
+        //print("heap after: \(heap.backing)")
         
         
         return try stack.pop()

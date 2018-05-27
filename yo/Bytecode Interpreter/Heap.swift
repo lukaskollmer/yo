@@ -107,7 +107,6 @@ class Heap<T> {
     func release(address: Int) {
         retainCounts[address]! -= 1
         
-        print("RELEASE", retainCount(ofAddress: address))
         if retainCount(ofAddress: address) == 0 {
             free(address: address)
         }

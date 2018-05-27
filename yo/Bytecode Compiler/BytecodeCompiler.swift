@@ -12,12 +12,6 @@ import Foundation
 /// Class that compiles an AST to bytecode instructions
 class BytecodeCompiler {
     
-    private enum WIPInstruction {
-        case label(String)                  // A label
-        case operation(Operation, Int)      // A "finalized" instruction
-        case unresolved(Operation, String)  // An instruction that takes an address as parameter, which will be resolved later (after all codegen finished)
-    }
-    
     private var instructions = [WIPInstruction]()
     private var counter = 0
     
@@ -38,8 +32,8 @@ class BytecodeCompiler {
     
     
     
-     func generateInstructions(for ast: [ASTNode]) -> [Instruction] {
-        if case .global = scope.type {
+    func generateInstructions(for ast: [ASTNode], includeBootstrappingCode: Bool = true) throws -> [WIPInstruction] {
+        if case .global = scope.type, includeBootstrappingCode {
             // add the bootstrapping instructions
             add(.push, unresolvedLabel: "main")
             add(.call, 0)
@@ -47,23 +41,17 @@ class BytecodeCompiler {
             add(.jump, unresolvedLabel: "end")
         }
         
-        preflight(ast: ast)
+        try preflight(ast: ast)
         
         for node in ast {
             handle(node: node)
         }
-        add(label: "end")
         
-        return instructions.enumerated().map { index, instruction in
-            switch instruction {
-            case .operation(let operation, let immediate):
-                return operation.encode(withImmediate: immediate)
-            case .unresolved(let operation, let label):
-                return operation.encode(withImmediate: getAddress(ofLabel: label))
-            case .label(_):
-                return 0
-            }
+        if includeBootstrappingCode {
+            add(label: "end")
         }
+        
+        return instructions
     }
     
 }
@@ -82,27 +70,43 @@ private extension BytecodeCompiler {
     func add(_ operation: Operation, unresolvedLabel: String) {
         instructions.append(.unresolved(operation, unresolvedLabel))
     }
-    
-    func getAddress(ofLabel label: String) -> Int {
-        return instructions.index { instruction in
-            if case .label(let name) = instruction {
-                return name == label
-            }
-            return false
-        }!
-    }
 }
 
 private extension BytecodeCompiler {
     
-    func preflight(ast: [ASTNode]) {
+    func preflight(ast: [ASTNode]) throws {
         for node in ast {
             if let functionDecl = node as? ASTFunctionDeclaration {
-                globalFunctions[functionDecl.mangledName] = functionDecl.parameters.count
+                preflight_register(function: functionDecl)
+                
             } else if let typeDecl = node as? ASTTypeDeclaration {
                 typeCache.register(type: typeDecl)
+                
+            } else if let typeImpl = node as? ASTTypeImplementation {
+                for fn in typeImpl.functions {
+                    preflight_register(function: fn)
+                }
+                
+            } else if let importStatement = node as? ASTImportStatement {
+                guard importStatement.isInternal else {
+                    fatalError("atm only internal imports are supported")
+                }
+                
+                
+                let path = ImportPathResolver.resolve(moduleName: importStatement.moduleName)
+                let compiler = BytecodeCompiler()
+                
+                let importedInstructions = try compiler.generateInstructions(for: try yo.parse(file: path), includeBootstrappingCode: false)
+                instructions.append(contentsOf: importedInstructions)
+                
+                globalFunctions.insert(contentsOf: compiler.globalFunctions)
+                compiler.typeCache.types.forEach(self.typeCache.register)
             }
         }
+    }
+    
+    func preflight_register(function: ASTFunctionDeclaration) {
+        globalFunctions[function.mangledName] = function.parameters.count
     }
     
     
@@ -167,6 +171,10 @@ private extension BytecodeCompiler {
         } else if let memberSetter = node as? ASTTypeMemberSetter {
             handle(memberSetter: memberSetter)
             
+        } else if let _ = node as? ASTImportStatement {
+            // imports are already processed in the prefligth phase
+            //handle(importStatement: importStatement)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -181,6 +189,7 @@ private extension BytecodeCompiler {
     
     
     func handle(typeDeclaration: ASTTypeDeclaration) {
+        
 
         // generate an initializer
         let _self = ASTIdentifier(name: "self")
@@ -210,6 +219,8 @@ private extension BytecodeCompiler {
             ],
             kind: .staticImpl(typeDeclaration.name.name)
         )
+        
+        preflight_register(function: initializer)
         
         handle(function: initializer)
     }

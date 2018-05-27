@@ -1,0 +1,21 @@
+type Array(count: int, backing: int[]);
+
+// TODO make the array automatically grow
+impl Array {
+    static fn create(): Array {
+        val array: Array;
+
+        array = Array::new(0, alloc(3));
+        ret array;
+    }
+
+    fn add(self: Array, object: int): int {
+        self.backing[self.count] = object;
+        self.count = self.count + 1;
+        ret self.count;
+    }
+
+    fn get(self: Array, index: int): int {
+        ret self.backing[index];
+    }
+}

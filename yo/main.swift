@@ -8,11 +8,15 @@
 
 import Foundation
 
+
+// TODO set this dynamically!
+yo.workingDirectory = "/Users/lukas/Developer/yo"
+
 let filename: String = {
     if ProcessInfo.processInfo.arguments.count > 1 {
         return ProcessInfo.processInfo.arguments[1]
     } else {
-        return "~/Developer/yo/main.yo"
+        return "main.yo"
     }
 }()
 
@@ -22,7 +26,7 @@ let filepath: String = {
     } else if filename.hasPrefix("~") {
         return NSString(string: filename).expandingTildeInPath
     } else {
-        return FileManager.default.currentDirectoryPath.appending(pathComponent: filename)
+        return yo.workingDirectory.appending(pathComponent: filename)
     }
 }()
 
@@ -32,25 +36,6 @@ guard FileManager.default.fileExists(atPath: filepath) else {
     fatalError("input file does not exist")
 }
 
-guard
-    let data = FileManager.default.contents(atPath: filepath),
-    let rawSource = String(data: data, encoding: .utf8)
-else {
-    Log.error("Unable to read file")
-    exit(1)
-}
-
-let tokens = try Lexer(source: rawSource).tokenize()
-
-let parser = Parser(tokens: tokens)
-let ast = try parser.parse()
-
-let compiler = BytecodeCompiler()
-let instructions = compiler.generateInstructions(for: ast)
-Log.info("\n\(instructions.fancyDescription)")
-
-let interpreter = BytecodeInterpreter(instructions: instructions)
-let retval = try interpreter.run()
-print(retval)
-
+let retval = try yo.run(atPath: filepath)
+Log.info("main returned with exit code \(retval)")
 
