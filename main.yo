@@ -26,7 +26,8 @@ fn main(): int {
     numbers[3] = 4;
     numbers[4] = 5;
 
-    ret numbers[3];
+    // this is a comment
+    ret numbers[3]; // this is also a comment
 
     date = Date::new(2, 6, 1998);
 

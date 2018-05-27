@@ -16,7 +16,7 @@ private let identifierStartCharacters = CharacterSet.letters.union(.init(charact
 private let identifierCharacters = CharacterSet.alphanumerics.union(identifierStartCharacters)
 
 // set of characters we ignore
-private let ignoredCharacters: [Unicode.Scalar] = [" ", "\n"] // TODO what about CharacterSet.whitespace?
+private let ignoredCharacters: [Unicode.Scalar] = [" "] // TODO what about CharacterSet.whitespace?
 // set of characters that delimit whetever we're currently lexing (ie the x in `(x` )
 private let delimiters = CharacterSet(charactersIn: " .,+-*/;:(){}[]\n") // TODO give this a more descriptive name
 
@@ -83,17 +83,34 @@ class Lexer {
     func tokenize() throws -> [Token] {
         var currentToken = ""
         
-        
         let scalars = source.unicodeScalars.map { $0 }
         
+        // set to true when we encounter two forward slashes
+        // we then ignore everything until the next line break
+        var currentlyParsingComment = false
+        
         for (index, char) in scalars.enumerated() { // tbh i have no idea what i'm doing here
-            if ignoredCharacters.contains(char) { continue }
+            if ignoredCharacters.contains(char) || (!currentlyParsingComment && char == "\n") { continue }
             
             currentToken.unicodeScalars.append(char)
             
             let isLast = index == scalars.count - 1
             if !isLast {
                 let next = scalars[index + 1]
+                
+                if currentlyParsingComment && char == "\n" {
+                    // currently parsing a comment & reached a newline
+                    currentlyParsingComment = false
+                    currentToken = ""
+                    continue
+                }
+                
+                if currentToken == "/" && next == "/" || currentToken.hasPrefix("//") {
+                    // comment -> skip to next line
+                    currentlyParsingComment = true
+                    continue
+                }
+                
                 // handle the current token, if
                 // a) the next scalar is a delimiter
                 // b) the current character is a delimiter (this catches things like `(x` in a function signature)
