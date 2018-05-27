@@ -203,7 +203,7 @@ private extension BytecodeCompiler {
                 ASTAssignment(
                     target: _self,
                     value: ASTFunctionCall(
-                        functionName: "alloc",
+                        functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "alloc"),
                         arguments: [ASTNumberLiteral(value: typeDeclaration.attributes.count)],
                         unusedReturnValue: false)
                 ),

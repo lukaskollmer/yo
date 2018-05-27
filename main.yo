@@ -4,10 +4,10 @@ fn f(): int {
     val x: int[];
     val y: int[];
 
-    x = alloc(2);
-    y = alloc(2);
-    retain(x);
-    retain(y);
+    x = runtime::alloc(2);
+    y = runtime::alloc(2);
+    runtime::retain(x);
+    runtime::retain(y);
 
     x[0] = 1;
     x[1] = 1;
@@ -15,8 +15,8 @@ fn f(): int {
     y[0] = 2;
     y[1] = 2;
 
-    release(x);
-    release(y);
+    runtime::release(x);
+    runtime::release(y);
 
     ret 0;
 }
@@ -31,8 +31,7 @@ fn main(): int {
 
     array.add(10);
     array.add(20);
-
-    ret array.get(3);
+    ret array.get(1);
 
 //    val retval: int;
 //    retval = array.get(1);

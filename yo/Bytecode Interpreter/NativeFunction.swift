@@ -11,13 +11,23 @@ import Foundation
 
 extension Runtime {
     
+    private static var _address = -1000
+    private static var addr: Int {
+        _address += 1
+        return _address
+    }
+    
+    private static func name(_ name: String) -> String {
+        return SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: name)
+    }
+    
     typealias NativeFunctionImp = (StackView<Int>) -> ()
     typealias NativeFunction = (argc: Int, address: Int, imp: NativeFunctionImp)
     
     static let builtins: [String: NativeFunction] = [
-        "alloc"    : (1, -999, alloc),
-        "retain"   : (1, -998, retain),
-        "release"  : (1, -997, release),
+        name("alloc")  : (1, addr, alloc  ),
+        name("retain") : (1, addr, retain ),
+        name("release"): (1, addr, release),
     ]
     
     
