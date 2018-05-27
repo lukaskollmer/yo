@@ -276,6 +276,29 @@ private extension Parser {
                         )
                     }
                 }
+                
+                
+                if case .colon = currentToken.type, case .colon = next().type {
+                    // static member function w/ discarded return value
+                    next()
+                    let memberName = try parseIdentifier()
+                    guard case .openingParentheses = currentToken.type else {
+                        fatalError("expected ( in static member call")
+                    }
+                    next()
+                    let arguments = try parseExpressionList()
+                    guard case .closingParentheses = currentToken.type, case .semicolon = next().type else {
+                        fatalError("expected ) after static member call")
+                    }
+                    next()
+                    
+                    return ASTFunctionCall(
+                        functionName: SymbolMangling.mangleStaticMember(ofType: identifier.name, memberName: memberName.name),
+                        arguments: arguments,
+                        unusedReturnValue: true
+                    )
+                }
+                
                 fatalError()
                 
             
