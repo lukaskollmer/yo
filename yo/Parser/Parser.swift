@@ -73,13 +73,15 @@ private extension Parser {
         
         if isTopLevel {
             // Currently parsing a top level expression
-            // The only allowed top level statement are `fn` and `type` // TODO add import
+            // The only allowed top level statement are `type`, `impl` and `fn` // TODO add import
             
             switch currentToken.type {
             case .fn:
                 return try parseFunction()
             case .type:
                 return try parseTypeDeclaration()
+            case .impl:
+                return try parseImplementation()
             case .EOF:
                 currentPosition += 1 // stop parsing
                 return ASTNoop()
@@ -255,7 +257,39 @@ private extension Parser {
     }
     
     
-    func parseFunction() throws -> ASTFunctionDeclaration {
+    func parseImplementation() throws -> ASTTypeImplementation {
+        guard case .impl = currentToken.type else {
+            fatalError("wrong token")
+        }
+        next()
+        
+        let typename = try parseIdentifier()
+        
+        guard case .openingCurlyBrackets = currentToken.type else {
+            fatalError("impl should start w/ opening curly brackets")
+        }
+        next()
+        print(currentToken)
+        
+        var functions = [ASTFunctionDeclaration]()
+        
+        while let function = try? parseFunction(kind: .impl(typename.name)) {
+            functions.append(function)
+            if case .closingCurlyBrackets = currentToken.type {
+                break
+            }
+        }
+        
+        guard case .closingCurlyBrackets = currentToken.type else {
+            fatalError("todo")
+        }
+        next()
+        
+        return ASTTypeImplementation(typename: typename, functions: functions)
+    }
+    
+    
+    func parseFunction(kind: ASTFunctionDeclaration.Kind = .global) throws -> ASTFunctionDeclaration {
         guard
             case .fn = currentToken.type,
             case .identifier(let functionName) = next().type,
@@ -284,7 +318,8 @@ private extension Parser {
             parameters: parameters,
             returnType: returnType,
             localVariables: localVariables,
-            body: functionBody
+            body: functionBody,
+            kind: kind
         )
     }
     
@@ -403,7 +438,10 @@ private extension Parser {
     }
     
     
-    func parseMemberAccess() throws -> ASTTypeMemberAccess {
+    // parse a member access
+    // this returns either ASTTypeMemberAccess (when accessing a type's attribute
+    // or ASTTypeMemberFunctionCall (when calling an instance function on a type)
+    func parseMemberAccess() throws -> ASTExpression {
         guard case .identifier(_) = currentToken.type, case .period = peek().type, case .identifier(_) = peek(2).type else {
             throw ParserError.other("not an identifier")
         }
@@ -413,8 +451,17 @@ private extension Parser {
         next() // skip the period
         
         let memberName = try parseIdentifier()
+
         
         if case .openingParentheses = currentToken.type {
+            next()
+            let arguments = try parseExpressionList()
+            guard case .closingParentheses = currentToken.type else {
+                fatalError("instance function missing )")
+            }
+            next()
+            
+            return ASTTypeMemberFunctionCall(target: identifier, functionName: memberName, arguments: arguments)
             fatalError("member function calls aren't a thing (yet?)")
         } else {
             // member variable access

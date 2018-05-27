@@ -15,4 +15,8 @@ enum SymbolMangling {
         return typename + "_" + memberName
     }
     
+    static func mangleInstanceMember(ofType typename: String, memberName: String) -> String {
+        return typename + "__" + memberName
+    }
+    
 }

@@ -55,6 +55,7 @@ private let tokenMapping: [String: TokenType] = [
     // keywords
     "import": .import,
     "type"  : .type,
+    "impl"  : .impl,
     "fn"    : .fn,
     "ret"   : .ret,
     "val"   : .val,

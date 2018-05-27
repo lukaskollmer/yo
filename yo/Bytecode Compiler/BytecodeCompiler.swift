@@ -145,6 +145,12 @@ private extension BytecodeCompiler {
         } else if let memberAccess = node as? ASTTypeMemberAccess {
             handle(memberAccess: memberAccess)
             
+        } else if let typeImplementation = node as? ASTTypeImplementation {
+            handle(typeImplementation: typeImplementation)
+            
+        } else if let typeMemberFunctionCall = node as? ASTTypeMemberFunctionCall {
+            handle(typeMemberFunctionCall: typeMemberFunctionCall)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -167,7 +173,7 @@ private extension BytecodeCompiler {
         // 2. generate an initializer
         let _self = ASTIdentifier(name: "self")
         let initializer = ASTFunctionDeclaration(
-            name: ASTIdentifier(name: SymbolMangling.mangleStaticMember(ofType: typeDeclaration.name.name, memberName: "new")),
+            name: ASTIdentifier(name: "new"),
             parameters: typeDeclaration.attributes,
             returnType: typeDeclaration.name,
             localVariables: [ASTVariableDeclaration(identifier: _self, typename: typeDeclaration.name)],
@@ -179,7 +185,8 @@ private extension BytecodeCompiler {
                 
                 // 3. return the newly created object
                 ASTReturnStatement(returnValueExpression: _self)
-            ]
+            ],
+            kind: .staticImpl(typeDeclaration.name.name)
         )
         
         handle(function: initializer)
@@ -237,6 +244,23 @@ private extension BytecodeCompiler {
         handle(node: arrayGetter.target)
         
         add(.loadh)
+    }
+    
+    func handle(typeImplementation: ASTTypeImplementation) {
+        for function in typeImplementation.functions {
+            handle(function: function)
+        }
+    }
+    
+    func handle(typeMemberFunctionCall: ASTTypeMemberFunctionCall) {
+        let typename = scope.type(of: typeMemberFunctionCall.target.name)
+        
+        let call = ASTFunctionCall(
+            functionName: SymbolMangling.mangleInstanceMember(ofType: typename, memberName: typeMemberFunctionCall.functionName.name),
+            arguments: [typeMemberFunctionCall.target] + typeMemberFunctionCall.arguments
+        )
+        
+        handle(functionCall: call)
     }
     
     
