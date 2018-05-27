@@ -194,7 +194,7 @@ private extension BytecodeCompiler {
         // generate an initializer
         let _self = ASTIdentifier(name: "self")
         let initializer = ASTFunctionDeclaration(
-            name: ASTIdentifier(name: "alloc"),
+            name: ASTIdentifier(name: "init"),
             parameters: typeDeclaration.attributes,
             returnType: typeDeclaration.name,
             localVariables: [ASTVariableDeclaration(identifier: _self, typename: typeDeclaration.name)],

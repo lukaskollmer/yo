@@ -5,7 +5,7 @@ impl Array {
     static fn new(): Array {
         val array: Array;
 
-        array = Array::alloc(0, alloc(3));
+        array = Array::init(0, alloc(3));
         ret array;
     }
 
