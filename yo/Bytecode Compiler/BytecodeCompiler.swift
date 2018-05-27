@@ -47,6 +47,8 @@ class BytecodeCompiler {
             add(.jump, unresolvedLabel: "end")
         }
         
+        preflight(ast: ast)
+        
         for node in ast {
             handle(node: node)
         }
@@ -92,7 +94,18 @@ private extension BytecodeCompiler {
 }
 
 private extension BytecodeCompiler {
-
+    
+    func preflight(ast: [ASTNode]) {
+        for node in ast {
+            if let functionDecl = node as? ASTFunctionDeclaration {
+                globalFunctions[functionDecl.mangledName] = functionDecl.parameters.count
+            } else if let typeDecl = node as? ASTTypeDeclaration {
+                typeCache.register(type: typeDecl)
+            }
+        }
+    }
+    
+    
     
     func handle(node: ASTNode) {
         
@@ -168,12 +181,8 @@ private extension BytecodeCompiler {
     
     
     func handle(typeDeclaration: ASTTypeDeclaration) {
-        // 1. register the type w/ the type system
-        typeCache.register(type: typeDeclaration)
-        
-        
-        
-        // 2. generate an initializer
+
+        // generate an initializer
         let _self = ASTIdentifier(name: "self")
         let initializer = ASTFunctionDeclaration(
             name: ASTIdentifier(name: "new"),
@@ -220,7 +229,6 @@ private extension BytecodeCompiler {
         
         // function entry point
         add(label: function.mangledName)
-        globalFunctions[function.mangledName] = function.parameters.count
         
         // allocate space for local variables?
         let numberOfLocalVariables = scope.size - function.parameters.count
@@ -373,7 +381,7 @@ private extension BytecodeCompiler {
         if let builtin = Runtime.builtins[functionCall.functionName] {
             add(.push, builtin.address)
         } else {
-            add(.push, getAddress(ofLabel: functionCall.functionName)) // TODO allow calling not yet declared functions
+            add(.push, unresolvedLabel: SymbolMangling.mangleGlobalFunction(name: functionCall.functionName))
         }
         
         // call w/ the passed number of arguments
