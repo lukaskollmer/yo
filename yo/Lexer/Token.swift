@@ -48,6 +48,8 @@ enum TokenType: Equatable, Hashable {
     case closingParentheses
     case openingCurlyBrackets
     case closingCurlyBrackets
+    case openingSquareBrackets
+    case closingSquareBrackets
     
     case identifier(String)
     

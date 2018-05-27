@@ -143,11 +143,21 @@ private extension Parser {
                     fatalError("missing colon after variable name")
                 }
                 next()
-                let typename = try parseIdentifier()
+                
+                var typename = try parseIdentifier()
+                
+                // check whether we're creating an array
+                if case .openingSquareBrackets = currentToken.type, case .closingSquareBrackets = peek().type, case .semicolon = peek(2).type {
+                    // array declaration
+                    next()
+                    next()
+                    //typename = ASTIdentifier(name: typename.name + "[]") // this isn't necessary (yet?)
+                }
                 guard case .semicolon = currentToken.type else {
                     fatalError("variable declaration should end w/ a semicolon")
                 }
                 next()
+                
                 return ASTVariableDeclaration(identifier: name, typename: typename)
                 
                 
@@ -156,7 +166,8 @@ private extension Parser {
                 // - a simple assignment
                 // - a subscript assignment // TODO
                 // - a function call with discarded return value // TODO
-                let expression = try parseExpression()
+                //let expression = try parseExpression()
+                let expression = try parseIdentifier()
                 
                 if case .equalsSign = currentToken.type {
                     next()
@@ -167,7 +178,25 @@ private extension Parser {
                     
                     next()
                     return ASTAssignment(target: expression, value: assignedValue)
+                }
+                
+                if case .openingSquareBrackets = currentToken.type {
+                    // array subscript assignment
+                    next()
+                    let offset = try parseExpression()
                     
+                    guard case .closingSquareBrackets = currentToken.type, case .equalsSign = next().type else {
+                        fatalError()
+                    }
+                    next() // skip the equals sign
+                    
+                    let assignedValue = try parseExpression()
+                    guard case .semicolon = currentToken.type else {
+                        fatalError("assignment should end w/ semicolon")
+                    }
+                    next()
+                    
+                    return ASTArraySetter(target: expression, offset: offset, value: assignedValue)
                 }
                 fatalError()
                 
@@ -344,6 +373,18 @@ private extension Parser {
                 fatalError("aaargh")
             }
             
+            if case .openingSquareBrackets = currentToken.type {
+                // array subscript getter
+                next()
+                let offset = try parseExpression()
+                guard case .closingSquareBrackets = currentToken.type else {
+                    fatalError("missing ]")
+                }
+                next()
+                
+                return ASTArrayGetter(target: identifier, offset: offset)
+            }
+            
             if case .colon = currentToken.type, case .colon = peek().type {
                 // identifier, followed by 2 colons -> static member call
                 next()
@@ -357,7 +398,7 @@ private extension Parser {
                 let arguments = try parseExpressionList()
                 
                 guard case .closingParentheses = currentToken.type, case .semicolon = next().type else {
-                    fatalError("expected ); after static member call")
+                    fatalError("expected ) after static member call")
                 }
                 //next()
                 
