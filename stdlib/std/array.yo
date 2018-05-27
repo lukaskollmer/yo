@@ -16,6 +16,9 @@ impl Array {
     }
 
     fn get(self: Array, index: int): int {
+        if index < 0 || index > (self.count - 1) {
+            ret -1; // TODO throw an error or exit the program
+        }
         ret self.backing[index];
     }
 }
