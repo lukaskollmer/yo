@@ -556,9 +556,10 @@ private extension Parser {
                 
                 let arguments = try parseExpressionList()
                 
-                guard case .closingParentheses = currentToken.type, case .semicolon = next().type else {
+                guard case .closingParentheses = currentToken.type else {
                     fatalError("expected ) after static member call")
                 }
+                next()
                 
                 return ASTFunctionCall(
                     functionName: SymbolMangling.mangleStaticMember(ofType: identifier.name, memberName: memberName.name),
