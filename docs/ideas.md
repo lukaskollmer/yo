@@ -74,3 +74,6 @@ fn format(fmt, ...args);
 
 format("", 1, 2, 3); // args is [1, 2, 3]
 ```
+
+## string literals?
+introduce a new instruction that takes splits its immediate into 8 bit chunks and fills an array with them?
