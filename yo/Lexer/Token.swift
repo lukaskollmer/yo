@@ -58,6 +58,7 @@ enum TokenType: Equatable, Hashable {
     case `import`
     case type
     case impl
+    case `static`
     case fn
     case ret
     case val

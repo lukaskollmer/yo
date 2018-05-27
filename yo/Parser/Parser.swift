@@ -301,9 +301,23 @@ private extension Parser {
         print(currentToken)
         
         var functions = [ASTFunctionDeclaration]()
+        var functionKind: ASTFunctionDeclaration.Kind!
         
-        while let function = try? parseFunction(kind: .impl(typename.name)) {
+        let updateFunctionKind = {
+            if case .static = self.currentToken.type {
+                functionKind = .staticImpl(typename.name)
+                self.next()
+            } else {
+                functionKind = .impl(typename.name)
+            }
+        }
+        
+        updateFunctionKind()
+        
+        
+        while let function = try? parseFunction(kind: functionKind) {
             functions.append(function)
+            updateFunctionKind()
             if case .closingCurlyBrackets = currentToken.type {
                 break
             }
