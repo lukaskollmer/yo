@@ -9,8 +9,9 @@
 import Foundation
 
 
-struct ASTFunctionCall: ASTExpression {
+// TODO is adding conformance to both `ASTExpression` and `ASTStatement` really the best idea?
+struct ASTFunctionCall: ASTExpression & ASTStatement {
     let functionName: String
     let arguments: [ASTExpression]
-    //let unusedReturnValue: Bool // TODO implement
+    let unusedReturnValue: Bool
 }

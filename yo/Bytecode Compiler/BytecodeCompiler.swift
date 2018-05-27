@@ -182,9 +182,19 @@ private extension BytecodeCompiler {
             localVariables: [ASTVariableDeclaration(identifier: _self, typename: typeDeclaration.name)],
             body: [
                 // 1. allocate space on the heap
-                ASTAssignment(target: _self, value: ASTFunctionCall(functionName: "alloc", arguments: [ASTNumberLiteral(value: typeDeclaration.attributes.count)])),
+                ASTAssignment(
+                    target: _self,
+                    value: ASTFunctionCall(
+                        functionName: "alloc",
+                        arguments: [ASTNumberLiteral(value: typeDeclaration.attributes.count)],
+                        unusedReturnValue: false)
+                ),
                 // 2. go through the parameters and fill the attributes
-                ASTComposite(statements: typeDeclaration.attributes.enumerated().map { ASTArraySetter(target: _self, offset: ASTNumberLiteral(value: $0.offset), value: $0.element.identifier) }),
+                ASTComposite(
+                    statements: typeDeclaration.attributes.enumerated().map { attribute in
+                        return ASTArraySetter(target: _self, offset: ASTNumberLiteral(value: attribute.offset), value: attribute.element.identifier)
+                    }
+                ),
                 
                 // 3. return the newly created object
                 ASTReturnStatement(returnValueExpression: _self)
@@ -260,7 +270,8 @@ private extension BytecodeCompiler {
         
         let call = ASTFunctionCall(
             functionName: SymbolMangling.mangleInstanceMember(ofType: typename, memberName: typeMemberFunctionCall.functionName.name),
-            arguments: [typeMemberFunctionCall.target] + typeMemberFunctionCall.arguments
+            arguments: [typeMemberFunctionCall.target] + typeMemberFunctionCall.arguments,
+            unusedReturnValue: typeMemberFunctionCall.unusedReturnValue
         )
         
         handle(functionCall: call)
@@ -367,6 +378,10 @@ private extension BytecodeCompiler {
         
         // call w/ the passed number of arguments
         add(.call, functionCall.arguments.count)
+        
+        if functionCall.unusedReturnValue {
+            add(.pop)
+        }
     }
     
     

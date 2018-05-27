@@ -182,6 +182,18 @@ private extension Parser {
                     return ASTAssignment(target: identifier, value: assignedValue)
                 }
                 
+                if case .openingParentheses = currentToken.type {
+                    // global fununction call w/ discarded return value
+                    next()
+                    let arguments = try parseExpressionList()
+                    guard case .closingParentheses = currentToken.type, case .semicolon = next().type else {
+                        fatalError("TODO come up with an error message")
+                    }
+                    next() // skip the semicolon
+                    
+                    return ASTFunctionCall(functionName: identifier.name, arguments: arguments, unusedReturnValue: true)
+                }
+                
                 if case .openingSquareBrackets = currentToken.type {
                     // array subscript assignment
                     next()
@@ -209,8 +221,20 @@ private extension Parser {
                     let memberName = try parseIdentifier()
                     
                     if case .openingParentheses = currentToken.type {
-                        // member function call // TODO
-                        fatalError("not yet implemented")
+                        // member function call w/ unused return value
+                        // ie `foo.bar();`
+                        next() // skip the opening parentheses
+                        let arguments = try parseExpressionList()
+                        guard case .closingParentheses = currentToken.type, case .semicolon = next().type else {
+                            fatalError("expected ) after arguments")
+                        }
+                        next() // skip the semicolon
+                        return ASTTypeMemberFunctionCall(
+                            target: identifier,
+                            functionName: memberName,
+                            arguments: arguments,
+                            unusedReturnValue: true
+                        )
                     }
                     
                     if case .equalsSign = currentToken.type {
@@ -436,7 +460,7 @@ private extension Parser {
                 
                 if case .closingParentheses = currentToken.type {
                     next()
-                    return ASTFunctionCall(functionName: identifier.name, arguments: arguments)
+                    return ASTFunctionCall(functionName: identifier.name, arguments: arguments, unusedReturnValue: false) // TODO is false the right assumprion here?
                 }
                 
                 fatalError("aaargh")
@@ -469,12 +493,12 @@ private extension Parser {
                 guard case .closingParentheses = currentToken.type, case .semicolon = next().type else {
                     fatalError("expected ) after static member call")
                 }
-                //next()
                 
-                return ASTFunctionCall(functionName: SymbolMangling.mangleStaticMember(ofType: identifier.name, memberName: memberName.name), arguments: arguments)
-                
+                return ASTFunctionCall(
+                    functionName: SymbolMangling.mangleStaticMember(ofType: identifier.name, memberName: memberName.name),
+                    arguments: arguments,
+                    unusedReturnValue: false) // TODO is false the right assumption here?
             }
-            
         }
         
         return expression
