@@ -15,6 +15,8 @@ enum HeapError: Error {
 }
 
 class Heap<T> {
+    // static stored properties aren't supported in generic types :/
+    private static var resetOnFree: Bool { return false }
     
     let size: Int
     private(set) var stack: StackView<T>! // we can't make this a stored property (let) bc the initializer takes `self`
@@ -22,6 +24,7 @@ class Heap<T> {
     var backing = [T]()
     var initialValue: T
     private var allocations = [(address: Int, size: Int)]()
+    private var retainCounts = [Int: Int]() // [address: #refs]
     
     init(size: Int, initialValue: T) {
         self.size = size
@@ -69,10 +72,48 @@ class Heap<T> {
     
     
     func free(address: Int) {
-        // TODO add an option to override the freed data w/ initialValue
         let index = allocations.index { $0.address == address }!
-        allocations.remove(at: index)
+        let allocation = allocations.remove(at: index)
+        
+        if Heap.resetOnFree {
+            for i in allocation.address..<(allocation.address + allocation.size) {
+                backing[i] = initialValue
+            }
+        }
     }
+    
+    
+    
+    // MARK: ARC
+    
+    // Get the retain count of the memory block allocated at `address`
+    // returns -1 if `address` was never retained in the first place
+    // TODO throw an error instead?
+    func retainCount(ofAddress address: Int) -> Int {
+        return retainCounts[address] ?? -1
+    }
+    
+    // Increase the retain count of the memory block allocated at `address` by 1
+    func retain(address: Int) {
+        if retainCounts.keys.contains(address) {
+            retainCounts[address]! += 1
+        } else {
+            retainCounts[address] = 1
+        }
+    }
+    
+    // Decrease the retain count of the memory block allocated at `address` by 1
+    // Also frees the memory when the new retain count is 0
+    func release(address: Int) {
+        retainCounts[address]! -= 1
+        
+        print("RELEASE", retainCount(ofAddress: address))
+        if retainCount(ofAddress: address) == 0 {
+            free(address: address)
+        }
+    }
+    
+    
     
     // TODO
     // returns the highest address used by the heap

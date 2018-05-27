@@ -15,7 +15,9 @@ extension Runtime {
     typealias NativeFunction = (argc: Int, address: Int, imp: NativeFunctionImp)
     
     static let builtins: [String: NativeFunction] = [
-        "alloc"    : (1, -998, alloc)
+        "alloc"    : (1, -999, alloc),
+        "retain"   : (1, -998, retain),
+        "release"  : (1, -997, release),
     ]
     
     
@@ -31,6 +33,18 @@ extension Runtime {
     
     private static func alloc(_ stack: StackView<Int>) {
         let size = stack.peek()
-        try! stack.push(stack.heap.alloc(size: size))
+        let address = stack.heap.alloc(size: size)
+        //stack.heap.retain(address: address)
+        try! stack.push(address)
+    }
+    
+    private static func retain(_ stack: StackView<Int>) {
+        stack.heap.retain(address: stack.peek())
+        try! stack.push(0)
+    }
+    
+    private static func release(_ stack: StackView<Int>) {
+        stack.heap.release(address: stack.peek())
+        try! stack.push(0)
     }
 }

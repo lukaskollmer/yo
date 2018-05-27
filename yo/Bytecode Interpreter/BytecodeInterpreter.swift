@@ -10,7 +10,7 @@ import Foundation
 
 
 class BytecodeInterpreter {
-    private let heap = Heap<Int>(size: 1 << 10, initialValue: 0)
+    private let heap = Heap<Int>(size: 1 << 5, initialValue: 0)
     private let instructions: [InstructionDescriptor]
     
     private var stack: StackView<Int> {
@@ -49,6 +49,9 @@ class BytecodeInterpreter {
             }
             
         }
+        
+        
+        print("heap after: \(heap.backing)")
         
         
         return try stack.pop()
@@ -129,6 +132,9 @@ extension BytecodeInterpreter {
             let value   = try stack.pop()
             heap[address + offset] = value
             
+            // TODO get the old value, release it if it's a pointer pointing to somewhere on the heap
+            // TODO retain the new value, if it's a pointer pointing to somewhere on the heap
+            
         
             
         // jump/call/ret
@@ -148,16 +154,21 @@ extension BytecodeInterpreter {
             try stack.push(stack.framePointer)
             try stack.push(instructionPointer + 1)
             
-            try args.reversed().forEach { try stack.push($0) }
+            try args.reversed().forEach {
+                try stack.push($0)
+                // TODO if $0 is an address pointing to somewhere on the heap, retain it
+            }
             
             stack.framePointer = stack.stackPointer
             instructionPointer = destinationInstructionPointer
             
         case .ret:
             let returnValue = try stack.pop()
+            // TODO if returnValue is an address pointing to somewhere on the heap, retain it
             
             for _ in 0..<immediate {
                 _ = try stack.pop()
+                // TODO if _ is an address pointing to somewhere on the heap, retain it
             }
             
             instructionPointer = try stack.pop()
