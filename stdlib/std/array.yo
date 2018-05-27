@@ -2,10 +2,10 @@ type Array(count: int, backing: int[]);
 
 // TODO make the array automatically grow
 impl Array {
-    static fn create(): Array {
+    static fn new(): Array {
         val array: Array;
 
-        array = Array::new(0, alloc(3));
+        array = Array::alloc(0, alloc(3));
         ret array;
     }
 

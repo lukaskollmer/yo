@@ -26,13 +26,13 @@ fn main(): int {
     //ret f();
 
     val array: Array;
-    array = Array::create();
+    array = Array::new();
 //    retain(array);
 
     array.add(10);
     array.add(20);
 
-    ret array.get(0);
+    ret array.get(3);
 
 //    val retval: int;
 //    retval = array.get(1);
