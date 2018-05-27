@@ -1,45 +1,16 @@
-type Date(day: int, month: int, year: int);
+type Date(year: int, month: int, day: int);
 
-fn abs(x: int): int {
-    val m: int;
-    if x < 0 {
-        ret -x;
-    } else {
-        ret x;
-    }
+fn yearsBetween(date1: Date, date2: Date): int {
+    ret date1.year - date2.year;
 }
 
-fn mul(x: int): int {
-    ret x * 2;
-}
 
 fn main(): int {
-    val x: int;
-    val y: int;
-    val date: Date;
-    val numbers: int[];
+    val now:  Date;
+    val then: Date;
 
-    numbers = alloc(5);
-    numbers[0] = 1;
-    numbers[1] = 2;
-    numbers[2] = 3;
-    numbers[3] = 4;
-    numbers[4] = 5;
+    now = Date::new(2018, 5, 27);
+    then = Date::new(1998, 6, 2);
 
-    // this is a comment
-    ret numbers[3]; // this is also a comment
-
-    date = Date::new(2, 6, 1998);
-
-    ret date.year;
-
-    x = 0;
-    y = 1;
-
-    while x < 7 && 2 * y < 100 {
-        y = y * 2;
-        x = x + 1;
-    }
-
-    ret abs(-12);
+    ret yearsBetween(now, then);
 }

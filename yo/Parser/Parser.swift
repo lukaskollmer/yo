@@ -144,7 +144,7 @@ private extension Parser {
                 }
                 next()
                 
-                var typename = try parseIdentifier()
+                let typename = try parseIdentifier()
                 
                 // check whether we're creating an array
                 if case .openingSquareBrackets = currentToken.type, case .closingSquareBrackets = peek().type, case .semicolon = peek(2).type {
@@ -334,7 +334,11 @@ private extension Parser {
             return expression
         }
         
-        guard let expression: ASTExpression = (try? parseNumberLiteral()) ?? (try? parseIdentifier()) else {
+        guard let expression: ASTExpression =
+            (try? parseNumberLiteral())
+            ?? (try? parseMemberAccess())
+            ?? (try? parseIdentifier())
+        else {
             //fatalError("ugh")
             throw ParserError.other("unable to find an expression. got \(currentToken) instead")
         }
@@ -345,19 +349,6 @@ private extension Parser {
         }
         
         if let identifier = expression as? ASTIdentifier {
-            
-            if case .period = currentToken.type, case .identifier(_) = peek().type {
-                next()
-                
-                let memberName = try parseIdentifier()
-                
-                if case .openingParentheses = currentToken.type {
-                    fatalError("member function calls aren't a thing (yet?)")
-                } else {
-                    // member variable access
-                    return ASTTypeMemberAccess(target: identifier, memberName: memberName)
-                }
-            }
             
             if case .openingParentheses = currentToken.type {
                 // identifier, followed by an opening parentheses -> function call
@@ -409,6 +400,26 @@ private extension Parser {
         }
         
         return expression
+    }
+    
+    
+    func parseMemberAccess() throws -> ASTTypeMemberAccess {
+        guard case .identifier(_) = currentToken.type, case .period = peek().type, case .identifier(_) = peek(2).type else {
+            throw ParserError.other("not an identifier")
+        }
+        
+        let identifier = try parseIdentifier()
+        
+        next() // skip the period
+        
+        let memberName = try parseIdentifier()
+        
+        if case .openingParentheses = currentToken.type {
+            fatalError("member function calls aren't a thing (yet?)")
+        } else {
+            // member variable access
+            return ASTTypeMemberAccess(target: identifier, memberName: memberName)
+        }
     }
     
     

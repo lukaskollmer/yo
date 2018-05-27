@@ -47,7 +47,7 @@ let ast = try parser.parse()
 
 let compiler = BytecodeCompiler()
 let instructions = compiler.generateInstructions(for: ast)
-Log.info("\n\(instructions.fancyDescription)")
+//Log.info("\n\(instructions.fancyDescription)")
 
 let interpreter = BytecodeInterpreter(instructions: instructions)
 let retval = try interpreter.run()
