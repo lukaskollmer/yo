@@ -12,11 +12,11 @@ import Foundation
 enum SymbolMangling {
     
     static func mangleStaticMember(ofType typename: String, memberName: String) -> String {
-        return typename + "_" + memberName
+        return typename + "_S" + memberName
     }
     
     static func mangleInstanceMember(ofType typename: String, memberName: String) -> String {
-        return typename + "__" + memberName
+        return typename + "_I" + memberName
     }
     
     static func mangleGlobalFunction(name: String) -> String {
