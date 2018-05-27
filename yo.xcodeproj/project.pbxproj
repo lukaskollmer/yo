@@ -130,7 +130,7 @@
 				8001BC8120B6CF8500B55D00 /* main.swift */,
 				804834DB20B6D699009E59FC /* extensions.swift */,
 				804834DD20B6D962009E59FC /* Log.swift */,
-				80EAA47620B75F240043A6F6 /* Interpreter */,
+				80EAA47620B75F240043A6F6 /* Bytecode Interpreter */,
 				80EAA47320B75EDA0043A6F6 /* Bytecode Compiler */,
 				804834EE20B6F34C009E59FC /* Lexer */,
 				804834E120B6EAB2009E59FC /* Parser */,
@@ -169,7 +169,7 @@
 			path = "Bytecode Compiler";
 			sourceTree = "<group>";
 		};
-		80EAA47620B75F240043A6F6 /* Interpreter */ = {
+		80EAA47620B75F240043A6F6 /* Bytecode Interpreter */ = {
 			isa = PBXGroup;
 			children = (
 				80EAA47720B75F370043A6F6 /* BytecodeInterpreter.swift */,
@@ -178,7 +178,7 @@
 				80EAA49B20B97DE60043A6F6 /* Heap.swift */,
 				80EAA49D20B9C0470043A6F6 /* StackView.swift */,
 			);
-			path = Interpreter;
+			path = "Bytecode Interpreter";
 			sourceTree = "<group>";
 		};
 		80EAA49F20B9C2610043A6F6 /* AST */ = {
