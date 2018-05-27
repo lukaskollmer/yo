@@ -107,6 +107,9 @@ extension BytecodeInterpreter {
         case .push:
             try stack.push(immediate)
             
+        case .pop:
+            _ = try stack.pop()
+            
         case .load:
             try stack.push(stack.getFrameElement(atIndex: immediate))
             
@@ -163,6 +166,6 @@ extension BytecodeInterpreter {
             try stack.push(returnValue)
         }
         
-        //Log.info("[eval] ip=\(instructionPointer) stack after: \(stack)")
+        //Log.info("[eval] ip=\(instructionPointer) stack after: \(heap.backing)")
     }
 }

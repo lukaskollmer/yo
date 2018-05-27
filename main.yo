@@ -1,9 +1,39 @@
-type Date(year: int, month: int);
+type Array(count: int, backing: int[]);
+
+impl Array {
+    static fn create(): Array {
+        val array: Array;
+
+        array = Array::new(0, alloc(3));
+        ret array;
+    }
+
+    fn add(self: Array, object: int): int {
+        self.backing[self.count] = object;
+        self.count = self.count + 1;
+        ret self.count;
+    }
+
+    fn get(self: Array, index: int): int {
+        ret self.backing[index];
+    }
+}
+
+fn doSomething(): int {
+    ret 7;
+}
+
 
 fn main(): int {
-    val d: Date;
-    d = Date::new(1, 12);
+    val array: Array;
+    array = Array::create();
 
-    d.month = 24;
-    ret d.month;
+    array.add(10);
+    array.add(20);
+
+    doSomething();
+    //array.add(2);
+
+    ret array.get(1);
+
 }

@@ -216,7 +216,10 @@ private extension Parser {
                 
                 if case .period = currentToken.type, case .identifier(_) = next().type {
                     // <identifier>.<identifier>
-                    // either a member setter or a member function call
+                    // either:
+                    // - member setter (`foo.bar = x;`)
+                    // - member function call (`foo.bar();`)
+                    // - member subscript assignment (`foo.bar[idx] = x;`)
                     
                     let memberName = try parseIdentifier()
                     
@@ -247,6 +250,28 @@ private extension Parser {
                         next()
                         
                         return ASTTypeMemberSetter(target: identifier, memberName: memberName, newValue: assignedValue)
+                    }
+                    
+                    if case .openingSquareBrackets = currentToken.type {
+                        next() // skip the opening [
+                        let offset = try parseExpression()
+                        guard case .closingSquareBrackets = currentToken.type, case .equalsSign = next().type else {
+                            fatalError("expected `]` and `=` after array offset")
+                        }
+                        next() // skip the equalsSign
+                        
+                        let assignedValue = try parseExpression()
+                        
+                        guard case .semicolon = currentToken.type else {
+                            fatalError("expected ; after array subscript assignment")
+                        }
+                        next()
+                        
+                        return ASTArraySetter(
+                            target: ASTTypeMemberGetter(target: identifier, memberName: memberName),
+                            offset: offset,
+                            value: assignedValue
+                        )
                     }
                 }
                 fatalError()
@@ -507,7 +532,8 @@ private extension Parser {
     
     // parse a member access
     // this returns either ASTTypeMemberAccess (when accessing a type's attribute
-    // or ASTTypeMemberFunctionCall (when calling an instance function on a type)
+    // or ASTTypeMemberFunctionCall (ie when `foo.bar()`)
+    // or ASTArrayGetter (ie when `foo.bar[expr]`)
     func parseMemberAccess() throws -> ASTExpression {
         guard case .identifier(_) = currentToken.type, case .period = peek().type, case .identifier(_) = peek(2).type else {
             throw ParserError.other("not an identifier")
@@ -528,12 +554,25 @@ private extension Parser {
             }
             next()
             
-            return ASTTypeMemberFunctionCall(target: identifier, functionName: memberName, arguments: arguments)
-            fatalError("member function calls aren't a thing (yet?)")
-        } else {
-            // member variable access
-            return ASTTypeMemberGetter(target: identifier, memberName: memberName)
+            return ASTTypeMemberFunctionCall(target: identifier, functionName: memberName, arguments: arguments, unusedReturnValue: false) // TODO FIXME
         }
+        
+        
+        if case .openingSquareBrackets = currentToken.type {
+            next()
+            let offset = try parseExpression()
+            guard case .closingSquareBrackets = currentToken.type else {
+                fatalError("")
+            }
+            next()
+            return ASTArrayGetter(
+                target: ASTTypeMemberGetter(target: identifier, memberName: memberName),
+                offset: offset
+            )
+        }
+        
+        // member variable access
+        return ASTTypeMemberGetter(target: identifier, memberName: memberName)
     }
     
     
