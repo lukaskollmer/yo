@@ -11,7 +11,7 @@ import Foundation
 
 enum HeapError: Error {
     case stackOverflow
-    case StackUnderflow // TODO throw this one
+    case stackUnderflow // TODO throw this one
 }
 
 class Heap {
