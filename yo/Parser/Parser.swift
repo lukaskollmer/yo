@@ -189,6 +189,25 @@ private extension Parser {
                 //let expression = try parseExpression()
                 let identifier = try parseIdentifier()
                 
+                
+                if BinopTokenTypes.contains(currentToken.type),
+                    case .equalsSign = peek().type,
+                    let binopOperator = ASTBinop.Operator(tokenType: currentToken.type) {
+                    next() // skip the binop
+                    next() // skip the equals sign
+                    
+                    let rhs = try parseExpression()
+                    
+                    guard case .semicolon = currentToken.type else {
+                        fatalError("ugh")
+                    }
+                    next()
+                    
+                    return ASTAssignment(target: identifier, value: ASTBinop(lhs: identifier, operator: binopOperator, rhs: rhs))
+                    
+                    print("in place assignment?")
+                }
+                
                 if case .equalsSign = currentToken.type {
                     next()
                     let assignedValue = try parseExpression()
