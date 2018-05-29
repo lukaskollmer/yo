@@ -71,7 +71,6 @@ class Heap {
     
     
     func free(address: Int) {
-        print(#function, address)
         let index = allocations.index { $0.address == address }!
         let allocation = allocations.remove(at: index)
         

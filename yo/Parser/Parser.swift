@@ -404,7 +404,6 @@ private extension Parser {
             fatalError("impl should start w/ opening curly brackets")
         }
         next()
-        print(currentToken)
         
         var functions = [ASTFunctionDeclaration]()
         var functionKind: ASTFunctionDeclaration.Kind!

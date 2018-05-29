@@ -1,5 +1,7 @@
 # yo
 
+**all of this is outdated**
+
 ```rust
 fn abs(x) {
   if x < 0 {
@@ -77,3 +79,10 @@ format("", 1, 2, 3); // args is [1, 2, 3]
 
 ## string literals?
 introduce a new instruction that takes splits its immediate into 8 bit chunks and fills an array with them?
+
+- strings are a type, which is backed by a primitive integer array on the heap
+- the backing is 0-terminated
+- these arrays should have a special retain count, indicating that they're immutable
+- string literals in the source code are represented as a `runtime::alloc` call, followed by code that fills the array // TODO somehow bake them into the instructions?
+
+- introduce an additional WIPinstruction type that 
