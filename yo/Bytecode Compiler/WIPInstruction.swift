@@ -60,7 +60,7 @@ extension Array where Element == WIPInstruction {
                 return [
                     WIPInstruction.label(label),
                     WIPInstruction.operation(.noop, array.count)
-                    ] + array.map { WIPInstruction.operation(.noop, $0) }
+                ] + array.map { WIPInstruction.operation(.noop, $0) }
             }
             return [instruction]
         }
