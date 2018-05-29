@@ -26,10 +26,12 @@ extension Array {
     
     // remove all elements matching a predicate and return the removed elements
     mutating func remove(where block: (Element) -> Bool) -> [Element] {
+        let initialSize = self.count
         var retval = [Element]()
-        for (idx, elememt) in self.enumerated() {
+        
+        for (idx, elememt) in self.reversed().enumerated() {
             if block(elememt) {
-                retval.append(self.remove(at: idx))
+                retval.append(self.remove(at: initialSize - idx - 1))
             }
         }
         return retval
