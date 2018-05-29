@@ -10,10 +10,10 @@ import Foundation
 
 
 class BytecodeInterpreter {
-    private let heap = Heap<Int>(size: 1 << 5, initialValue: 0)
+    private let heap = Heap(size: 1 << 6)
     private let instructions: [InstructionDescriptor]
     
-    private var stack: StackView<Int> {
+    private var stack: StackView {
         return heap.stack
     }
     

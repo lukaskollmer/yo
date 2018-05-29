@@ -9,15 +9,15 @@
 import Foundation
 
 
-// A wrapper around a `Heap<T>` that implements a `Stack<T>` growing from the end of the heap
-class StackView<T> {
-    unowned let heap: Heap<T> // TODO does unowned make sense here?
+// A wrapper around a `Heap` that implements a `Stack` growing from the end of the heap
+class StackView {
+    unowned let heap: Heap // TODO does unowned make sense here?
     let size: Int
     
     var stackPointer = -1
     var framePointer = -1
     
-    init(heap: Heap<T>) {
+    init(heap: Heap) {
         self.heap = heap
         self.size = heap.size
     }
@@ -30,7 +30,7 @@ class StackView<T> {
         return heap.size - index - 1
     }
     
-    func push(_ newValue: T) throws {
+    func push(_ newValue: Int) throws {
         guard heap.backing.count <= size else {
             throw HeapError.stackOverflow
         }
@@ -39,22 +39,22 @@ class StackView<T> {
         heap.backing[actualIndex(for: stackPointer)] = newValue
     }
     
-    func pop() throws -> T {
+    func pop() throws -> Int {
         let value = heap.backing[actualIndex(for: stackPointer)]
         heap.backing[actualIndex(for: stackPointer)] = heap.initialValue
         stackPointer -= 1
         return value
     }
     
-    func pushFrame(index: Int, value: T) {
+    func pushFrame(index: Int, value: Int) {
         heap.backing[actualIndex(for: framePointer + index)] = value
     }
     
-    func getFrameElement(atIndex index: Int) -> T {
+    func getFrameElement(atIndex index: Int) -> Int {
         return heap.backing[actualIndex(for: framePointer + index)]
     }
     
-    func peek(offset: Int = 0) -> T {
+    func peek(offset: Int = 0) -> Int {
         return heap.backing[actualIndex(for: stackPointer + offset)]
     }
 }

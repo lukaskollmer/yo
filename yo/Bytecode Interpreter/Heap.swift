@@ -14,22 +14,21 @@ enum HeapError: Error {
     case StackUnderflow // TODO throw this one
 }
 
-class Heap<T> {
+class Heap {
     // static stored properties aren't supported in generic types :/
     private static var resetOnFree: Bool { return false }
     
     let size: Int
-    private(set) var stack: StackView<T>! // we can't make this a stored property (let) bc the initializer takes `self`
+    private(set) var stack: StackView! // we can't make this a stored property (let) bc the initializer takes `self`
     
-    var backing = [T]()
-    var initialValue: T
+    var backing = [Int]()
+    let initialValue: Int = 0
     private var allocations = [(address: Int, size: Int)]()
     private var retainCounts = [Int: Int]() // [address: #refs]
     
-    init(size: Int, initialValue: T) {
+    init(size: Int) {
         self.size = size
-        self.initialValue = initialValue
-        self.stack = StackView<T>(heap: self)
+        self.stack = StackView(heap: self)
         
         for _ in 0..<size {
             backing.append(initialValue)
@@ -126,7 +125,7 @@ class Heap<T> {
     }
     
     
-    subscript(index: Int) -> T {
+    subscript(index: Int) -> Int {
         get {
             return backing[index]
         }
@@ -136,7 +135,7 @@ class Heap<T> {
     }
     
     
-    subscript(range: Range<Int>) -> ArraySlice<T> {
+    subscript(range: Range<Int>) -> ArraySlice<Int> {
         get {
             return backing[range]
         }
