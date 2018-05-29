@@ -157,12 +157,28 @@ private extension Parser {
                     next()
                     //typename = ASTIdentifier(name: typename.name + "[]") // this isn't necessary (yet?)
                 }
-                guard case .semicolon = currentToken.type else {
-                    fatalError("variable declaration should end w/ a semicolon")
+                if case .semicolon = currentToken.type {
+                    next()
+                    return ASTVariableDeclaration(identifier: name, typename: typename)
+                } else {
+                    guard case .equalsSign = currentToken.type else {
+                        fatalError("the fuck are you doing?")
+                    }
+                    next()
+                    
+                    let assignedValue = try parseExpression()
+                    guard case .semicolon = currentToken.type else {
+                        fatalError("assignment should end w/ semicolon")
+                    }
+                    next()
+                    
+                    return ASTComposite(statements: [
+                        ASTVariableDeclaration(identifier: name, typename: typename),
+                        ASTAssignment(target: name, value: assignedValue)
+                    ])
+                    fatalError("assignments in declaration not yet implemented")
                 }
-                next()
                 
-                return ASTVariableDeclaration(identifier: name, typename: typename)
                 
                 
             case .identifier(let name):
@@ -444,13 +460,11 @@ private extension Parser {
         let returnType = try parseIdentifier()
         
         let functionBody = try parseComposite().statements
-        let localVariables = functionBody.filter { $0 is ASTVariableDeclaration } as! [ASTVariableDeclaration]
         
         return ASTFunctionDeclaration(
             name: ASTIdentifier(name: functionName),
             parameters: parameters,
             returnType: returnType,
-            localVariables: localVariables,
             body: functionBody,
             kind: kind
         )

@@ -18,7 +18,6 @@ struct ASTFunctionDeclaration: ASTStatement {
     let name: ASTIdentifier
     let parameters: [ASTVariableDeclaration]
     let returnType: ASTIdentifier
-    let localVariables: [ASTVariableDeclaration]
     let body: [ASTStatement]
     let kind: Kind
     
@@ -32,5 +31,9 @@ struct ASTFunctionDeclaration: ASTStatement {
         case .staticImpl(let typename):
             return SymbolMangling.mangleStaticMember(ofType: typename, memberName: name.name)
         }
+    }
+    
+    var localVariables: [ASTVariableDeclaration] {
+        return body.localVariables
     }
 }

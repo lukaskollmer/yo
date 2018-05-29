@@ -1,10 +1,25 @@
 //use "std/array";
 use "std/string";
 
+
+fn foo(x: String): int {
+    ret x.length();
+}
+
+
 fn main(): int {
     val x: String;
     x = "hello";
 
-    io::print(x);
-    ret x.length();
+    val message: String = "hello world";
+
+    val a: int = 11 + 1;
+
+    if message.length() == a {
+        ret 100;
+    }
+
+    io::print(message);
+
+    ret message.length();
 }

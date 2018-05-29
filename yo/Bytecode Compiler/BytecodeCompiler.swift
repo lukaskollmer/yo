@@ -200,9 +200,10 @@ private extension BytecodeCompiler {
             name: ASTIdentifier(name: "init"),
             parameters: typeDeclaration.attributes,
             returnType: typeDeclaration.name,
-            localVariables: [ASTVariableDeclaration(identifier: _self, typename: typeDeclaration.name)],
             body: [
-                // 1. allocate space on the heap
+                // 1. declare self
+                ASTVariableDeclaration(identifier: _self, typename: typeDeclaration.name),
+                // 2. allocate space on the heap
                 ASTAssignment(
                     target: _self,
                     value: ASTFunctionCall(
@@ -210,14 +211,14 @@ private extension BytecodeCompiler {
                         arguments: [ASTNumberLiteral(value: typeDeclaration.attributes.count)],
                         unusedReturnValue: false)
                 ),
-                // 2. go through the parameters and fill the attributes
+                // 3. go through the parameters and fill the attributes
                 ASTComposite(
                     statements: typeDeclaration.attributes.enumerated().map { attribute in
                         return ASTArraySetter(target: _self, offset: ASTNumberLiteral(value: attribute.offset), value: attribute.element.identifier)
                     }
                 ),
                 
-                // 3. return the newly created object
+                // 4. return the newly created object
                 ASTReturnStatement(returnValueExpression: _self)
             ],
             kind: .staticImpl(typeDeclaration.name.name)
