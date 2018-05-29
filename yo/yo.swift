@@ -15,7 +15,8 @@ enum yo {
     
     
     static func run(atPath path: String) throws -> Int {
-        let instructions = try compile(atPath: path)
+        let instructions = try compile(atPath: path).withArrayLiteralsResolved()
+        Log.info("\n\(instructions.fancyDescription)")
         
         let interpreter = BytecodeInterpreter(instructions: instructions.finalized())
         return try interpreter.run()
@@ -41,7 +42,6 @@ enum yo {
         let compiler = BytecodeCompiler()
         let instructions = try compiler.generateInstructions(for: try parse(file: path), includeBootstrappingCode: includeBootstrappingCode)
         
-        Log.info("\n\(instructions.fancyDescription)")
         return instructions
     }
 }

@@ -504,6 +504,7 @@ private extension Parser {
         
         guard let expression: ASTExpression =
             (try? parseNumberLiteral())
+            ?? (try? parseStringLiteral())
             ?? (try? parseMemberAccess())
             ?? (try? parseIdentifier())
         else {
@@ -569,6 +570,15 @@ private extension Parser {
         }
         
         return expression
+    }
+    
+    
+    func parseStringLiteral() throws -> ASTStringLiteral {
+        guard case .stringLiteral(let value) = currentToken.type else {
+            throw ParserError.other("not a string literal")
+        }
+        next()
+        return ASTStringLiteral(value: value)
     }
     
     

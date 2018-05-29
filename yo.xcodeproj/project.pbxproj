@@ -14,6 +14,7 @@
 		804834E520B6EAF1009E59FC /* ASTNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834E420B6EAF1009E59FC /* ASTNode.swift */; };
 		804834ED20B6F311009E59FC /* Lexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834EC20B6F311009E59FC /* Lexer.swift */; };
 		804834F020B6F36B009E59FC /* Token.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834EF20B6F36B009E59FC /* Token.swift */; };
+		804E4EB420BBE92800736FCC /* ASTStringLiteral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804E4EB320BBE92800736FCC /* ASTStringLiteral.swift */; };
 		80AE211720BA046B004900DC /* ASTTypeMemberGetter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE211620BA046B004900DC /* ASTTypeMemberGetter.swift */; };
 		80AE211920BA06D1004900DC /* TypeCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE211820BA06D1004900DC /* TypeCache.swift */; };
 		80AE211B20BAB48D004900DC /* ASTTypeImplementation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE211A20BAB48D004900DC /* ASTTypeImplementation.swift */; };
@@ -72,6 +73,7 @@
 		804834E420B6EAF1009E59FC /* ASTNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTNode.swift; sourceTree = "<group>"; };
 		804834EC20B6F311009E59FC /* Lexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lexer.swift; sourceTree = "<group>"; };
 		804834EF20B6F36B009E59FC /* Token.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Token.swift; sourceTree = "<group>"; };
+		804E4EB320BBE92800736FCC /* ASTStringLiteral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTStringLiteral.swift; sourceTree = "<group>"; };
 		80AE211620BA046B004900DC /* ASTTypeMemberGetter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTTypeMemberGetter.swift; sourceTree = "<group>"; };
 		80AE211820BA06D1004900DC /* TypeCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypeCache.swift; sourceTree = "<group>"; };
 		80AE211A20BAB48D004900DC /* ASTTypeImplementation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTTypeImplementation.swift; sourceTree = "<group>"; };
@@ -221,6 +223,7 @@
 				80AE212020BABB6E004900DC /* ASTTypeMemberFunctionCall.swift */,
 				80AE212220BAC1A3004900DC /* ASTTypeMemberSetter.swift */,
 				80AE212720BB0606004900DC /* ASTImportStatement.swift */,
+				804E4EB320BBE92800736FCC /* ASTStringLiteral.swift */,
 			);
 			path = AST;
 			sourceTree = "<group>";
@@ -287,6 +290,7 @@
 				804834E520B6EAF1009E59FC /* ASTNode.swift in Sources */,
 				80EAA49220B89C580043A6F6 /* NativeFunction.swift in Sources */,
 				80EAA48420B83C670043A6F6 /* Scope.swift in Sources */,
+				804E4EB420BBE92800736FCC /* ASTStringLiteral.swift in Sources */,
 				80EAA48220B82D990043A6F6 /* ASTIdentifier.swift in Sources */,
 				80AE212C20BB0E43004900DC /* WIPInstruction.swift in Sources */,
 				80EAA4A520B9CB230043A6F6 /* Instruction+Debug.swift in Sources */,

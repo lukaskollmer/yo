@@ -17,17 +17,18 @@ extension Runtime {
         return _address
     }
     
-    private static func name(_ name: String) -> String {
-        return SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: name)
+    private static func ns(_ ns: String, _ name: String) -> String {
+        return SymbolMangling.mangleStaticMember(ofType: ns, memberName: name)
     }
     
     typealias NativeFunctionImp = (StackView<Int>) -> ()
     typealias NativeFunction = (argc: Int, address: Int, imp: NativeFunctionImp)
     
     static let builtins: [String: NativeFunction] = [
-        name("alloc")  : (1, addr, alloc  ),
-        name("retain") : (1, addr, retain ),
-        name("release"): (1, addr, release),
+        ns("runtime", "alloc")  : (1, addr, alloc  ),
+        ns("runtime", "retain") : (1, addr, retain ),
+        ns("runtime", "release"): (1, addr, release),
+        ns("io", "print")       : (1, addr, printf), // TODO make this variardic?
     ]
     
     
@@ -55,6 +56,21 @@ extension Runtime {
     
     private static func release(_ stack: StackView<Int>) {
         stack.heap.release(address: stack.peek())
+        try! stack.push(0)
+    }
+    
+    private static func printf(_ stack: StackView<Int>) {
+        let address = stack.heap[stack.peek()]
+        let size = stack.heap[address]
+        
+        let start = address + 1
+        let end = start + size
+        
+        let characters: [Character] = stack.heap[start..<end]
+            .compactMap(UnicodeScalar.init)
+            .map(Character.init)
+        
+        print(String(characters))
         try! stack.push(0)
     }
 }

@@ -175,6 +175,9 @@ private extension BytecodeCompiler {
             // imports are already processed in the prefligth phase
             //handle(importStatement: importStatement)
             
+        } else if let stringLiteral = node as? ASTStringLiteral {
+            handle(stringLiteral: stringLiteral)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -455,6 +458,17 @@ private extension BytecodeCompiler {
     
     func handle(numberLiteral: ASTNumberLiteral) {
         add(.push, numberLiteral.value)
+    }
+    
+    func handle(stringLiteral: ASTStringLiteral) {
+        let value = stringLiteral.value
+        
+        let codepoints: [Int] = value.unicodeScalars.map { Int($0.value) }
+        
+        let label = UUID().uuidString // TODO detect duplicate string literals
+        instructions.append(.arrayLiteral(label, codepoints))
+        
+        add(.loadc, unresolvedLabel: label)
     }
     
     

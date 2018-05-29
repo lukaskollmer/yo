@@ -1,0 +1,7 @@
+type String(backing: int[]);
+
+impl String {
+    fn length(self: String): int {
+        ret self.backing[0];
+    }
+}

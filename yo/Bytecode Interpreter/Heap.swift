@@ -134,6 +134,13 @@ class Heap<T> {
             backing[index] = newValue
         }
     }
+    
+    
+    subscript(range: Range<Int>) -> ArraySlice<T> {
+        get {
+            return backing[range]
+        }
+    }
 }
 
 

@@ -13,13 +13,60 @@ enum WIPInstruction {
     case label(String)                  // A label
     case operation(Operation, Int)      // A "finalized" instruction
     case unresolved(Operation, String)  // An instruction that takes an address as parameter, which will be resolved later (after all codegen finished)
+    case arrayLiteral(String, [Int])    // TODO write desc
+}
+
+
+extension Array {
+    func lk_flatMap<T>(_ block: (Element) -> [T]) -> [T] {
+        var retval = [T]()
+        self.forEach { retval.append(contentsOf: block($0)) }
+        return retval
+    }
+    
+    // remove all elements matching a predicate and return the removed elements
+    mutating func remove(where block: (Element) -> Bool) -> [Element] {
+        var retval = [Element]()
+        for (idx, elememt) in self.enumerated() {
+            if block(elememt) {
+                retval.append(self.remove(at: idx))
+            }
+        }
+        return retval
+    }
 }
 
 
 extension Array where Element == WIPInstruction {
     
+    func withArrayLiteralsResolved() -> [WIPInstruction] {
+        
+        var _self = self
+        
+        let arrayliterals = _self.remove { instruction in
+            if case .arrayLiteral(_) = instruction {
+                return true
+            }
+            return false
+        }
+        
+        _self.insert(contentsOf: arrayliterals, at: 4)
+        
+        
+        return _self.lk_flatMap { instruction in
+            if case WIPInstruction.arrayLiteral(let label, let array) = instruction {
+                return [
+                    WIPInstruction.label(label),
+                    WIPInstruction.operation(.noop, array.count)
+                    ] + array.map { WIPInstruction.operation(.noop, $0) }
+            }
+            return [instruction]
+        }
+    }
+    
     func finalized() -> [Instruction] {
-        return self.enumerated().map { index, instruction in
+        // TODO move withArrayLiteralsResolved back into finalized?
+        return self.map { instruction in
             switch instruction {
             case .operation(let operation, let immediate):
                 return operation.encode(withImmediate: immediate)
@@ -27,17 +74,19 @@ extension Array where Element == WIPInstruction {
                 return operation.encode(withImmediate: getAddress(ofLabel: label))
             case .label(_):
                 return 0
+            case .arrayLiteral(_):
+                fatalError() // should never reach here
             }
         }
     }
     
-    func getAddress(ofLabel label: String) -> Int {
+    private func getAddress(ofLabel label: String) -> Int {
         return self.index { instruction in
             if case .label(let name) = instruction {
                 return name == label
             }
             return false
-            }!
+        }!
     }
     
     
@@ -60,6 +109,8 @@ extension Array where Element == WIPInstruction {
                 line(idx, String(describing: operation), "\(immediate)")
             case .unresolved(let operation, let unresolvedLabel):
                 line(idx, String(describing: operation), unresolvedLabel)
+            case .arrayLiteral(let label, let array):
+                line(idx, "ARRAY LITERAL", "TODO")
             }
         }
         

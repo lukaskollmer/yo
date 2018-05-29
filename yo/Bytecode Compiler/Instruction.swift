@@ -60,6 +60,7 @@ enum Operation: Int {
     // heap operations
     case loadh  // read a value from an array allocated on the heap
     case storeh // write a value to an array allocated on the heap
+    case loadc  // load the array constant starting at immediate into a heap array and push the address onto the heap
     
     case jump
     case call
