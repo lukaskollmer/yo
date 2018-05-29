@@ -19,6 +19,10 @@ enum SymbolMangling {
         return typename + "_I" + memberName
     }
     
+    static func mangleInitializer(forType typename: String) -> String {
+        return SymbolMangling.mangleStaticMember(ofType: typename, memberName: "init")
+    }
+    
     static func mangleGlobalFunction(name: String) -> String {
         return name
     }

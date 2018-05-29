@@ -469,6 +469,14 @@ private extension BytecodeCompiler {
         instructions.append(.arrayLiteral(label, codepoints))
         
         add(.loadc, unresolvedLabel: label)
+        
+        let stringInitCall = ASTFunctionCall(
+            functionName: SymbolMangling.mangleInitializer(forType: "String"),
+            arguments: [ASTNoop()], // the parameter is already on the stack, from the `loadc` instruction above
+            unusedReturnValue: false
+        )
+        
+        handle(functionCall: stringInitCall)
     }
     
     

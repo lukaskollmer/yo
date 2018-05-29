@@ -3,7 +3,7 @@ use "std/string";
 
 fn main(): int {
     val x: String;
-    x = String::init("hello");
+    x = "hello";
 
     io::print(x);
     ret x.length();
