@@ -15,6 +15,8 @@ class BytecodeCompiler {
     private var instructions = [WIPInstruction]()
     private var counter = 0
     
+    private static var importedDeclarations = [String: GlobalFunctionsInfo]()
+    
     // Scope info
     fileprivate typealias GlobalFunctionsInfo = [String: Int]
     private var scope = Scope(type: .global)
@@ -25,8 +27,8 @@ class BytecodeCompiler {
     
     init() {
         // fill the functions table w/ all native functions
-        for nativeFunction in Runtime.builtins {
-            globalFunctions[nativeFunction.key] = nativeFunction.value.argc
+        for builtin in Runtime.builtins {
+            globalFunctions[builtin.name] = builtin.argc
         }
     }
     
@@ -94,12 +96,22 @@ private extension BytecodeCompiler {
                 
                 
                 let path = ImportPathResolver.resolve(moduleName: importStatement.moduleName)
+                
+                if let declarations = BytecodeCompiler.importedDeclarations[path] {
+                    // the path has already been imported before. we now simply bring all declarations into our scope
+                    globalFunctions.insert(contentsOf: declarations)
+                    continue
+                }
+                BytecodeCompiler.importedDeclarations[path] = [:]
+                
                 let compiler = BytecodeCompiler()
                 
                 let importedInstructions = try compiler.generateInstructions(for: try yo.parse(file: path), includeBootstrappingCode: false)
                 instructions.append(contentsOf: importedInstructions)
                 
+                // bring all newly imported declarations into our scope
                 globalFunctions.insert(contentsOf: compiler.globalFunctions)
+                BytecodeCompiler.importedDeclarations[path] = compiler.globalFunctions
                 compiler.typeCache.types.forEach(self.typeCache.register)
             }
         }
@@ -378,13 +390,13 @@ private extension BytecodeCompiler {
     // MARK: Handle Expressions
     
     func handle(functionCall: ASTFunctionCall) {
-        guard let argc = globalFunctions[functionCall.functionName] else {
-            fatalError("trying to call non-existent function")
-        }
+        //guard let argc = globalFunctions[functionCall.functionName] else {
+        //    fatalError("trying to call non-existent function")
+        //}
         
-        guard argc == functionCall.arguments.count else {
-            fatalError("wrong argc")
-        }
+        //guard argc == functionCall.arguments.count else {
+        //    fatalError("wrong argc")
+        //}
         
         // todo push arguments on the stack
         for arg in functionCall.arguments.reversed() {
