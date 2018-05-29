@@ -476,7 +476,11 @@ private extension Parser {
             fatalError("composite has to start with opening curly braces")
         }
         
-        next() // step into the composite
+        if case .closingCurlyBrackets = next().type {
+            // check whether the composite is empty
+            next()
+            return ASTComposite(statements: [])
+        }
         
         var statements = [ASTStatement]()
         
