@@ -50,6 +50,7 @@
 		80EAA4A720B9D1B10043A6F6 /* SymbolMangling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA4A620B9D1B10043A6F6 /* SymbolMangling.swift */; };
 		80EAA4A920B9D49B0043A6F6 /* ASTArraySetter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA4A820B9D49B0043A6F6 /* ASTArraySetter.swift */; };
 		80EAA4AB20B9D4C50043A6F6 /* ASTArrayGetter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA4AA20B9D4C50043A6F6 /* ASTArrayGetter.swift */; };
+		80F1E9B620BD658100336F4C /* ASTRawOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80F1E9B520BD658100336F4C /* ASTRawOperation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -109,6 +110,7 @@
 		80EAA4A620B9D1B10043A6F6 /* SymbolMangling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymbolMangling.swift; sourceTree = "<group>"; };
 		80EAA4A820B9D49B0043A6F6 /* ASTArraySetter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTArraySetter.swift; sourceTree = "<group>"; };
 		80EAA4AA20B9D4C50043A6F6 /* ASTArrayGetter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTArrayGetter.swift; sourceTree = "<group>"; };
+		80F1E9B520BD658100336F4C /* ASTRawOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTRawOperation.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -224,6 +226,7 @@
 				80AE212220BAC1A3004900DC /* ASTTypeMemberSetter.swift */,
 				80AE212720BB0606004900DC /* ASTImportStatement.swift */,
 				804E4EB320BBE92800736FCC /* ASTStringLiteral.swift */,
+				80F1E9B520BD658100336F4C /* ASTRawOperation.swift */,
 			);
 			path = AST;
 			sourceTree = "<group>";
@@ -326,6 +329,7 @@
 				80EAA49020B899980043A6F6 /* ASTAssignment.swift in Sources */,
 				80AE212320BAC1A3004900DC /* ASTTypeMemberSetter.swift in Sources */,
 				80EAA49C20B97DE60043A6F6 /* Heap.swift in Sources */,
+				80F1E9B620BD658100336F4C /* ASTRawOperation.swift in Sources */,
 				80EAA47C20B7629C0043A6F6 /* Instruction.swift in Sources */,
 				80EAA47220B75BE20043A6F6 /* ASTNoop.swift in Sources */,
 			);

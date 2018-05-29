@@ -1,7 +1,13 @@
+use "std/runtime";
+
 type String(backing: int[]);
 
 impl String {
     fn length(self: String): int {
         ret self.backing[0];
+    }
+
+    fn dealloc(self: String): int {
+        runtime::free(self.backing);
     }
 }

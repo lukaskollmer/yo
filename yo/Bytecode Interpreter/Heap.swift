@@ -16,7 +16,7 @@ enum HeapError: Error {
 
 class Heap {
     // static stored properties aren't supported in generic types :/
-    private static var resetOnFree: Bool { return false }
+    private static var resetOnFree: Bool { return true }
     
     let size: Int
     private(set) var stack: StackView! // we can't make this a stored property (let) bc the initializer takes `self`
@@ -71,8 +71,14 @@ class Heap {
     
     
     func free(address: Int) {
+        print(#function, address)
         let index = allocations.index { $0.address == address }!
         let allocation = allocations.remove(at: index)
+        
+        // TODO is that if even necessary?
+        if retainCounts.keys.contains(address) {
+            retainCounts[address] = nil
+        }
         
         if Heap.resetOnFree {
             for i in allocation.address..<(allocation.address + allocation.size) {
@@ -104,10 +110,13 @@ class Heap {
     // Decrease the retain count of the memory block allocated at `address` by 1
     // Also frees the memory when the new retain count is 0
     func release(address: Int) {
-        retainCounts[address]! -= 1
+        if retainCounts.keys.contains(address) {
+            retainCounts[address]! -= 1
+        }
         
         if retainCount(ofAddress: address) == 0 {
-            free(address: address)
+            retainCounts[address] = nil
+            //free(address: address)
         }
     }
     
@@ -140,6 +149,10 @@ class Heap {
             return backing[range]
         }
     }
+    
+    //subscript<T>(index: Int, as type: R.Type) -> T {
+        
+    //}
 }
 
 

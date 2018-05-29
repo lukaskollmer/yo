@@ -32,8 +32,6 @@ class BytecodeCompiler {
         }
     }
     
-    
-    
     func generateInstructions(for ast: [ASTNode], includeBootstrappingCode: Bool = true) throws -> [WIPInstruction] {
         if case .global = scope.type, includeBootstrappingCode {
             // add the bootstrapping instructions
@@ -190,6 +188,9 @@ private extension BytecodeCompiler {
         } else if let stringLiteral = node as? ASTStringLiteral {
             handle(stringLiteral: stringLiteral)
             
+        } else if let rawInstruction = node as? ASTRawWIPInstruction {
+            instructions.append(rawInstruction.instruction)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -205,6 +206,7 @@ private extension BytecodeCompiler {
     
     func handle(typeDeclaration: ASTTypeDeclaration) {
         
+        let typename = typeDeclaration.name.name
 
         // generate an initializer
         let _self = ASTIdentifier(name: "self")
@@ -215,25 +217,33 @@ private extension BytecodeCompiler {
             body: [
                 // 1. declare self
                 ASTVariableDeclaration(identifier: _self, typename: typeDeclaration.name),
+                
                 // 2. allocate space on the heap
                 ASTAssignment(
                     target: _self,
                     value: ASTFunctionCall(
                         functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "alloc"),
-                        arguments: [ASTNumberLiteral(value: typeDeclaration.attributes.count)],
+                        arguments: [ASTNumberLiteral(value: typeDeclaration.attributes.count + 1)],
                         unusedReturnValue: false)
                 ),
-                // 3. go through the parameters and fill the attributes
+                
+                // set the address of the type's dealloc function
+                // since we have to resolve this at compile time, we push the address of the function onto the stack, then use a noop as the value expression
+                // TODO if the type did not define a dealloc function, set it to -1 to indicate that
+                ASTRawWIPInstruction(instruction: .unresolved(.push, SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "dealloc"))),
+                ASTArraySetter(target: _self, offset: ASTNumberLiteral(value: 0), value: ASTNoop()),
+                
+                // go through the parameters and fill the attributes
                 ASTComposite(
                     statements: typeDeclaration.attributes.enumerated().map { attribute in
-                        return ASTArraySetter(target: _self, offset: ASTNumberLiteral(value: attribute.offset), value: attribute.element.identifier)
+                        return ASTArraySetter(target: _self, offset: ASTNumberLiteral(value: attribute.offset + 1), value: attribute.element.identifier)
                     }
                 ),
                 
                 // 4. return the newly created object
                 ASTReturnStatement(returnValueExpression: _self)
             ],
-            kind: .staticImpl(typeDeclaration.name.name)
+            kind: .staticImpl(typename)
         )
         
         preflight_register(function: initializer)
@@ -410,7 +420,7 @@ private extension BytecodeCompiler {
         
         
         // push the address onto the stack
-        if let builtin = Runtime.builtins[functionCall.functionName] {
+        if let builtin = Runtime.builtin(withName: functionCall.functionName) {
             add(.push, builtin.address)
         } else {
             add(.push, unresolvedLabel: SymbolMangling.mangleGlobalFunction(name: functionCall.functionName))

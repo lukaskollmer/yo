@@ -1,0 +1,13 @@
+// runtime.yo
+use "std/string";
+
+impl runtime {
+
+    static fn release(obj: int): int {
+        if runtime::_getRetainCount(obj) == 1 {
+            runtime::dealloc(obj);
+            runtime::free(obj);
+        }
+        runtime::_release(obj);
+    }
+}

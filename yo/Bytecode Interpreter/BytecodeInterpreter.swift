@@ -10,7 +10,7 @@ import Foundation
 
 
 class BytecodeInterpreter {
-    private let heap = Heap(size: 1 << 6)
+    private let heap = Heap(size: 1 << 7)
     private let instructions: [InstructionDescriptor]
     
     private var stack: StackView {
@@ -32,10 +32,22 @@ class BytecodeInterpreter {
             // check whether we're calling a native function (native functions have a negative "virtual" address)
             if instructionPointer < 0 {
                 let nativeFunction = Runtime.getNativeFunction(withAddress: instructionPointer)
-                nativeFunction.imp(stack)
+                if nativeFunction.name == SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "dealloc") {
+                    
+                    // call the object's dealloc function
+                    // a negative destination address indicates that the type does not have a deallc function
+                    let destinationAddress = heap[stack.peek()]
+                    if destinationAddress > 0 {
+                        try eval(InstructionDescriptor(instruction: Operation.push.encode(withImmediate: -1)), &instructionPointer)
+                        try eval(InstructionDescriptor(instruction: Operation.jump.encode(withImmediate: destinationAddress)), &instructionPointer)
+                    }
+                } else {
+                    
+                    try stack.push(nativeFunction.imp(stack))
+                    // return from the native function
+                    try eval(InstructionDescriptor(instruction: Operation.ret.encode(withImmediate: nativeFunction.argc)), &instructionPointer)
+                }
                 
-                // return from the native function
-                try eval(InstructionDescriptor(instruction: Operation.ret.encode(withImmediate: nativeFunction.argc)), &instructionPointer)
                 
             } else {
                 let instruction = instructions[instructionPointer]
@@ -51,7 +63,7 @@ class BytecodeInterpreter {
         }
         
         
-        //print("heap after: \(heap.backing)")
+        print("heap after: \(heap.backing)")
         
         
         return try stack.pop()

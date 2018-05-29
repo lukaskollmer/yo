@@ -32,7 +32,7 @@ class TypeCache {
         
         return self.type(withName: typename)!
             .attributes
-            .index { $0.identifier.name == member }!
+            .index { $0.identifier.name == member }! + 1
     }
     
     

@@ -1,5 +1,6 @@
 //use "std/array";
 use "std/string";
+use "std/runtime";
 
 
 fn foo(x: String): int {
@@ -10,16 +11,13 @@ fn foo(x: String): int {
 fn main(): int {
     val x: String;
     x = "hello";
+    runtime::retain(x);
 
-    val message: String = "hello world";
-
-    val a: int = 11 + 1;
-
-    if message.length() == a {
-        ret 100;
-    }
+    val message: String = "hello";
+    runtime::retain(message);
 
     io::print(message);
-
-    ret message.length();
+    runtime::release(message);
+    runtime::release(x);
+    ret -3;
 }
