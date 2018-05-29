@@ -264,6 +264,11 @@ private extension BytecodeCompiler {
         // Generate instructions for the function body
         function.body.forEach(handle)
         
+        // if the function doesn't have a return statement, we implicitly return 0
+        if !(function.body.last is ASTReturnStatement) {
+            handle(return: ASTReturnStatement(returnValueExpression: ASTNumberLiteral(value: 0)))
+        }
+        
         // Restore the old scope
         scope = previousScope
     }
