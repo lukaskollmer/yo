@@ -204,8 +204,6 @@ private extension Parser {
                     next()
                     
                     return ASTAssignment(target: identifier, value: ASTBinop(lhs: identifier, operator: binopOperator, rhs: rhs))
-                    
-                    print("in place assignment?")
                 }
                 
                 if case .equalsSign = currentToken.type {
