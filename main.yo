@@ -3,10 +3,14 @@ use "std/runtime";
 use "std/array";
 
 fn main(): int {
-    val s: String = "test";
-    io::print(s);
-    ret s.length();
-    //val array: Array = [1, 2, 3];
-    //ret array.length();
+    val arr: Array = Array::new();
+    runtime::retain(arr);
 
+    val i: int = 1;
+    while i <= 25 {
+        io::printi(arr.add(i));
+        i += 1;
+    }
+
+    runtime::release(arr);
 }
