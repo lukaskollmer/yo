@@ -1,0 +1,7 @@
+fn foo(): int {
+    ret 12;
+}
+
+fn main(): int {
+    ret foo();
+}

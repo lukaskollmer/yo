@@ -20,4 +20,26 @@ class test: XCTestCase {
         super.tearDown()
     }
     
+    
+    func readTestSource(_ filename: String, path: String = #file) -> String {
+        
+        let directory = NSString(string: path).deletingLastPathComponent
+        return try! yo.read(file: directory.appending(pathComponent: filename))
+    }
+    
+    // MARK: Tests
+    
+    func testPrimitiveReturnValue() {
+        XCTAssertEqual(42, try! yo.run(code: readTestSource("src/primitiveReturnValue.yo")))
+    }
+    
+    
+    func testFunctionReturnTypeRequired() {
+        XCTAssertThrowsError(try yo.tokenize(code: readTestSource("src/functionReturnType.yo")))
+    }
+    
+    func testFunctionCall() {
+        XCTAssertEqual(12, try! yo.run(code: readTestSource("src/functionCall.yo")))
+    }
+    
 }
