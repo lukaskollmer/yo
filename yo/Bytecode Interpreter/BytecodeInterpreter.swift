@@ -10,7 +10,7 @@ import Foundation
 
 
 class BytecodeInterpreter {
-    private let heap = Heap(size: 1 << 7)
+    private let heap = Heap(size: 1 << 8)
     private let instructions: [InstructionDescriptor]
     
     private var stack: StackView {
