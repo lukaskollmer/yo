@@ -151,7 +151,7 @@ private extension Parser {
                 let typename = try parseIdentifier()
                 
                 // check whether we're creating an array
-                if case .openingSquareBrackets = currentToken.type, case .closingSquareBrackets = peek().type, case .semicolon = peek(2).type {
+                if case .openingSquareBrackets = currentToken.type, case .closingSquareBrackets = peek().type {
                     // array declaration
                     next()
                     next()
