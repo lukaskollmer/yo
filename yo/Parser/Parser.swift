@@ -176,12 +176,11 @@ private extension Parser {
                         ASTVariableDeclaration(identifier: name, typename: typename),
                         ASTAssignment(target: name, value: assignedValue)
                     ])
-                    fatalError("assignments in declaration not yet implemented")
                 }
                 
                 
                 
-            case .identifier(let name):
+            case .identifier(_):
                 // a statement starting e/ an identifier can be:
                 // - a simple assignment
                 // - a subscript assignment // TODO

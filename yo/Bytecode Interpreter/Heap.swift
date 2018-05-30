@@ -124,13 +124,13 @@ class Heap {
     // TODO
     // returns the highest address used by the heap
     // used to throw an error when the stack grows into currently allocated heap space
-    fileprivate var usedHeapSize: Int {
-        let sorted = allocations.sorted(by: { (val0, val1) -> Bool in
-            val0.address > val1.address
-        })
-        
-        return -1
-    }
+    //fileprivate var usedHeapSize: Int {
+    //    let sorted = allocations.sorted(by: { (val0, val1) -> Bool in
+    //        val0.address > val1.address
+    //    })
+    //
+    //    return -1
+    //}
     
     
     subscript(index: Int) -> Int {

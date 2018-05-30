@@ -163,8 +163,8 @@ private extension BytecodeCompiler {
         } else if let rawInstruction = node as? ASTRawWIPInstruction {
             instructions.append(rawInstruction.instruction)
             
-        } else if let arrayLiteral = node as? ASTArrayLiteral {
-            
+        } else if let _ = node as? ASTArrayLiteral {
+            // TODO
         } else if let _ = node as? ASTNoop {
             
         } else {
