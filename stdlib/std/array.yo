@@ -45,6 +45,6 @@ impl Array {
     }
 
     fn dealloc(self: Array): int {
-
+        runtime::free(self._backing);
     }
 }
