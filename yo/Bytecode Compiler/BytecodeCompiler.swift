@@ -39,20 +39,19 @@ class BytecodeCompiler {
     }
     
     
-    func compile(fileAtPath filepath: String) throws -> [WIPInstruction] {
+    func compile(ast: [ASTNode]) throws -> [WIPInstruction] {
         var importedPaths = [String]()
         
-        let ast = try yo.parse(file: filepath)
-            .lk_flatMap { node -> [ASTNode] in
-                if let importStatement = node as? ASTImportStatement {
-                    let path = ImportPathResolver.resolve(moduleName: importStatement.moduleName)
-                    guard !importedPaths.contains(path) else { return [] }
-                    
-                    importedPaths.append(path)
-                    return try yo.parse(file: path)
-                }
-                return [node]
+        let ast = try ast.lk_flatMap { node -> [ASTNode] in
+            if let importStatement = node as? ASTImportStatement {
+                let path = ImportPathResolver.resolve(moduleName: importStatement.moduleName)
+                guard !importedPaths.contains(path) else { return [] }
+                
+                importedPaths.append(path)
+                return try yo.tokenize(atPath: path)
             }
+            return [node]
+        }
         
         
         // add the bootstrapping instructions
