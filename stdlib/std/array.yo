@@ -3,16 +3,13 @@ type Array(count: int, _allocatedLength: int, _backing: int[]);
 
 impl Array {
     static fn new(): Array {
-        val array: Array;
-
-        array = Array::init(0, 1, runtime::alloc(1));
-        ret array;
+        ret Array::init(0, 1, runtime::alloc(1));
     }
 
     fn add(self: Array, object: int): int {
         if self.count == self._allocatedLength {
             // array is full, we need to switch to a bigger backing
-            
+
             // TODO come up w/ some clever algorithm determining the new backing length?
             val newLength: int = self._allocatedLength + 10;
             val newBacking: int[] = runtime::alloc(newLength);
