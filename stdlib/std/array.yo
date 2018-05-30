@@ -1,11 +1,16 @@
 type Array(count: int, _allocatedLength: int, _backing: int[]);
 
+// TODO write tests for all of this!
+
 
 impl Array {
+    // Create a new Array
     static fn new(): Array {
         ret Array::init(0, 5, runtime::alloc(5));
     }
 
+
+    // Add an object to the array
     fn add(self: Array, object: int): int {
         if self.count == self._allocatedLength {
             // array is full, we need to switch to a bigger backing
@@ -30,6 +35,8 @@ impl Array {
         ret self.count;
     }
 
+
+    // Get the object at `index`
     fn get(self: Array, index: int): int {
         if index < 0 || index > (self.count - 1) {
             ret -1; // TODO throw an error or exit the program
@@ -37,9 +44,31 @@ impl Array {
         ret self._backing[index];
     }
 
+
+    // Set the object at `index`
+    // Returns the previous value
+    fn set(self: Array, index: int, object: int): int {
+        if index < 0 || index  > (self.count - 1) {
+            ret -1; // TODO throw an error or exit the program
+        }
+
+        val oldValue: int = self.get(index);
+        self.backing[index] = object;
+        ret oldValue;
+    }
+
+
+    // Check whether the array contains an object
+    fn contains(self: Array, object: int): int {
+        // TODO
+    }
+
+
+    // Get the number of objects in the array
     fn length(self: Array): int {
         ret self.count;
     }
+
 
     fn dealloc(self: Array): int {
         runtime::free(self._backing);
