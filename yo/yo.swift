@@ -32,16 +32,11 @@ enum yo {
         }
         
         let tokens = try Lexer(source: rawSource).tokenize()
-        
-        let parser = Parser(tokens: tokens)
-        return try parser.parse()
+        return try Parser(tokens: tokens).parse()
     }
     
     
     static func compile(atPath path: String, includeBootstrappingCode: Bool = true) throws -> [WIPInstruction] {
-        let compiler = BytecodeCompiler()
-        let instructions = try compiler.generateInstructions(for: try parse(file: path), includeBootstrappingCode: includeBootstrappingCode)
-        
-        return instructions
+        return try BytecodeCompiler().compile(fileAtPath: path)
     }
 }

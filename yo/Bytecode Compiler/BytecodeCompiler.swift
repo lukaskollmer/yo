@@ -13,50 +13,67 @@ import Foundation
 class BytecodeCompiler {
     
     private var instructions = [WIPInstruction]()
-    private var counter = 0
+    private var counter = 0 // counter used to generate unique labels for if/while statements
     
-    private static var importedDeclarations = [String: GlobalFunctionsInfo]()
     
     // Scope info
-    fileprivate typealias GlobalFunctionsInfo = [String: Int]
     private var scope = Scope(type: .global)
-    private var globalFunctions = GlobalFunctionsInfo()
     private var typeCache = TypeCache()
+    private var functions = [String: SemanticAnalyzer.FunctionInfo]()
     
     
     
     init() {
         // fill the functions table w/ all native functions
         for builtin in Runtime.builtins {
-            globalFunctions[builtin.name] = builtin.argc
+            functions[builtin.name] = (
+                argc: builtin.argc,
+                parameterTypes: [], // TODO
+                returnType: "int" // TODO
+            )
         }
     }
     
-    func generateInstructions(for ast: [ASTNode], includeBootstrappingCode: Bool = true) throws -> [WIPInstruction] {
-        if case .global = scope.type, includeBootstrappingCode {
-            // add the bootstrapping instructions
-            add(.push, unresolvedLabel: "main")
-            add(.call, 0)
-            add(.push, -1)
-            add(.jump, unresolvedLabel: "end")
-        }
+    
+    func compile(fileAtPath filepath: String) throws -> [WIPInstruction] {
+        var importedPaths = [String]()
         
-        try preflight(ast: ast)
+        let ast = try yo.parse(file: filepath)
+            .lk_flatMap { node -> [ASTNode] in
+                if let importStatement = node as? ASTImportStatement {
+                    let path = ImportPathResolver.resolve(moduleName: importStatement.moduleName)
+                    guard !importedPaths.contains(path) else { return [] }
+                    
+                    importedPaths.append(path)
+                    return try yo.parse(file: path)
+                }
+                return [node]
+            }
         
-        for node in ast {
-            handle(node: node)
-        }
         
-        if includeBootstrappingCode {
-            add(label: "end")
-        }
+        // add the bootstrapping instructions
+        add(.push, unresolvedLabel: "main")
+        add(.call, 0)
+        add(.push, -1)
+        add(.jump, unresolvedLabel: "end")
         
+        // perform semantic analysis
+        let semanticAnalysis = SemanticAnalyzer().analyze(ast: ast)
+        
+        // import semantic analysis results
+        self.functions.insert(contentsOf: semanticAnalysis.globalFunctions)
+        semanticAnalysis.types.forEach(self.typeCache.register)
+        
+        // run codegen
+        ast.forEach(handle)
+        
+        add(label: "end")
         return instructions
+        
     }
-    
 }
 
-
+// MARK: Codegen
 private extension BytecodeCompiler {
     
     func add(_ operation: Operation, _ immediate: Int = 0) {
@@ -73,53 +90,6 @@ private extension BytecodeCompiler {
 }
 
 private extension BytecodeCompiler {
-    
-    func preflight(ast: [ASTNode]) throws {
-        for node in ast {
-            if let functionDecl = node as? ASTFunctionDeclaration {
-                preflight_register(function: functionDecl)
-                
-            } else if let typeDecl = node as? ASTTypeDeclaration {
-                typeCache.register(type: typeDecl)
-                
-            } else if let typeImpl = node as? ASTTypeImplementation {
-                for fn in typeImpl.functions {
-                    preflight_register(function: fn)
-                }
-                
-            } else if let importStatement = node as? ASTImportStatement {
-                guard importStatement.isInternal else {
-                    fatalError("atm only internal imports are supported")
-                }
-                
-                
-                let path = ImportPathResolver.resolve(moduleName: importStatement.moduleName)
-                
-                if let declarations = BytecodeCompiler.importedDeclarations[path] {
-                    // the path has already been imported before. we now simply bring all declarations into our scope
-                    globalFunctions.insert(contentsOf: declarations)
-                    continue
-                }
-                BytecodeCompiler.importedDeclarations[path] = [:]
-                
-                let compiler = BytecodeCompiler()
-                
-                let importedInstructions = try compiler.generateInstructions(for: try yo.parse(file: path), includeBootstrappingCode: false)
-                instructions.append(contentsOf: importedInstructions)
-                
-                // bring all newly imported declarations into our scope
-                globalFunctions.insert(contentsOf: compiler.globalFunctions)
-                BytecodeCompiler.importedDeclarations[path] = compiler.globalFunctions
-                compiler.typeCache.types.forEach(self.typeCache.register)
-            }
-        }
-    }
-    
-    func preflight_register(function: ASTFunctionDeclaration) {
-        globalFunctions[function.mangledName] = function.parameters.count
-    }
-    
-    
     
     func handle(node: ASTNode) {
         
@@ -182,14 +152,14 @@ private extension BytecodeCompiler {
             handle(memberSetter: memberSetter)
             
         } else if let _ = node as? ASTImportStatement {
-            // imports are already processed in the prefligth phase
-            //handle(importStatement: importStatement)
             
         } else if let stringLiteral = node as? ASTStringLiteral {
             handle(stringLiteral: stringLiteral)
             
         } else if let rawInstruction = node as? ASTRawWIPInstruction {
             instructions.append(rawInstruction.instruction)
+            
+        } else if let arrayLiteral = node as? ASTArrayLiteral {
             
         } else if let _ = node as? ASTNoop {
             
@@ -202,7 +172,6 @@ private extension BytecodeCompiler {
     
     
     // MARK: Handle Statements
-    
     
     func handle(typeDeclaration: ASTTypeDeclaration) {
         
@@ -245,8 +214,6 @@ private extension BytecodeCompiler {
             ],
             kind: .staticImpl(typename)
         )
-        
-        preflight_register(function: initializer)
         
         handle(function: initializer)
     }
@@ -352,7 +319,7 @@ private extension BytecodeCompiler {
         handle(condition: conditionalStatement.condition)
         
         // 2. handle the jump to the body if the condition is true
-        // if the condition is false, we fall through to the else branch (or the end, if there is no else branch)
+        // if the condition is false, we fall through to jump to the else branch (or the end, if there is no else branch)
         add(.jump, unresolvedLabel: generateLabel("body"))
         
         // 3. handle the else jump
@@ -405,13 +372,13 @@ private extension BytecodeCompiler {
     // MARK: Handle Expressions
     
     func handle(functionCall: ASTFunctionCall) {
-        //guard let argc = globalFunctions[functionCall.functionName] else {
-        //    fatalError("trying to call non-existent function")
-        //}
+        guard let argc = functions[functionCall.functionName]?.argc else {
+            fatalError("trying to call non-existent function")
+        }
         
-        //guard argc == functionCall.arguments.count else {
-        //    fatalError("wrong argc")
-        //}
+        guard argc == functionCall.arguments.count else {
+            fatalError("wrong argc")
+        }
         
         // todo push arguments on the stack
         for arg in functionCall.arguments.reversed() {
@@ -505,6 +472,12 @@ private extension BytecodeCompiler {
         )
         
         handle(functionCall: stringInitCall)
+    }
+    
+    
+    func handle(arrayLiteral: ASTArrayLiteral) {
+        // TODO if the array is just number literals, store it as a constant (like strings)
+        // otherwise, just generate a bunch of Array.add calls
     }
     
     

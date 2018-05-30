@@ -1,23 +1,12 @@
-//use "std/array";
 use "std/string";
 use "std/runtime";
-
-
-fn foo(x: String): int {
-    ret x.length();
-}
-
+use "std/array";
 
 fn main(): int {
-    val x: String;
-    x = "hello";
-    runtime::retain(x);
+    val s: String = "test";
+    io::print(s);
+    ret s.length();
+    //val array: Array = [1, 2, 3];
+    //ret array.length();
 
-    val message: String = "hello";
-    runtime::retain(message);
-
-    io::print(message);
-    runtime::release(message);
-    runtime::release(x);
-    ret -3;
 }
