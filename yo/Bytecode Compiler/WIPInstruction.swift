@@ -17,28 +17,6 @@ enum WIPInstruction {
 }
 
 
-extension Array {
-    func lk_flatMap<T>(_ block: (Element) -> [T]) -> [T] {
-        var retval = [T]()
-        self.forEach { retval.append(contentsOf: block($0)) }
-        return retval
-    }
-    
-    // remove all elements matching a predicate and return the removed elements
-    mutating func remove(where block: (Element) -> Bool) -> [Element] {
-        let initialSize = self.count
-        var retval = [Element]()
-        
-        for (idx, elememt) in self.reversed().enumerated() {
-            if block(elememt) {
-                retval.append(self.remove(at: initialSize - idx - 1))
-            }
-        }
-        return retval
-    }
-}
-
-
 extension Array where Element == WIPInstruction {
     
     func withArrayLiteralsResolved() -> [WIPInstruction] {
