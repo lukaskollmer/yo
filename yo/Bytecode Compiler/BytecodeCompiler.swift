@@ -13,7 +13,11 @@ import Foundation
 class BytecodeCompiler {
     
     private var instructions = [WIPInstruction]()
-    private var counter = 0 // counter used to generate unique labels for if/while statements
+    private var _counter = 0 // counter used to generate unique labels for if/while statements
+    private func getCounter() -> Int {
+        _counter += 1
+        return _counter
+    }
     
     
     // Scope info
@@ -305,8 +309,8 @@ private extension BytecodeCompiler {
             fatalError("global if statement")
         }
         
-        let _counter = counter.advanced(by: 1)
-        let generateLabel: (String) -> String = { "\(functionName)_ifwhile_\(_counter)_\($0)" } // TOOD replace `ifwhile` w/ just if or while?
+        let counter = getCounter()
+        let generateLabel: (String) -> String = { "\(functionName)_ifwhile_\(counter)_\($0)" } // TOOD replace `ifwhile` w/ just if or while?
         
         
         
