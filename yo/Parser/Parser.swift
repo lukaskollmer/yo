@@ -16,12 +16,8 @@ private let BinaryConditionTokenTypes: [TokenType] = [.doubleAmpersand, .doubleP
 
 // MARK: Errors
 enum ParserError: Error {
-    case expectedIdentifier // expected an identifier, but didn't get one
+    case unexpectedToken(Token)
     case other(String)
-}
-
-private func unhandledToken(_ token: Token) -> Never {
-    fatalError("unhandled token \(token)")
 }
 
 // MARK: Parser
@@ -87,7 +83,9 @@ private extension Parser {
             case .EOF:
                 currentPosition += 1 // stop parsing
                 return ASTNoop()
-            default: fatalError("unexpected top level token: \(currentToken)")
+            default:
+                //fatalError("unexpected top level token: \(currentToken)")
+                throw ParserError.unexpectedToken(currentToken)
             }
             
         } else {
@@ -97,7 +95,8 @@ private extension Parser {
                 next()
                 let expression = try parseExpression()
                 guard case .semicolon = currentToken.type else {
-                    fatalError("expected a semicolon")
+                    //fatalError("expected a semicolon")
+                    throw ParserError.unexpectedToken(currentToken)
                     //throw ParserError.other("expected a semicolon")
                 }
                 next()
@@ -116,7 +115,8 @@ private extension Parser {
                 }
                 
                 guard case .openingCurlyBrackets = currentToken.type else {
-                    fatalError("expected { after condition")
+                    // expected { after condition
+                    throw ParserError.unexpectedToken(currentToken)
                 }
                 
                 let body = try parseComposite()
@@ -144,7 +144,8 @@ private extension Parser {
                     // val foo: int;
                     // val foo = bar(); // not required in this case since we can infer the type from bar's return type
                     // TODO implement that
-                    fatalError("missing colon after variable name")
+                    
+                    throw ParserError.unexpectedToken(currentToken) // //missing colon after variable name
                 }
                 next()
                 
@@ -157,18 +158,22 @@ private extension Parser {
                     next()
                     //typename = ASTIdentifier(name: typename.name + "[]") // this isn't necessary (yet?)
                 }
+                
+                // a variable declaration's type can either be followed by a semicolon (`val x: Foo;`)
+                // or by an equals sign, followed by an expression and a semicolon
                 if case .semicolon = currentToken.type {
                     next()
                     return ASTVariableDeclaration(identifier: name, typename: typename)
                 } else {
                     guard case .equalsSign = currentToken.type else {
-                        fatalError("the fuck are you doing?")
+                        throw ParserError.unexpectedToken(currentToken)
                     }
                     next()
                     
                     let assignedValue = try parseExpression()
                     guard case .semicolon = currentToken.type else {
-                        fatalError("assignment should end w/ semicolon")
+                        // assignment should end w/ semicolon
+                        throw ParserError.unexpectedToken(currentToken)
                     }
                     next()
                     
@@ -198,7 +203,7 @@ private extension Parser {
                     let rhs = try parseExpression()
                     
                     guard case .semicolon = currentToken.type else {
-                        fatalError("ugh")
+                        throw ParserError.unexpectedToken(currentToken)
                     }
                     next()
                     
@@ -209,7 +214,8 @@ private extension Parser {
                     next()
                     let assignedValue = try parseExpression()
                     guard case .semicolon = currentToken.type else {
-                        fatalError("assignment should end w/ semicolon")
+                        // assignment should end w/ semicolon
+                        throw ParserError.unexpectedToken(currentToken)
                     }
                     
                     next()
@@ -221,7 +227,7 @@ private extension Parser {
                     next()
                     let arguments = try parseExpressionList()
                     guard case .closingParentheses = currentToken.type, case .semicolon = next().type else {
-                        fatalError("TODO come up with an error message")
+                        throw ParserError.unexpectedToken(currentToken)
                     }
                     next() // skip the semicolon
                     
@@ -234,13 +240,13 @@ private extension Parser {
                     let offset = try parseExpression()
                     
                     guard case .closingSquareBrackets = currentToken.type, case .equalsSign = next().type else {
-                        fatalError()
+                        throw ParserError.unexpectedToken(currentToken)
                     }
                     next() // skip the equals sign
                     
                     let assignedValue = try parseExpression()
                     guard case .semicolon = currentToken.type else {
-                        fatalError("assignment should end w/ semicolon")
+                        throw ParserError.unexpectedToken(currentToken)
                     }
                     next()
                     
@@ -263,7 +269,8 @@ private extension Parser {
                         next() // skip the opening parentheses
                         let arguments = try parseExpressionList()
                         guard case .closingParentheses = currentToken.type, case .semicolon = next().type else {
-                            fatalError("expected ) after arguments")
+                            // expected ) after arguments
+                            throw ParserError.unexpectedToken(currentToken)
                         }
                         next() // skip the semicolon
                         return ASTTypeMemberFunctionCall(
@@ -279,7 +286,8 @@ private extension Parser {
                         next()
                         let assignedValue = try parseExpression()
                         guard case .semicolon = currentToken.type else {
-                            fatalError("expected ; after member assignment")
+                            // expected ; after member assignment
+                            throw ParserError.unexpectedToken(currentToken)
                         }
                         next()
                         
@@ -290,14 +298,16 @@ private extension Parser {
                         next() // skip the opening [
                         let offset = try parseExpression()
                         guard case .closingSquareBrackets = currentToken.type, case .equalsSign = next().type else {
-                            fatalError("expected `]` and `=` after array offset")
+                            // expected `]` and `=` after array offset
+                            throw ParserError.unexpectedToken(currentToken)
                         }
                         next() // skip the equalsSign
                         
                         let assignedValue = try parseExpression()
                         
                         guard case .semicolon = currentToken.type else {
-                            fatalError("expected ; after array subscript assignment")
+                            // expected ; after array subscript assignment
+                            throw ParserError.unexpectedToken(currentToken)
                         }
                         next()
                         
@@ -315,12 +325,12 @@ private extension Parser {
                     next()
                     let memberName = try parseIdentifier()
                     guard case .openingParentheses = currentToken.type else {
-                        fatalError("expected ( in static member call")
+                        throw ParserError.unexpectedToken(currentToken)
                     }
                     next()
                     let arguments = try parseExpressionList()
                     guard case .closingParentheses = currentToken.type, case .semicolon = next().type else {
-                        fatalError("expected ) after static member call")
+                        throw ParserError.unexpectedToken(currentToken)
                     }
                     next()
                     
@@ -335,7 +345,7 @@ private extension Parser {
                 
             
             case .use, .type, .impl, .fn:
-                fatalError("\(currentToken.type) may only be used as a top level statement")
+                throw ParserError.other("\(currentToken.type) may only be used as a top level statement")
                 
             default: fatalError("unhandled token \(currentToken)")
             }
@@ -349,11 +359,11 @@ private extension Parser {
     
     func parseImport() throws -> ASTStatement {
         guard case .use = currentToken.type else {
-            fatalError("not an import")
+            throw ParserError.unexpectedToken(currentToken)
         }
         
         guard case .stringLiteral(let moduleName) = next().type, case .semicolon = next().type else {
-            fatalError("use keyword should be followed by a string literal, followed by a semicolon")
+            throw ParserError.unexpectedToken(currentToken)
         }
         next()
         
@@ -364,13 +374,13 @@ private extension Parser {
     
     func parseTypeDeclaration() throws -> ASTTypeDeclaration {
         guard case .type = currentToken.type else {
-            fatalError()
+            throw ParserError.unexpectedToken(currentToken)
         }
         next()
         
         let name = try parseIdentifier()
         guard case .openingParentheses = currentToken.type else {
-            fatalError()
+            throw ParserError.unexpectedToken(currentToken)
         }
         next()
         
@@ -379,7 +389,7 @@ private extension Parser {
             case .closingParentheses = currentToken.type,
             case .semicolon = next().type
         else {
-            fatalError()
+            throw ParserError.unexpectedToken(currentToken)
         }
         next()
         
@@ -392,7 +402,7 @@ private extension Parser {
         
         while let parameter = try? parseIdentifier() {
             guard case .colon = currentToken.type else {
-                fatalError()
+                throw ParserError.unexpectedToken(currentToken)
             }
             next()
             let typename = try parseIdentifier()
@@ -410,14 +420,14 @@ private extension Parser {
     
     func parseImplementation() throws -> ASTTypeImplementation {
         guard case .impl = currentToken.type else {
-            fatalError("wrong token")
+            throw ParserError.unexpectedToken(currentToken)
         }
         next()
         
         let typename = try parseIdentifier()
         
         guard case .openingCurlyBrackets = currentToken.type else {
-            fatalError("impl should start w/ opening curly brackets")
+            throw ParserError.unexpectedToken(currentToken)
         }
         next()
         
@@ -445,7 +455,7 @@ private extension Parser {
         }
         
         guard case .closingCurlyBrackets = currentToken.type else {
-            fatalError("todo")
+            throw ParserError.unexpectedToken(currentToken)
         }
         next()
         
@@ -459,7 +469,7 @@ private extension Parser {
             case .identifier(let functionName) = next().type,
             case .openingParentheses = next().type
         else {
-            throw ParserError.expectedIdentifier
+            throw ParserError.unexpectedToken(currentToken)
         }
         
         next() // step into the function signature
@@ -469,7 +479,7 @@ private extension Parser {
             case .closingParentheses = currentToken.type,
             case .colon = next().type
         else {
-            fatalError("expected closing parens after function signature")
+            throw ParserError.unexpectedToken(currentToken)
         }
         next()
         let returnType = try parseIdentifier()
@@ -488,7 +498,7 @@ private extension Parser {
     
     func parseComposite() throws -> ASTComposite {
         guard case .openingCurlyBrackets = currentToken.type else {
-            fatalError("composite has to start with opening curly braces")
+            throw ParserError.unexpectedToken(currentToken)
         }
         
         if case .closingCurlyBrackets = next().type {
@@ -528,7 +538,7 @@ private extension Parser {
             next()
             let expression = try parseExpression()
             guard case .closingParentheses = currentToken.type else {
-                fatalError(") missing after expr starting with (")
+                throw ParserError.unexpectedToken(currentToken)
             }
             
             next()
@@ -541,7 +551,7 @@ private extension Parser {
             let elements = try parseExpressionList()
             
             guard case .closingSquareBrackets = currentToken.type else {
-                fatalError("ugh")
+                throw ParserError.unexpectedToken(currentToken)
             }
             next()
             
@@ -554,8 +564,7 @@ private extension Parser {
             ?? (try? parseMemberAccess())
             ?? (try? parseIdentifier())
         else {
-            //fatalError("ugh")
-            throw ParserError.other("unable to find an expression. got \(currentToken) instead")
+            throw ParserError.unexpectedToken(currentToken)
         }
         
         if BinopTokenTypes.contains(currentToken.type), let binopOperator = ASTBinop.Operator(tokenType: currentToken.type) {
@@ -576,6 +585,7 @@ private extension Parser {
                     return ASTFunctionCall(functionName: identifier.name, arguments: arguments, unusedReturnValue: false) // TODO is false the right assumprion here?
                 }
                 
+                // TODO?
                 fatalError("aaargh")
             }
             
@@ -584,7 +594,7 @@ private extension Parser {
                 next()
                 let offset = try parseExpression()
                 guard case .closingSquareBrackets = currentToken.type else {
-                    fatalError("missing ]")
+                    throw ParserError.unexpectedToken(currentToken)
                 }
                 next()
                 
@@ -597,14 +607,14 @@ private extension Parser {
                 next()
                 let memberName = try parseIdentifier()
                 guard case .openingParentheses = currentToken.type else {
-                    fatalError("static member call missing opening parens")
+                    throw ParserError.unexpectedToken(currentToken)
                 }
                 next()
                 
                 let arguments = try parseExpressionList()
                 
                 guard case .closingParentheses = currentToken.type else {
-                    fatalError("expected ) after static member call")
+                    throw ParserError.unexpectedToken(currentToken)
                 }
                 next()
                 
@@ -621,7 +631,7 @@ private extension Parser {
     
     func parseStringLiteral() throws -> ASTStringLiteral {
         guard case .stringLiteral(let value) = currentToken.type else {
-            throw ParserError.other("not a string literal")
+            throw ParserError.unexpectedToken(currentToken)
         }
         next()
         return ASTStringLiteral(value: value)
@@ -634,7 +644,7 @@ private extension Parser {
     // or ASTArrayGetter (ie when `foo.bar[expr]`)
     func parseMemberAccess() throws -> ASTExpression {
         guard case .identifier(_) = currentToken.type, case .period = peek().type, case .identifier(_) = peek(2).type else {
-            throw ParserError.other("not an identifier")
+            throw ParserError.unexpectedToken(currentToken)
         }
         
         let identifier = try parseIdentifier()
@@ -648,7 +658,7 @@ private extension Parser {
             next()
             let arguments = try parseExpressionList()
             guard case .closingParentheses = currentToken.type else {
-                fatalError("instance function missing )")
+                throw ParserError.unexpectedToken(currentToken)
             }
             next()
             
@@ -660,7 +670,7 @@ private extension Parser {
             next()
             let offset = try parseExpression()
             guard case .closingSquareBrackets = currentToken.type else {
-                fatalError("")
+                throw ParserError.unexpectedToken(currentToken)
             }
             next()
             return ASTArrayGetter(
@@ -697,7 +707,7 @@ private extension Parser {
             return ASTNumberLiteral(value: value)
         }
         
-        throw ParserError.other("not a number")
+        throw ParserError.unexpectedToken(currentToken)
     }
     
     
@@ -708,7 +718,7 @@ private extension Parser {
             return ASTIdentifier(name: name)
         }
         
-        throw ParserError.other("not an identifier")
+        throw ParserError.unexpectedToken(currentToken)
     }
     
     
