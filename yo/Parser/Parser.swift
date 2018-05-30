@@ -536,6 +536,19 @@ private extension Parser {
             return expression
         }
         
+        if case .openingSquareBrackets = currentToken.type {
+            next()
+            
+            let elements = try parseExpressionList()
+            
+            guard case .closingSquareBrackets = currentToken.type else {
+                fatalError("ugh")
+            }
+            next()
+            
+            return ASTArrayLiteral(elements: elements)
+        }
+        
         guard let expression: ASTExpression =
             (try? parseNumberLiteral())
             ?? (try? parseStringLiteral())
