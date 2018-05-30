@@ -15,8 +15,8 @@ enum HeapError: Error {
 }
 
 class Heap {
-    // static stored properties aren't supported in generic types :/
-    private static var resetOnFree: Bool { return true }
+    // whether data should be zeroed out on free
+    private static let resetOnFree = true
     
     let size: Int
     private(set) var stack: StackView! // we can't make this a stored property (let) bc the initializer takes `self`
