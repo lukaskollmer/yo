@@ -24,6 +24,52 @@
 		80AE212A20BB0D9F004900DC /* yo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE212920BB0D9F004900DC /* yo.swift */; };
 		80AE212C20BB0E43004900DC /* WIPInstruction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE212B20BB0E43004900DC /* WIPInstruction.swift */; };
 		80AE212E20BB13EA004900DC /* ImportPathResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE212D20BB13EA004900DC /* ImportPathResolver.swift */; };
+		80C82A0120BEE93500C97214 /* test.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80C82A0020BEE93500C97214 /* test.swift */; };
+		80C82A0620BEEBBD00C97214 /* extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834DB20B6D699009E59FC /* extensions.swift */; };
+		80C82A0720BEEBBD00C97214 /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834DD20B6D962009E59FC /* Log.swift */; };
+		80C82A0820BEEBBD00C97214 /* yo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE212920BB0D9F004900DC /* yo.swift */; };
+		80C82A0920BEEBBD00C97214 /* BytecodeInterpreter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47720B75F370043A6F6 /* BytecodeInterpreter.swift */; };
+		80C82A0A20BEEBBD00C97214 /* NativeFunction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49120B89C580043A6F6 /* NativeFunction.swift */; };
+		80C82A0B20BEEBBD00C97214 /* Runtime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49320B95A9A0043A6F6 /* Runtime.swift */; };
+		80C82A0C20BEEBBD00C97214 /* Heap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49B20B97DE60043A6F6 /* Heap.swift */; };
+		80C82A0D20BEEBBD00C97214 /* StackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49D20B9C0470043A6F6 /* StackView.swift */; };
+		80C82A0E20BEEBBD00C97214 /* BytecodeCompiler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47420B75EE40043A6F6 /* BytecodeCompiler.swift */; };
+		80C82A0F20BEEBBD00C97214 /* SemanticAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80F1E9B920BEB1A500336F4C /* SemanticAnalyzer.swift */; };
+		80C82A1020BEEBBD00C97214 /* Scope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48320B83C670043A6F6 /* Scope.swift */; };
+		80C82A1120BEEBBD00C97214 /* TypeCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE211820BA06D1004900DC /* TypeCache.swift */; };
+		80C82A1220BEEBBD00C97214 /* Instruction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47B20B7629C0043A6F6 /* Instruction.swift */; };
+		80C82A1320BEEBBD00C97214 /* Instruction+Debug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA4A420B9CB230043A6F6 /* Instruction+Debug.swift */; };
+		80C82A1420BEEBBD00C97214 /* SymbolMangling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA4A620B9D1B10043A6F6 /* SymbolMangling.swift */; };
+		80C82A1520BEEBBD00C97214 /* WIPInstruction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE212B20BB0E43004900DC /* WIPInstruction.swift */; };
+		80C82A1620BEEBBD00C97214 /* ImportPathResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE212D20BB13EA004900DC /* ImportPathResolver.swift */; };
+		80C82A1720BEEBBD00C97214 /* Lexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834EC20B6F311009E59FC /* Lexer.swift */; };
+		80C82A1820BEEBBD00C97214 /* Token.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834EF20B6F36B009E59FC /* Token.swift */; };
+		80C82A1920BEEBBD00C97214 /* Parser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834E220B6EABD009E59FC /* Parser.swift */; };
+		80C82A1A20BEEBBD00C97214 /* ASTNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834E420B6EAF1009E59FC /* ASTNode.swift */; };
+		80C82A1B20BEEBBD00C97214 /* ASTFunctionDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA46920B7468B0043A6F6 /* ASTFunctionDeclaration.swift */; };
+		80C82A1C20BEEBBD00C97214 /* ASTReturnStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA46B20B74B920043A6F6 /* ASTReturnStatement.swift */; };
+		80C82A1D20BEEBBD00C97214 /* ASTNumberLiteral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA46F20B758BE0043A6F6 /* ASTNumberLiteral.swift */; };
+		80C82A1E20BEEBBD00C97214 /* ASTNoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47120B75BE20043A6F6 /* ASTNoop.swift */; };
+		80C82A1F20BEEBBD00C97214 /* ASTFunctionCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47D20B8060B0043A6F6 /* ASTFunctionCall.swift */; };
+		80C82A2020BEEBBD00C97214 /* ASTBinop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47F20B826730043A6F6 /* ASTBinop.swift */; };
+		80C82A2120BEEBBD00C97214 /* ASTIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48120B82D990043A6F6 /* ASTIdentifier.swift */; };
+		80C82A2220BEEBBD00C97214 /* ASTCondition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48520B855650043A6F6 /* ASTCondition.swift */; };
+		80C82A2320BEEBBD00C97214 /* ASTComposite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48720B857860043A6F6 /* ASTComposite.swift */; };
+		80C82A2420BEEBBD00C97214 /* ASTUnary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48920B85BA00043A6F6 /* ASTUnary.swift */; };
+		80C82A2520BEEBBD00C97214 /* ASTAssignment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48F20B899980043A6F6 /* ASTAssignment.swift */; };
+		80C82A2620BEEBBD00C97214 /* ASTVariableDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49520B95BB60043A6F6 /* ASTVariableDeclaration.swift */; };
+		80C82A2720BEEBBD00C97214 /* ASTConditionalStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49920B965CE0043A6F6 /* ASTConditionalStatement.swift */; };
+		80C82A2820BEEBBD00C97214 /* ASTTypeDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA4A020B9C60F0043A6F6 /* ASTTypeDeclaration.swift */; };
+		80C82A2920BEEBBD00C97214 /* ASTArraySetter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA4A820B9D49B0043A6F6 /* ASTArraySetter.swift */; };
+		80C82A2A20BEEBBD00C97214 /* ASTArrayGetter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA4AA20B9D4C50043A6F6 /* ASTArrayGetter.swift */; };
+		80C82A2B20BEEBBD00C97214 /* ASTTypeMemberGetter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE211620BA046B004900DC /* ASTTypeMemberGetter.swift */; };
+		80C82A2C20BEEBBD00C97214 /* ASTTypeImplementation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE211A20BAB48D004900DC /* ASTTypeImplementation.swift */; };
+		80C82A2D20BEEBBD00C97214 /* ASTTypeMemberFunctionCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE212020BABB6E004900DC /* ASTTypeMemberFunctionCall.swift */; };
+		80C82A2E20BEEBBD00C97214 /* ASTTypeMemberSetter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE212220BAC1A3004900DC /* ASTTypeMemberSetter.swift */; };
+		80C82A2F20BEEBBD00C97214 /* ASTImportStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE212720BB0606004900DC /* ASTImportStatement.swift */; };
+		80C82A3020BEEBBD00C97214 /* ASTStringLiteral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804E4EB320BBE92800736FCC /* ASTStringLiteral.swift */; };
+		80C82A3120BEEBBD00C97214 /* ASTRawOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80F1E9B520BD658100336F4C /* ASTRawOperation.swift */; };
+		80C82A3220BEEBBD00C97214 /* ASTArrayLiteral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80F1E9B720BD95C200336F4C /* ASTArrayLiteral.swift */; };
 		80EAA46A20B7468B0043A6F6 /* ASTFunctionDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA46920B7468B0043A6F6 /* ASTFunctionDeclaration.swift */; };
 		80EAA46C20B74B920043A6F6 /* ASTReturnStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA46B20B74B920043A6F6 /* ASTReturnStatement.swift */; };
 		80EAA47020B758BE0043A6F6 /* ASTNumberLiteral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA46F20B758BE0043A6F6 /* ASTNumberLiteral.swift */; };
@@ -86,6 +132,9 @@
 		80AE212920BB0D9F004900DC /* yo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = yo.swift; sourceTree = "<group>"; };
 		80AE212B20BB0E43004900DC /* WIPInstruction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WIPInstruction.swift; sourceTree = "<group>"; };
 		80AE212D20BB13EA004900DC /* ImportPathResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportPathResolver.swift; sourceTree = "<group>"; };
+		80C829FE20BEE93500C97214 /* test.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = test.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		80C82A0020BEE93500C97214 /* test.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = test.swift; sourceTree = "<group>"; };
+		80C82A0220BEE93500C97214 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		80EAA46920B7468B0043A6F6 /* ASTFunctionDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTFunctionDeclaration.swift; sourceTree = "<group>"; };
 		80EAA46B20B74B920043A6F6 /* ASTReturnStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTReturnStatement.swift; sourceTree = "<group>"; };
 		80EAA46F20B758BE0043A6F6 /* ASTNumberLiteral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTNumberLiteral.swift; sourceTree = "<group>"; };
@@ -125,6 +174,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		80C829FB20BEE93500C97214 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -132,6 +188,7 @@
 			isa = PBXGroup;
 			children = (
 				8001BC8020B6CF8500B55D00 /* yo */,
+				80C829FF20BEE93500C97214 /* test */,
 				8001BC7F20B6CF8500B55D00 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -140,6 +197,7 @@
 			isa = PBXGroup;
 			children = (
 				8001BC7E20B6CF8500B55D00 /* yo */,
+				80C829FE20BEE93500C97214 /* test.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -175,6 +233,15 @@
 				804834EF20B6F36B009E59FC /* Token.swift */,
 			);
 			path = Lexer;
+			sourceTree = "<group>";
+		};
+		80C829FF20BEE93500C97214 /* test */ = {
+			isa = PBXGroup;
+			children = (
+				80C82A0020BEE93500C97214 /* test.swift */,
+				80C82A0220BEE93500C97214 /* Info.plist */,
+			);
+			path = test;
 			sourceTree = "<group>";
 		};
 		80EAA47320B75EDA0043A6F6 /* Bytecode Compiler */ = {
@@ -257,6 +324,23 @@
 			productReference = 8001BC7E20B6CF8500B55D00 /* yo */;
 			productType = "com.apple.product-type.tool";
 		};
+		80C829FD20BEE93500C97214 /* test */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 80C82A0520BEE93500C97214 /* Build configuration list for PBXNativeTarget "test" */;
+			buildPhases = (
+				80C829FA20BEE93500C97214 /* Sources */,
+				80C829FB20BEE93500C97214 /* Frameworks */,
+				80C829FC20BEE93500C97214 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = test;
+			productName = test;
+			productReference = 80C829FE20BEE93500C97214 /* test.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -268,6 +352,9 @@
 				ORGANIZATIONNAME = "Lukas Kollmer";
 				TargetAttributes = {
 					8001BC7D20B6CF8500B55D00 = {
+						CreatedOnToolsVersion = 9.3;
+					};
+					80C829FD20BEE93500C97214 = {
 						CreatedOnToolsVersion = 9.3;
 					};
 				};
@@ -285,9 +372,20 @@
 			projectRoot = "";
 			targets = (
 				8001BC7D20B6CF8500B55D00 /* yo */,
+				80C829FD20BEE93500C97214 /* test */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		80C829FC20BEE93500C97214 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		8001BC7A20B6CF8500B55D00 /* Sources */ = {
@@ -340,6 +438,59 @@
 				80F1E9B620BD658100336F4C /* ASTRawOperation.swift in Sources */,
 				80EAA47C20B7629C0043A6F6 /* Instruction.swift in Sources */,
 				80EAA47220B75BE20043A6F6 /* ASTNoop.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		80C829FA20BEE93500C97214 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				80C82A0620BEEBBD00C97214 /* extensions.swift in Sources */,
+				80C82A0720BEEBBD00C97214 /* Log.swift in Sources */,
+				80C82A0820BEEBBD00C97214 /* yo.swift in Sources */,
+				80C82A0920BEEBBD00C97214 /* BytecodeInterpreter.swift in Sources */,
+				80C82A0A20BEEBBD00C97214 /* NativeFunction.swift in Sources */,
+				80C82A0B20BEEBBD00C97214 /* Runtime.swift in Sources */,
+				80C82A0C20BEEBBD00C97214 /* Heap.swift in Sources */,
+				80C82A0D20BEEBBD00C97214 /* StackView.swift in Sources */,
+				80C82A0E20BEEBBD00C97214 /* BytecodeCompiler.swift in Sources */,
+				80C82A0F20BEEBBD00C97214 /* SemanticAnalyzer.swift in Sources */,
+				80C82A1020BEEBBD00C97214 /* Scope.swift in Sources */,
+				80C82A1120BEEBBD00C97214 /* TypeCache.swift in Sources */,
+				80C82A1220BEEBBD00C97214 /* Instruction.swift in Sources */,
+				80C82A1320BEEBBD00C97214 /* Instruction+Debug.swift in Sources */,
+				80C82A1420BEEBBD00C97214 /* SymbolMangling.swift in Sources */,
+				80C82A1520BEEBBD00C97214 /* WIPInstruction.swift in Sources */,
+				80C82A1620BEEBBD00C97214 /* ImportPathResolver.swift in Sources */,
+				80C82A1720BEEBBD00C97214 /* Lexer.swift in Sources */,
+				80C82A1820BEEBBD00C97214 /* Token.swift in Sources */,
+				80C82A1920BEEBBD00C97214 /* Parser.swift in Sources */,
+				80C82A1A20BEEBBD00C97214 /* ASTNode.swift in Sources */,
+				80C82A1B20BEEBBD00C97214 /* ASTFunctionDeclaration.swift in Sources */,
+				80C82A1C20BEEBBD00C97214 /* ASTReturnStatement.swift in Sources */,
+				80C82A1D20BEEBBD00C97214 /* ASTNumberLiteral.swift in Sources */,
+				80C82A1E20BEEBBD00C97214 /* ASTNoop.swift in Sources */,
+				80C82A1F20BEEBBD00C97214 /* ASTFunctionCall.swift in Sources */,
+				80C82A2020BEEBBD00C97214 /* ASTBinop.swift in Sources */,
+				80C82A2120BEEBBD00C97214 /* ASTIdentifier.swift in Sources */,
+				80C82A2220BEEBBD00C97214 /* ASTCondition.swift in Sources */,
+				80C82A2320BEEBBD00C97214 /* ASTComposite.swift in Sources */,
+				80C82A2420BEEBBD00C97214 /* ASTUnary.swift in Sources */,
+				80C82A2520BEEBBD00C97214 /* ASTAssignment.swift in Sources */,
+				80C82A2620BEEBBD00C97214 /* ASTVariableDeclaration.swift in Sources */,
+				80C82A2720BEEBBD00C97214 /* ASTConditionalStatement.swift in Sources */,
+				80C82A2820BEEBBD00C97214 /* ASTTypeDeclaration.swift in Sources */,
+				80C82A2920BEEBBD00C97214 /* ASTArraySetter.swift in Sources */,
+				80C82A2A20BEEBBD00C97214 /* ASTArrayGetter.swift in Sources */,
+				80C82A2B20BEEBBD00C97214 /* ASTTypeMemberGetter.swift in Sources */,
+				80C82A2C20BEEBBD00C97214 /* ASTTypeImplementation.swift in Sources */,
+				80C82A2D20BEEBBD00C97214 /* ASTTypeMemberFunctionCall.swift in Sources */,
+				80C82A2E20BEEBBD00C97214 /* ASTTypeMemberSetter.swift in Sources */,
+				80C82A2F20BEEBBD00C97214 /* ASTImportStatement.swift in Sources */,
+				80C82A3020BEEBBD00C97214 /* ASTStringLiteral.swift in Sources */,
+				80C82A3120BEEBBD00C97214 /* ASTRawOperation.swift in Sources */,
+				80C82A3220BEEBBD00C97214 /* ASTArrayLiteral.swift in Sources */,
+				80C82A0120BEE93500C97214 /* test.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -479,6 +630,42 @@
 			};
 			name = Release;
 		};
+		80C82A0320BEE93500C97214 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = A485NLSB8K;
+				INFOPLIST_FILE = test/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = me.lukaskollmer.test;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 4.0;
+			};
+			name = Debug;
+		};
+		80C82A0420BEE93500C97214 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = A485NLSB8K;
+				INFOPLIST_FILE = test/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = me.lukaskollmer.test;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 4.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -496,6 +683,15 @@
 			buildConfigurations = (
 				8001BC8620B6CF8500B55D00 /* Debug */,
 				8001BC8720B6CF8500B55D00 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		80C82A0520BEE93500C97214 /* Build configuration list for PBXNativeTarget "test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				80C82A0320BEE93500C97214 /* Debug */,
+				80C82A0420BEE93500C97214 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
