@@ -3,7 +3,7 @@ type Array(count: int, _allocatedLength: int, _backing: int[]);
 
 impl Array {
     static fn new(): Array {
-        ret Array::init(0, 1, runtime::alloc(1));
+        ret Array::init(0, 5, runtime::alloc(5));
     }
 
     fn add(self: Array, object: int): int {
