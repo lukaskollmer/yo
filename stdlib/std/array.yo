@@ -10,8 +10,26 @@ impl Array {
     }
 
     fn add(self: Array, object: int): int {
+        if self.count == self._allocatedLength {
+            // array is full, we need to switch to a bigger backing
+            
+            // TODO come up w/ some clever algorithm determining the new backing length?
+            val newLength: int = self._allocatedLength + 10;
+            val newBacking: int[] = runtime::alloc(newLength);
+
+            val idx: int = 0;
+            while idx < self.count {
+                newBacking[idx] = self._backing[idx];
+                idx += 1;
+            }
+
+            runtime::free(self._backing);
+            self._backing = newBacking;
+            self._allocatedLength = newLength;
+        }
+
         self._backing[self.count] = object;
-        self.count = self.count + 1;
+        self.count = self.count + 1; // TODO make this `self.count += 1;`
         ret self.count;
     }
 
