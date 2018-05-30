@@ -1,16 +1,16 @@
-type Array(count: int, backing: int[]);
+type Array(count: int, _allocatedLength: int, _backing: int[]);
 
-// TODO make the array automatically grow
+
 impl Array {
     static fn new(): Array {
         val array: Array;
 
-        array = Array::init(0, runtime::alloc(3));
+        array = Array::init(0, 1, runtime::alloc(1));
         ret array;
     }
 
     fn add(self: Array, object: int): int {
-        self.backing[self.count] = object;
+        self._backing[self.count] = object;
         self.count = self.count + 1;
         ret self.count;
     }
@@ -19,6 +19,14 @@ impl Array {
         if index < 0 || index > (self.count - 1) {
             ret -1; // TODO throw an error or exit the program
         }
-        ret self.backing[index];
+        ret self._backing[index];
+    }
+
+    fn length(self: Array): int {
+        ret self.count;
+    }
+
+    fn dealloc(self: Array): int {
+
     }
 }
