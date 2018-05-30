@@ -32,7 +32,7 @@
 		80C82A0A20BEEBBD00C97214 /* NativeFunction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49120B89C580043A6F6 /* NativeFunction.swift */; };
 		80C82A0B20BEEBBD00C97214 /* Runtime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49320B95A9A0043A6F6 /* Runtime.swift */; };
 		80C82A0C20BEEBBD00C97214 /* Heap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49B20B97DE60043A6F6 /* Heap.swift */; };
-		80C82A0D20BEEBBD00C97214 /* StackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49D20B9C0470043A6F6 /* StackView.swift */; };
+		80C82A0D20BEEBBD00C97214 /* Stack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49D20B9C0470043A6F6 /* Stack.swift */; };
 		80C82A0E20BEEBBD00C97214 /* BytecodeCompiler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA47420B75EE40043A6F6 /* BytecodeCompiler.swift */; };
 		80C82A0F20BEEBBD00C97214 /* SemanticAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80F1E9B920BEB1A500336F4C /* SemanticAnalyzer.swift */; };
 		80C82A1020BEEBBD00C97214 /* Scope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48320B83C670043A6F6 /* Scope.swift */; };
@@ -90,7 +90,7 @@
 		80EAA49620B95BB60043A6F6 /* ASTVariableDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49520B95BB60043A6F6 /* ASTVariableDeclaration.swift */; };
 		80EAA49A20B965CE0043A6F6 /* ASTConditionalStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49920B965CE0043A6F6 /* ASTConditionalStatement.swift */; };
 		80EAA49C20B97DE60043A6F6 /* Heap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49B20B97DE60043A6F6 /* Heap.swift */; };
-		80EAA49E20B9C0470043A6F6 /* StackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49D20B9C0470043A6F6 /* StackView.swift */; };
+		80EAA49E20B9C0470043A6F6 /* Stack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49D20B9C0470043A6F6 /* Stack.swift */; };
 		80EAA4A120B9C60F0043A6F6 /* ASTTypeDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA4A020B9C60F0043A6F6 /* ASTTypeDeclaration.swift */; };
 		80EAA4A520B9CB230043A6F6 /* Instruction+Debug.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA4A420B9CB230043A6F6 /* Instruction+Debug.swift */; };
 		80EAA4A720B9D1B10043A6F6 /* SymbolMangling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA4A620B9D1B10043A6F6 /* SymbolMangling.swift */; };
@@ -155,7 +155,7 @@
 		80EAA49520B95BB60043A6F6 /* ASTVariableDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTVariableDeclaration.swift; sourceTree = "<group>"; };
 		80EAA49920B965CE0043A6F6 /* ASTConditionalStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTConditionalStatement.swift; sourceTree = "<group>"; };
 		80EAA49B20B97DE60043A6F6 /* Heap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Heap.swift; sourceTree = "<group>"; };
-		80EAA49D20B9C0470043A6F6 /* StackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StackView.swift; sourceTree = "<group>"; };
+		80EAA49D20B9C0470043A6F6 /* Stack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stack.swift; sourceTree = "<group>"; };
 		80EAA4A020B9C60F0043A6F6 /* ASTTypeDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTTypeDeclaration.swift; sourceTree = "<group>"; };
 		80EAA4A420B9CB230043A6F6 /* Instruction+Debug.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Instruction+Debug.swift"; sourceTree = "<group>"; };
 		80EAA4A620B9D1B10043A6F6 /* SymbolMangling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymbolMangling.swift; sourceTree = "<group>"; };
@@ -251,10 +251,10 @@
 				80F1E9B920BEB1A500336F4C /* SemanticAnalyzer.swift */,
 				80EAA48320B83C670043A6F6 /* Scope.swift */,
 				80AE211820BA06D1004900DC /* TypeCache.swift */,
+				80AE212B20BB0E43004900DC /* WIPInstruction.swift */,
 				80EAA47B20B7629C0043A6F6 /* Instruction.swift */,
 				80EAA4A420B9CB230043A6F6 /* Instruction+Debug.swift */,
 				80EAA4A620B9D1B10043A6F6 /* SymbolMangling.swift */,
-				80AE212B20BB0E43004900DC /* WIPInstruction.swift */,
 				80AE212D20BB13EA004900DC /* ImportPathResolver.swift */,
 			);
 			path = "Bytecode Compiler";
@@ -267,7 +267,7 @@
 				80EAA49120B89C580043A6F6 /* NativeFunction.swift */,
 				80EAA49320B95A9A0043A6F6 /* Runtime.swift */,
 				80EAA49B20B97DE60043A6F6 /* Heap.swift */,
-				80EAA49D20B9C0470043A6F6 /* StackView.swift */,
+				80EAA49D20B9C0470043A6F6 /* Stack.swift */,
 			);
 			path = "Bytecode Interpreter";
 			sourceTree = "<group>";
@@ -414,7 +414,7 @@
 				80AE211920BA06D1004900DC /* TypeCache.swift in Sources */,
 				80EAA49A20B965CE0043A6F6 /* ASTConditionalStatement.swift in Sources */,
 				80EAA4A720B9D1B10043A6F6 /* SymbolMangling.swift in Sources */,
-				80EAA49E20B9C0470043A6F6 /* StackView.swift in Sources */,
+				80EAA49E20B9C0470043A6F6 /* Stack.swift in Sources */,
 				80EAA46A20B7468B0043A6F6 /* ASTFunctionDeclaration.swift in Sources */,
 				804834E320B6EABD009E59FC /* Parser.swift in Sources */,
 				80AE211720BA046B004900DC /* ASTTypeMemberGetter.swift in Sources */,
@@ -452,7 +452,7 @@
 				80C82A0A20BEEBBD00C97214 /* NativeFunction.swift in Sources */,
 				80C82A0B20BEEBBD00C97214 /* Runtime.swift in Sources */,
 				80C82A0C20BEEBBD00C97214 /* Heap.swift in Sources */,
-				80C82A0D20BEEBBD00C97214 /* StackView.swift in Sources */,
+				80C82A0D20BEEBBD00C97214 /* Stack.swift in Sources */,
 				80C82A0E20BEEBBD00C97214 /* BytecodeCompiler.swift in Sources */,
 				80C82A0F20BEEBBD00C97214 /* SemanticAnalyzer.swift in Sources */,
 				80C82A1020BEEBBD00C97214 /* Scope.swift in Sources */,

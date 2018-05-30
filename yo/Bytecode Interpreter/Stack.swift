@@ -1,5 +1,5 @@
 //
-//  StackView.swift
+//  Stack.swift
 //  yo
 //
 //  Created by Lukas Kollmer on 26.05.18.
@@ -9,8 +9,8 @@
 import Foundation
 
 
-// A wrapper around a `Heap` that implements a `Stack` growing from the end of the heap
-class StackView {
+// A wrapper around a `Heap` that implements a stack growing from the end of the heap
+class Stack {
     unowned let heap: Heap // TODO does unowned make sense here?
     let size: Int
     

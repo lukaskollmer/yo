@@ -21,7 +21,7 @@ extension Runtime {
         return SymbolMangling.mangleStaticMember(ofType: ns, memberName: name)
     }
     
-    typealias NativeFunctionImp = (StackView) -> Int
+    typealias NativeFunctionImp = (Stack) -> Int
     typealias NativeFunction = (name: String, argc: Int, address: Int, imp: NativeFunctionImp)
     
     static let builtins: [NativeFunction] = [
@@ -51,7 +51,7 @@ extension Runtime {
     
     // MARK: Native functions
     
-    private static func runtime_alloc(_ stack: StackView) -> Int {
+    private static func runtime_alloc(_ stack: Stack) -> Int {
         let size = stack.peek()
         let address = stack.heap.alloc(size: size)
         //stack.heap.retain(address: address)
@@ -61,21 +61,21 @@ extension Runtime {
     
     // MARK: Reference Counting
     
-    private static func runtime__getRetainCount(_ stack: StackView) -> Int {
+    private static func runtime__getRetainCount(_ stack: Stack) -> Int {
         return stack.heap.retainCount(ofAddress: stack.peek())
     }
     
-    private static func runtime__retain(_ stack: StackView) -> Int {
+    private static func runtime__retain(_ stack: Stack) -> Int {
         stack.heap.retain(address: stack.peek())
         return 0
     }
     
-    private static func runtime__release(_ stack: StackView) -> Int {
+    private static func runtime__release(_ stack: Stack) -> Int {
         stack.heap.release(address: stack.peek())
         return 0
     }
     
-    private static func runtime_free(_ stack: StackView) -> Int {
+    private static func runtime_free(_ stack: Stack) -> Int {
         stack.heap.free(address: stack.peek())
         return 0;
     }
@@ -84,7 +84,7 @@ extension Runtime {
     // MARK: io
     
     // print a string
-    private static func io_print(_ stack: StackView) -> Int {
+    private static func io_print(_ stack: Stack) -> Int {
         let address = stack.heap[stack.peek() + 1]
         let size = stack.heap[address]
         
@@ -100,7 +100,7 @@ extension Runtime {
     }
     
     // print an integer
-    private static func io_printi(_ stack: StackView) -> Int {
+    private static func io_printi(_ stack: Stack) -> Int {
         print(stack.peek())
         return 0;
     }

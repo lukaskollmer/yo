@@ -13,7 +13,7 @@ class BytecodeInterpreter {
     private let heap = Heap(size: 1 << 8)
     private let instructions: [InstructionDescriptor]
     
-    private var stack: StackView {
+    private var stack: Stack {
         return heap.stack
     }
     

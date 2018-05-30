@@ -19,7 +19,7 @@ class Heap {
     private static let resetOnFree = true
     
     let size: Int
-    private(set) var stack: StackView! // we can't make this a stored property (let) bc the initializer takes `self`
+    private(set) var stack: Stack! // we can't make this a stored property (let) bc the initializer takes `self`
     
     var backing = [Int]()
     let initialValue: Int = 0
@@ -28,7 +28,7 @@ class Heap {
     
     init(size: Int) {
         self.size = size
-        self.stack = StackView(heap: self)
+        self.stack = Stack(heap: self)
         
         for _ in 0..<size {
             backing.append(initialValue)
