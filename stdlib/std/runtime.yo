@@ -3,11 +3,22 @@ use "std/string";
 
 impl runtime {
 
+    // Increment an object's retain count by 1
+    static fn retain(obj: int): int {
+        runtime::_retain(obj);
+        ret obj;
+    }
+
+    // Decrement an object's retain count by 1
+    // If the object's new retain count is 0,
+    // we call the object's dealloc method and free it from the heap
     static fn release(obj: int): int {
         if runtime::_getRetainCount(obj) == 1 {
             runtime::dealloc(obj);
             runtime::free(obj);
+        } else {
+            runtime::_release(obj);
         }
-        runtime::_release(obj);
+        ret obj;
     }
 }
