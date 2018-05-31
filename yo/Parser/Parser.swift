@@ -11,7 +11,7 @@ import Foundation
 
 // MARK: Constants
 private let BinopTokenTypes: [TokenType] = [.plus, .minus, .asterik, .forwardSlash, .percentageSign]
-private let BinaryConditionTokenTypes: [TokenType] = [.doubleAmpersand, .doublePipe]
+//private let BinaryConditionTokenTypes: [TokenType] = [.doubleAmpersand, .doublePipe]
 
 
 // MARK: Errors
@@ -108,8 +108,9 @@ private extension Parser {
                 next()
                 var condition = try parseCondition()
                 
-                if let op = ASTBinaryCondition.Operator(tokenType: currentToken.type) {
+                if let op = ASTBinaryCondition.Operator(tokenTypes: currentToken.type, peek().type) {
                     next()
+                    next() // TODO is that second next correct?
                     let rhs = try parseCondition()
                     condition = ASTBinaryCondition(lhs: condition, operator: op, rhs: rhs)
                 }
@@ -725,13 +726,43 @@ private extension Parser {
     
     
     func parseCondition() throws -> ASTCondition {
-        // TODO add support for `<cond> && <cond>` and `!<expr>` conditions
+        // TODO add support for `!<expr>` conditions
         
         let lhs = try parseExpression()
-        let comparisonOperator = ASTComparison.Operator(tokenType: currentToken.type)! // TODO don't force unwrap this
-        next()
-        let rhs = try parseExpression()
         
+        // the comparison operator can be `<`, `>`, `<=`, `>=`, `==` or `!=`
+        
+        let comparisonOperator: ASTComparison.Operator
+        
+        switch (currentToken.type, peek().type) {
+        case (TokenType.less, TokenType.equalsSign):
+            comparisonOperator = .lessEqual
+            next()
+            
+        case (TokenType.greater, TokenType.equalsSign):
+            comparisonOperator = .greaterEqual
+            next()
+        
+        case (TokenType.less, _):
+            comparisonOperator = .less
+        
+        case (TokenType.greater, _):
+            comparisonOperator = .greater
+        
+        case (TokenType.equalsSign, TokenType.equalsSign):
+            comparisonOperator = .equal
+            next()
+        
+        case (TokenType.exclamationMark, TokenType.equalsSign):
+            comparisonOperator = .notEqual
+            next()
+        
+        default:
+            throw ParserError.other("invalid comparison operator")
+        }
+        next()
+        
+        let rhs = try parseExpression()
         return ASTComparison(lhs: lhs, operator: comparisonOperator, rhs: rhs)
         
     }

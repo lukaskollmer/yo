@@ -18,13 +18,14 @@ struct ASTBinaryCondition: ASTCondition {
         case and
         case or
         
-        init?(tokenType: TokenType) {
-            switch tokenType {
-            case .doubleAmpersand:
+        init?(tokenTypes tokenA: TokenType, _ tokenB: TokenType) {
+            switch (tokenA, tokenB) {
+            case (.ampersand, .ampersand):
                 self = .and
-            case .doublePipe:
+            case (.pipe, .pipe):
                 self = .or
-            default: return nil
+            default:
+                return nil
             }
         }
     }
@@ -43,19 +44,6 @@ struct ASTComparison: ASTCondition {
         case greater
         case lessEqual
         case greaterEqual
-        
-        init?(tokenType: TokenType) {
-            
-            switch tokenType {
-            case .equals:       self = .equal
-            case .notEqual:     self = .notEqual
-            case.less:          self = .less
-            case.greater:       self = .greater
-            case.lessEqual:     self = .lessEqual
-            case.greaterEqual:  self = .greaterEqual
-            default:            return nil
-            }
-        }
     }
     
     let lhs: ASTExpression
