@@ -53,7 +53,7 @@ impl Array {
         }
 
         val oldValue: int = self.get(index);
-        self.backing[index] = object;
+        self._backing[index] = object;
         ret oldValue;
     }
 
