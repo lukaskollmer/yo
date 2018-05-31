@@ -36,6 +36,7 @@ enum TokenType: Equatable, Hashable {
     case ampersand      // &
     case pipe           // |
     case circumflex     // ^
+    case tilde          // ~
     
     // other
     case period
