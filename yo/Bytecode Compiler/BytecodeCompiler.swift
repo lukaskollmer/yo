@@ -490,7 +490,7 @@ private extension BytecodeCompiler {
         let isConstant = arrayLiteral.elements.all { $0 is ASTNumberLiteral }
         
         if isConstant {
-            let values: [Int] = arrayLiteral.elements.map { ($0 as! ASTNumberLiteral).value }
+            let values = arrayLiteral.elements.map { ($0 as! ASTNumberLiteral).value }
             let label = UUID().uuidString
             instructions.append(.arrayLiteral(label, values))
             

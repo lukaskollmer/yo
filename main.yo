@@ -1,9 +1,14 @@
-use "std/string";
-use "std/runtime";
+//use "std/string";
+//use "std/runtime";
 use "std/array";
 
-fn main(): int {
+fn double(x: int): int {
+    ret x * 2;
+}
 
+fn main(): int {
     val x: Array = [7, 8, 9];
+
+    //val y: Array = [double(1), double(2), double(3)];
 
 }
