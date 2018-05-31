@@ -32,8 +32,4 @@ struct ASTFunctionDeclaration: ASTStatement {
             return SymbolMangling.mangleStaticMember(ofType: typename, memberName: name.name)
         }
     }
-    
-    var localVariables: [ASTVariableDeclaration] {
-        return body.localVariables
-    }
 }

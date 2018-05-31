@@ -235,11 +235,11 @@ private extension BytecodeCompiler {
     
     
     func handle(function: ASTFunctionDeclaration) {
-        guard function.localVariables.intersection(with: function.parameters).isEmpty else {
+        guard function.body.getLocalVariables(recursive: true).intersection(with: function.parameters).isEmpty else {
             fatalError("local variable cannot (yet?) shadow parameter")
         }
         
-        withScope(Scope(type: .function(function.mangledName), parameters: function.parameters, localVariables: function.localVariables)) {
+        withScope(Scope(type: .function(function.mangledName), parameters: function.parameters, localVariables: function.body.getLocalVariables(recursive: true))) {
             // function entry point
             add(label: function.mangledName)
             
