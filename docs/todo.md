@@ -5,3 +5,6 @@
 - [ ] tests
 - [ ] bitwise operators (NOT, AND, OR, XOR)
 - [ ] bitshift operators
+- [ ] implement bools
+- [ ] add support for floating point numbers
+- [ ] array literals
