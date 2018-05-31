@@ -1,0 +1,7 @@
+- [ ] reference counting
+- [ ] `self.foo += x;` assignments
+- [ ] chained property access
+- [ ] chained method calls
+- [ ] tests
+- [ ] bitwise operators (NOT, AND, OR, XOR)
+- [ ] bitshift operators
