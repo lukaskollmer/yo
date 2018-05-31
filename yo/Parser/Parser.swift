@@ -10,7 +10,15 @@ import Foundation
 
 
 // MARK: Constants
-private let BinopTokenTypes: [TokenType] = [.plus, .minus, .asterik, .forwardSlash, .percentageSign]
+
+// Note: this array only contains the first token of multi token operators (ie `<` instead of `<<`)
+private let BinaryOperationTokens: [TokenType] = [
+    // arithmetic operations
+    .plus, .minus, .asterik, .forwardSlash, .percentageSign,
+    
+    // bitwise operations
+    .ampersand, .pipe, .circumflex, .tilde, .less, .greater
+]
 
 
 // MARK: Errors
@@ -194,11 +202,51 @@ private extension Parser {
                 let identifier = try parseIdentifier()
                 
                 
-                if BinopTokenTypes.contains(currentToken.type),
-                    case .equalsSign = peek().type,
-                    let binopOperator = ASTBinop.Operator(tokenType: currentToken.type) {
-                    next() // skip the binop
-                    next() // skip the equals sign
+                if BinaryOperationTokens.contains(currentToken.type) {
+                    // in-place binary operation
+                    // ie something like `foo += 1;`
+                    
+                    // possible operations are: `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`
+                    
+                    let binaryOperation: ASTBinaryOperation.BinopOperation
+                    
+                    switch (currentToken.type, peek().type, peek(2).type) {
+                    case (.greater, .greater, .equalsSign):
+                        binaryOperation = .shr
+                        next()
+                        
+                    case (.less, .less, .equalsSign):
+                        binaryOperation = .shl
+                        next()
+                        
+                    case (.plus, .equalsSign, _):
+                        binaryOperation = .add
+                        
+                    case (.minus, .equalsSign, _):
+                        binaryOperation = .sub
+                        
+                    case (.asterik, .equalsSign, _):
+                        binaryOperation = .add
+                        
+                    case (.forwardSlash, .equalsSign, _):
+                        binaryOperation = .add
+                        
+                    case (.percentageSign, .equalsSign, _):
+                        binaryOperation = .add
+                        
+                    case (.ampersand, .equalsSign, _):
+                        binaryOperation = .add
+                        
+                    case (.pipe, .equalsSign, _):
+                        binaryOperation = .add
+                        
+                    case (.circumflex, .equalsSign, _):
+                        binaryOperation = .add
+                    default:
+                        fatalError("TODO")
+                    }
+                    next()
+                    next()
                     
                     let rhs = try parseExpression()
                     
@@ -207,8 +255,9 @@ private extension Parser {
                     }
                     next()
                     
-                    return ASTAssignment(target: identifier, value: ASTBinop(lhs: identifier, operator: binopOperator, rhs: rhs))
+                    return ASTAssignment(target: identifier, value: ASTBinaryOperation(lhs: identifier, operation: binaryOperation, rhs: rhs))
                 }
+                
                 
                 if case .equalsSign = currentToken.type {
                     next()
@@ -567,10 +616,60 @@ private extension Parser {
             throw ParserError.unexpectedToken(currentToken)
         }
         
-        if BinopTokenTypes.contains(currentToken.type), let binopOperator = ASTBinop.Operator(tokenType: currentToken.type) {
+        
+        binopParsing: if BinaryOperationTokens.contains(currentToken.type) {
+            
+            let binaryOperation: ASTBinaryOperation.BinopOperation
+            
+            switch (currentToken.type, peek().type) {
+                
+            case (.pipe, .pipe), (.ampersand, .ampersand):
+                // got `||` or `&&` while parsing for an expression
+                break binopParsing
+                
+            case (.less, .less):
+                binaryOperation = .shl
+                next()
+            
+            case (.greater, .greater):
+                binaryOperation = .shr
+                next()
+                
+            case (.plus, _):
+                binaryOperation = .add
+                
+            case (.minus, _):
+                binaryOperation = .sub
+                
+            case (.asterik, _):
+                binaryOperation = .mul
+                
+            case (.forwardSlash, _):
+                binaryOperation = .div
+                
+            case (.percentageSign, _):
+                binaryOperation = .mod
+                
+            case (.ampersand, _):
+                binaryOperation = .and
+                
+            case (.pipe, _):
+                binaryOperation = .or
+                
+            case (.circumflex, _):
+                binaryOperation = .xor
+                
+            default:
+                break binopParsing
+            }
+            
             next()
-            return ASTBinop(lhs: expression, operator: binopOperator, rhs: try parseExpression())
+            
+            return ASTBinaryOperation(lhs: expression, operation: binaryOperation, rhs: try parseExpression())
+            
+            
         }
+
         
         if let identifier = expression as? ASTIdentifier {
             

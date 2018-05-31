@@ -108,7 +108,7 @@ private extension BytecodeCompiler {
         } else if let functionCall = node as? ASTFunctionCall {
             handle(functionCall: functionCall)
             
-        } else if let binop = node as? ASTBinop {
+        } else if let binop = node as? ASTBinaryOperation {
             handle(binop: binop)
             
         } else if let identifier = node as? ASTIdentifier {
@@ -442,15 +442,16 @@ private extension BytecodeCompiler {
     }
     
     
-    func handle(binop: ASTBinop) {
+    func handle(binop: ASTBinaryOperation) {
         handle(node: binop.rhs)
         handle(node: binop.lhs)
         
-        add(binop.operator.operation)
+        add(binop.operation.operation)
     }
     
     func handle(unary: ASTUnary) {
-        handle(binop: ASTBinop(lhs: ASTNumberLiteral(value: -1), operator: .mul, rhs: unary.expression))
+        // TODO add support for NOT
+        handle(binop: ASTBinaryOperation(lhs: ASTNumberLiteral(value: -1), operation: .mul, rhs: unary.expression))
     }
     
     

@@ -43,6 +43,13 @@ enum Operation: Int {
     case div
     case mod
     
+    // bitwise operations
+    case and
+    case or
+    case xor
+    case shl
+    case shr
+    
     case not
     
     // comparisons

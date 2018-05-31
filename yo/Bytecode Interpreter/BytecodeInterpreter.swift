@@ -100,8 +100,26 @@ extension BytecodeInterpreter {
         case .mod:
             try stack.push(try stack.pop() % stack.pop())
             
+            
+        case .and:
+            try stack.push(try stack.pop() & stack.pop())
+            
+        case .or:
+            try stack.push(try stack.pop() | stack.pop())
+        
+        case .xor:
+            try stack.push(try stack.pop() ^ stack.pop())
+        
+        case .shl:
+            try stack.push(try stack.pop() << stack.pop())
+            
+        case .shr:
+            try stack.push(try stack.pop() >> stack.pop())
+            
+            
         case .not:
             try stack.push(~(try stack.pop()))
+            
             
         case .eq:
             try stack.push((try stack.pop() == stack.pop()) ? -1 : 0)
