@@ -484,7 +484,7 @@ private extension BytecodeCompiler {
         // TODO if the array is just number literals, store it as a constant (like strings)
         // otherwise, just generate a bunch of Array.add calls? (that wouldn't work inline)
         
-        let isConstant = arrayLiteral.elements.all { $0 is ASTNumberLiteral } // TODO
+        let isConstant = arrayLiteral.elements.all { $0 is ASTNumberLiteral }
         
         if isConstant {
             let values: [Int] = arrayLiteral.elements.map { ($0 as! ASTNumberLiteral).value }
@@ -494,7 +494,7 @@ private extension BytecodeCompiler {
             add(.loadc, unresolvedLabel: label)
             
             let initCall = ASTFunctionCall(
-                functionName: SymbolMangling.mangleStaticMember(ofType: "Array", memberName: "fromLiteral"),
+                functionName: SymbolMangling.mangleStaticMember(ofType: "Array", memberName: "_fromLiteral"),
                 arguments: [ASTNoop()], // the parameter is already on the stack, from the `loadc` instruction above
                 unusedReturnValue: false
             )
