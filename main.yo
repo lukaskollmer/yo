@@ -3,14 +3,7 @@ use "std/runtime";
 use "std/array";
 
 fn main(): int {
-    val arr: Array = Array::new();
-    runtime::retain(arr);
 
-    val i: int = 1;
-    while i <= 25 {
-        io::printi(arr.add(i));
-        i += 1;
-    }
+    val x: int[] = [7, 8, 9];
 
-    runtime::release(arr);
 }

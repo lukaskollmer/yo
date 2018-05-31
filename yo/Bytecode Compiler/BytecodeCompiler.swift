@@ -162,8 +162,9 @@ private extension BytecodeCompiler {
         } else if let rawInstruction = node as? ASTRawWIPInstruction {
             instructions.append(rawInstruction.instruction)
             
-        } else if let _ = node as? ASTArrayLiteral {
-            // TODO
+        } else if let arrayLiteral = node as? ASTArrayLiteral {
+            handle(arrayLiteral: arrayLiteral)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -481,7 +482,27 @@ private extension BytecodeCompiler {
     
     func handle(arrayLiteral: ASTArrayLiteral) {
         // TODO if the array is just number literals, store it as a constant (like strings)
-        // otherwise, just generate a bunch of Array.add calls
+        // otherwise, just generate a bunch of Array.add calls? (that wouldn't work inline)
+        
+        let isConstant = arrayLiteral.elements.all { $0 is ASTNumberLiteral } // TODO
+        
+        if isConstant {
+            let values: [Int] = arrayLiteral.elements.map { ($0 as! ASTNumberLiteral).value }
+            let label = UUID().uuidString
+            instructions.append(.arrayLiteral(label, values))
+            
+            add(.loadc, unresolvedLabel: label)
+            
+            let initCall = ASTFunctionCall(
+                functionName: SymbolMangling.mangleStaticMember(ofType: "Array", memberName: "fromLiteral"),
+                arguments: [ASTNoop()], // the parameter is already on the stack, from the `loadc` instruction above
+                unusedReturnValue: false
+            )
+            handle(functionCall: initCall)
+            return
+        }
+        
+        fatalError("array literals for non-constant values not yet implemented")
     }
     
     

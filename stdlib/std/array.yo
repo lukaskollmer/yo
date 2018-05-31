@@ -9,6 +9,25 @@ impl Array {
         ret Array::init(0, 5, runtime::alloc(5));
     }
 
+    static fn fromLiteral(address: int): int {
+        // since the array we get in `address` also contains its length (at index 0),
+        // we allocate a new array as our backing and free the one we got.
+        // This is important for Array.dealloc to work properly.
+        // (If we just set `_backing` to `address + 1`, we couldn't free it because there's no
+        // way of knowing whether the array was created via literal or not)
+        val length: int = address[0];
+        val backing: int[] = runtime::alloc(length);
+
+        val idx: int = 0;
+        while idx < length {
+            backing[idx] = address[idx + 1];
+            idx += 1;
+        }
+
+        runtime::free(address);
+        ret Array::init(length, length, backing);
+    }
+
 
     // Add an object to the array
     fn add(self: Array, object: int): int {
