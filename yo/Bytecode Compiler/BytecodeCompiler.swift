@@ -90,6 +90,17 @@ private extension BytecodeCompiler {
     func add(_ operation: Operation, unresolvedLabel: String) {
         instructions.append(.unresolved(operation, unresolvedLabel))
     }
+    
+    
+    // updates the scope until `block` returns
+    func withScope(_ newScope: Scope, block: () -> Void) {
+        let previousScope = scope
+        scope = newScope
+        
+        block()
+        
+        scope = previousScope
+    }
 }
 
 private extension BytecodeCompiler {
@@ -228,30 +239,22 @@ private extension BytecodeCompiler {
             fatalError("local variable cannot (yet?) shadow parameter")
         }
         
-        // Save the current scope
-        let previousScope = scope
-        
-        // Update the scope. This is important because we need knowledge about the function's
-        // parameters and local variables when generating instructions for the function body
-        scope = Scope(type: .function(function.mangledName), parameters: function.parameters, localVariables: function.localVariables)
-        
-        // function entry point
-        add(label: function.mangledName)
-        
-        // allocate space for local variables?
-        let numberOfLocalVariables = scope.size - function.parameters.count
-        add(.alloc, numberOfLocalVariables)
-        
-        // Generate instructions for the function body
-        function.body.forEach(handle)
-        
-        // if the function doesn't have a return statement, we implicitly return 0
-        if !(function.body.last is ASTReturnStatement) {
-            handle(return: ASTReturnStatement(returnValueExpression: ASTNumberLiteral(value: 0)))
+        withScope(Scope(type: .function(function.mangledName), parameters: function.parameters, localVariables: function.localVariables)) {
+            // function entry point
+            add(label: function.mangledName)
+            
+            // allocate space for local variables?
+            let numberOfLocalVariables = scope.size - function.parameters.count
+            add(.alloc, numberOfLocalVariables)
+            
+            // Generate instructions for the function body
+            function.body.forEach(handle)
+            
+            // if the function doesn't have a return statement, we implicitly return 0
+            if !(function.body.last is ASTReturnStatement) {
+                handle(return: ASTReturnStatement(returnValueExpression: ASTNumberLiteral(value: 0)))
+            }
         }
-        
-        // Restore the old scope
-        scope = previousScope
     }
     
     
