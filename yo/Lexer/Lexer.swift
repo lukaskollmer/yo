@@ -18,7 +18,7 @@ private let identifierCharacters = CharacterSet.alphanumerics.union(identifierSt
 // set of characters we ignore
 private let ignoredCharacters: [Unicode.Scalar] = [" "] // TODO what about CharacterSet.whitespace?
 // set of characters that delimit whetever we're currently lexing (ie the x in `(x` )
-private let delimiters = CharacterSet(charactersIn: " .,+-*/;:(){}[]\n") // TODO give this a more descriptive name
+private let delimiters = CharacterSet(charactersIn: " .,+-*/;:=<>&^|(){}[]\n") // TODO give this a more descriptive name
 
 private let tokenMapping: [String: TokenType] = [
     "."     : .period,
@@ -42,15 +42,13 @@ private let tokenMapping: [String: TokenType] = [
     "="     : .equalsSign,
     
     // comparisions
-    "=="    : .equals,
-    "!="    : .notEqual,
+    "!"     : .exclamationMark,
     "<"     : .less,
     ">"     : .greater,
-    "<="    : .lessEqual,
-    ">="    : .greaterEqual,
     
-    "&&"    : .doubleAmpersand,
-    "||"    : .doublePipe,
+    "&"     : .ampersand,
+    "|"     : .ampersand,
+    "^"     : .ampersand,
     
     // keywords
     "use"   : .use,

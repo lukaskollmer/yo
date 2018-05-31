@@ -28,16 +28,14 @@ enum TokenType: Equatable, Hashable {
     case forwardSlash   // /
     case percentageSign // %
     
+    case exclamationMark// !
     case equalsSign     // =
-    case equals         // ==
-    case notEqual       // !=
     case less           // <
     case greater        // >
-    case lessEqual      // <=
-    case greaterEqual   // >=
     
-    case doubleAmpersand
-    case doublePipe
+    case ampersand      // &
+    case pipe           // |
+    case circumflex     // ^
     
     // other
     case period
