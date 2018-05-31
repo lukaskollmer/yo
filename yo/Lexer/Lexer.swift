@@ -47,8 +47,8 @@ private let tokenMapping: [String: TokenType] = [
     ">"     : .greater,
     
     "&"     : .ampersand,
-    "|"     : .ampersand,
-    "^"     : .ampersand,
+    "|"     : .pipe,
+    "^"     : .circumflex,
     
     // keywords
     "use"   : .use,
