@@ -144,6 +144,11 @@ private extension Parser {
                 
                 
                 
+            case .for:
+                throw ParserError.other("for loops aren't yet implemented")
+                
+                
+                
             case .val: // variable declaration
                 next()
                 let name = try parseIdentifier()
