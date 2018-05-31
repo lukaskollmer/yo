@@ -42,4 +42,8 @@ class test: XCTestCase {
         XCTAssertEqual(12, try! yo.run(code: readTestSource("src/functionCall.yo")))
     }
     
+    func testBinaryOperations() {
+        XCTAssertEqual(0, try! yo.run(code: readTestSource("src/binop.yo")))
+    }
+    
 }
