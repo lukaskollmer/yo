@@ -4,6 +4,6 @@ use "std/array";
 
 fn main(): int {
 
-    val x: int[] = [7, 8, 9];
+    val x: Array = [7, 8, 9];
 
 }
