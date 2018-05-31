@@ -11,7 +11,6 @@ import Foundation
 
 // MARK: Constants
 private let BinopTokenTypes: [TokenType] = [.plus, .minus, .asterik, .forwardSlash, .percentageSign]
-//private let BinaryConditionTokenTypes: [TokenType] = [.doubleAmpersand, .doublePipe]
 
 
 // MARK: Errors
