@@ -497,7 +497,7 @@ private extension BytecodeCompiler {
             add(.loadc, unresolvedLabel: label)
             
             let initCall = ASTFunctionCall(
-                functionName: SymbolMangling.mangleStaticMember(ofType: "Array", memberName: "_fromLiteral"),
+                functionName: SymbolMangling.mangleStaticMember(ofType: "Array", memberName: "_fromConstantLiteral"),
                 arguments: [ASTNoop()], // the parameter is already on the stack, from the `loadc` instruction above
                 unusedReturnValue: false
             )

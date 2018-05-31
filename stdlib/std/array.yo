@@ -9,7 +9,7 @@ impl Array {
         ret Array::init(0, 5, runtime::alloc(5));
     }
 
-    static fn _fromLiteral(address: int): int {
+    static fn _fromConstantLiteral(address: int): int {
         // since the array we get in `address` also contains its length (at index 0),
         // we allocate a new array as our backing and free the one we got.
         // This is important for Array.dealloc to work properly.
