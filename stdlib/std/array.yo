@@ -64,6 +64,12 @@ impl Array {
     }
 
 
+    // Remove an object from the array
+    fn remove(self: Array, index: int): int {
+        // TODO
+    }
+
+
     // Get the number of objects in the array
     fn length(self: Array): int {
         ret self.count;
