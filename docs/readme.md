@@ -14,7 +14,7 @@ fn main(): int {
 ```
 
 ## Documentation
-Documentation is available in the [/docs](/docs) folder
+- [Syntax](syntax.md)
 
 
 ## License

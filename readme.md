@@ -14,7 +14,7 @@ fn main(): int {
 ```
 
 ## Documentation
-Documentation is available in the [/docs](/docs) folder
+You can find some documentation [here](https://lukaskollmer.me/yo)
 
 
 ## License
