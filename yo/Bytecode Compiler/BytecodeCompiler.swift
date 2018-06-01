@@ -204,6 +204,7 @@ private extension BytecodeCompiler {
             name: ASTIdentifier(name: "init"),
             parameters: typeDeclaration.attributes,
             returnType: typeDeclaration.name,
+            kind: .staticImpl(typename),
             body: [
                 // 1. declare self
                 ASTVariableDeclaration(identifier: _self, typename: typeDeclaration.name),
@@ -245,8 +246,7 @@ private extension BytecodeCompiler {
                 
                 // 4. return the newly created object
                 ASTReturnStatement(returnValueExpression: _self)
-            ],
-            kind: .staticImpl(typename)
+            ]
         )
         
         handle(function: initializer)

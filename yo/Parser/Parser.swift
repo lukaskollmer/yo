@@ -544,8 +544,8 @@ private extension Parser {
             name: ASTIdentifier(name: functionName),
             parameters: parameters,
             returnType: returnType,
-            body: functionBody,
-            kind: kind
+            kind: kind,
+            body: functionBody
         )
     }
     
