@@ -47,6 +47,7 @@ impl runtime {
 
 
     static fn getRetainCount(obj: int): int {
+        // TODO get rid of this ugly literal
         val retainCount: int = obj[0] & 0b0000000000000000000000001111111111111111111100000000000000000000;
         ret retainCount >> 20;
     }
