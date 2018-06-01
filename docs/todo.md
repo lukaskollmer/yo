@@ -8,4 +8,7 @@
 - [ ] implement bools
 - [ ] add support for floating point numbers
 - [ ] array literals
+- [ ] nested binops (`((1 << 4) << 7)`)
 - [x] binary number literals
+- [x] `ret obj[0] & 1048575;`
+- [ ] underscores in number literals
