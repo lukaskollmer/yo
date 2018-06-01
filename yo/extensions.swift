@@ -73,7 +73,8 @@ extension String {
 // CharacterSet
 extension String {
     func allScalarsInCharacterSet(_ set: CharacterSet) -> Bool {
-        return self.unicodeScalars.first(where: { !set.contains($0) }) == nil
+        return self.unicodeScalars.all { set.contains($0) }
+        //return self.unicodeScalars.first(where: { !set.contains($0) }) == nil
     }
 }
 
