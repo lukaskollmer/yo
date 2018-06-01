@@ -23,6 +23,11 @@ extension Sequence {
         }
         return true
     }
+    
+    
+    func any(_ block:(Element) -> Bool) -> Bool {
+        return self.first(where: block) != nil
+    }
 }
 
 

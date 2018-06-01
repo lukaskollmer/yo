@@ -1,30 +1,27 @@
 use "std/string";
-use "std/runtime";
-use "std/array";
 
-fn double(x: int): int {
-    ret x * 2;
+
+type Person(age: int);
+
+impl Person {
+    fn dealloc(self: Person): int {
+    }
 }
 
+
+
+fn foo(): int {
+}
+
+
 fn main(): int {
-    //val x: Array = [7, 8, 9];
+    //foo();
 
-    val x: Array = Array::new();
-    x.add(1);
-    x.add(2);
-    x.add(3);
+    if 1 > 0 {
+        io::print("OH MY");
+    }
 
-    io::printi(runtime::getRetainCount(x));
-    runtime::retain(x);
-    runtime::retain(x);
-    io::printi(runtime::getRetainCount(x));
+    io::print("hi");
 
-    runtime::release(x);
-    runtime::release(x);
-    io::printi(runtime::getRetainCount(x));
-
-    ret x;
-
-    //val y: Array = [double(1), double(2), double(3)];
-
+    ret 21;
 }

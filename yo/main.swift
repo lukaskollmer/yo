@@ -8,8 +8,6 @@
 
 import Foundation
 
-
-
 // TODO set this dynamically!
 yo.workingDirectory = "/Users/lukas/Developer/yo"
 
