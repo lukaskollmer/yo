@@ -12,3 +12,4 @@
 - [x] binary number literals
 - [x] `ret obj[0] & 1048575;`
 - [ ] underscores in number literals
+- [ ] implicitly import stdlib modules (ie import "std/string" if the code contains a string literal, same for numbers)
