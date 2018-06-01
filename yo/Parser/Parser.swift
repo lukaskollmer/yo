@@ -648,7 +648,6 @@ private extension Parser {
                 }
                 next()
                 expression = ASTArrayGetter(target: identifier, offset: offset)
-                //return ASTArrayGetter(target: identifier, offset: offset)
             }
             
             if case .colon = currentToken.type, case .colon = peek().type {
@@ -668,7 +667,7 @@ private extension Parser {
                 }
                 next()
                 
-                expression =  ASTFunctionCall(
+                expression = ASTFunctionCall(
                     functionName: SymbolMangling.mangleStaticMember(ofType: identifier.name, memberName: memberName.name),
                     arguments: arguments,
                     unusedReturnValue: false) // TODO is false the right assumption here?
