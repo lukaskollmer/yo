@@ -16,6 +16,8 @@ impl runtime {
 
     // Increment an object's retain count by 1
     static fn retain(obj: int): int {
+        if obj == 0 { ret 0; }
+
         ret runtime::_setRetainCount(obj, runtime::getRetainCount(obj) + 1);
     }
 
@@ -24,6 +26,8 @@ impl runtime {
     // If the object's new retain count is 0,
     // we call the object's dealloc method and free it from the heap
     static fn release(obj: int): int {
+        if obj == 0 { ret 0; }
+
         if runtime::getRetainCount(obj) == 1 {
             runtime::dealloc(obj);
             runtime::free(obj);
@@ -35,6 +39,8 @@ impl runtime {
 
 
     static fn _setRetainCount(obj: int, newValue: int): int {
+        if obj == 0 { ret 0; }
+
         val typeId: int = runtime::getTypeId(obj);
         val deallocAddress: int = obj[0] >> 40;
 
@@ -47,6 +53,8 @@ impl runtime {
 
 
     static fn getRetainCount(obj: int): int {
+        if obj == 0 { ret 0; }
+        
         val retainCount: int = obj[0] & 0xfffff00000;
         ret retainCount >> 20;
     }
