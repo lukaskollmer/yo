@@ -4,7 +4,7 @@ use "std/string";
 impl runtime {
 
     // Note: type ids are not guaranteed to be the same across different compilations of the same program
-    static fn getTypeId(obj: int): int {
+    static fn getTypeId(obj: id): int {
         ret obj[0] & 0xfffff;
     }
 
@@ -15,7 +15,7 @@ impl runtime {
     //
 
     // Increment an object's retain count by 1
-    static fn retain(obj: int): int {
+    static fn retain(obj: id): id {
         ret runtime::_setRetainCount(obj, runtime::getRetainCount(obj) + 1);
     }
 
@@ -23,7 +23,7 @@ impl runtime {
     // Decrement an object's retain count by 1
     // If the object's new retain count is 0,
     // we call the object's dealloc method and free it from the heap
-    static fn release(obj: int): int {
+    static fn release(obj: id): id {
         if runtime::getRetainCount(obj) == 1 {
             runtime::dealloc(obj);
             runtime::free(obj);
@@ -34,7 +34,7 @@ impl runtime {
     }
 
 
-    static fn _setRetainCount(obj: int, newValue: int): int {
+    static fn _setRetainCount(obj: id, newValue: int): id {
         val typeId: int = runtime::getTypeId(obj);
         val deallocAddress: int = obj[0] >> 40;
 
@@ -46,7 +46,7 @@ impl runtime {
     }
 
 
-    static fn getRetainCount(obj: int): int {
+    static fn getRetainCount(obj: id): int {
         val retainCount: int = obj[0] & 0xfffff00000;
         ret retainCount >> 20;
     }

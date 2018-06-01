@@ -9,7 +9,7 @@ impl Array {
         ret Array::init(0, 5, runtime::alloc(5));
     }
 
-    static fn _fromConstantLiteral(address: int): int {
+    static fn _fromConstantLiteral(address: int): Array {
         // since the array we get in `address` also contains its length (at index 0),
         // we allocate a new array as our backing and free the one we got.
         // This is important for Array.dealloc to work properly.
@@ -30,7 +30,7 @@ impl Array {
 
 
     // Add an object to the array
-    fn add(self: Array, object: int): int {
+    fn add(self: Array, object: id): id {
         if self.count == self._allocatedLength {
             // array is full, we need to switch to a bigger backing
 
@@ -56,7 +56,7 @@ impl Array {
 
 
     // Get the object at `index`
-    fn get(self: Array, index: int): int {
+    fn get(self: Array, index: int): id {
         if index < 0 || index > (self.count - 1) {
             ret -1; // TODO throw an error or exit the program
         }
@@ -66,7 +66,7 @@ impl Array {
 
     // Set the object at `index`
     // Returns the previous value
-    fn set(self: Array, index: int, object: int): int {
+    fn set(self: Array, index: int, object: id): id {
         if index < 0 || index  > (self.count - 1) {
             ret -1; // TODO throw an error or exit the program
         }
@@ -78,7 +78,7 @@ impl Array {
 
 
     // Check whether the array contains an object
-    fn contains(self: Array, object: int): int {
+    fn contains(self: Array, object: id): int {
         // TODO
     }
 
