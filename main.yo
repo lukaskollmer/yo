@@ -1,6 +1,6 @@
-//use "std/string";
-//use "std/runtime";
-//use "std/array";
+use "std/string";
+use "std/runtime";
+use "std/array";
 
 fn double(x: int): int {
     ret x * 2;
@@ -9,15 +9,21 @@ fn double(x: int): int {
 fn main(): int {
     //val x: Array = [7, 8, 9];
 
-    val i: int = 0;
+    val x: Array = Array::new();
+    x.add(1);
+    x.add(2);
+    x.add(3);
 
-    while i < 10 {
-        //val i2: int = i * 2;
+    io::printi(runtime::getRetainCount(x));
+    runtime::retain(x);
+    runtime::retain(x);
+    io::printi(runtime::getRetainCount(x));
 
-        i += 1;
-    }
+    runtime::release(x);
+    runtime::release(x);
+    io::printi(runtime::getRetainCount(x));
 
-    //io::printi(i2);
+    ret x;
 
     //val y: Array = [double(1), double(2), double(3)];
 
