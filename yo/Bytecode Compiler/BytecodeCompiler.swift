@@ -57,7 +57,12 @@ class BytecodeCompiler {
             }
         }
         
-        let ast = try resolveImports(in: ast)
+        var ast = try resolveImports(in: ast)
+        
+        // perform semantic analysis
+        let semanticAnalysis = SemanticAnalyzer().analyze(ast: ast)
+        
+        ast = ARCAnalyzer(semanticAnalysis: semanticAnalysis).foo(ast: ast)
         
         
         // add the bootstrapping instructions
@@ -66,8 +71,6 @@ class BytecodeCompiler {
         add(.push, -1)
         add(.jump, unresolvedLabel: "end")
         
-        // perform semantic analysis
-        let semanticAnalysis = SemanticAnalyzer().analyze(ast: ast)
         
         // import semantic analysis results
         self.functions.insert(contentsOf: semanticAnalysis.globalFunctions)
