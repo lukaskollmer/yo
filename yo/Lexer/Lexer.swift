@@ -14,6 +14,7 @@ import Foundation
 private let identifierStartCharacters = CharacterSet.letters.union(.init(charactersIn: "_"))
 private let identifierCharacters = CharacterSet.alphanumerics.union(identifierStartCharacters)
 private let binaryLiteralCharacters = CharacterSet(charactersIn: "b01")
+private let hexadecimalLiteralCharacters = CharacterSet(charactersIn: "x0123456789abcdef")
 
 // set of characters we ignore
 private let ignoredCharacters: [Unicode.Scalar] = [" "] // TODO what about CharacterSet.whitespace?
@@ -176,6 +177,9 @@ class Lexer {
         
         if token.hasPrefix("0b") && token.allScalarsInCharacterSet(binaryLiteralCharacters) {
             return .numberLiteral(Int(token.replacingOccurrences(of: "0b", with: ""), radix: 2)!)
+            
+        } else if token.hasPrefix("0x") && token.allScalarsInCharacterSet(hexadecimalLiteralCharacters) {
+            return .numberLiteral(Int(token.replacingOccurrences(of: "0x", with: ""), radix: 16)!)
         }
         
         
