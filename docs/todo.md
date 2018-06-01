@@ -8,3 +8,4 @@
 - [ ] implement bools
 - [ ] add support for floating point numbers
 - [ ] array literals
+- [x] binary number literals
