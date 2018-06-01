@@ -42,17 +42,22 @@ class BytecodeCompiler {
     func compile(ast: [ASTNode]) throws -> [WIPInstruction] {
         var importedPaths = [String]()
         
-        // TODO resolve import statements recursively!
-        let ast = try ast.lk_flatMap { node -> [ASTNode] in
-            if let importStatement = node as? ASTImportStatement {
-                let path = ImportPathResolver.resolve(moduleName: importStatement.moduleName)
-                guard !importedPaths.contains(path) else { return [] }
-                
-                importedPaths.append(path)
-                return try yo.tokenize(atPath: path)
+        // why is this a local function, insetad of a closure?
+        // closured can't be recursive, but functions can
+        func resolveImports(in ast: [ASTNode]) throws -> [ASTNode] {
+            return try ast.lk_flatMap { node -> [ASTNode] in
+                if let importStatement = node as? ASTImportStatement {
+                    let path = ImportPathResolver.resolve(moduleName: importStatement.moduleName)
+                    guard !importedPaths.contains(path) else { return [] }
+                    
+                    importedPaths.append(path)
+                    return try resolveImports(in: try yo.tokenize(atPath: path))
+                }
+                return [node]
             }
-            return [node]
         }
+        
+        let ast = try resolveImports(in: ast)
         
         
         // add the bootstrapping instructions
