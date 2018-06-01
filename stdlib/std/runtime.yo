@@ -5,7 +5,7 @@ impl runtime {
 
     // Note: type ids are not guaranteed to be the same across different compilations of the same program
     static fn getTypeId(obj: int): int {
-        ret obj[0] & 0b11111111111111111111;
+        ret obj[0] & 0xfffff;
     }
 
 
