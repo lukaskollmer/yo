@@ -33,6 +33,7 @@ extension Runtime {
         (ns("runtime", "dealloc"),          1, addr, { _ in 0 }),   // implemented manually in BytecodeInterpreter.run
         (ns("io", "print"),                 1, addr, io_print),    // TODO make this variardic?
         (ns("io", "printi"),                1, addr, io_printi),
+        (ns("io", "printf"),                2, addr, io_printf),
     ]
     
     
@@ -83,25 +84,37 @@ extension Runtime {
     
     // MARK: io
     
-    // print a string
-    private static func io_print(_ stack: Stack) -> Int {
-        let address = stack.heap[stack.peek() + 1]
-        let size = stack.heap[address]
+    private static func getString(atAddress _address: Int, heap: Heap) -> String {
+        let address = heap[_address + 1]
+        let size = heap[address]
         
         let start = address + 1
         let end = start + size
         
-        let characters: [Character] = stack.heap[start..<end]
+        let characters: [Character] = heap[start..<end]
             .compactMap(UnicodeScalar.init)
             .map(Character.init)
         
-        print(String(characters))
+        return String(characters)
+    }
+    
+    // print a string
+    private static func io_print(_ stack: Stack) -> Int {
+        print(getString(atAddress: stack.peek(), heap: stack.heap))
         return 0
     }
     
     // print an integer
     private static func io_printi(_ stack: Stack) -> Int {
         print(stack.peek())
+        return 0;
+    }
+    
+    
+    private static func io_printf(_ stack: Stack) -> Int {
+        // TODO WIP
+        //let string = getString(atAddress: stack.peek() + 1, heap: stack.heap)
+        //print(stack.peek(offset: -1))
         return 0;
     }
 }
