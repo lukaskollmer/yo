@@ -21,4 +21,10 @@ impl runtime {
         }
         ret obj;
     }
+
+
+    // Note: type ids are not guaranteed to be the same across different compilations of the same program
+    static fn getTypeId(address: int): int {
+        ret address[0] & 1048575;
+    }
 }
