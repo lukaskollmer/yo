@@ -1,0 +1,11 @@
+type Number(value: int);
+
+impl Number {
+
+    fn value(self: Number): int {
+        ret self.value;
+    }
+
+    fn dealloc(self: Number): int {
+    }
+}

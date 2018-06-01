@@ -38,6 +38,8 @@ enum TokenType: Equatable, Hashable {
     case circumflex     // ^
     case tilde          // ~
     
+    case atSign         // @
+    
     // other
     case period
     case comma

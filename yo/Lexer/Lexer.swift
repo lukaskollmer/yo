@@ -19,7 +19,7 @@ private let hexadecimalLiteralCharacters = CharacterSet(charactersIn: "x01234567
 // set of characters we ignore
 private let ignoredCharacters: [Unicode.Scalar] = [" "] // TODO what about CharacterSet.whitespace?
 // set of characters that delimit whetever we're currently lexing (ie the x in `(x` )
-private let delimiters = CharacterSet(charactersIn: " .,+-*/;:=<>&^|~(){}[]\n") // TODO give this a more descriptive name
+private let delimiters = CharacterSet(charactersIn: " .,+-*/;:=<>&^|~(){}[]@\n") // TODO give this a more descriptive name
 
 private let tokenMapping: [String: TokenType] = [
     "."     : .period,
@@ -51,6 +51,8 @@ private let tokenMapping: [String: TokenType] = [
     "|"     : .pipe,
     "^"     : .circumflex,
     "~"     : .tilde,
+    
+    "@"     : .atSign,
     
     // keywords
     "use"   : .use,
