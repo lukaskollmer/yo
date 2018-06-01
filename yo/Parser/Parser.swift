@@ -612,13 +612,67 @@ private extension Parser {
             return ASTArrayLiteral(elements: elements)
         }
         
-        guard let expression: ASTExpression =
+        guard var expression: ASTExpression =
             (try? parseNumberLiteral())
             ?? (try? parseStringLiteral())
             ?? (try? parseMemberAccess())
             ?? (try? parseIdentifier())
         else {
             throw ParserError.unexpectedToken(currentToken)
+        }
+        
+        
+        if let identifier = expression as? ASTIdentifier {
+            
+            if case .openingParentheses = currentToken.type {
+                // identifier, followed by an opening parentheses -> function call
+                next() // jump into the function call
+                
+                let arguments = try parseExpressionList()
+                
+                if case .closingParentheses = currentToken.type {
+                    next()
+                    return ASTFunctionCall(functionName: identifier.name, arguments: arguments, unusedReturnValue: false) // TODO is false the right assumprion here?
+                }
+                
+                // TODO?
+                fatalError("aaargh")
+            }
+            
+            if case .openingSquareBrackets = currentToken.type {
+                // array subscript getter
+                next()
+                let offset = try parseExpression()
+                guard case .closingSquareBrackets = currentToken.type else {
+                    throw ParserError.unexpectedToken(currentToken)
+                }
+                next()
+                expression = ASTArrayGetter(target: identifier, offset: offset)
+                //return ASTArrayGetter(target: identifier, offset: offset)
+            }
+            
+            if case .colon = currentToken.type, case .colon = peek().type {
+                // identifier, followed by 2 colons -> static member call
+                next()
+                next()
+                let memberName = try parseIdentifier()
+                guard case .openingParentheses = currentToken.type else {
+                    throw ParserError.unexpectedToken(currentToken)
+                }
+                next()
+                
+                let arguments = try parseExpressionList()
+                
+                guard case .closingParentheses = currentToken.type else {
+                    throw ParserError.unexpectedToken(currentToken)
+                }
+                next()
+                
+                expression =  ASTFunctionCall(
+                    functionName: SymbolMangling.mangleStaticMember(ofType: identifier.name, memberName: memberName.name),
+                    arguments: arguments,
+                    unusedReturnValue: false) // TODO is false the right assumption here?
+            }
         }
         
         
@@ -635,7 +689,7 @@ private extension Parser {
             case (.less, .less):
                 binaryOperation = .shl
                 next()
-            
+                
             case (.greater, .greater):
                 binaryOperation = .shr
                 next()
@@ -671,62 +725,6 @@ private extension Parser {
             next()
             
             return ASTBinaryOperation(lhs: expression, operation: binaryOperation, rhs: try parseExpression())
-            
-            
-        }
-
-        
-        if let identifier = expression as? ASTIdentifier {
-            
-            if case .openingParentheses = currentToken.type {
-                // identifier, followed by an opening parentheses -> function call
-                next() // jump into the function call
-                
-                let arguments = try parseExpressionList()
-                
-                if case .closingParentheses = currentToken.type {
-                    next()
-                    return ASTFunctionCall(functionName: identifier.name, arguments: arguments, unusedReturnValue: false) // TODO is false the right assumprion here?
-                }
-                
-                // TODO?
-                fatalError("aaargh")
-            }
-            
-            if case .openingSquareBrackets = currentToken.type {
-                // array subscript getter
-                next()
-                let offset = try parseExpression()
-                guard case .closingSquareBrackets = currentToken.type else {
-                    throw ParserError.unexpectedToken(currentToken)
-                }
-                next()
-                
-                return ASTArrayGetter(target: identifier, offset: offset)
-            }
-            
-            if case .colon = currentToken.type, case .colon = peek().type {
-                // identifier, followed by 2 colons -> static member call
-                next()
-                next()
-                let memberName = try parseIdentifier()
-                guard case .openingParentheses = currentToken.type else {
-                    throw ParserError.unexpectedToken(currentToken)
-                }
-                next()
-                
-                let arguments = try parseExpressionList()
-                
-                guard case .closingParentheses = currentToken.type else {
-                    throw ParserError.unexpectedToken(currentToken)
-                }
-                next()
-                
-                return ASTFunctionCall(
-                    functionName: SymbolMangling.mangleStaticMember(ofType: identifier.name, memberName: memberName.name),
-                    arguments: arguments,
-                    unusedReturnValue: false) // TODO is false the right assumption here?
-            }
         }
         
         return expression
