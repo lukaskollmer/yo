@@ -26,10 +26,7 @@ extension Runtime {
     
     static let builtins: [NativeFunction] = [
         (ns("runtime", "alloc"),            1, addr, runtime_alloc),
-        (ns("runtime", "_retain"),          1, addr, runtime__retain),
-        (ns("runtime", "_release"),         1, addr, runtime__release),
         (ns("runtime", "free"),             1, addr, runtime_free),
-        (ns("runtime", "_getRetainCount"),  1, addr, runtime__getRetainCount),
         (ns("runtime", "dealloc"),          1, addr, { _ in 0 }),   // implemented manually in BytecodeInterpreter.run
         (ns("io", "print"),                 1, addr, io_print),    // TODO make this variardic?
         (ns("io", "printi"),                1, addr, io_printi),
@@ -52,28 +49,14 @@ extension Runtime {
     
     // MARK: Native functions
     
+    
+    // MARK: memory
+    
     private static func runtime_alloc(_ stack: Stack) -> Int {
         let size = stack.peek()
         let address = stack.heap.alloc(size: size)
         //stack.heap.retain(address: address)
         return address
-    }
-    
-    
-    // MARK: Reference Counting
-    
-    private static func runtime__getRetainCount(_ stack: Stack) -> Int {
-        return stack.heap.retainCount(ofAddress: stack.peek())
-    }
-    
-    private static func runtime__retain(_ stack: Stack) -> Int {
-        stack.heap.retain(address: stack.peek())
-        return 0
-    }
-    
-    private static func runtime__release(_ stack: Stack) -> Int {
-        stack.heap.release(address: stack.peek())
-        return 0
     }
     
     private static func runtime_free(_ stack: Stack) -> Int {

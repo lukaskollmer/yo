@@ -24,7 +24,6 @@ class Heap {
     var backing = [Int]()
     let initialValue: Int = 0
     private var allocations = [(address: Int, size: Int)]()
-    private var retainCounts = [Int: Int]() // [address: #refs]
     
     init(size: Int) {
         self.size = size
@@ -74,51 +73,12 @@ class Heap {
         let index = allocations.index { $0.address == address }!
         let allocation = allocations.remove(at: index)
         
-        // TODO is that if even necessary?
-        if retainCounts.keys.contains(address) {
-            retainCounts[address] = nil
-        }
-        
         if Heap.resetOnFree {
             for i in allocation.address..<(allocation.address + allocation.size) {
                 backing[i] = initialValue
             }
         }
     }
-    
-    
-    
-    // MARK: ARC
-    
-    // Get the retain count of the memory block allocated at `address`
-    // returns -1 if `address` was never retained in the first place
-    // TODO throw an error instead?
-    func retainCount(ofAddress address: Int) -> Int {
-        return retainCounts[address] ?? -1
-    }
-    
-    // Increase the retain count of the memory block allocated at `address` by 1
-    func retain(address: Int) {
-        if retainCounts.keys.contains(address) {
-            retainCounts[address]! += 1
-        } else {
-            retainCounts[address] = 1
-        }
-    }
-    
-    // Decrease the retain count of the memory block allocated at `address` by 1
-    // Also frees the memory when the new retain count is 0
-    func release(address: Int) {
-        if retainCounts.keys.contains(address) {
-            retainCounts[address]! -= 1
-        }
-        
-        if retainCount(ofAddress: address) == 0 {
-            retainCounts[address] = nil
-            //free(address: address)
-        }
-    }
-    
     
     
     // TODO

@@ -25,6 +25,10 @@ class TypeCache {
         return type(withName: typename)!.attributes.contains { $0.identifier.name == member } // TODO don't force unwrap
     }
     
+    func index(ofType typename: String) -> Int {
+        return types.index { $0.name.name == typename }! // TODO don't force-unwrap
+    }
+    
     func offset(ofMember member: String, inType typename: String) -> Int {
         guard typeExists(withName: typename) else {
             fatalError("type \(typename) doesn't exist")

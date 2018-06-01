@@ -3,28 +3,51 @@ use "std/string";
 
 impl runtime {
 
+    // Note: type ids are not guaranteed to be the same across different compilations of the same program
+    static fn getTypeId(obj: int): int {
+        ret obj[0] & 0b11111111111111111111;
+    }
+
+
+
+    //
+    // Reference Counting
+    //
+
     // Increment an object's retain count by 1
     static fn retain(obj: int): int {
-        runtime::_retain(obj);
-        ret obj;
+        ret runtime::_setRetainCount(obj, runtime::getRetainCount(obj) + 1);
     }
+
 
     // Decrement an object's retain count by 1
     // If the object's new retain count is 0,
     // we call the object's dealloc method and free it from the heap
     static fn release(obj: int): int {
-        if runtime::_getRetainCount(obj) == 1 {
+        if runtime::getRetainCount(obj) == 1 {
             runtime::dealloc(obj);
             runtime::free(obj);
         } else {
-            runtime::_release(obj);
+            runtime::_setRetainCount(obj, runtime::getRetainCount(obj) - 1);
         }
         ret obj;
     }
 
 
-    // Note: type ids are not guaranteed to be the same across different compilations of the same program
-    static fn getTypeId(address: int): int {
-        ret address[0] & 1048575;
+    static fn _setRetainCount(obj: int, newValue: int): int {
+        val typeId: int = runtime::getTypeId(obj);
+        val deallocAddress: int = obj[0] >> 40;
+
+        obj[0] = (deallocAddress << 40);
+        obj[0] = obj[0] | (newValue << 20);
+        obj[0] = obj[0] | typeId;
+
+        ret obj;
+    }
+
+
+    static fn getRetainCount(obj: int): int {
+        val retainCount: int = obj[0] & 0b0000000000000000000000001111111111111111111100000000000000000000;
+        ret retainCount >> 20;
     }
 }

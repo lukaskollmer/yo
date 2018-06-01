@@ -36,7 +36,7 @@ class BytecodeInterpreter {
                     
                     // call the object's dealloc function
                     // a negative destination address indicates that the type does not have a deallc function
-                    let destinationAddress = heap[stack.peek()]
+                    let destinationAddress = heap[stack.peek()] >> 40
                     if destinationAddress > 0 {
                         try eval(InstructionDescriptor(instruction: Operation.push.encode(withImmediate: -1)), &instructionPointer)
                         try eval(InstructionDescriptor(instruction: Operation.jump.encode(withImmediate: destinationAddress)), &instructionPointer)

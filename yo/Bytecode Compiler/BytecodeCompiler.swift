@@ -213,8 +213,21 @@ private extension BytecodeCompiler {
                 
                 // set the address of the type's dealloc function
                 // since we have to resolve this at compile time, we push the address of the function onto the stack, then use a noop as the value expression
-                // TODO if the type did not define a dealloc function, set it to -1 to indicate that
+                // TODO if the type did not define a dealloc function, set it to -1 to indicate that?
+                
+                
+                // push the type's dealloc address onto the stack and shift it 41 to the left
+                ASTRawWIPInstruction(instruction: .operation(.push, 40)),
                 ASTRawWIPInstruction(instruction: .unresolved(.push, SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "dealloc"))),
+                ASTRawWIPInstruction(instruction: .operation(.shl, 0)),
+                
+                // push the type's id onto the stack
+                ASTRawWIPInstruction(instruction: .operation(.push, typeCache.index(ofType: typename))),
+                
+                // combine dealloc address and type id
+                ASTRawWIPInstruction(instruction: .operation(.or, 0)),
+                
+                // set the type's dealloc address and type id (from the steps above) in its first field
                 ASTArraySetter(target: _self, offset: ASTNumberLiteral(value: 0), value: ASTNoop()),
                 
                 // go through the parameters and fill the attributes
