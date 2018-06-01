@@ -42,6 +42,7 @@ class BytecodeCompiler {
     func compile(ast: [ASTNode]) throws -> [WIPInstruction] {
         var importedPaths = [String]()
         
+        // TODO resolve import statements recursively!
         let ast = try ast.lk_flatMap { node -> [ASTNode] in
             if let importStatement = node as? ASTImportStatement {
                 let path = ImportPathResolver.resolve(moduleName: importStatement.moduleName)
