@@ -148,6 +148,10 @@ private extension Parser {
                 throw ParserError.other("for loops aren't yet implemented")
                 
                 
+            case .openingCurlyBrackets:
+                return try parseComposite()
+                
+                
                 
             case .val: // variable declaration
                 next()
