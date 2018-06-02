@@ -261,7 +261,7 @@ private extension BytecodeCompiler {
             fatalError("local variable cannot (yet?) shadow parameter")
         }
         
-        withScope(Scope(type: .function(function.mangledName), parameters: function.parameters, localVariables: function.body.getLocalVariables(recursive: true))) {
+        withScope(Scope(type: .function(function.mangledName), parameters: function.parameters, localVariables: function.body.getLocalVariables(recursive: false))) {
             // function entry point
             add(label: function.mangledName)
             
@@ -281,7 +281,19 @@ private extension BytecodeCompiler {
     
     
     func handle(composite: ASTComposite) {
-        composite.statements.forEach(handle)
+        if composite.introducesNewScope {
+            let localVariables = composite.statements.getLocalVariables(recursive: false)
+            add(.alloc, localVariables.count)
+            
+            withScope(scope.adding(localVariables: localVariables)) {
+                composite.statements.forEach(handle)
+                for _ in 0..<localVariables.count {
+                    add(.pop)
+                }
+            }
+        } else {
+            composite.statements.forEach(handle)
+        }
     }
     
     

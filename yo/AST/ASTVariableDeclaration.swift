@@ -18,12 +18,18 @@ struct ASTVariableDeclaration: ASTStatement, Equatable {
 // Array<ASTStatement> + local variables
 extension Array where Element == ASTStatement {
     
+    // TODO we probably can get rid of the recursive option
     func getLocalVariables(recursive: Bool) -> [ASTVariableDeclaration] {
         if !recursive {
-            // TODO
-            // This currently doesn't support local variable declarations w/ an initial value,
-            // since these are parsed into composites w/ 2 statements (declaration and assignment)
-            return self.compactMap { $0 as? ASTVariableDeclaration }
+            return self.lk_flatMap { stmt in
+                if let decl = stmt as? ASTVariableDeclaration {
+                    return [decl]
+                
+                } else if let composite = stmt as? ASTComposite, !composite.introducesNewScope {
+                    return composite.statements.getLocalVariables(recursive: false) // no need to make this recursive since we're dealing w/ an assignment composite
+                }
+                return []
+            }
         }
         
         return self.lk_flatMap { (statement: ASTStatement) in

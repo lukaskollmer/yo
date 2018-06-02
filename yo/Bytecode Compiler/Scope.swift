@@ -20,13 +20,21 @@ struct Scope {
     private var numberOfParameters = 0
     private var types = [String: String]()
     
+    private let parameters: [ASTVariableDeclaration]
+    private let localVariables: [ASTVariableDeclaration]
+    
     
     init(type: ScopeType) {
         self.type = type
+        self.parameters = []
+        self.localVariables = []
     }
     
     init(type: ScopeType, parameters: [ASTVariableDeclaration], localVariables: [ASTVariableDeclaration]) {
         self.type = type
+        self.parameters = parameters
+        self.localVariables = localVariables
+        
         numberOfParameters = parameters.count
         
         symbols.append(contentsOf: parameters.map     { $0.identifier.name })
@@ -53,5 +61,14 @@ struct Scope {
     
     func type(of name: String) -> String {
         return types[name]!
+    }
+    
+    
+    func adding(localVariables newLocals: [ASTVariableDeclaration]) -> Scope {
+        return Scope(
+            type: self.type,
+            parameters: self.parameters,
+            localVariables: self.localVariables + newLocals
+        )
     }
 }
