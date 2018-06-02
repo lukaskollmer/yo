@@ -168,6 +168,7 @@ The memory layout of an instance of `Person` is the following:
 | 3      | Value of `alive`                                  |
 
 The content of the first field is an integer, containing the following data:
+
 | Bit Range | Contents                                 |
 | :-------- | :--------------------------------------- |
 | 59...40   | address of the type's `dealloc` function |
