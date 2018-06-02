@@ -129,7 +129,7 @@ impl Person {
 }
 ```
 
-If you want a namespace to group some related functions, you can declare an `impl` block for a nonexistent type and put your functions in there (That's how the [runtime](/stdlib/std/runtime.yo) module is implemented).
+If you want a namespace to group some related functions, you can declare an `impl` block for a nonexistent type and put your functions in there (That's how the [runtime](https://github.com/lukaskollmer/yo/blob/master/stdlib/std/runtime.yo) module is implemented).
 
 
 ## Memory Management
