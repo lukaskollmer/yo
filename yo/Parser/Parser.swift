@@ -168,14 +168,6 @@ private extension Parser {
                 
                 let typename = try parseIdentifier()
                 
-                // check whether we're creating an array
-                if case .openingSquareBrackets = currentToken.type, case .closingSquareBrackets = peek().type {
-                    // array declaration
-                    next()
-                    next()
-                    //typename = ASTIdentifier(name: typename.name + "[]") // this isn't necessary (yet?)
-                }
-                
                 // a variable declaration's type can either be followed by a semicolon (`val x: Foo;`)
                 // or by an equals sign, followed by an expression and a semicolon
                 if case .semicolon = currentToken.type {
@@ -463,11 +455,10 @@ private extension Parser {
                 throw ParserError.unexpectedToken(currentToken)
             }
             next()
+            
             let typename = try parseIdentifier()
-            if case .openingSquareBrackets = currentToken.type, case .closingSquareBrackets = next().type {
-                next()
-            }
             parameters.append(ASTVariableDeclaration(identifier: parameter, typename: typename))
+            
             if case .comma = currentToken.type {
                 next()
             }
