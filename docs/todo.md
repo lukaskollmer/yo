@@ -3,8 +3,8 @@
 - [ ] chained property access
 - [ ] chained method calls
 - [ ] tests
-- [ ] bitwise operators (NOT, AND, OR, XOR)
-- [ ] bitshift operators
+- [x] bitwise operators (NOT, AND, OR, XOR)
+- [x] bitshift operators
 - [ ] implement bools
 - [ ] add support for floating point numbers
 - [ ] array literals
@@ -14,3 +14,10 @@
 - [ ] underscores in number literals
 - [ ] implicitly import stdlib modules (ie import "std/string" if the code contains a string literal, same for numbers)
 - [ ] test that the examples in the documentation actually work
+- [ ] make `nil` a macro for `0`
+- [ ] auto-synthesize `dealloc` functions (only if not otherwise defined)
+- [ ] throw an error when the stack grows into allocated heap space / vice versa
+- [ ] implement some sort of `fatalError` function to abort w/ an error message
+- [ ] a `break` keyword
+- [ ] `Array.get`: negative index to access elements from back
+- [ ] ternary expressions (only for assignment at first)
