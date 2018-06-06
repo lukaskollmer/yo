@@ -1,3 +1,5 @@
+use "std/string";
+
 type Array(count: int, _allocatedLength: int, _backing: int);
 
 // TODO write tests for all of this!
@@ -58,8 +60,12 @@ impl Array {
 
     // Get the object at `index`
     fn get(self: Array, index: int): id {
-        if index < 0 || index > (self.count - 1) {
-            ret -1; // TODO throw an error or exit the program
+        if index < 0 {
+            index = self.count + index;
+        }
+
+        if index > self.count - 1 {
+            runtime::fatalError("array index out of bounds");
         }
         ret self._backing[index];
     }
