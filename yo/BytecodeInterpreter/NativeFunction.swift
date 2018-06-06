@@ -31,6 +31,7 @@ extension Runtime {
         (ns("io", "print"),                 1, addr, io_print),    // TODO make this variardic?
         (ns("io", "printi"),                1, addr, io_printi),
         (ns("io", "printf"),                2, addr, io_printf),
+        (ns("runtime", "fatalError"),       1, addr, runtime_fatalError),
     ]
     
     
@@ -48,6 +49,11 @@ extension Runtime {
     
     
     // MARK: Native functions
+    
+    
+    private static func runtime_fatalError(_ stack: Stack) -> Int {
+        fatalError(getString(atAddress: stack.peek(), heap: stack.heap))
+    }
     
     
     // MARK: memory
