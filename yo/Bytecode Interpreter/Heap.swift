@@ -40,7 +40,8 @@ class Heap {
             backing.append(initialValue)
         }
         
-        //_ = alloc(size: 1) // make sure all addresses are > 0
+        _ = alloc(size: 1) // make sure all addresses are > 0
+        print(allocations)
     }
     
     // returns the address of the beginning of the allocated space
@@ -50,10 +51,12 @@ class Heap {
         }
         
         // round up `size` to the next even number to ensure that all memory addresses are even
-        //let size = roundUpToNextEvenNumber(size)
+        // this might be useful down the line (think tagged pointers, etc)
+        let size = roundUpToNextEvenNumber(size)
         
         let address = firstFreeAddress(forSize: size)
         allocations.append((address, size))
+        allocations.sort { $0.address < $1.address } // not sure why but it seems like new tupels aren't always appended to the end of the array?
         return address
     }
     
@@ -100,7 +103,7 @@ class Heap {
                 let nextAllocation = allocations[i + 1]
                 let addressOfNextAllocation = nextAllocation.address
                 
-                if addressOfNextAllocation > allocation.address + allocation.size + size - 1 {
+                if addressOfNextAllocation > allocation.address + allocation.size + size - 0 {
                     return allocation.address + allocation.size
                 }
             }
