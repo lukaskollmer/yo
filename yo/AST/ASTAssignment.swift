@@ -12,4 +12,11 @@ import Foundation
 struct ASTAssignment: ASTStatement {
     let target: ASTExpression
     let value: ASTExpression
+    let shouldRetainAssignedValueIfItIsAnObject: Bool
+    
+    init(target: ASTExpression, value: ASTExpression, shouldRetainAssignedValueIfItIsAnObject: Bool = true) {
+        self.target = target
+        self.value = value
+        self.shouldRetainAssignedValueIfItIsAnObject = shouldRetainAssignedValueIfItIsAnObject
+    }
 }

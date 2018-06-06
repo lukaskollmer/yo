@@ -8,6 +8,14 @@
 
 import Foundation
 
+// MARK: Constants
+// TODO only use these throughout the file
+private let retain  = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "retain")
+private let release = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "release")
+
+
+
+// MARK: Codegen
 
 /// Class that compiles an AST to bytecode instructions
 class BytecodeCompiler {
@@ -210,7 +218,7 @@ private extension BytecodeCompiler {
             kind: .staticImpl(typename),
             body: [
                 // 1. declare self
-                ASTVariableDeclaration(identifier: _self, typename: typeDeclaration.name),
+                ASTVariableDeclaration(identifier: _self, typename: ASTIdentifier(name: "int")), // TODO ARC: declare as int to avoid refcounting and accidentally deallocating before we even return from the initializer?
                 
                 // 2. allocate space on the heap
                 ASTAssignment(
@@ -243,9 +251,12 @@ private extension BytecodeCompiler {
                 // go through the parameters and fill the attributes
                 ASTComposite(
                     statements: typeDeclaration.attributes.enumerated().map { attribute in
+                        // TODO retain all non-primitive arguments?
                         return ASTArraySetter(target: _self, offset: ASTNumberLiteral(value: attribute.offset + 1), value: attribute.element.identifier)
                     }
                 ),
+                
+                //ASTFunctionCall(functionName: retain, arguments: [_self], unusedReturnValue: true),
                 
                 // 4. return the newly created object
                 ASTReturnStatement(returnValueExpression: _self)
@@ -257,42 +268,118 @@ private extension BytecodeCompiler {
     
     
     func handle(function: ASTFunctionDeclaration) {
-        guard function.body.getLocalVariables(recursive: true).intersection(with: function.parameters).isEmpty else {
+        guard function.body.statements.getLocalVariables(recursive: true).intersection(with: function.parameters).isEmpty else {
             fatalError("local variable cannot (yet?) shadow parameter")
         }
         
-        withScope(Scope(type: .function(function.mangledName), parameters: function.parameters, localVariables: function.body.getLocalVariables(recursive: false))) {
+        
+        withScope(self.scope.withType(.function(name: function.mangledName, returnType: function.returnType.name), newParameters: function.parameters)) {
             // function entry point
             add(label: function.mangledName)
             
-            // allocate space for local variables?
-            let numberOfLocalVariables = scope.size - function.parameters.count
-            add(.alloc, numberOfLocalVariables)
+            // retain all arguments
+            // TODO ARC
+            //insertCalls(to: retain, forObjectsIn: scope.parameters)
             
             // Generate instructions for the function body
-            function.body.forEach(handle)
-            
             // if the function doesn't have a return statement, we implicitly return 0
-            if !(function.body.last is ASTReturnStatement) {
-                handle(return: ASTReturnStatement(returnValueExpression: ASTNumberLiteral(value: 0)))
+            
+            let functionBody: ASTComposite
+            if !(function.body.statements.last is ASTReturnStatement) {
+                functionBody = ASTComposite(
+                    statements: function.body.statements + [ASTReturnStatement(returnValueExpression: ASTNumberLiteral(value: 0))],
+                    introducesNewScope: true
+                )
+                print("added ret 0 to \(function.mangledName)")
+            } else {
+                functionBody = function.body
             }
+            
+            handle(composite: functionBody)
         }
     }
     
     
     func handle(composite: ASTComposite) {
-        if composite.introducesNewScope {
-            let localVariables = composite.statements.getLocalVariables(recursive: false)
+        guard case .function(let functionName, let returnType) = scope.type else {
+            fatalError("top level composite outside a function?")
+        }
+        
+        // TODO ARC
+        composite.statements.forEach(handle)
+        return
+        
+        // if the composite doesn't introduce a new scope, we simply handle all statements
+        if !composite.introducesNewScope {
+            composite.statements.forEach(handle)
+            return
+        }
+        
+        // if the composite _does_ introduce a new scope, we:
+        // 1. allocate space on the stack for the new variables
+        // 2. handle all statements
+        // 3. insert `runtime::release` calls for all non-primitive variables declared in the composite
+        // TODO: what if we return in the composite? we need to release all local variables, not just the ones declared within the composite!!!
+        let hasReturnStatement = composite.statements.any { $0 is ASTReturnStatement }
+        var localVariables = composite.statements.getLocalVariables(recursive: false)
+        
+        // only used if `hasReturnStatement == true`
+        let retval_temp_storage = ASTVariableDeclaration(
+            identifier: ASTIdentifier(name: "__retval_\(functionName)"),
+            typename: ASTIdentifier(name: returnType)
+        )
+        
+        if hasReturnStatement {
+            localVariables.append(retval_temp_storage)
+        }
+        
+        withScope(scope.adding(localVariables: localVariables)) {
             add(.alloc, localVariables.count)
             
-            withScope(scope.adding(localVariables: localVariables)) {
+            if !hasReturnStatement {
                 composite.statements.forEach(handle)
-                for _ in 0..<localVariables.count {
-                    add(.pop)
+                let localVariables = composite.statements.getLocalVariables(recursive: false)
+                insertCalls(to: release, forObjectsIn: localVariables)
+                
+                for _ in 0..<localVariables.count { add(.pop) }
+            } else {
+                // the composite contains a return statement
+                // this means that we need to insert release calls for all objects in the local scope before handling the return statement
+                
+                for statement in composite.statements {
+                    if let returnStatement = statement as? ASTReturnStatement {
+                        
+                        //let returnsLocalVariable = // TODO?
+                        
+                        let storeRetval = ASTAssignment(
+                            target: retval_temp_storage.identifier,
+                            value: returnStatement.returnValueExpression,
+                            shouldRetainAssignedValueIfItIsAnObject: false//(returnStatement.returnValueExpression is ASTIdentifier)
+                        )
+                        
+                        handle(assignment: storeRetval)
+                        //insertCalls(to: retain, forObjectsIn: [retval_temp_storage])
+                        //insertCalls(to: release, forObjectsIn: [retval_temp_storage])
+                        
+                        
+                        //print(scope.localVariables + scope.parameters)
+                        //insertCalls(to: release, forObjectsIn: scope.localVariables + scope.parameters)
+                        
+                        let objectsToBeReleased = (scope.localVariables + scope.parameters).filter { $0.identifier != retval_temp_storage.identifier }
+                        print(objectsToBeReleased)
+                        insertCalls(to: release, forObjectsIn: objectsToBeReleased)
+                        
+                        // Problem: what if we return one of the local variables? (or one of its attributes) (or it's somehow used in the return value expression)?
+                        // idea: create a local vatiable for the return value (w/ the type of the function's return type), exclude that from all the release calls and return that
+                        //handle(return: returnStatement)
+                        handle(return: ASTReturnStatement(returnValueExpression: retval_temp_storage.identifier))
+                        
+                    } else {
+                        handle(node: statement)
+                    }
                 }
             }
-        } else {
-            composite.statements.forEach(handle)
+            
         }
     }
     
@@ -342,7 +429,7 @@ private extension BytecodeCompiler {
     
     
     func handle(conditionalStatement: ASTConditionalStatement) {
-        guard case .function(let functionName) = scope.type else {
+        guard case .function(let functionName, _) = scope.type else {
             fatalError("global if statement")
         }
         
@@ -402,8 +489,27 @@ private extension BytecodeCompiler {
             fatalError("can only assign to variables as of right now")
         }
         
+        let targetIsObject = scope.isObject(identifier: target.name)
+        
+        if targetIsObject {
+            // TODO release the old value?
+        }
+        
         handle(node: assignment.value)
         add(.store, scope.index(of: target.name))
+        
+        // TODO ARC
+        return
+        
+        if assignment.shouldRetainAssignedValueIfItIsAnObject && targetIsObject {
+            let retainCall = ASTFunctionCall(
+                functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "retain"),
+                arguments: [target],
+                unusedReturnValue: true
+            )
+            handle(functionCall: retainCall)
+        }
+        
     }
     
     
@@ -601,5 +707,27 @@ private extension BytecodeCompiler {
         add(.add)
         add(.push, expectedResult)
         add(.eq)
+    }
+}
+
+
+// MARK: Helpers
+private extension BytecodeCompiler {
+    func insertCalls(to functionName: String, forObjectsIn variables: [ASTVariableDeclaration]) {
+        // TODO ARC
+        return
+        
+        let identifiers = variables
+            .map    { $0.identifier }
+            .filter { self.scope.isObject(identifier: $0.name) }
+        
+        for identifier in identifiers {
+            let call = ASTFunctionCall(
+                functionName: functionName,
+                arguments: [identifier],
+                unusedReturnValue: true
+            )
+            self.handle(functionCall: call)
+        }
     }
 }

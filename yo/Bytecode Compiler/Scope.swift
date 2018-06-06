@@ -12,7 +12,7 @@ import Foundation
 struct Scope {
     enum ScopeType {
         case global
-        case function(String)
+        case function(name: String, returnType: String)
     }
     
     let type: ScopeType
@@ -20,8 +20,8 @@ struct Scope {
     private var numberOfParameters = 0
     private var types = [String: String]()
     
-    private let parameters: [ASTVariableDeclaration]
-    private let localVariables: [ASTVariableDeclaration]
+    let parameters: [ASTVariableDeclaration]
+    let localVariables: [ASTVariableDeclaration]
     
     
     init(type: ScopeType) {
@@ -64,11 +64,25 @@ struct Scope {
     }
     
     
+    func withType(_ newType: ScopeType, newParameters: [ASTVariableDeclaration]) -> Scope {
+        return Scope(
+            type: newType,
+            parameters: self.parameters + newParameters,
+            localVariables: localVariables
+        )
+    }
+    
+    
     func adding(localVariables newLocals: [ASTVariableDeclaration]) -> Scope {
         return Scope(
             type: self.type,
             parameters: self.parameters,
             localVariables: self.localVariables + newLocals
         )
+    }
+    
+    
+    func isObject(identifier: String) -> Bool {
+        return type(of: identifier) != "int"
     }
 }

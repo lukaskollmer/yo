@@ -9,6 +9,13 @@
 import Foundation
 
 
+// MARK: Helpers
+private func roundUpToNextEvenNumber(_ x: Int) -> Int {
+    return Int(round(Double(x) / 2) * 2)
+}
+
+
+// MARK: Heap
 enum HeapError: Error {
     case stackOverflow
     case stackUnderflow // TODO throw this one
@@ -32,6 +39,8 @@ class Heap {
         for _ in 0..<size {
             backing.append(initialValue)
         }
+        
+        //_ = alloc(size: 1) // make sure all addresses are > 0
     }
     
     // returns the address of the beginning of the allocated space
@@ -40,32 +49,12 @@ class Heap {
             fatalError()
         }
         
-        if allocations.isEmpty {
-            allocations.append((0, size))
-            return 0
-        }
+        // round up `size` to the next even number to ensure that all memory addresses are even
+        //let size = roundUpToNextEvenNumber(size)
         
-        let numberOfAllocations = allocations.count
-        for i in 0..<numberOfAllocations {
-            let allocation = allocations[i]
-            
-            if i < numberOfAllocations - 1 {
-                let nextAllocation = allocations[i + 1]
-                let addressOfNextAllocation = nextAllocation.address
-                
-                if addressOfNextAllocation > allocation.address + allocation.size + size - 1 {
-                    let newAddress = allocation.address + allocation.size
-                    allocations.append((newAddress, size))
-                    return newAddress
-                }
-            }
-        }
-        
-        let lastAllocation = allocations[numberOfAllocations - 1]
-        let newAddress = lastAllocation.address + lastAllocation.size
-        
-        allocations.append((newAddress, size))
-        return newAddress
+        let address = firstFreeAddress(forSize: size)
+        allocations.append((address, size))
+        return address
     }
     
     
@@ -79,18 +68,6 @@ class Heap {
             }
         }
     }
-    
-    
-    // TODO
-    // returns the highest address used by the heap
-    // used to throw an error when the stack grows into currently allocated heap space
-    //fileprivate var usedHeapSize: Int {
-    //    let sorted = allocations.sorted(by: { (val0, val1) -> Bool in
-    //        val0.address > val1.address
-    //    })
-    //
-    //    return -1
-    //}
     
     
     subscript(index: Int) -> Int {
@@ -109,9 +86,30 @@ class Heap {
         }
     }
     
-    //subscript<T>(index: Int, as type: R.Type) -> T {
+    
+    private func firstFreeAddress(forSize size: Int) -> Int {
+        if allocations.isEmpty {
+            return 0
+        }
         
-    //}
+        let numberOfAllocations = allocations.count
+        for i in 0..<numberOfAllocations {
+            let allocation = allocations[i]
+            
+            if i < numberOfAllocations - 1 {
+                let nextAllocation = allocations[i + 1]
+                let addressOfNextAllocation = nextAllocation.address
+                
+                if addressOfNextAllocation > allocation.address + allocation.size + size - 1 {
+                    return allocation.address + allocation.size
+                }
+            }
+        }
+        
+        let lastAllocation = allocations[numberOfAllocations - 1]
+        return lastAllocation.address + lastAllocation.size
+        
+    }
 }
 
 

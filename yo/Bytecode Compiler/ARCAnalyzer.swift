@@ -49,14 +49,14 @@ class ARCAnalyzer {
     
     func handle(functionDeclaration: ASTFunctionDeclaration) -> ASTFunctionDeclaration {
         
-        let newBody = handleStringLiteralsInFunctionCalls(in: functionDeclaration.body, inFunction: functionDeclaration)
+        let newBody = handleStringLiteralsInFunctionCalls(in: functionDeclaration.body.statements, inFunction: functionDeclaration)
         
         return ASTFunctionDeclaration(
             name: functionDeclaration.name,
             parameters: functionDeclaration.parameters,
             returnType: functionDeclaration.returnType,
             kind: functionDeclaration.kind,
-            body: newBody
+            body: ASTComposite(statements: newBody)
         )
     }
     
@@ -95,7 +95,12 @@ class ARCAnalyzer {
                 )]
                 
             } else if let composite = statement as? ASTComposite {
-                return [ASTComposite(statements: handleStringLiteralsInFunctionCalls(in: composite.statements, inFunction: function))]
+                return [
+                    ASTComposite(
+                        statements: handleStringLiteralsInFunctionCalls(in: composite.statements, inFunction: function),
+                        introducesNewScope: composite.introducesNewScope
+                    )
+                ]
                 
             } else if let functionCall = statement as? ASTFunctionCall {
                 

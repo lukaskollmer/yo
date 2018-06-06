@@ -186,10 +186,13 @@ private extension Parser {
                     }
                     next()
                     
-                    return ASTComposite(statements: [
-                        ASTVariableDeclaration(identifier: name, typename: typename),
-                        ASTAssignment(target: name, value: assignedValue)
-                    ])
+                    return ASTComposite(
+                        statements: [
+                            ASTVariableDeclaration(identifier: name, typename: typename),
+                            ASTAssignment(target: name, value: assignedValue)
+                        ],
+                        introducesNewScope: false
+                    )
                 }
                 
                 
@@ -533,7 +536,7 @@ private extension Parser {
         next()
         let returnType = try parseIdentifier()
         
-        let functionBody = try parseComposite().statements
+        let functionBody = try parseComposite()
         
         return ASTFunctionDeclaration(
             name: ASTIdentifier(name: functionName),

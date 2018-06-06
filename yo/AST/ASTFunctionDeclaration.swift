@@ -19,7 +19,7 @@ struct ASTFunctionDeclaration: ASTStatement {
     let parameters: [ASTVariableDeclaration]
     let returnType: ASTIdentifier
     let kind: Kind
-    let body: [ASTStatement]
+    let body: ASTComposite
     
     
     var mangledName: String {
