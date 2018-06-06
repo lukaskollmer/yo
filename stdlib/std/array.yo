@@ -60,24 +60,14 @@ impl Array {
 
     // Get the object at `index`
     fn get(self: Array, index: int): id {
-        if index < 0 {
-            index = self.count + index;
-        }
-
-        if index > self.count - 1 {
-            runtime::fatalError("array index out of bounds");
-        }
-        ret self._backing[index];
+        ret self._backing[self._normalizeIndexAndCheckBounds(index)];
     }
 
 
     // Set the object at `index`
     // Returns the previous value
     fn set(self: Array, index: int, object: id): id {
-        if index < 0 || index  > (self.count - 1) {
-            ret -1; // TODO throw an error or exit the program
-        }
-
+        index = self._normalizeIndexAndCheckBounds(index);
         val oldValue: int = self.get(index);
         self._backing[index] = object;
         ret oldValue;
@@ -104,5 +94,19 @@ impl Array {
 
     fn dealloc(self: Array): int {
         runtime::free(self._backing);
+    }
+
+
+    // Helpers
+    fn _normalizeIndexAndCheckBounds(self: Array, index: int): int {
+        if index < 0 {
+            index = self.count + index;
+        }
+
+        if index > self.count - 1 {
+            runtime::fatalError("array index out of bounds");
+        }
+
+        ret index;
     }
 }
