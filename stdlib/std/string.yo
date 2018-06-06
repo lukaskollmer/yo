@@ -1,6 +1,6 @@
 use "std/runtime";
 
-type String(backing: int[]);
+type String(backing: int);
 
 impl String {
     fn length(self: String): int {

@@ -1,4 +1,4 @@
-type Array(count: int, _allocatedLength: int, _backing: int[]);
+type Array(count: int, _allocatedLength: int, _backing: int);
 
 // TODO write tests for all of this!
 
@@ -16,7 +16,7 @@ impl Array {
         // (If we just set `_backing` to `address + 1`, we couldn't free it because there's no
         // way of knowing whether the array was created via literal or not)
         val length: int = address[0];
-        val backing: int[] = runtime::alloc(length);
+        val backing: int = runtime::alloc(length);
 
         val idx: int = 0;
         while idx < length {
@@ -36,7 +36,7 @@ impl Array {
 
             // TODO come up w/ some clever algorithm determining the new backing length?
             val newLength: int = self._allocatedLength + 10;
-            val newBacking: int[] = runtime::alloc(newLength);
+            val newBacking: int = runtime::alloc(newLength);
 
             val idx: int = 0;
             while idx < self.count {
