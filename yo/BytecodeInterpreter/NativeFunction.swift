@@ -61,7 +61,6 @@ extension Runtime {
     private static func runtime_alloc(_ stack: Stack) -> Int {
         let size = stack.peek()
         let address = stack.heap.alloc(size: size)
-        //stack.heap.retain(address: address)
         return address
     }
     
