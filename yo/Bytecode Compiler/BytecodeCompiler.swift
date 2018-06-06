@@ -305,10 +305,6 @@ private extension BytecodeCompiler {
             fatalError("top level composite outside a function?")
         }
         
-        // TODO ARC
-        composite.statements.forEach(handle)
-        return
-        
         // if the composite doesn't introduce a new scope, we simply handle all statements
         if !composite.introducesNewScope {
             composite.statements.forEach(handle)
@@ -339,7 +335,7 @@ private extension BytecodeCompiler {
             if !hasReturnStatement {
                 composite.statements.forEach(handle)
                 let localVariables = composite.statements.getLocalVariables(recursive: false)
-                insertCalls(to: release, forObjectsIn: localVariables)
+                //insertCalls(to: release, forObjectsIn: localVariables)
                 
                 for _ in 0..<localVariables.count { add(.pop) }
             } else {
@@ -365,9 +361,9 @@ private extension BytecodeCompiler {
                         //print(scope.localVariables + scope.parameters)
                         //insertCalls(to: release, forObjectsIn: scope.localVariables + scope.parameters)
                         
-                        let objectsToBeReleased = (scope.localVariables + scope.parameters).filter { $0.identifier != retval_temp_storage.identifier }
-                        print(objectsToBeReleased)
-                        insertCalls(to: release, forObjectsIn: objectsToBeReleased)
+                        //let objectsToBeReleased = (scope.localVariables + scope.parameters).filter { $0.identifier != retval_temp_storage.identifier }
+                        //print(objectsToBeReleased)
+                        //insertCalls(to: release, forObjectsIn: objectsToBeReleased)
                         
                         // Problem: what if we return one of the local variables? (or one of its attributes) (or it's somehow used in the return value expression)?
                         // idea: create a local vatiable for the return value (w/ the type of the function's return type), exclude that from all the release calls and return that
@@ -714,9 +710,7 @@ private extension BytecodeCompiler {
 // MARK: Helpers
 private extension BytecodeCompiler {
     func insertCalls(to functionName: String, forObjectsIn variables: [ASTVariableDeclaration]) {
-        // TODO ARC
-        return
-        
+        fatalError("ugh")
         let identifiers = variables
             .map    { $0.identifier }
             .filter { self.scope.isObject(identifier: $0.name) }
