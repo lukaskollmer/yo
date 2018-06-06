@@ -76,7 +76,15 @@ impl Array {
 
     // Check whether the array contains an object
     fn contains(self: Array, object: int): int {
-        // TODO
+        val idx: int = 0;
+        while idx < self.count - 1 {
+            if self.get(idx) == object {
+                ret 1;
+            }
+            idx += 1;
+        }
+
+        ret 0;
     }
 
 
