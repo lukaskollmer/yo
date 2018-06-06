@@ -41,7 +41,6 @@ class Heap {
         }
         
         _ = alloc(size: 1) // make sure all addresses are > 0
-        print(allocations)
     }
     
     // returns the address of the beginning of the allocated space
