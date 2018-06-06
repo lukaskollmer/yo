@@ -26,7 +26,7 @@ endif
 SWIFTC      = $(shell xcrun -f swiftc)
 CLANG       = $(shell xcrun -f clang)
 SDK_PATH    = $(shell xcrun --show-sdk-path --sdk $(SDK))
-SWIFT_FILES = $(shell find `pwd` -type f -name '*.swift')
+SWIFT_FILES = $(shell find `pwd`/yo -type f -name '*.swift')
 
 build:
 	mkdir -p $(TARGET_DIR)
