@@ -59,14 +59,14 @@ impl Array {
 
 
     // Get the object at `index`
-    fn get(self: Array, index: int): id {
+    fn get(self: Array, index: int): int {
         ret self._backing[self._normalizeIndexAndCheckBounds(index)];
     }
 
 
     // Set the object at `index`
     // Returns the previous value
-    fn set(self: Array, index: int, object: id): id {
+    fn set(self: Array, index: int, object: int): int {
         index = self._normalizeIndexAndCheckBounds(index);
         val oldValue: int = self.get(index);
         self._backing[index] = object;
@@ -75,7 +75,7 @@ impl Array {
 
 
     // Check whether the array contains an object
-    fn contains(self: Array, object: id): int {
+    fn contains(self: Array, object: int): int {
         // TODO
     }
 
