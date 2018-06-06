@@ -10,6 +10,10 @@ import Foundation
 
 
 struct Scope {
+    enum Error: Swift.Error {
+        case unknownSymbol(String)
+    }
+    
     enum ScopeType {
         case global
         case function(name: String, returnType: String)
@@ -49,8 +53,10 @@ struct Scope {
     }
     
     
-    func index(of name: String) -> Int {
-        let index = symbols.index(of: name)! + 1 // TODO don't force unwrap
+    func index(of name: String) throws -> Int {
+        guard let index = symbols.index(of: name)?.advanced(by: 1) else {
+            throw Error.unknownSymbol(name)
+        }
         
         if index <= numberOfParameters {
             return -(index - 1)
@@ -59,8 +65,11 @@ struct Scope {
         }
     }
     
-    func type(of name: String) -> String {
-        return types[name]!
+    func type(of name: String) throws -> String {
+        guard let type = types[name] else {
+            throw Error.unknownSymbol(name)
+        }
+        return type
     }
     
     
@@ -82,7 +91,7 @@ struct Scope {
     }
     
     
-    func isObject(identifier: String) -> Bool {
-        return type(of: identifier) != "int"
+    func isObject(identifier: String) throws -> Bool {
+        return try type(of: identifier) != "int"
     }
 }

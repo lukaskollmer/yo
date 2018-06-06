@@ -14,6 +14,16 @@ private let retain  = SymbolMangling.mangleStaticMember(ofType: "runtime", membe
 private let release = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "release")
 
 
+// MARK: Errors
+enum BytecodeCompilerError: Error {
+    // Function calls
+    case undefinedFunction(ASTFunctionCall)
+    case wrongNumberOfArgumentsPassedToFunction(ASTFunctionCall)
+    
+    
+    case other(String, ASTNode)
+}
+
 
 // MARK: Codegen
 
@@ -85,7 +95,7 @@ class BytecodeCompiler {
         semanticAnalysis.types.forEach(self.typeCache.register)
         
         // run codegen
-        ast.forEach(handle)
+        try ast.forEach(handle)
         
         add(label: "end")
         return instructions
@@ -110,11 +120,11 @@ private extension BytecodeCompiler {
     
     
     // updates the scope until `block` returns
-    func withScope(_ newScope: Scope, block: () -> Void) {
+    func withScope(_ newScope: Scope, block: () throws -> Void) rethrows {
         let previousScope = scope
         scope = newScope
         
-        block()
+        try block()
         
         scope = previousScope
     }
@@ -122,76 +132,76 @@ private extension BytecodeCompiler {
 
 private extension BytecodeCompiler {
     
-    func handle(node: ASTNode) {
+    func handle(node: ASTNode) throws {
         
         if let function = node as? ASTFunctionDeclaration {
-            handle(function: function)
+            try handle(function: function)
             
         } else if let returnStatement = node as? ASTReturnStatement {
-            handle(return: returnStatement)
+            try handle(return: returnStatement)
             
         } else if let numberLiteral = node as? ASTNumberLiteral {
-            handle(numberLiteral: numberLiteral)
+            try handle(numberLiteral: numberLiteral)
             
         } else if let functionCall = node as? ASTFunctionCall {
-            handle(functionCall: functionCall)
+            try handle(functionCall: functionCall)
             
         } else if let binop = node as? ASTBinaryOperation {
-            handle(binop: binop)
+            try handle(binop: binop)
             
         } else if let identifier = node as? ASTIdentifier {
-            handle(identifier: identifier)
+            try handle(identifier: identifier)
             
         } else if let unary = node as? ASTUnary {
-            handle(unary: unary)
+            try handle(unary: unary)
             
         } else if let composite = node as? ASTComposite {
-            handle(composite: composite)
+            try handle(composite: composite)
             
         } else if let assignment = node as? ASTAssignment {
-            handle(assignment: assignment)
+            try handle(assignment: assignment)
             
         } else if let _ = node as? ASTVariableDeclaration {
             // we don't need to explicitly handle variable declarations since that info is also passed in the ASTFunctionDeclaration node
             // TODO we might be able to remove all variable declarations from the a function's body statements?
             
         } else if let conditionalStatement = node as? ASTConditionalStatement {
-            handle(conditionalStatement: conditionalStatement)
+            try handle(conditionalStatement: conditionalStatement)
             
         } else if let comparison = node as? ASTComparison {
-            handle(comparison: comparison)
+            try handle(comparison: comparison)
             
         } else if let typeDeclaration = node as? ASTTypeDeclaration {
-            handle(typeDeclaration: typeDeclaration)
+            try handle(typeDeclaration: typeDeclaration)
             
         } else if let arraySetter = node as? ASTArraySetter {
-            handle(arraySetter: arraySetter)
+            try handle(arraySetter: arraySetter)
             
         } else if let arrayGetter = node as? ASTArrayGetter {
-            handle(arrayGetter: arrayGetter)
+            try handle(arrayGetter: arrayGetter)
             
         } else if let memberGetter = node as? ASTTypeMemberGetter {
-            handle(memberGetter: memberGetter)
+            try handle(memberGetter: memberGetter)
             
         } else if let typeImplementation = node as? ASTTypeImplementation {
-            handle(typeImplementation: typeImplementation)
+            try handle(typeImplementation: typeImplementation)
             
         } else if let typeMemberFunctionCall = node as? ASTTypeMemberFunctionCall {
-            handle(typeMemberFunctionCall: typeMemberFunctionCall)
+            try handle(typeMemberFunctionCall: typeMemberFunctionCall)
             
         } else if let memberSetter = node as? ASTTypeMemberSetter {
-            handle(memberSetter: memberSetter)
+            try handle(memberSetter: memberSetter)
             
         } else if let _ = node as? ASTImportStatement {
             
         } else if let stringLiteral = node as? ASTStringLiteral {
-            handle(stringLiteral: stringLiteral)
+            try handle(stringLiteral: stringLiteral)
             
         } else if let rawInstruction = node as? ASTRawWIPInstruction {
             instructions.append(rawInstruction.instruction)
             
         } else if let arrayLiteral = node as? ASTArrayLiteral {
-            handle(arrayLiteral: arrayLiteral)
+            try handle(arrayLiteral: arrayLiteral)
             
         } else if let _ = node as? ASTNoop {
             
@@ -205,7 +215,7 @@ private extension BytecodeCompiler {
     
     // MARK: Handle Statements
     
-    func handle(typeDeclaration: ASTTypeDeclaration) {
+    func handle(typeDeclaration: ASTTypeDeclaration) throws {
         
         let typename = typeDeclaration.name.name
 
@@ -263,17 +273,17 @@ private extension BytecodeCompiler {
             ]
         )
         
-        handle(function: initializer)
+        try handle(function: initializer)
     }
     
     
-    func handle(function: ASTFunctionDeclaration) {
+    func handle(function: ASTFunctionDeclaration) throws {
         guard function.body.statements.getLocalVariables(recursive: true).intersection(with: function.parameters).isEmpty else {
             fatalError("local variable cannot (yet?) shadow parameter")
         }
         
         
-        withScope(self.scope.withType(.function(name: function.mangledName, returnType: function.returnType.name), newParameters: function.parameters)) {
+        try withScope(self.scope.withType(.function(name: function.mangledName, returnType: function.returnType.name), newParameters: function.parameters)) {
             // function entry point
             add(label: function.mangledName)
             
@@ -295,19 +305,19 @@ private extension BytecodeCompiler {
                 functionBody = function.body
             }
             
-            handle(composite: functionBody)
+            try handle(composite: functionBody)
         }
     }
     
     
-    func handle(composite: ASTComposite) {
+    func handle(composite: ASTComposite) throws {
         guard case .function(let functionName, let returnType) = scope.type else {
             fatalError("top level composite outside a function?")
         }
         
         // if the composite doesn't introduce a new scope, we simply handle all statements
         if !composite.introducesNewScope {
-            composite.statements.forEach(handle)
+            try composite.statements.forEach(handle)
             return
         }
         
@@ -329,11 +339,11 @@ private extension BytecodeCompiler {
             localVariables.append(retval_temp_storage)
         }
         
-        withScope(scope.adding(localVariables: localVariables)) {
+        try withScope(scope.adding(localVariables: localVariables)) {
             add(.alloc, localVariables.count)
             
             if !hasReturnStatement {
-                composite.statements.forEach(handle)
+                try composite.statements.forEach(handle)
                 let localVariables = composite.statements.getLocalVariables(recursive: false)
                 //insertCalls(to: release, forObjectsIn: localVariables)
                 
@@ -353,7 +363,7 @@ private extension BytecodeCompiler {
                             shouldRetainAssignedValueIfItIsAnObject: false//(returnStatement.returnValueExpression is ASTIdentifier)
                         )
                         
-                        handle(assignment: storeRetval)
+                        try handle(assignment: storeRetval)
                         //insertCalls(to: retain, forObjectsIn: [retval_temp_storage])
                         //insertCalls(to: release, forObjectsIn: [retval_temp_storage])
                         
@@ -368,10 +378,10 @@ private extension BytecodeCompiler {
                         // Problem: what if we return one of the local variables? (or one of its attributes) (or it's somehow used in the return value expression)?
                         // idea: create a local vatiable for the return value (w/ the type of the function's return type), exclude that from all the release calls and return that
                         //handle(return: returnStatement)
-                        handle(return: ASTReturnStatement(returnValueExpression: retval_temp_storage.identifier))
+                        try handle(return: ASTReturnStatement(returnValueExpression: retval_temp_storage.identifier))
                         
                     } else {
-                        handle(node: statement)
+                        try handle(node: statement)
                     }
                 }
             }
@@ -380,34 +390,34 @@ private extension BytecodeCompiler {
     }
     
     
-    func handle(return returnStatement: ASTReturnStatement) {
-        handle(node: returnStatement.returnValueExpression)
+    func handle(return returnStatement: ASTReturnStatement) throws {
+        try handle(node: returnStatement.returnValueExpression)
         add(.ret, scope.size)
     }
     
-    func handle(arraySetter: ASTArraySetter) {
-        handle(node: arraySetter.value)
-        handle(node: arraySetter.offset)
-        handle(node: arraySetter.target)
+    func handle(arraySetter: ASTArraySetter) throws {
+        try handle(node: arraySetter.value)
+        try handle(node: arraySetter.offset)
+        try handle(node: arraySetter.target)
         
         add(.storeh)
     }
     
-    func handle(arrayGetter: ASTArrayGetter) {
-        handle(node: arrayGetter.offset)
-        handle(node: arrayGetter.target)
+    func handle(arrayGetter: ASTArrayGetter) throws {
+        try handle(node: arrayGetter.offset)
+        try handle(node: arrayGetter.target)
         
         add(.loadh)
     }
     
-    func handle(typeImplementation: ASTTypeImplementation) {
+    func handle(typeImplementation: ASTTypeImplementation) throws {
         for function in typeImplementation.functions {
-            handle(function: function)
+            try handle(function: function)
         }
     }
     
-    func handle(typeMemberFunctionCall: ASTTypeMemberFunctionCall) {
-        let typename = scope.type(of: typeMemberFunctionCall.target.name)
+    func handle(typeMemberFunctionCall: ASTTypeMemberFunctionCall) throws {
+        let typename = try scope.type(of: typeMemberFunctionCall.target.name)
         
         let call = ASTFunctionCall(
             functionName: SymbolMangling.mangleInstanceMember(ofType: typename, memberName: typeMemberFunctionCall.functionName.name),
@@ -415,7 +425,7 @@ private extension BytecodeCompiler {
             unusedReturnValue: typeMemberFunctionCall.unusedReturnValue
         )
         
-        handle(functionCall: call)
+        try handle(functionCall: call)
     }
     
     
@@ -424,7 +434,7 @@ private extension BytecodeCompiler {
     
     
     
-    func handle(conditionalStatement: ASTConditionalStatement) {
+    func handle(conditionalStatement: ASTConditionalStatement) throws {
         guard case .function(let functionName, _) = scope.type else {
             fatalError("global if statement")
         }
@@ -440,7 +450,7 @@ private extension BytecodeCompiler {
         if case .while = conditionalStatement.kind {
             add(label: generateLabel("cond"))
         }
-        handle(condition: conditionalStatement.condition)
+        try handle(condition: conditionalStatement.condition)
         
         // 2. handle the jump to the body if the condition is true
         // if the condition is false, we fall through to jump to the else branch (or the end, if there is no else branch)
@@ -459,7 +469,7 @@ private extension BytecodeCompiler {
         
         // 4. handle the body
         add(label: generateLabel("body"))
-        handle(composite: conditionalStatement.body)
+        try handle(composite: conditionalStatement.body)
         
         // depending on whether this is an if or while statement, we jump to the end (if) or the condition (while)
         add(.push, -1)
@@ -472,7 +482,7 @@ private extension BytecodeCompiler {
         // 5. if this is an if statement w/ an else branch, handle the else branch
         if case .if(let elseBranch) = conditionalStatement.kind, let elseBranch_ = elseBranch {
             add(label: generateLabel("else"))
-            handle(composite: elseBranch_)
+            try handle(composite: elseBranch_)
         }
         
         // 6. handle the end label
@@ -480,19 +490,19 @@ private extension BytecodeCompiler {
     }
     
     
-    func handle(assignment: ASTAssignment) {
+    func handle(assignment: ASTAssignment) throws {
         guard let target = assignment.target as? ASTIdentifier else {
             fatalError("can only assign to variables as of right now")
         }
         
-        let targetIsObject = scope.isObject(identifier: target.name)
+        let targetIsObject = try scope.isObject(identifier: target.name)
         
         if targetIsObject {
             // TODO release the old value?
         }
         
-        handle(node: assignment.value)
-        add(.store, scope.index(of: target.name))
+        try handle(node: assignment.value)
+        add(.store, try scope.index(of: target.name))
         
         // TODO ARC
         return
@@ -503,7 +513,7 @@ private extension BytecodeCompiler {
                 arguments: [target],
                 unusedReturnValue: true
             )
-            handle(functionCall: retainCall)
+            try handle(functionCall: retainCall)
         }
         
     }
@@ -514,18 +524,20 @@ private extension BytecodeCompiler {
     
     // MARK: Handle Expressions
     
-    func handle(functionCall: ASTFunctionCall) {
+    func handle(functionCall: ASTFunctionCall) throws {
         guard let argc = functions[functionCall.functionName]?.argc else {
-            fatalError("trying to call non-existent function")
+            //fatalError("trying to call non-existent function")
+            throw BytecodeCompilerError.undefinedFunction(functionCall)
         }
         
         guard argc == functionCall.arguments.count else {
-            fatalError("wrong argc")
+            //fatalError("wrong argc")
+            throw BytecodeCompilerError.wrongNumberOfArgumentsPassedToFunction(functionCall)
         }
         
         // todo push arguments on the stack
         for arg in functionCall.arguments.reversed() {
-            handle(node: arg)
+            try handle(node: arg)
         }
         
         
@@ -545,12 +557,12 @@ private extension BytecodeCompiler {
     }
     
     
-    func handle(identifier: ASTIdentifier) {
-        add(.load, scope.index(of: identifier.name))
+    func handle(identifier: ASTIdentifier) throws {
+        add(.load, try scope.index(of: identifier.name))
     }
     
-    func handle(memberGetter: ASTTypeMemberGetter) {
-        let typename = scope.type(of: memberGetter.target.name)
+    func handle(memberGetter: ASTTypeMemberGetter) throws {
+        let typename = try scope.type(of: memberGetter.target.name)
         let membername = memberGetter.memberName.name
         
         guard typeCache.type(typename, hasMember: membername) else {
@@ -559,47 +571,47 @@ private extension BytecodeCompiler {
         
         let offset = typeCache.offset(ofMember: membername, inType: typename)
         add(.push, offset)
-        handle(identifier: memberGetter.target)
+        try handle(identifier: memberGetter.target)
         add(.loadh)
     }
     
     
-    func handle(memberSetter: ASTTypeMemberSetter) {
-        let typename = scope.type(of: memberSetter.target.name)
+    func handle(memberSetter: ASTTypeMemberSetter) throws {
+        let typename = try scope.type(of: memberSetter.target.name)
         let membername = memberSetter.memberName.name
         
         guard typeCache.type(typename, hasMember: membername) else {
             fatalError("type '\(typename)' doesn't have member '\(membername)'")
         }
         
-        handle(node: memberSetter.newValue)
+        try handle(node: memberSetter.newValue)
         
         let offset = typeCache.offset(ofMember: membername, inType: typename)
         add(.push, offset)
         
-        handle(identifier: memberSetter.target)
+        try handle(identifier: memberSetter.target)
         add(.storeh)
     }
     
     
-    func handle(binop: ASTBinaryOperation) {
-        handle(node: binop.rhs)
-        handle(node: binop.lhs)
+    func handle(binop: ASTBinaryOperation) throws {
+        try handle(node: binop.rhs)
+        try handle(node: binop.lhs)
         
         add(binop.operation.operation)
     }
     
-    func handle(unary: ASTUnary) {
+    func handle(unary: ASTUnary) throws {
         // TODO add support for NOT
-        handle(binop: ASTBinaryOperation(lhs: ASTNumberLiteral(value: -1), operation: .mul, rhs: unary.expression))
+        try handle(binop: ASTBinaryOperation(lhs: ASTNumberLiteral(value: -1), operation: .mul, rhs: unary.expression))
     }
     
     
-    func handle(numberLiteral: ASTNumberLiteral) {
+    func handle(numberLiteral: ASTNumberLiteral) throws {
         add(.push, numberLiteral.value)
     }
     
-    func handle(stringLiteral: ASTStringLiteral) {
+    func handle(stringLiteral: ASTStringLiteral) throws {
         let value = stringLiteral.value
         
         let codepoints: [Int] = value.unicodeScalars.map { Int($0.value) }
@@ -615,11 +627,11 @@ private extension BytecodeCompiler {
             unusedReturnValue: false
         )
         
-        handle(functionCall: stringInitCall)
+        try handle(functionCall: stringInitCall)
     }
     
     
-    func handle(arrayLiteral: ASTArrayLiteral) {
+    func handle(arrayLiteral: ASTArrayLiteral) throws {
         // TODO if the array is just number literals, store it as a constant (like strings)
         // otherwise, just generate a bunch of Array.add calls? (that wouldn't work inline)
         
@@ -637,7 +649,7 @@ private extension BytecodeCompiler {
                 arguments: [ASTNoop()], // the parameter is already on the stack, from the `loadc` instruction above
                 unusedReturnValue: false
             )
-            handle(functionCall: initCall)
+            try handle(functionCall: initCall)
             return
         }
         
@@ -646,21 +658,21 @@ private extension BytecodeCompiler {
     
     
     
-    func handle(condition: ASTCondition) {
+    func handle(condition: ASTCondition) throws {
         if let comparison = condition as? ASTComparison {
-            handle(comparison: comparison)
+            try handle(comparison: comparison)
             
         } else if let binaryCondition = condition as? ASTBinaryCondition {
-            handle(binaryCondition: binaryCondition)
+            try handle(binaryCondition: binaryCondition)
         } else {
             fatalError("unhandled condition \(condition)")
         }
     }
     
     
-    func handle(comparison: ASTComparison) {
-        handle(node: comparison.rhs)
-        handle(node: comparison.lhs)
+    func handle(comparison: ASTComparison) throws {
+        try handle(node: comparison.rhs)
+        try handle(node: comparison.lhs)
         
         switch comparison.operator {
         case .equal:
@@ -682,10 +694,10 @@ private extension BytecodeCompiler {
     }
     
     
-    func handle(binaryCondition: ASTBinaryCondition) {
+    func handle(binaryCondition: ASTBinaryCondition) throws {
         // evaluate both conditions (lhs and rhs), order doesn't matter
-        handle(node: binaryCondition.lhs)
-        handle(node: binaryCondition.rhs)
+        try handle(node: binaryCondition.lhs)
+        try handle(node: binaryCondition.rhs)
         
         // the last two values on the stack are now one of these options:
         // -1, -1   (lhs: true  | rhs: true )
@@ -709,11 +721,11 @@ private extension BytecodeCompiler {
 
 // MARK: Helpers
 private extension BytecodeCompiler {
-    func insertCalls(to functionName: String, forObjectsIn variables: [ASTVariableDeclaration]) {
+    func insertCalls(to functionName: String, forObjectsIn variables: [ASTVariableDeclaration]) throws {
         fatalError("ugh")
-        let identifiers = variables
+        let identifiers = try variables
             .map    { $0.identifier }
-            .filter { self.scope.isObject(identifier: $0.name) }
+            .filter { try self.scope.isObject(identifier: $0.name) }
         
         for identifier in identifiers {
             let call = ASTFunctionCall(
@@ -721,7 +733,7 @@ private extension BytecodeCompiler {
                 arguments: [identifier],
                 unusedReturnValue: true
             )
-            self.handle(functionCall: call)
+            try self.handle(functionCall: call)
         }
     }
 }
