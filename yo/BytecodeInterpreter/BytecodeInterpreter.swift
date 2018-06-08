@@ -218,6 +218,11 @@ extension BytecodeInterpreter {
             stack.framePointer = try stack.pop()
             
             try stack.push(returnValue)
+            
+            
+        case .debug:
+            let stack = heap.stack
+            ({}())
         }
         
         //Log.info("[eval] ip=\(instructionPointer) stack after: \(heap.backing)")

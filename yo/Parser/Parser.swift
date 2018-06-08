@@ -109,6 +109,40 @@ private extension Parser {
                 next()
                 return ASTReturnStatement(returnValueExpression: expression)
                 
+            case .__asm:
+                next()
+                
+                guard case .openingParentheses = currentToken.type else {
+                    throw ParserError.unexpectedToken(currentToken)
+                }
+                next()
+                
+                let rawOperationName = try parseIdentifier().name
+                print(rawOperationName)
+                guard let operation = Operation(name: rawOperationName) else {
+                    print("ugh")
+                    throw ParserError.other("unknown operation in __asm literal: \(rawOperationName)")
+                }
+                
+                if case .comma = currentToken.type {
+                    next()
+                    // parse immediate
+                    guard let immediate = (try? parseNumberLiteral()) ?? (try? parseIdentifier()) else {
+                        throw ParserError.other("unable to parse __asm literal")
+                    }
+                    print(immediate)
+                    
+                    next()  // skip the closing parentheses
+                    next()  // skip the semicolon
+                    
+                    if let immediate = immediate as? ASTNumberLiteral {
+                        return ASTRawWIPInstruction(instruction: .operation(operation, immediate.value))
+                    } else if let immediate = immediate as? ASTIdentifier {
+                        return ASTRawWIPInstruction(instruction: .unresolved(operation, immediate.name))
+                    }
+                    fatalError("should not reach here")
+                }
+                
             case .if, .while:
                 let initialTokenType = currentToken.type
                 

@@ -73,9 +73,25 @@ enum Operation: Int {
     case call
     case ret
     
+    // debugging
+    case debug
+    
     
     func encode(withImmediate immediate: Int = 0) -> Int {
         // TODO guard that the immediate fits in `InstructionSize - 7`
         return (immediate << 7) | self.rawValue
+    }
+    
+    init?(name: String) {
+        var i = 0
+        while let item = Operation(rawValue: i) {
+            if String(describing: item) == name {
+                self = item
+                return
+            }
+            i += 1
+        }
+        
+        return nil
     }
 }

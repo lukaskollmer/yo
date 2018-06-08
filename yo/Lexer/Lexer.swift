@@ -65,7 +65,8 @@ private let tokenMapping: [String: TokenType] = [
     "if"    : .if,
     "else"  : .else,
     "while" : .while,
-    "for"   : .for
+    "for"   : .for,
+    "__asm"  : .__asm,
     
 ]
 
