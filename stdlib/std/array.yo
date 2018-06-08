@@ -97,9 +97,14 @@ impl Array {
     }
 
 
-    // Remove an object from the array
+    // Remove the element at the specified index from the array
     fn remove(self: Array, index: int): int {
         // TODO
+    }
+
+
+    fn sort(self: Array): int {
+        runtime::sort_s(self._backing, self.count);
     }
 
 

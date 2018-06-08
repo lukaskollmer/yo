@@ -86,6 +86,9 @@ class Heap {
         get {
             return backing[range]
         }
+        set {
+            backing[range] = newValue
+        }
     }
     
     
@@ -115,5 +118,21 @@ class Heap {
 }
 
 
+
+/// MARK: sorting
+
+
+
+
+extension Heap {
+    
+    func sort(address: Int, count: Int) {
+        // TODO there has to be a better way than this...
+        
+        let range: Range<Int> = address..<(address + count)
+        backing.replaceSubrange(range, with: self[range].sorted())
+    }
+    
+}
 
 

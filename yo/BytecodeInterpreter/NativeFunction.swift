@@ -32,6 +32,7 @@ extension Runtime {
         (ns("io", "printi"),                1, addr, io_printi),
         (ns("io", "printf"),                2, addr, io_printf),
         (ns("runtime", "fatalError"),       1, addr, runtime_fatalError),
+        (ns("runtime", "sort_s"),           2, addr, runtime_sort_s),
     ]
     
     
@@ -67,6 +68,14 @@ extension Runtime {
     private static func runtime_free(_ stack: Stack) -> Int {
         stack.heap.free(address: stack.peek())
         return 0;
+    }
+    
+    // MARK: sorting
+    private static func runtime_sort_s(_ stack: Stack) -> Int {
+        let address = stack.peek()
+        let count = stack.peek(offset: -1)
+        stack.heap.sort(address: address, count: count)
+        return 0
     }
     
     
