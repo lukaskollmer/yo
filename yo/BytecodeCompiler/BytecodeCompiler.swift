@@ -80,7 +80,8 @@ class BytecodeCompiler {
         // perform semantic analysis
         let semanticAnalysis = SemanticAnalyzer().analyze(ast: ast)
         
-        ast = ARCAnalyzer(semanticAnalysis: semanticAnalysis).foo(ast: ast)
+        // TODO ARC
+        //ast = ARCAnalyzer(semanticAnalysis: semanticAnalysis).foo(ast: ast)
         
         
         // add the bootstrapping instructions
