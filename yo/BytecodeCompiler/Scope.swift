@@ -16,13 +16,13 @@ struct Scope {
     
     enum ScopeType {
         case global
-        case function(name: String, returnType: String)
+        case function(name: String, returnType: ASTType)
     }
     
     let type: ScopeType
     private var symbols = [String]()
     private var numberOfParameters = 0
-    private var types = [String: String]()
+    private var types = [String: ASTType]()
     
     let parameters: [ASTVariableDeclaration]
     let localVariables: [ASTVariableDeclaration]
@@ -44,8 +44,10 @@ struct Scope {
         symbols.append(contentsOf: parameters.map     { $0.identifier.name })
         symbols.append(contentsOf: localVariables.map { $0.identifier.name })
         
-        parameters.forEach     { types[$0.identifier.name] = $0.typename.name }
-        localVariables.forEach { types[$0.identifier.name] = $0.typename.name }
+        parameters.forEach     { types[$0.identifier.name] = $0.type }
+        localVariables.forEach { types[$0.identifier.name] = $0.type }
+        
+        
     }
     
     var size: Int {
@@ -65,7 +67,7 @@ struct Scope {
         }
     }
     
-    func type(of name: String) throws -> String {
+    func type(of name: String) throws -> ASTType {
         guard let type = types[name] else {
             throw Error.unknownSymbol(name)
         }
@@ -92,6 +94,9 @@ struct Scope {
     
     
     func isObject(identifier: String) throws -> Bool {
-        return try type(of: identifier) != "int"
+        if case .complex(_) = try type(of: identifier) {
+            return true
+        }
+        return false
     }
 }

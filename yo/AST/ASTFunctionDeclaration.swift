@@ -17,7 +17,7 @@ struct ASTFunctionDeclaration: ASTStatement {
     
     let name: ASTIdentifier
     let parameters: [ASTVariableDeclaration]
-    let returnType: ASTIdentifier
+    let returnType: ASTType
     let kind: Kind
     let body: ASTComposite
     

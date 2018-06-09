@@ -11,7 +11,7 @@ import Foundation
 
 class SemanticAnalyzer {
     
-    typealias FunctionInfo = (argc: Int, parameterTypes: [String], returnType: String)
+    typealias FunctionInfo = (argc: Int, parameterTypes: [ASTType], returnType: ASTType)
     
     struct Result {
         
@@ -28,8 +28,8 @@ class SemanticAnalyzer {
         let handleFunction = { (functionDecl: ASTFunctionDeclaration) -> Void in
             functions[functionDecl.mangledName] = (
                 argc: functionDecl.parameters.count,
-                parameterTypes: functionDecl.parameters.map { $0.typename.name },
-                returnType: functionDecl.returnType.name
+                parameterTypes: functionDecl.parameters.map { $0.type },
+                returnType: functionDecl.returnType
             )
         }
         
@@ -38,8 +38,8 @@ class SemanticAnalyzer {
                 types.append(typeDecl)
                 functions[SymbolMangling.mangleInitializer(forType: typeDecl.name.name)] = (
                     argc: typeDecl.attributes.count,
-                    parameterTypes: typeDecl.attributes.map { $0.typename.name },
-                    returnType: typeDecl.name.name
+                    parameterTypes: typeDecl.attributes.map { $0.type },
+                    returnType: .complex(name: typeDecl.name.name)
                 )
                 
             } else if let functionDecl = node as? ASTFunctionDeclaration {

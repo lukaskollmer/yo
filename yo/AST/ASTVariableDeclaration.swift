@@ -11,7 +11,7 @@ import Foundation
 
 struct ASTVariableDeclaration: ASTStatement, Equatable {
     let identifier: ASTIdentifier
-    let typename: ASTIdentifier
+    let type: ASTType
 }
 
 

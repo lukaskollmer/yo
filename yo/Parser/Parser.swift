@@ -20,7 +20,6 @@ private let BinaryOperationTokens: [TokenType] = [
     .ampersand, .pipe, .circumflex, .tilde, .less, .greater
 ]
 
-
 // MARK: Errors
 enum ParserError: Error {
     case unexpectedToken(Token)
@@ -200,13 +199,13 @@ private extension Parser {
                 }
                 next()
                 
-                let typename = try parseIdentifier()
+                let type = try parseType()
                 
                 // a variable declaration's type can either be followed by a semicolon (`val x: Foo;`)
                 // or by an equals sign, followed by an expression and a semicolon
                 if case .semicolon = currentToken.type {
                     next()
-                    return ASTVariableDeclaration(identifier: name, typename: typename)
+                    return ASTVariableDeclaration(identifier: name, type: type)
                 } else {
                     guard case .equalsSign = currentToken.type else {
                         throw ParserError.unexpectedToken(currentToken)
@@ -222,7 +221,7 @@ private extension Parser {
                     
                     return ASTComposite(
                         statements: [
-                            ASTVariableDeclaration(identifier: name, typename: typename),
+                            ASTVariableDeclaration(identifier: name, type: type),
                             ASTAssignment(target: name, value: assignedValue)
                         ],
                         introducesNewScope: false
@@ -493,8 +492,7 @@ private extension Parser {
             }
             next()
             
-            let typename = try parseIdentifier()
-            parameters.append(ASTVariableDeclaration(identifier: parameter, typename: typename))
+            parameters.append(ASTVariableDeclaration(identifier: parameter, type: try parseType()))
             
             if case .comma = currentToken.type {
                 next()
@@ -568,7 +566,7 @@ private extension Parser {
             throw ParserError.unexpectedToken(currentToken)
         }
         next()
-        let returnType = try parseIdentifier()
+        let returnType = try parseType()
         
         let functionBody = try parseComposite()
         
@@ -869,6 +867,61 @@ private extension Parser {
         }
         
         throw ParserError.unexpectedToken(currentToken)
+    }
+    
+    
+    // This *does not* parse a `type` decl, but instead parses the type of a symbol (like a local variable, function parameter or type attribute)
+    func parseType() throws -> ASTType {
+        switch currentToken.type {
+        case .identifier(let identifier):
+            next()
+            // TODO what if we introduce other primitive types. refactor into constant declaring all primitive types?
+            return ["int"].contains(identifier) ? .primitive(name: identifier) : .complex(name: identifier)
+            
+        case .fn:
+            // a function pointer
+            guard case .less = next().type else {
+                fatalError("expected < in function pointer declaration")
+            }
+            next()
+            let returnType = try parseType()
+            guard
+                case .comma = currentToken.type,
+                case .openingParentheses = next().type
+            else {
+                fatalError("expected parameter type list after return type in function pointer declaration")
+            }
+            next()
+            
+            var parameterTypes = [ASTType]()
+            
+            parseParameters: while true {
+                parameterTypes.append(try parseType())
+                
+                if case .comma = currentToken.type {
+                    next()
+                }
+                
+                if case TokenType.closingParentheses = currentToken.type {
+                    next()
+                    break parseParameters
+                }
+            }
+            
+            guard case .greater = currentToken.type else {
+                fatalError("expected function pointer declaration to end w/ `>`")
+            }
+            next()
+            
+            return ASTType.function(returnType: returnType, parameterTypes: parameterTypes)
+            
+        default:
+            break
+        }
+        
+        
+        
+        fatalError("should not reach here")
     }
     
     

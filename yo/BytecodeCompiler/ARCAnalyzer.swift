@@ -126,7 +126,7 @@ class ARCAnalyzer {
                         newStatements.append(
                             ASTVariableDeclaration(
                                 identifier: identifier,
-                                typename: ASTIdentifier(name: "String")
+                                type: .complex(name: "String")
                             )
                         )
                         

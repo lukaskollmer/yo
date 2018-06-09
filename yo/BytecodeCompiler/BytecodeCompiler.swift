@@ -51,7 +51,7 @@ class BytecodeCompiler {
             functions[builtin.name] = (
                 argc: builtin.argc,
                 parameterTypes: [], // TODO
-                returnType: "int" // TODO
+                returnType: .primitive(name: "int") // TODO
             )
         }
     }
@@ -224,11 +224,11 @@ private extension BytecodeCompiler {
         let initializer = ASTFunctionDeclaration(
             name: ASTIdentifier(name: "init"),
             parameters: typeDeclaration.attributes,
-            returnType: typeDeclaration.name,
+            returnType: .complex(name: typeDeclaration.name.name), //typeDeclaration.name,
             kind: .staticImpl(typename),
             body: [
                 // 1. declare self
-                ASTVariableDeclaration(identifier: _self, typename: ASTIdentifier(name: "int")), // TODO ARC: declare as int to avoid refcounting and accidentally deallocating before we even return from the initializer?
+                ASTVariableDeclaration(identifier: _self, type: .primitive(name: "int")), // TODO ARC: declare as int to avoid refcounting and accidentally deallocating before we even return from the initializer?
                 
                 // 2. allocate space on the heap
                 ASTAssignment(
@@ -282,8 +282,7 @@ private extension BytecodeCompiler {
             fatalError("local variable cannot (yet?) shadow parameter")
         }
         
-        
-        try withScope(self.scope.withType(.function(name: function.mangledName, returnType: function.returnType.name), newParameters: function.parameters)) {
+        try withScope(self.scope.withType(.function(name: function.mangledName, returnType: function.returnType), newParameters: function.parameters)) {
             // function entry point
             add(label: function.mangledName)
             
@@ -332,7 +331,7 @@ private extension BytecodeCompiler {
         // only used if `hasReturnStatement == true`
         let retval_temp_storage = ASTVariableDeclaration(
             identifier: ASTIdentifier(name: "__retval_\(functionName)"),
-            typename: ASTIdentifier(name: returnType)
+            type: returnType
         )
         
         if hasReturnStatement {
@@ -417,7 +416,9 @@ private extension BytecodeCompiler {
     }
     
     func handle(typeMemberFunctionCall: ASTTypeMemberFunctionCall) throws {
-        let typename = try scope.type(of: typeMemberFunctionCall.target.name)
+        guard case .complex(let typename) = try scope.type(of: typeMemberFunctionCall.target.name) else {
+            fatalError("trying to call method on non complex type")
+        }
         
         let call = ASTFunctionCall(
             functionName: SymbolMangling.mangleInstanceMember(ofType: typename, memberName: typeMemberFunctionCall.functionName.name),
@@ -562,7 +563,9 @@ private extension BytecodeCompiler {
     }
     
     func handle(memberGetter: ASTTypeMemberGetter) throws {
-        let typename = try scope.type(of: memberGetter.target.name)
+        guard case .complex(let typename) = try scope.type(of: memberGetter.target.name) else {
+            fatalError("tryong to access member of non-complex type")
+        }
         let membername = memberGetter.memberName.name
         
         guard typeCache.type(typename, hasMember: membername) else {
@@ -577,7 +580,9 @@ private extension BytecodeCompiler {
     
     
     func handle(memberSetter: ASTTypeMemberSetter) throws {
-        let typename = try scope.type(of: memberSetter.target.name)
+        guard case .complex(let typename) = try scope.type(of: memberSetter.target.name) else {
+            fatalError("tryong to set member of non-complex type")
+        }
         let membername = memberSetter.memberName.name
         
         guard typeCache.type(typename, hasMember: membername) else {
