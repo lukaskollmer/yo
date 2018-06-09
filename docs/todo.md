@@ -21,3 +21,5 @@
 - [ ] a `break` keyword
 - [ ] `Array.get`: negative index to access elements from back
 - [ ] ternary expressions (only for assignment at first)
+- [ ] `else if`
+- [ ] add type checks when assigning the return value of a function?
