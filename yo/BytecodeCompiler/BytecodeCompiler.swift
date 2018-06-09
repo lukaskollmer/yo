@@ -527,9 +527,20 @@ private extension BytecodeCompiler {
     // MARK: Handle Expressions
     
     func handle(functionCall: ASTFunctionCall) throws {
-        guard let argc = functions[functionCall.functionName]?.argc else {
-            //fatalError("trying to call non-existent function")
-            throw BytecodeCompilerError.undefinedFunction(functionCall)
+        let isGlobalFunction = functions.keys.contains(functionCall.functionName)
+        
+        let argc: Int
+        if isGlobalFunction {
+            guard let _argc = functions[functionCall.functionName]?.argc else {
+                //fatalError("trying to call non-existent function")
+                throw BytecodeCompilerError.undefinedFunction(functionCall)
+            }
+            argc = _argc // seems like we can't directly assign to argc bc that's non-optional
+        } else {
+            guard case ASTType.function(let returnType, let parameterTypes) = try scope.type(of: functionCall.functionName) else {
+                throw BytecodeCompilerError.undefinedFunction(functionCall)
+            }
+            argc = parameterTypes.count
         }
         
         guard argc == functionCall.arguments.count else {
@@ -546,8 +557,10 @@ private extension BytecodeCompiler {
         // push the address onto the stack
         if let builtin = Runtime.builtin(withName: functionCall.functionName) {
             add(.push, builtin.address)
-        } else {
+        } else if isGlobalFunction {
             add(.push, unresolvedLabel: SymbolMangling.mangleGlobalFunction(name: functionCall.functionName))
+        } else {
+            try handle(identifier: ASTIdentifier(name: functionCall.functionName))
         }
         
         // call w/ the passed number of arguments
@@ -560,7 +573,16 @@ private extension BytecodeCompiler {
     
     
     func handle(identifier: ASTIdentifier) throws {
-        add(.load, try scope.index(of: identifier.name))
+        if let index = try? scope.index(of: identifier.name) {
+            // local variable
+            add(.load, index)
+            
+        } else if functions.keys.contains(identifier.name) {
+            // global function
+            add(.push, unresolvedLabel: identifier.name)
+        } else {
+            fatalError("trying to use unknown idenfifier")
+        }
     }
     
     func handle(memberGetter: ASTTypeMemberGetter) throws {

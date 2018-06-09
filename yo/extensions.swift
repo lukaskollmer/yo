@@ -97,4 +97,12 @@ extension Dictionary {
             self[key] = value
         }
     }
+    
+    
+    func inserting(contentsOf other: Dictionary<Key, Value>) -> Dictionary<Key, Value> {
+        var retval = self
+        retval.insert(contentsOf: other)
+        
+        return retval
+    }
 }
