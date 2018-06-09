@@ -103,7 +103,7 @@ impl Array {
     }
 
 
-    fn sort(self: Array): int {
+    fn sort(self: Array): void {
         runtime::sort_s(self._backing, self.count);
     }
 
