@@ -187,8 +187,7 @@ private extension Parser {
                 }
                 next()
                 
-                let start = try parseNumberLiteral()
-                print(indexIdentifier, start)
+                let start = try parseExpression()
                 
                 guard
                     case .period = currentToken.type,
@@ -210,7 +209,7 @@ private extension Parser {
                 }
                 next()
                 
-                let end = try parseNumberLiteral()
+                let end = try parseExpression()
                 
                 guard case .openingCurlyBrackets = currentToken.type else {
                     fatalError("{ required in for loop")
