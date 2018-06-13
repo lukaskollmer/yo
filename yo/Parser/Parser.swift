@@ -178,7 +178,67 @@ private extension Parser {
                 
                 
             case .for:
-                throw ParserError.other("for loops aren't yet implemented")
+                next()
+                
+                let indexIdentifier = try parseIdentifier()
+                
+                guard case .in = currentToken.type else {
+                    fatalError("invalid range expression")
+                }
+                next()
+                
+                let start = try parseNumberLiteral()
+                print(indexIdentifier, start)
+                
+                guard
+                    case .period = currentToken.type,
+                    case .period = next().type
+                else {
+                      fatalError("invalid range expression")
+                }
+                next()
+                
+                
+                let rangeType: ASTComparison.Operator
+                
+                switch currentToken.type {
+                case .period:
+                    rangeType = .lessEqual
+                case .less:
+                    rangeType = .less
+                default: fatalError("invalid token in range expression")
+                }
+                next()
+                
+                let end = try parseNumberLiteral()
+                
+                guard case .openingCurlyBrackets = currentToken.type else {
+                    fatalError("{ required in for loop")
+                }
+                
+                let body = try parseComposite()
+                
+                let forLoop: ASTComposite = [
+                    ASTVariableDeclaration(identifier: indexIdentifier, type: .primitive(name: "int")),
+                    ASTAssignment(target: indexIdentifier, value: start),
+                    
+                    ASTConditionalStatement(
+                        condition: ASTComparison(
+                            lhs: indexIdentifier,
+                            operator: rangeType,
+                            rhs: end
+                        ),
+                        body: body.appending(statements: [
+                            ASTAssignment(
+                                target: indexIdentifier,
+                                value: ASTBinaryOperation(lhs: indexIdentifier, operation: .add, rhs: ASTNumberLiteral(value: 1))
+                            )
+                        ]),
+                        kind: .while
+                    )
+                ]
+                
+                return forLoop
                 
                 
             case .openingCurlyBrackets:
