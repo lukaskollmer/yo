@@ -12,6 +12,8 @@ impl Array {
         ret Array::init(0, 5, runtime::alloc(5));
     }
 
+    // Create a new Array from the contents of the heap, at the specified address
+    // Invoked by the compiler when using array literals consisting exclusively of integer literals
     static fn _fromConstantLiteral(address: int): Array {
         // since the array we get in `address` also contains its length (at index 0),
         // we allocate a new array as our backing and free the one we got.
@@ -107,10 +109,13 @@ impl Array {
     }
 
 
+    // Sort the array in ascending order
     fn sort(self: Array): void {
         runtime::sort(self._backing, self.count);
     }
 
+
+    // Sort the array using a custom sorting function
     fn sortf(self: Array, f: fn<int, (int, int)>): void {
         runtime::sortf(self._backing, self.count, f);
     }
@@ -127,7 +132,10 @@ impl Array {
     }
 
 
-    // Helpers
+    //
+    // MARK: Helpers
+    //
+
     fn _normalizeIndexAndCheckBounds(self: Array, index: int): int {
         if index < 0 {
             index = self.count + index;
@@ -139,6 +147,7 @@ impl Array {
 
         ret index;
     }
+
 
     // Move to a smaller/larger backing
     // Also updates `_allocatedLength`
