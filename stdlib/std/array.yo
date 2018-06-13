@@ -20,10 +20,8 @@ impl Array {
         val length: int = address[0];
         val backing: int = runtime::alloc(length);
 
-        val idx: int = 0;
-        while idx < length {
-            backing[idx] = address[idx + 1];
-            idx += 1;
+        for i in 0..<length {
+            backing[i] = address[i + 1];
         }
 
         runtime::free(address);
@@ -41,10 +39,8 @@ impl Array {
             val newLength: int = self._allocatedLength + 10;
             val newBacking: int = runtime::alloc(newLength);
 
-            val idx: int = 0;
-            while idx < self.count {
-                newBacking[idx] = self._backing[idx];
-                idx += 1;
+            for i in 0..<self.count {
+                newBacking[i] = self._backing[i];
             }
 
             runtime::free(self._backing);
@@ -86,12 +82,10 @@ impl Array {
     // Get the first index of an object in the array
     // Returns -1 if the array does not contain the object
     fn indexOf(self: Array, obj: int): int {
-        val idx: int = 0;
-        while idx < self.count {
-            if self.get(idx) == obj {
-                ret idx;
+        for i in 0..<self.count {
+            if self.get(i) == obj {
+                ret i;
             }
-            idx += 1;
         }
         ret -1;
     }
