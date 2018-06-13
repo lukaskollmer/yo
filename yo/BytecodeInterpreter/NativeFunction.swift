@@ -21,7 +21,7 @@ extension Runtime {
         return SymbolMangling.mangleStaticMember(ofType: ns, memberName: name)
     }
     
-    typealias NativeFunctionImp = (Stack) -> Int
+    typealias NativeFunctionImp = (BytecodeInterpreter) -> Int
     typealias NativeFunction = (name: String, argc: Int, address: Int, imp: NativeFunctionImp)
     
     static let builtins: [NativeFunction] = [
@@ -32,7 +32,8 @@ extension Runtime {
         (ns("io", "printi"),                1, addr, io_printi),
         (ns("io", "printf"),                2, addr, io_printf),
         (ns("runtime", "fatalError"),       1, addr, runtime_fatalError),
-        (ns("runtime", "sort_s"),           2, addr, runtime_sort_s),
+        (ns("runtime", "sort"),             2, addr, runtime_sort),
+        (ns("runtime", "sortf"),            3, addr, runtime_sortf),
     ]
     
     
@@ -52,29 +53,43 @@ extension Runtime {
     // MARK: Native functions
     
     
-    private static func runtime_fatalError(_ stack: Stack) -> Int {
-        fatalError(getString(atAddress: stack.peek(), heap: stack.heap))
+    private static func runtime_fatalError(_ interpreter: BytecodeInterpreter) -> Int {
+        fatalError(getString(atAddress: interpreter.stack.peek(), heap: interpreter.stack.heap))
     }
     
     
     // MARK: memory
     
-    private static func runtime_alloc(_ stack: Stack) -> Int {
-        let size = stack.peek()
-        let address = stack.heap.alloc(size: size)
+    private static func runtime_alloc(_ interpreter: BytecodeInterpreter) -> Int {
+        let size = interpreter.stack.peek()
+        let address = interpreter.heap.alloc(size: size)
         return address
     }
     
-    private static func runtime_free(_ stack: Stack) -> Int {
-        stack.heap.free(address: stack.peek())
+    private static func runtime_free(_ interpreter: BytecodeInterpreter) -> Int {
+        interpreter.stack.heap.free(address: interpreter.stack.peek())
         return 0;
     }
     
     // MARK: sorting
-    private static func runtime_sort_s(_ stack: Stack) -> Int {
-        let address = stack.peek()
-        let count = stack.peek(offset: -1)
-        stack.heap.sort(address: address, count: count)
+    private static func runtime_sort(_ interpreter: BytecodeInterpreter) -> Int {
+        let address = interpreter.stack.peek()
+        let count = interpreter.stack.peek(offset: -1)
+        interpreter.heap.sort(address: address, count: count, fn: <)
+        return 0
+    }
+    
+    // the sorting function should return 1 if the first parameter should be ordered before the second one, otherwise 0
+    private static func runtime_sortf(_ interpreter: BytecodeInterpreter) -> Int {
+        let address = interpreter.stack.peek()
+        let count = interpreter.stack.peek(offset: -1)
+        let fn_address = interpreter.stack.peek(offset: -2)
+        
+        interpreter.heap.sort(address: address, count: count) { a, b in
+            let areInIncreasingOrder = try! interpreter.call(address: fn_address, arguments: [a, b])
+            return Bool(areInIncreasingOrder == 1)
+        }
+        
         return 0
     }
     
@@ -96,19 +111,19 @@ extension Runtime {
     }
     
     // print a string
-    private static func io_print(_ stack: Stack) -> Int {
-        print(getString(atAddress: stack.peek(), heap: stack.heap))
+    private static func io_print(_ interpreter: BytecodeInterpreter) -> Int {
+        print(getString(atAddress: interpreter.stack.peek(), heap: interpreter.heap))
         return 0
     }
     
     // print an integer
-    private static func io_printi(_ stack: Stack) -> Int {
-        print(stack.peek())
+    private static func io_printi(_ interpreter: BytecodeInterpreter) -> Int {
+        print(interpreter.stack.peek())
         return 0;
     }
     
     
-    private static func io_printf(_ stack: Stack) -> Int {
+    private static func io_printf(_ interpreter: BytecodeInterpreter) -> Int {
         // TODO WIP
         //let string = getString(atAddress: stack.peek() + 1, heap: stack.heap)
         //print(stack.peek(offset: -1))

@@ -104,7 +104,11 @@ impl Array {
 
 
     fn sort(self: Array): void {
-        runtime::sort_s(self._backing, self.count);
+        runtime::sort(self._backing, self.count);
+    }
+
+    fn sortf(self: Array, f: fn<int, (int, int)>): void {
+        runtime::sortf(self._backing, self.count, f);
     }
 
 

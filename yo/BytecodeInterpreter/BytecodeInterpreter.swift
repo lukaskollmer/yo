@@ -10,10 +10,11 @@ import Foundation
 
 
 class BytecodeInterpreter {
-    private let heap = Heap(size: 1 << 8)
-    private let instructions: [InstructionDescriptor]
+    let heap = Heap(size: 1 << 8)
+    let instructions: [InstructionDescriptor]
+    private var instructionPointer = 0    // plz don't use this directly
     
-    private var stack: Stack {
+    var stack: Stack {
         return heap.stack
     }
     
@@ -25,41 +26,15 @@ class BytecodeInterpreter {
     
     /// Evaluate the instructions. Returns the last value on the stack (aka whetever `main` returned)
     func run() throws -> Int {
-        var instructionPointer = 0
         
         while instructionPointer < instructions.count && instructionPointer != -1 { // -1 is HALT (TODO implement)
+            let previousInstructionPointer = instructionPointer
             
-            // check whether we're calling a native function (native functions have a negative "virtual" address)
-            if instructionPointer < 0 {
-                let nativeFunction = Runtime.getNativeFunction(withAddress: instructionPointer)
-                if nativeFunction.name == SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "dealloc") {
-                    
-                    // call the object's dealloc function
-                    // a negative destination address indicates that the type does not have a deallc function
-                    let destinationAddress = heap[stack.peek()] >> 40
-                    if destinationAddress > 0 {
-                        try eval(InstructionDescriptor(instruction: Operation.push.encode(withImmediate: -1)), &instructionPointer)
-                        try eval(InstructionDescriptor(instruction: Operation.jump.encode(withImmediate: destinationAddress)), &instructionPointer)
-                    }
-                } else {
-                    
-                    try stack.push(nativeFunction.imp(stack))
-                    // return from the native function
-                    try eval(InstructionDescriptor(instruction: Operation.ret.encode(withImmediate: nativeFunction.argc)), &instructionPointer)
-                }
-                
-                
-            } else {
-                let instruction = instructions[instructionPointer]
-                let previousInstructionPointer = instructionPointer
-                
-                try eval(instruction, &instructionPointer)
-                
-                if instructionPointer == previousInstructionPointer {
-                    instructionPointer += 1
-                }
+            try performAtCurrentInstructionPointer()
+            
+            if instructionPointer == previousInstructionPointer {
+                instructionPointer += 1
             }
-            
         }
         
         
@@ -68,11 +43,93 @@ class BytecodeInterpreter {
         
         return try stack.pop()
     }
-}
-
-
-extension BytecodeInterpreter {
-    func eval(_ instruction: InstructionDescriptor, _ instructionPointer: inout Int) throws {
+    
+    
+    
+    private func performAtCurrentInstructionPointer() throws {
+        // check whether we're calling a native function (native functions have a negative "virtual" address)
+        if instructionPointer < 0 {
+            let nativeFunction = Runtime.getNativeFunction(withAddress: instructionPointer)
+            if nativeFunction.name == SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "dealloc") {
+                
+                // call the object's dealloc function
+                // a negative destination address indicates that the type does not have a deallc function
+                let destinationAddress = heap[stack.peek()] >> 40
+                if destinationAddress > 0 {
+                    try eval(InstructionDescriptor(instruction: Operation.push.encode(withImmediate: -1)))
+                    try eval(InstructionDescriptor(instruction: Operation.jump.encode(withImmediate: destinationAddress)))
+                }
+            } else {
+                
+                try stack.push(nativeFunction.imp(self))
+                // return from the native function
+                try eval(InstructionDescriptor(instruction: Operation.ret.encode(withImmediate: nativeFunction.argc)))
+            }
+            
+            
+        } else {
+            let instruction = instructions[instructionPointer]
+            
+            try eval(instruction)
+        }
+    }
+    
+    
+    
+    func call(address: Int, arguments: [Int]) throws -> Int {
+        // simulating a function call
+        // this is problematic for several reasons:
+        // - after the function call, the stack has to be in the *exact* same state as before
+        // - we need to somehow detect when we're returning from the function call (might get difficult when the called function calls other functions
+        
+        try stack.push(stack.framePointer)
+        try stack.push(instructionPointer + 0)  // return address. since this is a native call, we return to the same address?
+        
+        try arguments.reversed().forEach(stack.push)
+        
+        stack.framePointer = stack.stackPointer
+        instructionPointer = address
+        
+        var depth = 1
+        
+        while true {
+            if (0..<instructions.count).contains(instructionPointer) {
+                let prevImmediate = instructions[instructionPointer - 1].immediate
+                let next = instructions[instructionPointer]
+                
+                if next.operation == .call && prevImmediate > 0 {
+                    depth += 1
+                }
+                if next.operation == .ret {
+                    depth -= 1
+                }
+                
+                if depth == 0 {
+                    let returnValue = try stack.pop()
+                    
+                    for _ in 0..<next.immediate {
+                        _ = try stack.pop()
+                    }
+                    
+                    instructionPointer = try stack.pop()
+                    stack.framePointer = try stack.pop()
+                    
+                    // TODO run some assertion to make sure the stack is unchanged?
+                    return returnValue
+                }
+            }
+            
+            let previousIP = instructionPointer
+            try performAtCurrentInstructionPointer()
+            if previousIP == instructionPointer {
+                instructionPointer += 1
+            }
+        }
+        fatalError("should not reach here")
+    }
+    
+    
+    func eval(_ instruction: InstructionDescriptor) throws {
         let immediate = instruction.immediate
         
         //Log.info("")

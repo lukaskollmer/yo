@@ -548,7 +548,7 @@ private extension BytecodeCompiler {
             throw BytecodeCompilerError.wrongNumberOfArgumentsPassedToFunction(functionCall)
         }
         
-        // todo push arguments on the stack
+        // push arguments on the stack
         for arg in functionCall.arguments.reversed() {
             try handle(node: arg)
         }

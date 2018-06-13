@@ -126,11 +126,11 @@ class Heap {
 
 extension Heap {
     
-    func sort(address: Int, count: Int) {
+    func sort(address: Int, count: Int, fn: (Int, Int) -> Bool) {
         // TODO there has to be a better way than this...
         
         let range: Range<Int> = address..<(address + count)
-        backing.replaceSubrange(range, with: self[range].sorted())
+        backing.replaceSubrange(range, with: self[range].sorted(by: fn))
     }
     
 }
