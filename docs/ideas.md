@@ -85,4 +85,21 @@ introduce a new instruction that takes splits its immediate into 8 bit chunks an
 - these arrays should have a special retain count, indicating that they're immutable
 - string literals in the source code are represented as a `runtime::alloc` call, followed by code that fills the array // TODO somehow bake them into the instructions?
 
-- introduce an additional WIPinstruction type that 
+- introduce an additional WIPinstruction type that
+
+
+
+## protocols
+```rust
+type X();
+
+protocol Y {
+    fn bar(self: Foo): int;
+}
+
+impl X: Y {
+    fn bar(self: Foo): int {
+        // code
+    }
+}
+```
