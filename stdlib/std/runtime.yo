@@ -24,7 +24,7 @@ impl runtime {
     // we call the object's dealloc method and free it from the heap
     static fn release(obj: int): int {
         if runtime::getRetainCount(obj) == 1 {
-            //runtime::dealloc(obj);
+            runtime::dealloc(obj);
             runtime::free(obj);
         } else {
             runtime::_setRetainCount(obj, runtime::getRetainCount(obj) - 1);
