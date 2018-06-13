@@ -17,6 +17,11 @@ struct ASTComposite: ASTStatement {
         self.statements = statements
         self.introducesNewScope = introducesNewScope
     }
+    
+    
+    func appending(statements otherStatements: [ASTStatement]) -> ASTComposite {
+        return ASTComposite(statements: statements + otherStatements, introducesNewScope: introducesNewScope)
+    }
 }
 
 
