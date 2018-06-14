@@ -68,6 +68,8 @@ enum TokenType: Equatable, Hashable {
     case `while`
     case `for`
     case `in`
+    case `break`
+    case `continue`
     case __asm
     
     case EOF

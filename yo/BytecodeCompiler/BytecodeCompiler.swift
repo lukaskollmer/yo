@@ -43,6 +43,9 @@ class BytecodeCompiler {
     private var typeCache = TypeCache()
     private var functions = [String: SemanticAnalyzer.FunctionInfo]()
     
+    private var breakDestination: String?
+    private var continueDestination: String?
+    
     
     
     init() {
@@ -203,6 +206,12 @@ private extension BytecodeCompiler {
             
         } else if let arrayLiteral = node as? ASTArrayLiteral {
             try handle(arrayLiteral: arrayLiteral)
+            
+        } else if let breakStatement = node as? ASTBreakStatement {
+            try handle(breakStatement: breakStatement)
+            
+        } else if let continueStatement = node as? ASTContinueStatement {
+            try handle(continueStatement: continueStatement)
             
         } else if let _ = node as? ASTNoop {
             
@@ -444,13 +453,18 @@ private extension BytecodeCompiler {
         let counter = getCounter()
         let generateLabel: (String) -> String = { "\(functionName)_ifwhile_\(counter)_\($0)" } // TOOD replace `ifwhile` w/ just if or while?
         
-        
+        let oldBreakDestination = breakDestination
+        let oldContinueDestination = continueDestination
         
         
         // 1. handle the condition
         // we only need a label for the condition if this is a while statement
         if case .while = conditionalStatement.kind {
             add(label: generateLabel("cond"))
+            
+            // for loops are also while statements (at least for the time being?)
+            self.breakDestination = generateLabel("end")
+            self.continueDestination = generateLabel("cond")
         }
         try handle(condition: conditionalStatement.condition)
         
@@ -489,6 +503,29 @@ private extension BytecodeCompiler {
         
         // 6. handle the end label
         add(label: generateLabel("end"))
+        
+        if case .while = conditionalStatement.kind {
+            self.breakDestination = oldBreakDestination
+            self.continueDestination = oldContinueDestination
+        }
+    }
+    
+    func handle(breakStatement: ASTBreakStatement) throws {
+        guard let breakDestination = breakDestination else {
+            fatalError("ugh something went wrong")
+        }
+        
+        add(.push, -1)
+        add(.jump, unresolvedLabel: breakDestination)
+    }
+    
+    func handle(continueStatement: ASTContinueStatement) throws {
+        guard let continueDestination = continueDestination else {
+            fatalError("ugh sorry for that")
+        }
+        
+        add(.push, -1)
+        add(.jump, unresolvedLabel: continueDestination)
     }
     
     

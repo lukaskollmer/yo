@@ -240,6 +240,17 @@ private extension Parser {
                 return forLoop
                 
                 
+            case .break, .continue:
+                let stmt: ASTStatement = currentToken.type == .break ? ASTBreakStatement() : ASTContinueStatement()
+                
+                guard case .semicolon = next().type else {
+                    fatalError("expected ; following break statement")
+                }
+                next()
+                
+                return stmt
+                
+                
             case .openingCurlyBrackets:
                 return try parseComposite()
                 
