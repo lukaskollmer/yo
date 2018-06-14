@@ -24,4 +24,4 @@
 - [ ] add type checks when assigning the return value of a function?
 - [ ] macros
 - [ ] make `nil` a macro for `0`
-- [ ] `break` out of `for`/`while` loops
+- [x] `break` out of `for`/`while` loops
