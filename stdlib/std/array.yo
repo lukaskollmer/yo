@@ -121,6 +121,17 @@ impl Array {
     }
 
 
+    fn map(self: Array, f: fn<int, (int)>): Array {
+        val newArray: Array = Array::new();
+
+        for i in 0..<self.count {
+            newArray.add(f(self.get(i)));
+        }
+
+        ret newArray;
+    }
+
+
     // Get the number of objects in the array
     fn length(self: Array): int {
         ret self.count;
