@@ -270,9 +270,8 @@ private extension BytecodeCompiler {
                 
                 // go through the parameters and fill the attributes
                 ASTComposite(
-                    statements: typeDeclaration.attributes.enumerated().map { attribute in
-                        // TODO retain all non-primitive arguments?
-                        return ASTArraySetter(target: _self, offset: ASTNumberLiteral(value: attribute.offset + 1), value: attribute.element.identifier)
+                    statements: typeDeclaration.attributes.enumerated().map {
+                        ASTArraySetter(target: _self, offset: ASTNumberLiteral(value: $0.offset + 1), value: $0.element.identifier)
                     }
                 ),
                 

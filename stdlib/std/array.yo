@@ -87,6 +87,7 @@ impl Array {
 
     // Remove all occurrences of an object from the array
     fn removeObject(self: Array, object: int): void {
+        // TODO take a reduced length due to mutations into account!!!
         for i in 0..<self.count {
             if self.get(i) == object {
                 self.removeObjectAtIndex(i);
