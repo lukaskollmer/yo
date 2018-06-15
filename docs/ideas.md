@@ -103,3 +103,8 @@ impl X: Y {
     }
 }
 ```
+
+
+**for loops**
+- have an object that essentially functions as an enumerator: `hasNext()`, `next()`
+- when encountering a for loop, save the enumerator/iterator (TODO correct terminology?) as a (hidden?) local variable for that loop's scope
