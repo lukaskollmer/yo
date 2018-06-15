@@ -1,4 +1,5 @@
 use "std/runtime";
+use "std/array";
 
 type String(backing: int);
 
@@ -6,6 +7,21 @@ impl String {
     fn length(self: String): int {
         ret self.backing[0];
     }
+
+
+    fn appending(self: String, other: String): String {
+        val newLength: int = self.length() + other.length();
+
+        val newBacking: int = runtime::alloc(newLength + 1);
+        newBacking[0] = newLength;
+
+        Array::_copy(self.backing, 1, newBacking, 1, self.length());
+        Array::_copy(other.backing, 1, newBacking, self.length() + 1, other.length());
+
+        ret String::init(newBacking);
+
+    }
+
 
     fn dealloc(self: String): int {
         runtime::free(self.backing);
