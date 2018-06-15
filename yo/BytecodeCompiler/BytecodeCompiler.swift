@@ -228,6 +228,11 @@ private extension BytecodeCompiler {
     func handle(typeDeclaration: ASTTypeDeclaration) throws {
         
         let typename = typeDeclaration.name.name
+        
+        var deallocFunction = SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "dealloc")
+        if !functions.keys.contains(deallocFunction) {
+            deallocFunction = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "_dealloc")
+        }
 
         // generate an initializer
         let _self = ASTIdentifier(name: "self")
@@ -257,6 +262,7 @@ private extension BytecodeCompiler {
                 // push the type's dealloc address onto the stack and shift it 41 to the left
                 ASTRawWIPInstruction(instruction: .operation(.push, 40)),
                 ASTRawWIPInstruction(instruction: .unresolved(.push, SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "dealloc"))),
+                ASTRawWIPInstruction(instruction: .unresolved(.push, deallocFunction)),
                 ASTRawWIPInstruction(instruction: .operation(.shl, 0)),
                 
                 // push the type's id onto the stack
