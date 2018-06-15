@@ -133,6 +133,19 @@ impl Array {
     }
 
 
+    fn filter(self: Array, f: fn<int, (any)>): Array {
+        val newArray: Array = Array::new();
+
+        for i in 0..<self.count {
+            val element: any = self.get(i);
+            if f(element) == 1 {
+                newArray.add(element);
+            }
+        }
+        ret newArray;
+    }
+
+
     // Get the number of objects in the array
     fn length(self: Array): int {
         ret self.count;
