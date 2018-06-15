@@ -25,3 +25,5 @@
 - [ ] macros
 - [ ] make `nil` a macro for `0`
 - [x] `break` out of `for`/`while` loops
+- [ ] ensure that all custom `dealloc` methods return `void`
+- [ ] ensure that `void` returning functions don't return anything other than `void`
