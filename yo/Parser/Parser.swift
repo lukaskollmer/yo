@@ -335,22 +335,22 @@ private extension Parser {
                         binaryOperation = .sub
                         
                     case (.asterik, .equalsSign, _):
-                        binaryOperation = .add
+                        binaryOperation = .mul
                         
                     case (.forwardSlash, .equalsSign, _):
-                        binaryOperation = .add
+                        binaryOperation = .div
                         
                     case (.percentageSign, .equalsSign, _):
-                        binaryOperation = .add
+                        binaryOperation = .mod
                         
                     case (.ampersand, .equalsSign, _):
-                        binaryOperation = .add
+                        binaryOperation = .and
                         
                     case (.pipe, .equalsSign, _):
-                        binaryOperation = .add
+                        binaryOperation = .or
                         
                     case (.circumflex, .equalsSign, _):
-                        binaryOperation = .add
+                        binaryOperation = .xor
                     default:
                         fatalError("TODO")
                     }
