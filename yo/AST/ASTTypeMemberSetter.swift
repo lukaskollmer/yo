@@ -9,7 +9,7 @@
 import Foundation
 
 
-struct ASTTypeMemberSetter: ASTStatement {
+struct _ASTTypeMemberSetter: ASTStatement {
     let target: ASTIdentifier
     let memberName: ASTIdentifier
     let newValue: ASTExpression

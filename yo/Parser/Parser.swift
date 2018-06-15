@@ -308,7 +308,23 @@ private extension Parser {
                 // - a subscript assignment // TODO
                 // - a function call with discarded return value // TODO
                 //let expression = try parseExpression()
-                let identifier = try parseIdentifier()
+                
+                let expression: ASTExpression! = (try? parseChainedAccess()) ?? (try? parseIdentifier())
+                
+                if case .semicolon = currentToken.type {
+                    guard let chainedAccess = expression as? ASTMemberAccess else {
+                        fatalError("should not reach here unless chained member access")
+                    }
+                    next()
+                    
+                    if case ASTMemberAccess.Kind.functionCall(let name, let arguments, _)? = chainedAccess.members.last {
+                        // function call w/ discarded return value
+                        return ASTMemberAccess(
+                            members: Array(chainedAccess.members.prefix(upTo: chainedAccess.members.count - 1) + [ASTMemberAccess.Kind.functionCall(name: name, arguments: arguments, unusedReturnValue: true)])
+                        )
+                    }
+                    return chainedAccess
+                }
                 
                 
                 if BinaryOperationTokens.contains(currentToken.type) {
@@ -364,7 +380,19 @@ private extension Parser {
                     }
                     next()
                     
-                    return ASTAssignment(target: identifier, value: ASTBinaryOperation(lhs: identifier, operation: binaryOperation, rhs: rhs))
+                    // TODO what if `expression` is a chain containing a member call. we should only call that once, right?
+                    // what about introducing a temporary variable and operating on that?
+                    // ie:
+                    // `foo.getParent().value += 1`
+                    // becomes
+                    // ```
+                    // val _temp: Parent = foo.getParent();
+                    // _temp.value = _temp.value + 1;
+                    // ```
+                    return ASTAssignment(
+                        target: expression,
+                        value: ASTBinaryOperation(lhs: expression, operation: binaryOperation, rhs: rhs)
+                    )
                 }
                 
                 
@@ -377,19 +405,23 @@ private extension Parser {
                     }
                     
                     next()
-                    return ASTAssignment(target: identifier, value: assignedValue)
+                    return ASTAssignment(target: expression, value: assignedValue)
                 }
                 
                 if case .openingParentheses = currentToken.type {
                     // global fununction call w/ discarded return value
-                    next()
-                    let arguments = try parseExpressionList()
-                    guard case .closingParentheses = currentToken.type, case .semicolon = next().type else {
-                        throw ParserError.unexpectedToken(currentToken)
-                    }
-                    next() // skip the semicolon
                     
-                    return ASTFunctionCall(functionName: identifier.name, arguments: arguments, unusedReturnValue: true)
+                    // TODO that doesn't even make sense, since we don't have static/global variables :facepalm:
+                    fatalError()
+                    
+                    //next()
+                    //let arguments = try parseExpressionList()
+                    //guard case .closingParentheses = currentToken.type, case .semicolon = next().type else {
+                    //    throw ParserError.unexpectedToken(currentToken)
+                    //}
+                    //next() // skip the semicolon
+                    
+                    //return ASTFunctionCall(functionName: identifier.name, arguments: arguments, unusedReturnValue: true)
                 }
                 
                 if case .openingSquareBrackets = currentToken.type {
@@ -408,77 +440,11 @@ private extension Parser {
                     }
                     next()
                     
-                    return ASTArraySetter(target: identifier, offset: offset, value: assignedValue)
+                    return ASTArraySetter(target: expression, offset: offset, value: assignedValue)
                 }
                 
                 
-                if case .period = currentToken.type, case .identifier(_) = next().type {
-                    // <identifier>.<identifier>
-                    // either:
-                    // - member setter (`foo.bar = x;`)
-                    // - member function call (`foo.bar();`)
-                    // - member subscript assignment (`foo.bar[idx] = x;`)
-                    
-                    let memberName = try parseIdentifier()
-                    
-                    if case .openingParentheses = currentToken.type {
-                        // member function call w/ unused return value
-                        // ie `foo.bar();`
-                        next() // skip the opening parentheses
-                        let arguments = try parseExpressionList()
-                        guard case .closingParentheses = currentToken.type, case .semicolon = next().type else {
-                            // expected ) after arguments
-                            throw ParserError.unexpectedToken(currentToken)
-                        }
-                        next() // skip the semicolon
-                        return ASTTypeMemberFunctionCall(
-                            target: identifier,
-                            functionName: memberName,
-                            arguments: arguments,
-                            unusedReturnValue: true
-                        )
-                    }
-                    
-                    if case .equalsSign = currentToken.type {
-                        // member assignment
-                        next()
-                        let assignedValue = try parseExpression()
-                        guard case .semicolon = currentToken.type else {
-                            // expected ; after member assignment
-                            throw ParserError.unexpectedToken(currentToken)
-                        }
-                        next()
-                        
-                        return ASTTypeMemberSetter(target: identifier, memberName: memberName, newValue: assignedValue)
-                    }
-                    
-                    if case .openingSquareBrackets = currentToken.type {
-                        next() // skip the opening [
-                        let offset = try parseExpression()
-                        guard case .closingSquareBrackets = currentToken.type, case .equalsSign = next().type else {
-                            // expected `]` and `=` after array offset
-                            throw ParserError.unexpectedToken(currentToken)
-                        }
-                        next() // skip the equalsSign
-                        
-                        let assignedValue = try parseExpression()
-                        
-                        guard case .semicolon = currentToken.type else {
-                            // expected ; after array subscript assignment
-                            throw ParserError.unexpectedToken(currentToken)
-                        }
-                        next()
-                        
-                        return ASTArraySetter(
-                            target: ASTTypeMemberGetter(target: identifier, memberName: memberName),
-                            offset: offset,
-                            value: assignedValue
-                        )
-                    }
-                }
-                
-                
-                if case .colon = currentToken.type, case .colon = next().type {
+                if let identifier = expression as? ASTIdentifier, case .colon = currentToken.type, case .colon = next().type {
                     // static member function w/ discarded return value
                     next()
                     let memberName = try parseIdentifier()
@@ -499,7 +465,7 @@ private extension Parser {
                     )
                 }
                 
-                fatalError()
+                fatalError() // TODO is this still necessary?
                 
             
             case .use, .type, .impl, .fn:
@@ -717,12 +683,11 @@ private extension Parser {
         guard var expression: ASTExpression =
             (try? parseNumberLiteral())
             ?? (try? parseStringLiteral())
-            ?? (try? parseMemberAccess())
+            ?? (try? parseChainedAccess())
             ?? (try? parseIdentifier())
         else {
             throw ParserError.unexpectedToken(currentToken)
         }
-        
         
         if let identifier = expression as? ASTIdentifier {
             
@@ -774,6 +739,18 @@ private extension Parser {
                     arguments: arguments,
                     unusedReturnValue: false) // TODO is false the right assumption here?
             }
+        }
+        
+        if case .openingSquareBrackets = currentToken.type {
+            next()
+            
+            let offset = try parseExpression()
+            
+            guard case .closingSquareBrackets = currentToken.type else {
+                fatalError("ugh")
+            }
+            next()
+            return ASTArrayGetter(target: expression, offset: offset)
         }
         
         
@@ -841,50 +818,55 @@ private extension Parser {
     }
     
     
-    // parse a member access
-    // this returns either ASTTypeMemberAccess (when accessing a type's attribute
-    // or ASTTypeMemberFunctionCall (ie when `foo.bar()`)
-    // or ASTArrayGetter (ie when `foo.bar[expr]`)
-    func parseMemberAccess() throws -> ASTExpression {
+    
+    
+    
+    
+    func parseChainedAccess() throws -> ASTExpression {
         guard case .identifier(_) = currentToken.type, case .period = peek().type, case .identifier(_) = peek(2).type else {
             throw ParserError.unexpectedToken(currentToken)
         }
         
-        let identifier = try parseIdentifier()
+        // in this function, we parse member accesses, which is any expression where we access *some* member of another object
+        // a member access can be either of the following:
+        // - attribute (`foo.bar`)
+        // - member function (`foo.bar()`)
+        // ?TODO subscript access?
         
-        next() // skip the period
         
-        let memberName = try parseIdentifier()
-
+        // TODO what about `foo().bar` where foo is a global function?
         
-        if case .openingParentheses = currentToken.type {
-            next()
-            let arguments = try parseExpressionList()
-            guard case .closingParentheses = currentToken.type else {
-                throw ParserError.unexpectedToken(currentToken)
-            }
-            next()
+        var members = [ASTMemberAccess.Kind]()
+        members.append(.attribute(name: try parseIdentifier()))
+        next()
+        
+        while let identifier = try? parseIdentifier() {
             
-            return ASTTypeMemberFunctionCall(target: identifier, functionName: memberName, arguments: arguments, unusedReturnValue: false) // TODO FIXME
-        }
-        
-        
-        if case .openingSquareBrackets = currentToken.type {
-            next()
-            let offset = try parseExpression()
-            guard case .closingSquareBrackets = currentToken.type else {
-                throw ParserError.unexpectedToken(currentToken)
+            if case .openingParentheses = currentToken.type {
+                next()
+                let arguments = try parseExpressionList()
+                
+                guard case .closingParentheses = currentToken.type else {
+                    fatalError()
+                }
+                next()
+                members.append(.functionCall(name: identifier, arguments: arguments, unusedReturnValue: false)) // TODO unusedReturnValue
+                if case .period = currentToken.type {
+                    next()
+                }
+            } else if case .period = currentToken.type {
+                members.append(.attribute(name: identifier)) // TODO this is a bit redundant
+                next()
+            } else {
+                members.append(.attribute(name: identifier)) // TODO this is a bit redundant
+                break
             }
-            next()
-            return ASTArrayGetter(
-                target: ASTTypeMemberGetter(target: identifier, memberName: memberName),
-                offset: offset
-            )
         }
         
-        // member variable access
-        return ASTTypeMemberGetter(target: identifier, memberName: memberName)
+        return ASTMemberAccess(members: members)
     }
+    
+    
     
     
     func parseExpressionList() throws -> [ASTExpression] {
@@ -948,7 +930,7 @@ private extension Parser {
         case .identifier(let identifier):
             next()
             // TODO what if we introduce other primitive types. refactor into constant declaring all primitive types?
-            return ["int"].contains(identifier) ? .primitive(name: identifier) : .complex(name: identifier)
+            return ["int", "void", "any"].contains(identifier) ? .primitive(name: identifier) : .complex(name: identifier)
             
         case .fn:
             // a function pointer
@@ -1041,5 +1023,4 @@ private extension Parser {
         
     }
 }
-
 

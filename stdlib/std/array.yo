@@ -34,7 +34,7 @@ impl Array {
 
     // Add an object to the array
     // TODO make `object` id and require it to be a heap allocated instance
-    fn add(self: Array, object: int): int {
+    fn add(self: Array, object: any): int {
         if self.count == self._allocatedLength {
             // array is full, we need to switch to a bigger backing
 
@@ -49,14 +49,14 @@ impl Array {
 
 
     // Get the object at `index`
-    fn get(self: Array, index: int): int {
+    fn get(self: Array, index: int): any {
         ret self._backing[self._normalizeIndexAndCheckBounds(index)];
     }
 
 
     // Set the object at `index`
     // Returns the previous value
-    fn set(self: Array, index: int, object: int): int {
+    fn set(self: Array, index: int, object: any): any {
         index = self._normalizeIndexAndCheckBounds(index);
         val oldValue: int = self.get(index);
         self._backing[index] = object;
@@ -65,7 +65,7 @@ impl Array {
 
 
     // Check whether the array contains an object
-    fn contains(self: Array, object: int): int {
+    fn contains(self: Array, object: any): int {
         if self.indexOf(object) == -1 {
             ret 0;
         }
@@ -75,7 +75,7 @@ impl Array {
 
     // Get the first index of an object in the array
     // Returns -1 if the array does not contain the object
-    fn indexOf(self: Array, obj: int): int {
+    fn indexOf(self: Array, obj: any): int {
         for i in 0..<self.count {
             if self.get(i) == obj {
                 ret i;
@@ -86,7 +86,7 @@ impl Array {
 
 
     // Remove all occurrences of an object from the array
-    fn removeObject(self: Array, object: int): void {
+    fn removeObject(self: Array, object: any): void {
         // TODO take a reduced length due to mutations into account!!!
         for i in 0..<self.count {
             if self.get(i) == object {
@@ -117,12 +117,12 @@ impl Array {
 
 
     // Sort the array using a custom sorting function
-    fn sortf(self: Array, f: fn<int, (int, int)>): void {
+    fn sortf(self: Array, f: fn<int, (any, any)>): void {
         runtime::sortf(self._backing, self.count, f);
     }
 
 
-    fn map(self: Array, f: fn<int, (int)>): Array {
+    fn map(self: Array, f: fn<any, (any)>): Array {
         val newArray: Array = Array::new();
 
         for i in 0..<self.count {

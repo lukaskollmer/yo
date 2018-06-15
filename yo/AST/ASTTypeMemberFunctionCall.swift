@@ -12,8 +12,8 @@ import Foundation
 // TODO is adding conformance to both ASTExpression and ASTStatement really the best idea here?
 // What about introcuding a new node type `ASTExpressionStatement`?
 struct ASTTypeMemberFunctionCall: ASTExpression & ASTStatement {
-    let target: ASTIdentifier
-    let functionName: ASTIdentifier
+    let mangledName: String
+    let target: ASTExpression
     let arguments: [ASTExpression]
     let unusedReturnValue: Bool
 }

@@ -54,7 +54,7 @@ class BytecodeCompiler {
             functions[builtin.name] = (
                 argc: builtin.argc,
                 parameterTypes: [], // TODO
-                returnType: .primitive(name: "int") // TODO
+                returnType: .any    // TODO
             )
         }
     }
@@ -184,17 +184,11 @@ private extension BytecodeCompiler {
         } else if let arrayGetter = node as? ASTArrayGetter {
             try handle(arrayGetter: arrayGetter)
             
-        } else if let memberGetter = node as? ASTTypeMemberGetter {
-            try handle(memberGetter: memberGetter)
-            
         } else if let typeImplementation = node as? ASTTypeImplementation {
             try handle(typeImplementation: typeImplementation)
             
         } else if let typeMemberFunctionCall = node as? ASTTypeMemberFunctionCall {
             try handle(typeMemberFunctionCall: typeMemberFunctionCall)
-            
-        } else if let memberSetter = node as? ASTTypeMemberSetter {
-            try handle(memberSetter: memberSetter)
             
         } else if let _ = node as? ASTImportStatement {
             
@@ -212,6 +206,9 @@ private extension BytecodeCompiler {
             
         } else if let continueStatement = node as? ASTContinueStatement {
             try handle(continueStatement: continueStatement)
+            
+        } else if let memberAccess = node as? ASTMemberAccess {
+            try handle(memberAccess: memberAccess)
             
         } else if let _ = node as? ASTNoop {
             
@@ -243,7 +240,8 @@ private extension BytecodeCompiler {
             kind: .staticImpl(typename),
             body: [
                 // 1. declare self
-                ASTVariableDeclaration(identifier: _self, type: .primitive(name: "int")), // TODO ARC: declare as int to avoid refcounting and accidentally deallocating before we even return from the initializer?
+                //ASTVariableDeclaration(identifier: _self, type: .primitive(name: "int")), // TODO ARC: declare as int to avoid refcounting and accidentally deallocating before we even return from the initializer?
+                ASTVariableDeclaration(identifier: _self, type: .any),
                 
                 // 2. allocate space on the heap
                 ASTAssignment(
@@ -345,7 +343,7 @@ private extension BytecodeCompiler {
         // only used if `hasReturnStatement == true`
         let retval_temp_storage = ASTVariableDeclaration(
             identifier: ASTIdentifier(name: "__retval_\(functionName)"),
-            type: returnType
+            type: returnType != .void ? returnType : .any
         )
         
         if hasReturnStatement {
@@ -430,12 +428,8 @@ private extension BytecodeCompiler {
     }
     
     func handle(typeMemberFunctionCall: ASTTypeMemberFunctionCall) throws {
-        guard case .complex(let typename) = try scope.type(of: typeMemberFunctionCall.target.name) else {
-            fatalError("trying to call method on non complex type")
-        }
-        
         let call = ASTFunctionCall(
-            functionName: SymbolMangling.mangleInstanceMember(ofType: typename, memberName: typeMemberFunctionCall.functionName.name),
+            functionName: typeMemberFunctionCall.mangledName,
             arguments: [typeMemberFunctionCall.target] + typeMemberFunctionCall.arguments,
             unusedReturnValue: typeMemberFunctionCall.unusedReturnValue
         )
@@ -545,29 +539,83 @@ private extension BytecodeCompiler {
     
     
     func handle(assignment: ASTAssignment) throws {
-        guard let target = assignment.target as? ASTIdentifier else {
-            fatalError("can only assign to variables as of right now")
+        let rhsType: ASTType!
+        
+        if let identifier = assignment.value as? ASTIdentifier {
+            rhsType = try scope.type(of: identifier.name)
+            
+        } else if let functionCall = assignment.value as? ASTFunctionCall {
+            rhsType = functions[functionCall.functionName]?.returnType
+            
+        } else if assignment.value is ASTNumberLiteral {
+            rhsType = .int
+            
+        } else if assignment.value is ASTBinaryOperation {
+            rhsType = .int // TODO this is a dangerous assumption!
+            
+        } else if let assignedValueMemberAccess = assignment.value as? ASTMemberAccess {
+            rhsType = try processMemberAccess(memberAccess: assignedValueMemberAccess).types.last!
+            
+        } else {
+            rhsType = .int // TODO not a great plan
         }
         
-        let targetIsObject = try scope.isObject(identifier: target.name)
-        
-        if targetIsObject {
-            // TODO release the old value?
+        let ensureTypeCompatability: (ASTType, ASTType) -> Void = {
+            if $0 != $1 && ![$0, $1].contains(.any) {
+                fatalError("assigning incompatible types")
+            }
         }
         
-        try handle(node: assignment.value)
-        add(.store, try scope.index(of: target.name))
         
-        // TODO ARC
-        return
+        if let targetIdentifier = assignment.target as? ASTIdentifier {
+            
+            let lhsType = try scope.type(of: targetIdentifier.name)
+            ensureTypeCompatability(lhsType, rhsType)
+            
+            
+// TODO ARC
+//            let targetIsObject = try scope.isObject(identifier: targetIdentifier.name)
+//            if targetIsObject {
+//                // TODO release the old value?
+//            }
+            
+            try handle(node: assignment.value)
+            add(.store, try scope.index(of: targetIdentifier.name))
+            
+// TODO ARC
+//            if assignment.shouldRetainAssignedValueIfItIsAnObject && targetIsObject {
+//                let retainCall = ASTFunctionCall(
+//                    functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "retain"),
+//                    arguments: [targetIdentifier],
+//                    unusedReturnValue: true
+//                )
+//                try handle(functionCall: retainCall)
+//            }
+            
+            return
+        }
         
-        if assignment.shouldRetainAssignedValueIfItIsAnObject && targetIsObject {
-            let retainCall = ASTFunctionCall(
-                functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "retain"),
-                arguments: [target],
-                unusedReturnValue: true
+        
+        
+        if
+            let memberAccess = assignment.target as? ASTMemberAccess,
+            let (memberAccessGetterExpression, types) = try processMemberAccess(memberAccess: memberAccess) as? (ASTArrayGetter, [ASTType])
+        {
+            // if we're assigning to some attribute, `memberAccessGetterExpression` is always an `ASTArrayGetter`
+            let newAssignment = ASTArraySetter(
+                target: memberAccessGetterExpression.target,
+                offset: memberAccessGetterExpression.offset,
+                value: assignment.value
             )
-            try handle(functionCall: retainCall)
+            
+            let lhsType = types.last!
+            ensureTypeCompatability(lhsType, rhsType)
+            
+            try handle(node: newAssignment)
+
+            
+        } else {
+            fatalError("the fuck you doing?")
         }
         
     }
@@ -582,17 +630,21 @@ private extension BytecodeCompiler {
         let isGlobalFunction = functions.keys.contains(functionCall.functionName)
         
         let argc: Int
+        let returnType: ASTType
+        
         if isGlobalFunction {
-            guard let _argc = functions[functionCall.functionName]?.argc else {
+            guard let info = functions[functionCall.functionName] else {
                 //fatalError("trying to call non-existent function")
                 throw BytecodeCompilerError.undefinedFunction(functionCall)
             }
-            argc = _argc // seems like we can't directly assign to argc bc that's non-optional
+            argc = info.argc
+            returnType = info.returnType
         } else {
-            guard case ASTType.function(let returnType, let parameterTypes) = try scope.type(of: functionCall.functionName) else {
+            guard case ASTType.function(let _returnType, let parameterTypes) = try scope.type(of: functionCall.functionName) else {
                 throw BytecodeCompilerError.undefinedFunction(functionCall)
             }
             argc = parameterTypes.count
+            returnType = _returnType
         }
         
         guard argc == functionCall.arguments.count else {
@@ -637,40 +689,74 @@ private extension BytecodeCompiler {
         }
     }
     
-    func handle(memberGetter: ASTTypeMemberGetter) throws {
-        guard case .complex(let typename) = try scope.type(of: memberGetter.target.name) else {
-            fatalError("tryong to access member of non-complex type")
-        }
-        let membername = memberGetter.memberName.name
-        
-        guard typeCache.type(typename, hasMember: membername) else {
-            fatalError("type '\(typename)' doesn't have member '\(membername)'")
+    
+    
+    func processMemberAccess(memberAccess: ASTMemberAccess) throws -> (expr: ASTExpression, types: [ASTType]) {
+        guard memberAccess.members.count > 1 else {
+            fatalError("wat")
         }
         
-        let offset = typeCache.offset(ofMember: membername, inType: typename)
-        add(.push, offset)
-        try handle(identifier: memberGetter.target)
-        add(.loadh)
+        var expr: ASTExpression!
+        var types = [ASTType]()
+        var currentType: ASTType {
+            get { return types.last! }
+            set { types.append(newValue) }
+        }
+        
+        let updateType: (ASTIdentifier) throws -> Void = {
+            guard case .complex(let currentTypename) = currentType else { // TODO that force unwrap should not be necessary (currentType is an IUO)
+                fatalError("trying to access attribute on non-complex type")
+            }
+            currentType = self.typeCache.type(ofMember: $0.name, ofType: currentTypename)! // TODO don't force unwrap
+        }
+        
+        for (index, member) in memberAccess.members.enumerated() {
+            
+            switch member {
+            case .attribute(name: let identifier):
+                
+                if index == 0 { // first
+                    expr = identifier
+                    currentType = try self.scope.type(of: identifier.name)
+                    break
+                }
+                
+                guard case .complex(let currentTypename) = currentType else {
+                    fatalError("ugh")
+                }
+                
+                expr = ASTArrayGetter(
+                    target: expr,
+                    offset: ASTNumberLiteral(value: typeCache.offset(ofMember: identifier.name, inType: currentTypename))
+                )
+                
+                if index < memberAccess.members.count {
+                    try updateType(identifier)
+                }
+                
+                
+            case .functionCall(name: let functionName, arguments: let arguments, let unusedReturnValue):
+                guard case .complex(let currentTypename) = currentType else { fatalError("ugh") } // TODO redundant code!!! (see above)
+                
+                let mangledName = SymbolMangling.mangleInstanceMember(ofType: currentTypename, memberName: functionName.name)
+                
+                expr = ASTTypeMemberFunctionCall(
+                    mangledName: mangledName,
+                    target: expr,
+                    arguments: arguments,
+                    unusedReturnValue: unusedReturnValue
+                )
+                
+                currentType = functions[mangledName]!.returnType
+            }
+        }
+        
+        return (expr, types)
     }
     
     
-    func handle(memberSetter: ASTTypeMemberSetter) throws {
-        guard case .complex(let typename) = try scope.type(of: memberSetter.target.name) else {
-            fatalError("tryong to set member of non-complex type")
-        }
-        let membername = memberSetter.memberName.name
-        
-        guard typeCache.type(typename, hasMember: membername) else {
-            fatalError("type '\(typename)' doesn't have member '\(membername)'")
-        }
-        
-        try handle(node: memberSetter.newValue)
-        
-        let offset = typeCache.offset(ofMember: membername, inType: typename)
-        add(.push, offset)
-        
-        try handle(identifier: memberSetter.target)
-        add(.storeh)
+    func handle(memberAccess: ASTMemberAccess) throws {
+        try handle(node: processMemberAccess(memberAccess: memberAccess).expr)
     }
     
     

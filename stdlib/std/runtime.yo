@@ -3,7 +3,7 @@
 impl runtime {
 
     // Note: type ids are not guaranteed to be the same across different compilations of the same program
-    static fn getTypeId(obj: int): int {
+    static fn getTypeId(obj: any): int {
         ret obj[0] & 0xfffff;
     }
 
@@ -14,7 +14,7 @@ impl runtime {
     //
 
     // Increment an object's retain count by 1
-    static fn retain(obj: int): int {
+    static fn retain(obj: any): any {
         ret runtime::_setRetainCount(obj, runtime::getRetainCount(obj) + 1);
     }
 
@@ -22,7 +22,7 @@ impl runtime {
     // Decrement an object's retain count by 1
     // If the object's new retain count is 0,
     // we call the object's dealloc method and free it from the heap
-    static fn release(obj: int): int {
+    static fn release(obj: any): any {
         if runtime::getRetainCount(obj) == 1 {
             runtime::dealloc(obj);
             runtime::free(obj);
@@ -33,7 +33,7 @@ impl runtime {
     }
 
 
-    static fn _setRetainCount(obj: int, newValue: int): int {
+    static fn _setRetainCount(obj: any, newValue: int): any {
         val typeId: int = runtime::getTypeId(obj);
         val deallocAddress: int = obj[0] >> 40;
 
@@ -45,12 +45,12 @@ impl runtime {
     }
 
 
-    static fn getRetainCount(obj: int): int {
+    static fn getRetainCount(obj: any): int {
         val retainCount: int = obj[0] & 0xfffff00000;
         ret retainCount >> 20;
     }
 
 
     // default `dealloc` function called for types who don't specify their own
-    static fn _dealloc(obj: int): void {}
+    static fn _dealloc(obj: any): void {}
 }

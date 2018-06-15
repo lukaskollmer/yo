@@ -14,4 +14,8 @@ indirect enum ASTType: Equatable {
     case primitive(name: String)    // int/void
     case complex(name: String)      // something declared w/ the `type` keyword
     case function(returnType: ASTType, parameterTypes: [ASTType])   // a function pointer
+    
+    static let `int` = ASTType.primitive(name: "int")
+    static let `any` = ASTType.primitive(name: "any")
+    static let void = ASTType.primitive(name: "void")
 }

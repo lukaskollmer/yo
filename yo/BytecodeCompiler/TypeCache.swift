@@ -40,6 +40,11 @@ class TypeCache {
     }
     
     
+    func type(ofMember member: String, ofType typename: String) -> ASTType? {
+        return type(withName: typename)?.attributes.first { $0.identifier.name == member }?.type
+    }
+    
+    
     private func type(withName typename: String) -> ASTTypeDeclaration? {
         return types.first { $0.name.name == typename }
     }

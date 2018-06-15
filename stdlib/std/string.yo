@@ -23,7 +23,7 @@ impl String {
     }
 
 
-    fn dealloc(self: String): int {
+    fn dealloc(self: String): void {
         runtime::free(self.backing);
     }
 }
