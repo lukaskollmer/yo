@@ -261,7 +261,6 @@ private extension BytecodeCompiler {
                 
                 // push the type's dealloc address onto the stack and shift it 41 to the left
                 ASTRawWIPInstruction(instruction: .operation(.push, 40)),
-                ASTRawWIPInstruction(instruction: .unresolved(.push, SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "dealloc"))),
                 ASTRawWIPInstruction(instruction: .unresolved(.push, deallocFunction)),
                 ASTRawWIPInstruction(instruction: .operation(.shl, 0)),
                 
@@ -464,13 +463,16 @@ private extension BytecodeCompiler {
         
         // 1. handle the condition
         // we only need a label for the condition if this is a while statement
-        if case .while = conditionalStatement.kind {
+        switch conditionalStatement.kind {
+        case .while/*, .for*/:
             add(label: generateLabel("cond"))
             
             // for loops are also while statements (at least for the time being?)
             self.breakDestination = generateLabel("end")
             self.continueDestination = generateLabel("cond")
+        default: break
         }
+        
         try handle(condition: conditionalStatement.condition)
         
         // 2. handle the jump to the body if the condition is true
@@ -492,13 +494,21 @@ private extension BytecodeCompiler {
         add(label: generateLabel("body"))
         try handle(composite: conditionalStatement.body)
         
-        // depending on whether this is an if or while statement, we jump to the end (if) or the condition (while)
+        // depending on which kind of conditional statement this is, we jump to the end (if) the condition (while), or the increment (for)
         add(.push, -1)
-        if case .while = conditionalStatement.kind {
+        
+        switch conditionalStatement.kind {
+        case .while:
             add(.jump, unresolvedLabel: generateLabel("cond"))
-        } else {
+            
+        //case .for:
+        //    //fatalError("ugh")
+        //    break // TODO
+            
+        case .if(_):
             add(.jump, unresolvedLabel: generateLabel("end"))
         }
+        
         
         // 5. if this is an if statement w/ an else branch, handle the else branch
         if case .if(let elseBranch) = conditionalStatement.kind, let elseBranch_ = elseBranch {

@@ -86,6 +86,8 @@ private extension Parser {
                 return try parseFunction()
             case .impl:
                 return try parseImplementation()
+            case .protocol:
+                fatalError("protocols not yet implemented")
             case .EOF:
                 currentPosition += 1 // stop parsing
                 return ASTNoop()

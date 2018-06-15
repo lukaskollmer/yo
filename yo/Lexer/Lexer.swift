@@ -70,6 +70,7 @@ private let tokenMapping: [String: TokenType] = [
     "break" : .break,
     "continue" : .continue,
     "__asm" : .__asm,
+    "protocol" : .protocol,
     
 ]
 
