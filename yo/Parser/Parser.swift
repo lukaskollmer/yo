@@ -934,21 +934,15 @@ private extension Parser {
             
         case .fn:
             // a function pointer
-            guard case .less = next().type else {
-                fatalError("expected < in function pointer declaration")
-            }
-            next()
-            let returnType = try parseType()
             guard
-                case .comma = currentToken.type,
+                case .less = next().type,
                 case .openingParentheses = next().type
             else {
-                fatalError("expected parameter type list after return type in function pointer declaration")
+                fatalError("expected <( in function signature")
             }
             next()
             
             var parameterTypes = [ASTType]()
-            
             parseParameters: while true {
                 parameterTypes.append(try parseType())
                 
@@ -961,6 +955,13 @@ private extension Parser {
                     break parseParameters
                 }
             }
+            
+            guard case .colon = currentToken.type else {
+                fatalError("expected : after parameters in function signature")
+            }
+            next()
+            
+            let returnType = try parseType()
             
             guard case .greater = currentToken.type else {
                 fatalError("expected function pointer declaration to end w/ `>`")

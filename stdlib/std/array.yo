@@ -117,12 +117,12 @@ impl Array {
 
 
     // Sort the array using a custom sorting function
-    fn sortf(self: Array, f: fn<int, (any, any)>): void {
+    fn sortf(self: Array, f: fn<(any, any): int>): void {
         runtime::sortf(self._backing, self.count, f);
     }
 
 
-    fn map(self: Array, f: fn<any, (any)>): Array {
+    fn map(self: Array, f: fn<(any): any>): Array {
         val newArray: Array = Array::new();
 
         for i in 0..<self.count {
@@ -133,7 +133,7 @@ impl Array {
     }
 
 
-    fn filter(self: Array, f: fn<int, (any)>): Array {
+    fn filter(self: Array, f: fn<(any): int>): Array {
         val newArray: Array = Array::new();
 
         for i in 0..<self.count {
