@@ -72,6 +72,7 @@ enum TokenType: Equatable, Hashable {
     case `continue`
     case __asm
     case `protocol`
+    case `as`
     
     case EOF
 }

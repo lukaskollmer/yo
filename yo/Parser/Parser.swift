@@ -800,7 +800,12 @@ private extension Parser {
             
             next()
             
-            return ASTBinaryOperation(lhs: expression, operation: binaryOperation, rhs: try parseExpression())
+            expression = ASTBinaryOperation(lhs: expression, operation: binaryOperation, rhs: try parseExpression())
+        }
+        
+        if case .as = currentToken.type {
+            next()
+            expression = ASTTypecast(expression: expression, type: try parseType())
         }
         
         return expression

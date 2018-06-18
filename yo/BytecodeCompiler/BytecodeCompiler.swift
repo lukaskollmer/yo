@@ -210,6 +210,9 @@ private extension BytecodeCompiler {
         } else if let memberAccess = node as? ASTMemberAccess {
             try handle(memberAccess: memberAccess)
             
+        } else if let typecast = node as? ASTTypecast {
+            try handle(node: typecast.expression)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {

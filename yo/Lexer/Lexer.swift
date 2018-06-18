@@ -71,6 +71,7 @@ private let tokenMapping: [String: TokenType] = [
     "continue" : .continue,
     "__asm" : .__asm,
     "protocol" : .protocol,
+    "as"  : .as,
     
 ]
 
