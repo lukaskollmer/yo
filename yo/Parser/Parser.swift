@@ -409,19 +409,20 @@ private extension Parser {
                 }
                 
                 if case .openingParentheses = currentToken.type {
-                    // global fununction call w/ discarded return value
+                    // function call w/ discarded return value
                     
-                    // TODO that doesn't even make sense, since we don't have static/global variables :facepalm:
-                    fatalError()
+                    guard let identifier = expression as? ASTIdentifier else {
+                        fatalError("unable to get function name")
+                    }
                     
-                    //next()
-                    //let arguments = try parseExpressionList()
-                    //guard case .closingParentheses = currentToken.type, case .semicolon = next().type else {
-                    //    throw ParserError.unexpectedToken(currentToken)
-                    //}
-                    //next() // skip the semicolon
+                    next()
+                    let arguments = try parseExpressionList()
+                    guard case .closingParentheses = currentToken.type, case .semicolon = next().type else {
+                        throw ParserError.unexpectedToken(currentToken)
+                    }
+                    next() // skip the semicolon
                     
-                    //return ASTFunctionCall(functionName: identifier.name, arguments: arguments, unusedReturnValue: true)
+                    return ASTFunctionCall(functionName: identifier.name, arguments: arguments, unusedReturnValue: true)
                 }
                 
                 if case .openingSquareBrackets = currentToken.type {
