@@ -700,11 +700,8 @@ private extension Parser {
                 
                 if case .closingParentheses = currentToken.type {
                     next()
-                    return ASTFunctionCall(functionName: identifier.name, arguments: arguments, unusedReturnValue: false) // TODO is false the right assumprion here?
+                    expression = ASTFunctionCall(functionName: identifier.name, arguments: arguments, unusedReturnValue: false) // TODO is false the right assumption here?
                 }
-                
-                // TODO?
-                fatalError("aaargh")
             }
             
             if case .openingSquareBrackets = currentToken.type {
@@ -751,7 +748,7 @@ private extension Parser {
                 fatalError("ugh")
             }
             next()
-            return ASTArrayGetter(target: expression, offset: offset)
+            expression = ASTArrayGetter(target: expression, offset: offset)
         }
         
         
