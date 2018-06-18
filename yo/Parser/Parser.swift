@@ -261,17 +261,14 @@ private extension Parser {
             case .val: // variable declaration
                 next()
                 let name = try parseIdentifier()
-                guard case .colon = currentToken.type else {
-                    // TODO a colon is only required in some instances:
-                    // val foo: int;
-                    // val foo = bar(); // not required in this case since we can infer the type from bar's return type
-                    // TODO implement that
-                    
-                    throw ParserError.unexpectedToken(currentToken) // //missing colon after variable name
-                }
-                next()
+                let type: ASTType
                 
-                let type = try parseType()
+                if case .colon = currentToken.type {
+                    next()
+                    type = try parseType()
+                } else {
+                    type = .unresolved
+                }
                 
                 // a variable declaration's type can either be followed by a semicolon (`val x: Foo;`)
                 // or by an equals sign, followed by an expression and a semicolon

@@ -14,6 +14,7 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
     case primitive(name: String)    // int/void
     case complex(name: String)      // something declared w/ the `type` keyword
     case function(returnType: ASTType, parameterTypes: [ASTType])   // a function pointer
+    case unresolved
     
     static let `int` = ASTType.primitive(name: "int")
     static let `any` = ASTType.primitive(name: "any")
@@ -27,6 +28,8 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
             return name
         case .function(let returnType, let parameterTypes):
             return "fn<(\(parameterTypes)): \(returnType)>"
+        case .unresolved:
+            return "unresolved"
         }
     }
     

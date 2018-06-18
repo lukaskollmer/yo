@@ -339,9 +339,29 @@ private extension BytecodeCompiler {
         // 1. allocate space on the stack for the new variables
         // 2. handle all statements
         // 3. insert `runtime::release` calls for all non-primitive variables declared in the composite
-        // TODO: what if we return in the composite? we need to release all local variables, not just the ones declared within the composite!!!
         let hasReturnStatement = composite.statements.any { $0 is ASTReturnStatement }
         var localVariables = composite.statements.getLocalVariables(recursive: false)
+        
+        // Variable type inference 😎
+        localVariables = try localVariables.map { variable in
+            guard case .unresolved = variable.type else { return variable }
+            
+            // https://twitter.com/lukas_kollmer/status/1008687049040375808
+            
+            let a = composite.statements
+                .compactMap { $0 as? ASTComposite }
+                .filter     { !$0.introducesNewScope && $0.statements.count == 2 }
+            
+            let b = a.filter {  $0.statements[0] is  ASTVariableDeclaration && $0.statements[1] is  ASTAssignment  }
+            let c = b.map    { ($0.statements[0] as! ASTVariableDeclaration,   $0.statements[1] as! ASTAssignment) }
+            let d = c.filter { ($0.1.target as? ASTIdentifier) == $0.0.identifier }
+            let e = d.first  { $0.0 == variable }!
+            let f = e.1.value
+            
+            return ASTVariableDeclaration(identifier: variable.identifier, type: try guessType(ofExpression: f))
+        }
+        
+        // TODO maybe include a check to make sure that we managed to infer all types?
         
         // only used if `hasReturnStatement == true`
         let retval_temp_storage = ASTVariableDeclaration(
