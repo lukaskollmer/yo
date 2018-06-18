@@ -342,7 +342,7 @@ private extension BytecodeCompiler {
         let hasReturnStatement = composite.statements.any { $0 is ASTReturnStatement }
         var localVariables = composite.statements.getLocalVariables(recursive: false)
         
-        // Variable type inference 😎
+        // Automatic type inference 😎
         localVariables = try localVariables.map { variable in
             guard case .unresolved = variable.type else { return variable }
             
