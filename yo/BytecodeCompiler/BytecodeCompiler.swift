@@ -542,40 +542,12 @@ private extension BytecodeCompiler {
     
     
     func handle(assignment: ASTAssignment) throws {
-        let rhsType: ASTType!
+        let rhsType = try guessType(ofExpression: assignment.value)
         
-        if let identifier = assignment.value as? ASTIdentifier {
-            rhsType = try scope.type(of: identifier.name)
-            
-        } else if let functionCall = assignment.value as? ASTFunctionCall {
-            if let returnType = functions[functionCall.functionName]?.returnType {
-                rhsType = returnType
-            } else {
-                // not a global function, maybe something from the current scope
-                if case .function(let returnType, _) = try scope.type(of: functionCall.functionName) {
-                    rhsType = returnType
-                } else {
-                    fatalError("unable to resolve function call")
-                }
-            }
-            
-        } else if assignment.value is ASTNumberLiteral {
-            rhsType = .int
-            
-        } else if assignment.value is ASTBinaryOperation {
-            rhsType = .int // TODO this is a dangerous assumption!
-            
-        } else if let assignedValueMemberAccess = assignment.value as? ASTMemberAccess {
-            rhsType = try processMemberAccess(memberAccess: assignedValueMemberAccess).types.last!
-            
-        } else {
-            rhsType = .int // TODO not a great plan
-        }
-        
+        // parameters should be (lhs, rhs)
         let ensureTypeCompatability: (ASTType, ASTType) -> Void = {
-            if $0 != $1 && ![$0, $1].contains(.any) {
-                fatalError("assigning incompatible types")
-                // TODO print a better error message (ie "cannot assign result of expression ${rhs} to ${lhs}")
+            if !$0.isCompatible(with: $1) {
+                fatalError("cannot assign value of type `\($1)` to `\($0)`")
             }
         }
         
@@ -642,31 +614,33 @@ private extension BytecodeCompiler {
     func handle(functionCall: ASTFunctionCall) throws {
         let isGlobalFunction = functions.keys.contains(functionCall.functionName)
         
-        let argc: Int
-        let returnType: ASTType
+        let parameterTypes: [ASTType]
         
         if isGlobalFunction {
             guard let info = functions[functionCall.functionName] else {
                 //fatalError("trying to call non-existent function")
                 throw BytecodeCompilerError.undefinedFunction(functionCall)
             }
-            argc = info.argc
-            returnType = info.returnType
+            parameterTypes = info.parameterTypes
         } else {
-            guard case ASTType.function(let _returnType, let parameterTypes) = try scope.type(of: functionCall.functionName) else {
+            guard case ASTType.function(_, let _parameterTypes) = try scope.type(of: functionCall.functionName) else {
                 throw BytecodeCompilerError.undefinedFunction(functionCall)
             }
-            argc = parameterTypes.count
-            returnType = _returnType
+            parameterTypes = _parameterTypes
         }
         
-        guard argc == functionCall.arguments.count else {
+        guard parameterTypes.count == functionCall.arguments.count else {
             //fatalError("wrong argc")
             throw BytecodeCompilerError.wrongNumberOfArgumentsPassedToFunction(functionCall)
         }
         
         // push arguments on the stack
-        for arg in functionCall.arguments.reversed() {
+        for (index, arg) in functionCall.arguments.enumerated().reversed() {
+            let argType = try guessType(ofExpression: arg)
+            let expectedType = parameterTypes[index]
+            guard argType.isCompatible(with: expectedType) else {
+                fatalError("cannot pass '\(argType)' to function expecting '\(expectedType)'")
+            }
             try handle(node: arg)
         }
         
@@ -774,6 +748,12 @@ private extension BytecodeCompiler {
     
     
     func handle(binop: ASTBinaryOperation) throws {
+        let lhsType = try guessType(ofExpression: binop.lhs)
+        let rhsType = try guessType(ofExpression: binop.rhs)
+        guard lhsType.isCompatible(with: rhsType) else {
+            fatalError("cannot perform binary operation '\(binop.operation)' with '\(lhsType)' and '\(rhsType)'")
+        }
+        
         try handle(node: binop.rhs)
         try handle(node: binop.lhs)
         
@@ -782,6 +762,7 @@ private extension BytecodeCompiler {
     
     func handle(unary: ASTUnary) throws {
         // TODO add support for NOT
+        // TODO if `unary.expression` is a literal, perform at compile time?
         try handle(binop: ASTBinaryOperation(lhs: ASTNumberLiteral(value: -1), operation: .mul, rhs: unary.expression))
     }
     
@@ -894,6 +875,43 @@ private extension BytecodeCompiler {
         add(.add)
         add(.push, expectedResult)
         add(.eq)
+    }
+}
+
+
+private extension BytecodeCompiler {
+    func guessType(ofExpression expression: ASTExpression) throws -> ASTType {
+        
+        if let identifier = expression as? ASTIdentifier {
+            return try scope.type(of: identifier.name)
+            
+        } else if let functionCall = expression as? ASTFunctionCall {
+            if let returnType = functions[functionCall.functionName]?.returnType {
+                return returnType
+            } else {
+                // not a global function, maybe something from the current scope
+                if case .function(let returnType, _) = try scope.type(of: functionCall.functionName) {
+                    return returnType
+                } else {
+                    fatalError("unable to resolve function call")
+                }
+            }
+            
+        } else if let typecast = expression as? ASTTypecast {
+            return typecast.type
+            
+        } else if expression is ASTNumberLiteral {
+            return .int
+            
+        } else if let binop = expression as? ASTBinaryOperation {
+            return try self.guessType(ofExpression: binop.lhs)
+            
+        } else if let assignedValueMemberAccess = expression as? ASTMemberAccess {
+            return try processMemberAccess(memberAccess: assignedValueMemberAccess).types.last!
+            
+        } else {
+            return .int // TODO not a great plan
+        }
     }
 }
 
