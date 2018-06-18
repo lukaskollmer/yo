@@ -362,6 +362,7 @@ private extension BytecodeCompiler {
         }
         
         // TODO maybe include a check to make sure that we managed to infer all types?
+        //localVariables.forEach { print($0.type, $0.identifier.name) }
         
         // only used if `hasReturnStatement == true`
         let retval_temp_storage = ASTVariableDeclaration(
@@ -903,7 +904,11 @@ private extension BytecodeCompiler {
     func guessType(ofExpression expression: ASTExpression) throws -> ASTType {
         
         if let identifier = expression as? ASTIdentifier {
-            return try scope.type(of: identifier.name)
+            if scope.contains(identifier: identifier.name) {
+                return try scope.type(of: identifier.name)
+            } else if let functionInfo = functions[identifier.name] {
+                return ASTType.function(returnType: functionInfo.returnType, parameterTypes: functionInfo.parameterTypes)
+            }
             
         } else if let functionCall = expression as? ASTFunctionCall {
             if let returnType = functions[functionCall.functionName]?.returnType {
@@ -926,12 +931,26 @@ private extension BytecodeCompiler {
         } else if let binop = expression as? ASTBinaryOperation {
             return try self.guessType(ofExpression: binop.lhs)
             
+        } else if expression is ASTUnary {
+            return .int
+            
+        } else if expression is ASTStringLiteral {
+            return .complex(name: "String")
+            
+        } else if expression is ASTNoop {
+            return .any // TODO is this the right choice?
+            
+        } else if expression is ASTArrayLiteral {
+            return .complex(name: "Array")
+            
         } else if let assignedValueMemberAccess = expression as? ASTMemberAccess {
             return try processMemberAccess(memberAccess: assignedValueMemberAccess).types.last!
             
-        } else {
-            return .int // TODO not a great plan
+        }  else if expression is ASTArrayGetter {
+            return .int
         }
+        
+        fatalError("unable to infer type of \(expression)")
     }
 }
 

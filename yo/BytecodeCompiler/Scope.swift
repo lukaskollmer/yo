@@ -99,4 +99,9 @@ struct Scope {
         }
         return false
     }
+    
+    
+    func contains(identifier: String) -> Bool {
+        return (try? self.index(of: identifier)) == nil ? false : true
+    }
 }
