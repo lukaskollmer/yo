@@ -652,22 +652,6 @@ private extension Parser {
     
     func parseExpression() throws -> ASTExpression {
         
-        if case .minus = currentToken.type { // unary
-            next()
-            return ASTUnary(expression: try parseExpression())
-        }
-        
-        if case .openingParentheses = currentToken.type {
-            next()
-            let expression = try parseExpression()
-            guard case .closingParentheses = currentToken.type else {
-                throw ParserError.unexpectedToken(currentToken)
-            }
-            
-            next()
-            return expression
-        }
-        
         if case .openingSquareBrackets = currentToken.type {
             next()
             
@@ -681,12 +665,33 @@ private extension Parser {
             return ASTArrayLiteral(elements: elements)
         }
         
-        guard var expression: ASTExpression =
-            (try? parseNumberLiteral())
-            ?? (try? parseStringLiteral())
-            ?? (try? parseChainedAccess())
-            ?? (try? parseIdentifier())
-        else {
+        
+        var expression: ASTExpression!
+        
+        if case .minus = currentToken.type { // unary
+            next()
+            expression = ASTUnary(expression: try parseExpression())
+        }
+        
+        if case .openingParentheses = currentToken.type {
+            next()
+            expression = try parseExpression()
+            guard case .closingParentheses = currentToken.type else {
+                throw ParserError.unexpectedToken(currentToken)
+            }
+            
+            next()
+        }
+        
+        if expression == nil {
+            expression =
+                   (try? parseNumberLiteral())
+                ?? (try? parseStringLiteral())
+                ?? (try? parseChainedAccess())
+                ?? (try? parseIdentifier())
+        }
+        
+        if expression == nil {
             throw ParserError.unexpectedToken(currentToken)
         }
         
@@ -835,6 +840,8 @@ private extension Parser {
         // - attribute (`foo.bar`)
         // - member function (`foo.bar()`)
         // ?TODO subscript access?
+        
+        
         
         
         // TODO what about `foo().bar` where foo is a global function?
