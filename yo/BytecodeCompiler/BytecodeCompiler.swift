@@ -53,7 +53,7 @@ class BytecodeCompiler {
         for builtin in Runtime.builtins {
             functions[builtin.name] = (
                 argc: builtin.argc,
-                parameterTypes: [], // TODO
+                parameterTypes: Array(repeating: .any, count: builtin.argc),
                 returnType: .any    // TODO
             )
         }
