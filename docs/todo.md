@@ -27,3 +27,5 @@
 - [x] `break` out of `for`/`while` loops
 - [ ] ensure that all custom `dealloc` methods return `void`
 - [ ] ensure that `void` returning functions don't return anything other than `void`
+- [ ] disallow `void` variable declarations (and function parameters)? they're currently treated as ints (as in also getting allocated stack space)
+- [ ] support casts in chained access `(5 as Foo).bar`
