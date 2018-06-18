@@ -545,7 +545,16 @@ private extension BytecodeCompiler {
             rhsType = try scope.type(of: identifier.name)
             
         } else if let functionCall = assignment.value as? ASTFunctionCall {
-            rhsType = functions[functionCall.functionName]?.returnType
+            if let returnType = functions[functionCall.functionName]?.returnType {
+                rhsType = returnType
+            } else {
+                // not a global function, maybe something from the current scope
+                if case .function(let returnType, _) = try scope.type(of: functionCall.functionName) {
+                    rhsType = returnType
+                } else {
+                    fatalError("unable to resolve function call")
+                }
+            }
             
         } else if assignment.value is ASTNumberLiteral {
             rhsType = .int
@@ -563,6 +572,7 @@ private extension BytecodeCompiler {
         let ensureTypeCompatability: (ASTType, ASTType) -> Void = {
             if $0 != $1 && ![$0, $1].contains(.any) {
                 fatalError("assigning incompatible types")
+                // TODO print a better error message (ie "cannot assign result of expression ${rhs} to ${lhs}")
             }
         }
         
