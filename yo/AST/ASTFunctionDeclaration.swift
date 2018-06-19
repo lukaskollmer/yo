@@ -8,7 +8,7 @@
 
 import Foundation
 
-struct ASTFunctionDeclaration: ASTStatement {
+class ASTFunctionDeclaration: ASTStatement {
     enum Kind {
         case global              // a global function
         case impl(String)        // instance function for some type
@@ -20,6 +20,14 @@ struct ASTFunctionDeclaration: ASTStatement {
     let returnType: ASTType
     let kind: Kind
     let body: ASTComposite
+    
+    init(name: ASTIdentifier, parameters: [ASTVariableDeclaration], returnType: ASTType, kind: Kind, body: ASTComposite) {
+        self.name = name
+        self.parameters = parameters
+        self.returnType = returnType
+        self.kind = kind
+        self.body = body
+    }
     
     
     var mangledName: String {

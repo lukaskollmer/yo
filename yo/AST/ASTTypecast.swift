@@ -9,7 +9,12 @@
 import Foundation
 
 
-struct ASTTypecast: ASTExpression {
+class ASTTypecast: ASTExpression {
     let expression: ASTExpression
     let type: ASTType
+    
+    init(expression: ASTExpression, type: ASTType) {
+        self.expression = expression
+        self.type = type
+    }
 }

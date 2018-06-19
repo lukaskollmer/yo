@@ -9,11 +9,15 @@
 import Foundation
 
 
-struct ASTMemberAccess: ASTExpression, ASTStatement {
+class ASTMemberAccess: ASTExpression, ASTStatement {
     enum Kind {
         case attribute(name: ASTIdentifier)
         case functionCall(name: ASTIdentifier, arguments: [ASTExpression], unusedReturnValue: Bool)
     }
     
     let members: [Kind]
+    
+    init(members: [Kind]) {
+        self.members = members
+    }
 }

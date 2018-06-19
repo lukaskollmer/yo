@@ -9,6 +9,10 @@
 import Foundation
 
 
-struct ASTReturnStatement: ASTStatement {
-    let returnValueExpression: ASTExpression
+class ASTReturnStatement: ASTStatement {
+    let expression: ASTExpression
+    
+    init(expression: ASTExpression) {
+        self.expression = expression
+    }
 }

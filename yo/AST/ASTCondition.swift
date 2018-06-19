@@ -13,7 +13,7 @@ protocol ASTCondition: ASTExpression {}
 
 
 
-struct ASTBinaryCondition: ASTCondition {
+class ASTBinaryCondition: ASTCondition {
     enum Operator {
         case and
         case or
@@ -33,10 +33,16 @@ struct ASTBinaryCondition: ASTCondition {
     let lhs: ASTCondition
     let `operator`: ASTBinaryCondition.Operator
     let rhs: ASTCondition
+    
+    init(lhs: ASTCondition, operator: ASTBinaryCondition.Operator, rhs: ASTCondition) {
+        self.lhs = lhs
+        self.operator = `operator`
+        self.rhs = rhs
+    }
 }
 
 
-struct ASTComparison: ASTCondition {
+class ASTComparison: ASTCondition {
     enum Operator {
         case equal
         case notEqual
@@ -49,6 +55,12 @@ struct ASTComparison: ASTCondition {
     let lhs: ASTExpression
     let `operator`: ASTComparison.Operator
     let rhs: ASTExpression
+    
+    init(lhs: ASTExpression, operator: ASTComparison.Operator, rhs: ASTExpression) {
+        self.lhs = lhs
+        self.operator = `operator`
+        self.rhs = rhs
+    }
 }
 
 // TODO ASTUnaryCondition?

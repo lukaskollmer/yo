@@ -9,7 +9,7 @@
 import Foundation
 
 
-struct ASTAssignment: ASTStatement {
+class ASTAssignment: ASTStatement {
     let target: ASTExpression
     let value: ASTExpression
     let shouldRetainAssignedValueIfItIsAnObject: Bool

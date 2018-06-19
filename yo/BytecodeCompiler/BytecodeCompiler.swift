@@ -284,7 +284,7 @@ private extension BytecodeCompiler {
                 //ASTFunctionCall(functionName: retain, arguments: [_self], unusedReturnValue: true),
                 
                 // 4. return the newly created object
-                ASTReturnStatement(returnValueExpression: _self)
+                ASTReturnStatement(expression: _self)
             ]
         )
         
@@ -311,7 +311,7 @@ private extension BytecodeCompiler {
             let functionBody: ASTComposite
             if !(function.body.statements.last is ASTReturnStatement) {
                 functionBody = ASTComposite(
-                    statements: function.body.statements + [ASTReturnStatement(returnValueExpression: ASTNumberLiteral(value: 0))],
+                    statements: function.body.statements + [ASTReturnStatement(expression: ASTNumberLiteral(value: 0))],
                     introducesNewScope: true
                 )
                 print("added ret 0 to \(function.mangledName)")
@@ -394,7 +394,7 @@ private extension BytecodeCompiler {
                         
                         let storeRetval = ASTAssignment(
                             target: retval_temp_storage.identifier,
-                            value: returnStatement.returnValueExpression,
+                            value: returnStatement.expression,
                             shouldRetainAssignedValueIfItIsAnObject: false//(returnStatement.returnValueExpression is ASTIdentifier)
                         )
                         
@@ -413,7 +413,7 @@ private extension BytecodeCompiler {
                         // Problem: what if we return one of the local variables? (or one of its attributes) (or it's somehow used in the return value expression)?
                         // idea: create a local vatiable for the return value (w/ the type of the function's return type), exclude that from all the release calls and return that
                         //handle(return: returnStatement)
-                        try handle(return: ASTReturnStatement(returnValueExpression: retval_temp_storage.identifier))
+                        try handle(return: ASTReturnStatement(expression: retval_temp_storage.identifier))
                         
                     } else {
                         try handle(node: statement)
@@ -426,7 +426,7 @@ private extension BytecodeCompiler {
     
     
     func handle(return returnStatement: ASTReturnStatement) throws {
-        try handle(node: returnStatement.returnValueExpression)
+        try handle(node: returnStatement.expression)
         add(.ret, scope.size)
     }
     

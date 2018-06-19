@@ -10,8 +10,14 @@ import Foundation
 
 
 // TODO is adding conformance to both `ASTExpression` and `ASTStatement` really the best idea?
-struct ASTFunctionCall: ASTExpression & ASTStatement {
+class ASTFunctionCall: ASTExpression & ASTStatement {
     let functionName: String
     let arguments: [ASTExpression]
     let unusedReturnValue: Bool
+    
+    init(functionName: String, arguments: [ASTExpression], unusedReturnValue: Bool) {
+        self.functionName = functionName
+        self.arguments = arguments
+        self.unusedReturnValue = unusedReturnValue
+    }
 }

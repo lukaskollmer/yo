@@ -9,8 +9,14 @@
 import Foundation
 
 
-struct ASTArraySetter: ASTStatement {
+class ASTArraySetter: ASTStatement {
     let target: ASTExpression
     let offset: ASTExpression
     let value: ASTExpression
+    
+    init(target: ASTExpression, offset: ASTExpression, value: ASTExpression) {
+        self.target = target
+        self.offset = offset
+        self.value  = value
+    }
 }

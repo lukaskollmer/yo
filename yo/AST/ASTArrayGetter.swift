@@ -9,7 +9,12 @@
 import Foundation
 
 
-struct ASTArrayGetter: ASTExpression {
+class ASTArrayGetter: ASTExpression {
     let target: ASTExpression
     let offset: ASTExpression
+    
+    init(target: ASTExpression, offset: ASTExpression) {
+        self.target = target
+        self.offset = offset
+    }
 }

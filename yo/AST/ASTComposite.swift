@@ -9,13 +9,17 @@
 import Foundation
 
 
-struct ASTComposite: ASTStatement {
+class ASTComposite: ASTStatement, ExpressibleByArrayLiteral {
     let statements: [ASTStatement]
     let introducesNewScope: Bool
     
     init(statements: [ASTStatement], introducesNewScope: Bool = true) { // TODO remove the default value?
         self.statements = statements
         self.introducesNewScope = introducesNewScope
+    }
+    
+    convenience required init(arrayLiteral elements: ASTStatement...) {
+        self.init(statements: elements)
     }
     
     
@@ -25,8 +29,3 @@ struct ASTComposite: ASTStatement {
 }
 
 
-extension ASTComposite: ExpressibleByArrayLiteral {
-    init(arrayLiteral elements: ASTStatement...) {
-        self.init(statements: elements)
-    }
-}

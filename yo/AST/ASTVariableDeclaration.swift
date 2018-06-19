@@ -9,9 +9,18 @@
 import Foundation
 
 
-struct ASTVariableDeclaration: ASTStatement, Equatable {
+class ASTVariableDeclaration: ASTStatement, Equatable {
     let identifier: ASTIdentifier
     let type: ASTType
+    
+    init(identifier: ASTIdentifier, type: ASTType) {
+        self.identifier = identifier
+        self.type = type
+    }
+    
+    static func == (lhs: ASTVariableDeclaration, rhs: ASTVariableDeclaration) -> Bool {
+        return lhs.identifier == rhs.identifier && lhs.type == rhs.type
+    }
 }
 
 

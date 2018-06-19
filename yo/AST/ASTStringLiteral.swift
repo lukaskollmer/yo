@@ -9,6 +9,10 @@
 import Foundation
 
 
-struct ASTStringLiteral: ASTExpression {
+class ASTStringLiteral: ASTExpression {
     let value: String
+    
+    init(value: String) {
+        self.value = value
+    }
 }

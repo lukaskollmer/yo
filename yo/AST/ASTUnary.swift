@@ -9,11 +9,15 @@
 import Foundation
 
 
-struct ASTUnary: ASTExpression {
+class ASTUnary: ASTExpression {
     enum Operator {
         case minus
     }
     
     let `operator`: ASTUnary.Operator = .minus // TOOD add support for other unary operators?
     let expression: ASTExpression
+    
+    init(expression: ASTExpression) {
+        self.expression = expression
+    }
 }

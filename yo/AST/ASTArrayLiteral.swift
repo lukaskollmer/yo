@@ -9,6 +9,10 @@
 import Foundation
 
 
-struct ASTArrayLiteral: ASTExpression {
+class ASTArrayLiteral: ASTExpression {
     let elements: [ASTExpression]
+    
+    init(elements: [ASTExpression]) {
+        self.elements = elements
+    }
 }

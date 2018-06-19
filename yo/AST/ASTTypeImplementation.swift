@@ -9,7 +9,12 @@
 import Foundation
 
 
-struct ASTTypeImplementation: ASTStatement {
+class ASTTypeImplementation: ASTStatement {
     let typename: ASTIdentifier
     let functions: [ASTFunctionDeclaration]
+    
+    init(typename: ASTIdentifier, functions: [ASTFunctionDeclaration]) {
+        self.typename = typename
+        self.functions = functions
+    }
 }

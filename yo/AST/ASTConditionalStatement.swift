@@ -10,7 +10,7 @@ import Foundation
 
 
 // An `ASTConditionalStatement` can be either a if(/else) or a while statement
-struct ASTConditionalStatement: ASTStatement {
+class ASTConditionalStatement: ASTStatement {
     enum Kind {
         case `while`
         case `if`(ASTComposite?)
@@ -19,4 +19,10 @@ struct ASTConditionalStatement: ASTStatement {
     let condition: ASTCondition
     let body: ASTComposite
     let kind: Kind
+    
+    init(condition: ASTCondition, body: ASTComposite, kind: Kind) {
+        self.condition = condition
+        self.body = body
+        self.kind = kind
+    }
 }

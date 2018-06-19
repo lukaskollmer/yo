@@ -26,22 +26,6 @@ struct ASTBinaryOperation: ASTExpression {
         case shl // left shift
         case shr // right shift
         
-//        private static let tokenMapping: [TokenType: Operator] = [
-//            .plus: .add,
-//            .minus: .sub,
-//            .asterik: .mul,
-//            .forwardSlash: .div,
-//            .percentageSign: .mul
-//        ]
-//
-//        init?(tokenType: TokenType) {
-//            // TODO this code is ugly af
-//            guard let token = Operator.tokenMapping[tokenType] else {
-//                return nil
-//            }
-//            self = token
-//        }
-//
         var operation: Operation {
             switch self {
             case .add: return .add
@@ -61,4 +45,11 @@ struct ASTBinaryOperation: ASTExpression {
     let lhs: ASTExpression
     let operation: BinopOperation
     let rhs: ASTExpression
+    
+    
+    init(lhs: ASTExpression, operation: BinopOperation, rhs: ASTExpression) {
+        self.lhs = lhs
+        self.operation = operation
+        self.rhs = rhs
+    }
 }

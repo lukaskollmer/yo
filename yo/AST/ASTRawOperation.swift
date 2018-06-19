@@ -10,6 +10,10 @@ import Foundation
 
 
 // A "raw" instruction (instruction + immediate)
-struct ASTRawWIPInstruction: ASTStatement & ASTExpression {
+class ASTRawWIPInstruction: ASTStatement & ASTExpression {
     let instruction: WIPInstruction
+    
+    init(instruction: WIPInstruction) {
+        self.instruction = instruction
+    }
 }

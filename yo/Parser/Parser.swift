@@ -108,7 +108,7 @@ private extension Parser {
                     //throw ParserError.other("expected a semicolon")
                 }
                 next()
-                return ASTReturnStatement(returnValueExpression: expression)
+                return ASTReturnStatement(expression: expression)
                 
             case .__asm:
                 next()

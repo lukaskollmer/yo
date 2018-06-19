@@ -9,4 +9,4 @@
 import Foundation
 
 
-struct ASTContinueStatement: ASTStatement {}
+class ASTContinueStatement: ASTStatement {}

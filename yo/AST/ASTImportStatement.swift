@@ -9,7 +9,12 @@
 import Foundation
 
 
-struct ASTImportStatement: ASTStatement {
+class ASTImportStatement: ASTStatement {
     let moduleName: String
     let isInternal: Bool // as of right now, only internal modules are supported
+    
+    init(moduleName: String, isInternal: Bool) {
+        self.moduleName = moduleName
+        self.isInternal = isInternal
+    }
 }

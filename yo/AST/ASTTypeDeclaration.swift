@@ -9,7 +9,12 @@
 import Foundation
 
 
-struct ASTTypeDeclaration: ASTStatement {
+class ASTTypeDeclaration: ASTStatement {
     let name: ASTIdentifier
     let attributes: [ASTVariableDeclaration]
+    
+    init(name: ASTIdentifier, attributes: [ASTVariableDeclaration]) {
+        self.name = name
+        self.attributes = attributes
+    }
 }

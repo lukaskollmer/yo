@@ -9,6 +9,16 @@
 import Foundation
 
 
-struct ASTIdentifier: ASTExpression, Equatable {
+class ASTIdentifier: ASTExpression, Equatable {
     let name: String
+    
+    init(name: String) {
+        self.name = name
+    }
+    
+    
+    static func == (lhs: ASTIdentifier, rhs: ASTIdentifier) -> Bool {
+        return lhs.name == rhs.name
+    }
 }
+

@@ -9,4 +9,4 @@
 import Foundation
 
 
-struct ASTBreakStatement: ASTStatement {}
+class ASTBreakStatement: ASTStatement {}
