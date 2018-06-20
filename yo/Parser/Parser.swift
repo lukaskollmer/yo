@@ -649,6 +649,10 @@ private extension Parser {
     
     func parseExpression() throws -> ASTExpression {
         
+        if case .pipe = currentToken.type {
+            return try parseLambda()
+        }
+        
         if case .openingSquareBrackets = currentToken.type {
             next()
             
@@ -687,6 +691,7 @@ private extension Parser {
                 ?? (try? parseChainedAccess())
                 ?? (try? parseIdentifier())
         }
+        
         
         if expression == nil {
             throw ParserError.unexpectedToken(currentToken)
@@ -823,7 +828,27 @@ private extension Parser {
     }
     
     
-    
+    func parseLambda() throws -> ASTLambda {
+        guard case .pipe = currentToken.type else {
+            throw ParserError.unexpectedToken(currentToken)
+        }
+        next()
+        
+        let parameterNames = try parseIdentifierList()
+        
+        guard
+            case .pipe = currentToken.type,
+            case .minus = next().type,
+            case .greater = next().type,
+            case .openingCurlyBrackets = next().type
+        else {
+            throw ParserError.unexpectedToken(currentToken)
+        }
+        
+        let body = try parseComposite()
+        
+        return ASTLambda(signature: .unresolved, parameterNames: parameterNames, body: body)
+    }
     
     
     
@@ -875,7 +900,6 @@ private extension Parser {
     
     
     
-    
     func parseExpressionList() throws -> [ASTExpression] {
         var expressions = [ASTExpression]()
         
@@ -890,6 +914,20 @@ private extension Parser {
         return expressions
     }
     
+    
+    func parseIdentifierList() throws -> [ASTIdentifier] {
+        var identifiers = [ASTIdentifier]()
+        
+        while let identifier = try? parseIdentifier() {
+            identifiers.append(identifier)
+            
+            if case .comma = currentToken.type {
+                next()
+            }
+        }
+        
+        return identifiers
+    }
     
     
     

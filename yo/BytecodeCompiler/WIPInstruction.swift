@@ -14,6 +14,17 @@ enum WIPInstruction {
     case operation(Operation, Int)      // A "finalized" instruction
     case unresolved(Operation, String)  // An instruction that takes an address as parameter, which will be resolved later (after all codegen finished)
     case arrayLiteral(String, [Int])    // TODO write desc
+    
+    
+    var isLabel: Bool {
+        if case .label(_) = self { return true }
+        return false
+    }
+    
+    var isArrayLiteral: Bool {
+        if case .arrayLiteral(_) = self { return true }
+        return false
+    }
 }
 
 
@@ -22,16 +33,8 @@ extension Array where Element == WIPInstruction {
     func withArrayLiteralsResolved() -> [WIPInstruction] {
         
         var _self = self
-        
-        let arrayliterals = _self.remove { instruction in
-            if case .arrayLiteral(_) = instruction {
-                return true
-            }
-            return false
-        }
-        
+        let arrayliterals = _self.remove { $0.isArrayLiteral }
         _self.insert(contentsOf: arrayliterals, at: 4)
-        
         
         return _self.lk_flatMap { instruction in
             if case WIPInstruction.arrayLiteral(let label, let array) = instruction {
@@ -42,6 +45,26 @@ extension Array where Element == WIPInstruction {
             }
             return [instruction]
         }
+    }
+    
+    // make sure all labels have odd addresses
+    // more info in the documentation // TODO
+    // TODO only apply this to function entry points?
+    func withLabelsPadded() -> [WIPInstruction] {
+        var retval = [WIPInstruction]()
+        
+        for instruction in self {
+            guard instruction.isLabel else {
+                retval.append(instruction)
+                continue
+            }
+            
+            if retval.count.isEven {
+                retval.append(.operation(.noop, 0))
+            }
+            retval.append(instruction)
+        }
+        return retval
     }
     
     func finalized() -> [Instruction] {

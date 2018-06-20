@@ -44,11 +44,8 @@ struct Counter {
 class BytecodeCompiler {
     
     private var instructions = [WIPInstruction]()
-    private var _counter = 0 // counter used to generate unique labels for if/while statements
-    private func getCounter() -> Int {
-        _counter += 1
-        return _counter
-    }
+    private var conditionalStatementCounter = Counter()
+    private var lambdaCounter = Counter()
     
     
     // Scope info
@@ -58,8 +55,6 @@ class BytecodeCompiler {
     
     private var breakDestination: String?
     private var continueDestination: String?
-    
-    
     
     init() {
         // fill the functions table w/ all native functions
@@ -91,7 +86,7 @@ class BytecodeCompiler {
             }
         }
         
-        var ast = try resolveImports(in: ast)
+        let ast = try resolveImports(in: ast)
         
         // perform semantic analysis
         let semanticAnalysis = SemanticAnalyzer().analyze(ast: ast)
@@ -134,6 +129,30 @@ private extension BytecodeCompiler {
     func add(_ operation: Operation, unresolvedLabel: String) {
         instructions.append(.unresolved(operation, unresolvedLabel))
     }
+    
+    func add(_ instruction: WIPInstruction) {
+        instructions.append(instruction)
+    }
+    
+    
+    func handleLambda(_ block: () throws -> Void) rethrows {
+        var previousInstructions = self.instructions
+        self.instructions = []
+        
+        try block()
+        
+        // self.instructions now contains the instructions inserted in the block
+        // we insert these
+        guard let insertionPoint = previousInstructions.lastIndex(where: { $0.isLabel })?.advanced(by: 0) else {
+            fatalError("unable to find lambda insertion point")
+            
+        }
+        
+        previousInstructions.insert(contentsOf: self.instructions, at: insertionPoint)
+        self.instructions = previousInstructions
+    }
+    
+    
     
     
     // updates the scope until `block` returns
@@ -209,7 +228,7 @@ private extension BytecodeCompiler {
             try handle(stringLiteral: stringLiteral)
             
         } else if let rawInstruction = node as? ASTRawWIPInstruction {
-            instructions.append(rawInstruction.instruction)
+            add(rawInstruction.instruction)
             
         } else if let arrayLiteral = node as? ASTArrayLiteral {
             try handle(arrayLiteral: arrayLiteral)
@@ -357,6 +376,13 @@ private extension BytecodeCompiler {
         
         // Automatic type inference 😎
         localVariables = try localVariables.map { variable in
+            // TODO
+            // we need to update the local scope **as we infer types**
+            // why? consider the following example:
+            // val x = 5;
+            // val y = x;
+            
+            
             guard case .unresolved = variable.type else { return variable }
             
             // https://twitter.com/lukas_kollmer/status/1008687049040375808
@@ -485,7 +511,7 @@ private extension BytecodeCompiler {
             fatalError("global if statement")
         }
         
-        let counter = getCounter()
+        let counter = conditionalStatementCounter.get()
         let generateLabel: (String) -> String = { "\(functionName)_ifwhile_\(counter)_\($0)" } // TOOD replace `ifwhile` w/ just if or while?
         
         let oldBreakDestination = breakDestination
@@ -576,40 +602,62 @@ private extension BytecodeCompiler {
     
     
     func handle(assignment: ASTAssignment) throws {
-        let rhsType = try guessType(ofExpression: assignment.value)
+        let lhsType = try guessType(ofExpression: assignment.target)
         
-        // parameters should be (lhs, rhs)
-        let ensureTypeCompatability: (ASTType, ASTType) -> Void = {
-            if !$0.isCompatible(with: $1) {
-                fatalError("cannot assign value of type `\($1)` to `\($0)`")
+        var rhs: ASTExpression = assignment.value
+        
+        // TODO refactor the lambda code so that we can also use it in function arguments
+        if let lambda = rhs as? ASTLambda {
+            try handleLambda {
+                guard case .unresolved = lambda.signature else {
+                    fatalError("lambda signature should still be unresolved at this point")
+                }
+                
+                guard case .function(let returnType, let parameterTypes) = lhsType else {
+                    fatalError("cannot assign a lambda to a non-function type value") // TODO better wording
+                }
+                
+                guard case .function(let functionName, _) = scope.type else {
+                    fatalError("using lambda outside a function")
+                }
+                
+                lambda.signature = lhsType
+                
+                let lambdaFunctionName = ASTIdentifier(name: "\(functionName)_lambda_invoke_\(lambdaCounter.get())")
+                functions[lambdaFunctionName.name] = (parameterTypes.count, parameterTypes, returnType)
+                
+                let fn = ASTFunctionDeclaration(
+                    name: lambdaFunctionName,
+                    parameters: lambda.parameterNames.enumerated().map { ASTVariableDeclaration(identifier: $0.element, type: parameterTypes[$0.offset]) },
+                    returnType: returnType,
+                    kind: .global,
+                    body: lambda.body
+                )
+                
+                try withScope(Scope(type: .global)) {
+                    try handle(node: fn)
+                }
+                
+                rhs = lambdaFunctionName
             }
+        }
+        
+        let rhsType = try guessType(ofExpression: rhs)
+        print(rhsType)
+        
+        guard lhsType.isCompatible(with: rhsType) else {
+            fatalError("cannot assign value of type `\(rhsType)` to `\(lhsType)`")
         }
         
         
         if let targetIdentifier = assignment.target as? ASTIdentifier {
             
-            let lhsType = try scope.type(of: targetIdentifier.name)
-            ensureTypeCompatability(lhsType, rhsType)
+            // TODO(ARC) release old value, if object
             
-            
-// TODO ARC
-//            let targetIsObject = try scope.isObject(identifier: targetIdentifier.name)
-//            if targetIsObject {
-//                // TODO release the old value?
-//            }
-            
-            try handle(node: assignment.value)
+            try handle(node: rhs)
             add(.store, try scope.index(of: targetIdentifier.name))
             
-// TODO ARC
-//            if assignment.shouldRetainAssignedValueIfItIsAnObject && targetIsObject {
-//                let retainCall = ASTFunctionCall(
-//                    functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "retain"),
-//                    arguments: [targetIdentifier],
-//                    unusedReturnValue: true
-//                )
-//                try handle(functionCall: retainCall)
-//            }
+            // TODO(ARC) retain new value, if object
             
             return
         }
@@ -618,17 +666,14 @@ private extension BytecodeCompiler {
         
         if
             let memberAccess = assignment.target as? ASTMemberAccess,
-            let (memberAccessGetterExpression, types) = try processMemberAccess(memberAccess: memberAccess) as? (ASTArrayGetter, [ASTType])
+            let (memberAccessGetterExpression, _) = try processMemberAccess(memberAccess: memberAccess) as? (ASTArrayGetter, [ASTType])
         {
             // if we're assigning to some attribute, `memberAccessGetterExpression` is always an `ASTArrayGetter`
             let newAssignment = ASTArraySetter(
                 target: memberAccessGetterExpression.target,
                 offset: memberAccessGetterExpression.offset,
-                value: assignment.value
+                value: rhs
             )
-            
-            let lhsType = types.last!
-            ensureTypeCompatability(lhsType, rhsType)
             
             try handle(node: newAssignment)
 
@@ -706,7 +751,7 @@ private extension BytecodeCompiler {
             // global function
             add(.push, unresolvedLabel: identifier.name)
         } else {
-            fatalError("trying to use unknown idenfifier")
+            fatalError("unable to resolve idenfifier '\(identifier.name)'")
         }
     }
     
@@ -811,7 +856,7 @@ private extension BytecodeCompiler {
         let codepoints: [Int] = value.unicodeScalars.map { Int($0.value) }
         
         let label = UUID().uuidString // TODO detect duplicate string literals
-        instructions.append(.arrayLiteral(label, codepoints))
+        add(.arrayLiteral(label, codepoints))
         
         add(.loadc, unresolvedLabel: label)
         
@@ -834,7 +879,7 @@ private extension BytecodeCompiler {
         if isConstant {
             let values = arrayLiteral.elements.map { ($0 as! ASTNumberLiteral).value }
             let label = UUID().uuidString
-            instructions.append(.arrayLiteral(label, values))
+            add(.arrayLiteral(label, values))
             
             add(.loadc, unresolvedLabel: label)
             

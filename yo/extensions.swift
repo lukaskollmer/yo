@@ -14,6 +14,17 @@ func cast<T, R>(_ arg0: inout T) -> R {
 
 
 
+extension Int {
+    var isEven: Bool {
+        return self % 2 == 0
+    }
+    
+    var isOdd: Bool {
+        return !isEven
+    }
+}
+
+
 extension Sequence {
     func all(_ block: (Element) -> Bool) -> Bool {
         for element in self {
@@ -27,6 +38,10 @@ extension Sequence {
     
     func any(_ block:(Element) -> Bool) -> Bool {
         return self.first(where: block) != nil
+    }
+    
+    func lastIndex(where block: (Element) -> Bool) -> Int? {
+        return self.enumerated().reversed().first { block($0.element) }?.offset
     }
 }
 

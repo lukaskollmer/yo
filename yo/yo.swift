@@ -54,7 +54,7 @@ enum yo {
     }
     
     static func run(code: String) throws -> Int {
-        let instructions = try compile(code: code).withArrayLiteralsResolved()
+        let instructions = try compile(code: code).withArrayLiteralsResolved().withLabelsPadded()
         Log.info("\n\(instructions.fancyDescription)")
         
         return try BytecodeInterpreter(instructions: instructions.finalized()).run()
