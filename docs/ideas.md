@@ -108,3 +108,29 @@ impl X: Y {
 **for loops**
 - have an object that essentially functions as an enumerator: `hasNext()`, `next()`
 - when encountering a for loop, save the enumerator/iterator (TODO correct terminology?) as a (hidden?) local variable for that loop's scope
+
+## lambdas
+- types inferred at compile time
+```rust
+val x: fn<(Foo, Bar): any> = |x, y| -> {
+    // lambda body
+};
+```
+- differentiate between 2 types?:
+  1. doesn't access anything from outside its own scope
+  2. does access local variables from outside its own scope
+- implementation:
+  - types!
+
+- potential problems:
+  - we have to make sure parameters in the lambda **always** shadow outer parameters (see example above, the lambda's parameter is `x` and the lambda's outer scope contains `x`)
+```rust
+// this
+val x: fn<(Foo, Bar): any> = |x, y| -> { ret x + y +  };
+
+// becomes This
+type __main_lambda_literal_1();
+impl __main_lambda_literal_1 {
+  fn invoke(self: __x: int, y: int): any
+}
+```

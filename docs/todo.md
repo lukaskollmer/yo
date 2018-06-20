@@ -20,6 +20,7 @@
 - [ ] a `break` keyword
 - [ ] `Array.get`: negative index to access elements from back
 - [ ] ternary expressions (only for assignment at first)
+- [ ] elvis operator (`a ?? b`)
 - [ ] `else if`
 - [ ] add type checks when assigning the return value of a function?
 - [ ] macros
@@ -29,3 +30,4 @@
 - [ ] ensure that `void` returning functions don't return anything other than `void`
 - [ ] disallow `void` variable declarations (and function parameters)? they're currently treated as ints (as in also getting allocated stack space)
 - [ ] support casts in chained access `(5 as Foo).bar`
+- [ ] `Self` to refer to whatever the current type is
