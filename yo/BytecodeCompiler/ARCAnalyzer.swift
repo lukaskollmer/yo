@@ -9,16 +9,6 @@
 import Foundation
 
 
-struct Counter {
-    private var _counter = 0
-    
-    mutating func get() -> Int {
-        _counter += 1
-        return _counter
-    }
-}
-
-
 /// The `ARCAnalyzer` class tries to insert `runtime::retain` and `runtime::release` calls into an AST
 /// TODO
 class ARCAnalyzer {

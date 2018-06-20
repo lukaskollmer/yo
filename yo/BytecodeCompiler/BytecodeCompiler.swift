@@ -24,6 +24,19 @@ enum BytecodeCompilerError: Error {
     case other(String, ASTNode)
 }
 
+struct Counter {
+    private var _counter = 0
+    
+    mutating func get() -> Int {
+        _counter += 1
+        return _counter
+    }
+    
+    mutating func reset() {
+        _counter = 0
+    }
+}
+
 
 // MARK: Codegen
 
