@@ -376,7 +376,6 @@ private extension BytecodeCompiler {
                     statements: function.body.statements + [ASTReturnStatement(expression: ASTNumberLiteral(value: 0))],
                     introducesNewScope: true
                 )
-                print("added ret 0 to \(function.mangledName)")
             } else {
                 functionBody = function.body
             }
@@ -641,7 +640,6 @@ private extension BytecodeCompiler {
         }
         
         let rhsType = try guessType(ofExpression: rhs)
-        print(rhsType)
         
         guard lhsType.isCompatible(with: rhsType) else {
             fatalError("cannot assign value of type `\(rhsType)` to `\(lhsType)`")
@@ -712,7 +710,7 @@ private extension BytecodeCompiler {
             
             if accessedIdentifiersFromOutsideScope.isEmpty {
                 // "pure" lambda
-                let lambdaFunctionName = ASTIdentifier(name: "\(functionName)_lambda_invoke_\(lambdaCounter.get())") // TODO prefix w/ __
+                let lambdaFunctionName = ASTIdentifier(name: "__\(functionName)_lambda_invoke_\(lambdaCounter.get())") // TODO prefix w/ __
                 functions[lambdaFunctionName.name] = (parameterTypes.count, parameterTypes, returnType)
                 
                 let fn = ASTFunctionDeclaration(
@@ -906,7 +904,6 @@ private extension BytecodeCompiler {
         }
         
         let updateType: (ASTIdentifier) throws -> Void = {
-            print(#function, $0)
             guard case .complex(let currentTypename) = currentType else { // TODO that force unwrap should not be necessary (currentType is an IUO)
                 fatalError("trying to access attribute on non-complex type")
             }
