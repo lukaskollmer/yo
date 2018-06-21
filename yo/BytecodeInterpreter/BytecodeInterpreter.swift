@@ -79,12 +79,18 @@ class BytecodeInterpreter {
     
     
     func call(address: Int, arguments: [Int]) throws -> Int {
-        // TODO add support for lambdas!!!
-        
         // simulating a function call
         // this is problematic for several reasons:
         // - after the function call, the stack has to be in the *exact* same state as before
         // - we need to somehow detect when we're returning from the function call (might get difficult when the called function calls other functions
+        
+        var address = address
+        var arguments = arguments
+        
+        if address > 0 && address.isEven {
+            arguments.insert(address, at: 0)
+            address = heap[address + 1]
+        }
         
         try stack.push(stack.framePointer)
         try stack.push(instructionPointer + 0)  // return address. since this is a native call, we return to the same address?
