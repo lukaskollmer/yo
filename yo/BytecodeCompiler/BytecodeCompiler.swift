@@ -25,15 +25,23 @@ enum BytecodeCompilerError: Error {
 }
 
 struct Counter {
-    private var _counter = 0
+    private var _counter: Int
+    private let fn: (Int) -> Int
+    private let initial: Int
+    
+    init(initialValue: Int = 0, fn: @escaping (Int) -> Int = { $0 + 1 }) {
+        self.initial = initialValue
+        self._counter = initialValue
+        self.fn = fn
+    }
     
     mutating func get() -> Int {
-        _counter += 1
+        _counter = fn(_counter)
         return _counter
     }
     
     mutating func reset() {
-        _counter = 0
+        _counter = initial
     }
 }
 
@@ -58,12 +66,8 @@ class BytecodeCompiler {
     
     init() {
         // fill the functions table w/ all native functions
-        for builtin in Runtime.builtins {
-            functions[builtin.name] = (
-                argc: builtin.argc,
-                parameterTypes: Array(repeating: .any, count: builtin.argc),
-                returnType: .any    // TODO
-            )
+        for builtin in Runtime.shared.builtins {
+            functions[builtin.name] = builtin.info
         }
     }
     
@@ -135,11 +139,11 @@ private extension BytecodeCompiler {
     }
     
     
-    func handleLambda(_ block: () throws -> Void) rethrows {
+    func handleLambda<T>(_ block: () throws -> T) rethrows -> T {
         var previousInstructions = self.instructions
         self.instructions = []
         
-        try block()
+        let retval = try block()
         
         // self.instructions now contains the instructions inserted in the block
         // we insert these
@@ -150,6 +154,8 @@ private extension BytecodeCompiler {
         
         previousInstructions.insert(contentsOf: self.instructions, at: insertionPoint)
         self.instructions = previousInstructions
+        
+        return retval
     }
     
     
@@ -609,110 +615,7 @@ private extension BytecodeCompiler {
         
         // TODO refactor the lambda code so that we can also use it in function arguments
         if let lambda = rhs as? ASTLambda {
-            try handleLambda {
-                guard case .unresolved = lambda.signature else {
-                    fatalError("lambda signature should still be unresolved at this point")
-                }
-                
-                guard case .function(let returnType, let parameterTypes) = lhsType else {
-                    fatalError("cannot assign a lambda to a non-function type value") // TODO better wording
-                }
-                
-                guard case .function(let functionName, _) = scope.type else {
-                    fatalError("using lambda outside a function")
-                }
-                
-                lambda.signature = lhsType
-                
-                let accessedIdentifiersFromOutsideScope = lambda.accessedIdentifiersFromOutsideScope
-                
-                if accessedIdentifiersFromOutsideScope.isEmpty {
-                    // "pure" lambda
-                    let lambdaFunctionName = ASTIdentifier(name: "\(functionName)_lambda_invoke_\(lambdaCounter.get())") // TODO prefix w/ __
-                    functions[lambdaFunctionName.name] = (parameterTypes.count, parameterTypes, returnType)
-                    
-                    let fn = ASTFunctionDeclaration(
-                        name: lambdaFunctionName,
-                        parameters: lambda.parameterNames.enumerated().map { ASTVariableDeclaration(identifier: $0.element, type: parameterTypes[$0.offset]) },
-                        returnType: returnType,
-                        kind: .global,
-                        body: lambda.body
-                    )
-                    
-                    try withScope(Scope(type: .global)) {
-                        try handle(node: fn)
-                    }
-                    
-                    rhs = lambdaFunctionName
-
-                } else {
-                    // "impure" lambda
-                    
-                    let importedVariables: [ASTVariableDeclaration] = try accessedIdentifiersFromOutsideScope.map { .init(identifier: $0, type: try guessType(ofExpression: $0)) }
-                    
-                    try withScope(Scope(type: .global)) {
-                        
-                        
-                        // TODO unify typename/invokeptr naming w/ above
-                        let typename = ASTIdentifier(name: "__\(functionName)_lambda_literal_\(lambdaCounter.get())")
-                        let invoke_functionPtr = ASTIdentifier(name: SymbolMangling.mangleInstanceMember(ofType: typename.name, memberName: "invoke"))
-                        
-                        let lambda_impType: ASTType = .function(returnType: returnType, parameterTypes: [.complex(name: typename.name)] + parameterTypes)
-                        
-                        
-                        // Lambda type
-                        
-                        let type = ASTTypeDeclaration(
-                            name: typename,
-                            attributes: [ASTVariableDeclaration(identifier: invoke_functionPtr, type: lambda_impType)] + importedVariables
-                        )
-                        typeCache.register(type: type)
-                        
-                        
-                        // Lambda initializer
-                        
-                        let initializer = SymbolMangling.mangleInitializer(forType: typename.name)
-                        functions[initializer] = (
-                            argc: type.attributes.count,
-                            parameterTypes: type.attributes.map { $0.type },
-                            returnType: .complex(name: type.name.name)
-                        )
-                        try handle(node: type)
-                        
-                        
-                        // Lambda implementation
-                        
-                        let imp = ASTFunctionDeclaration(
-                            name: "invoke",
-                            // TODO make this _self so that we can still capture another self?
-                            parameters: [.init(identifier: "__self", type: .complex(name: typename.name))] + lambda.parameterNames.enumerated().map {
-                                ASTVariableDeclaration(identifier: $0.element, type: parameterTypes[$0.offset])
-                            },
-                            returnType: returnType,
-                            kind: .impl(typename.name),
-                            body: lambda.body
-                        )
-                        
-                        functions[invoke_functionPtr.name] = (
-                            argc: imp.parameters.count,
-                            parameterTypes: imp.parameters.map { $0.type },
-                            returnType: returnType
-                        )
-                        try handle(node: imp)
-                        
-                        
-                        
-                        rhs = ASTFunctionCall(
-                            functionName: initializer,
-                            arguments: [invoke_functionPtr.cast(to: .any)] + accessedIdentifiersFromOutsideScope,
-                            unusedReturnValue: false
-                            ).cast(to: .any)
-                        // the cast to any is important bc we're trying to assign __fn_lambda_literal_x to fn<(...): ...>
-                        // also: we already guarded above that lhs is some function
-                    }
-                    
-                }
-            }
+            rhs = try resolve(lambda: lambda, expectedSignature: lhsType)
         }
         
         let rhsType = try guessType(ofExpression: rhs)
@@ -762,6 +665,132 @@ private extension BytecodeCompiler {
     
     
     
+    
+    
+    
+    
+    
+    func resolve(lambda: ASTLambda, expectedSignature type: ASTType) throws -> ASTExpression {
+        return try handleLambda {
+            guard case .unresolved = lambda.signature else {
+                fatalError("lambda signature should still be unresolved at this point")
+            }
+            
+            guard case .function(let returnType, let parameterTypes) = type else {
+                fatalError("cannot assign a lambda to a non-function type value") // TODO better wording
+            }
+            
+            guard case .function(let functionName, _) = scope.type else {
+                fatalError("using lambda outside a function")
+            }
+            
+            lambda.signature = type
+            
+            let accessedIdentifiersFromOutsideScope = lambda.accessedIdentifiersFromOutsideScope
+            
+            if accessedIdentifiersFromOutsideScope.isEmpty {
+                // "pure" lambda
+                let lambdaFunctionName = ASTIdentifier(name: "\(functionName)_lambda_invoke_\(lambdaCounter.get())") // TODO prefix w/ __
+                functions[lambdaFunctionName.name] = (parameterTypes.count, parameterTypes, returnType)
+                
+                let fn = ASTFunctionDeclaration(
+                    name: lambdaFunctionName,
+                    parameters: lambda.parameterNames.enumerated().map { ASTVariableDeclaration(identifier: $0.element, type: parameterTypes[$0.offset]) },
+                    returnType: returnType,
+                    kind: .global,
+                    body: lambda.body
+                )
+                
+                try withScope(Scope(type: .global)) {
+                    try handle(node: fn)
+                }
+                
+                return lambdaFunctionName
+                
+            } else {
+                // "impure" lambda
+                
+                let importedVariables: [ASTVariableDeclaration] = try accessedIdentifiersFromOutsideScope.map { .init(identifier: $0, type: try guessType(ofExpression: $0)) }
+                
+                return try withScope(Scope(type: .global)) {
+                    
+                    
+                    // TODO unify typename/invokeptr naming w/ above
+                    let typename = ASTIdentifier(name: "__\(functionName)_lambda_literal_\(lambdaCounter.get())")
+                    let invoke_functionPtr = ASTIdentifier(name: SymbolMangling.mangleInstanceMember(ofType: typename.name, memberName: "invoke"))
+                    
+                    let lambda_impType: ASTType = .function(returnType: returnType, parameterTypes: [.complex(name: typename.name)] + parameterTypes)
+                    
+                    
+                    // Lambda type
+                    
+                    let type = ASTTypeDeclaration(
+                        name: typename,
+                        attributes: [ASTVariableDeclaration(identifier: invoke_functionPtr, type: lambda_impType)] + importedVariables
+                    )
+                    typeCache.register(type: type)
+                    
+                    
+                    // Lambda initializer
+                    
+                    let initializer = SymbolMangling.mangleInitializer(forType: typename.name)
+                    functions[initializer] = (
+                        argc: type.attributes.count,
+                        parameterTypes: type.attributes.map { $0.type },
+                        returnType: .complex(name: type.name.name)
+                    )
+                    try handle(node: type)
+                    
+                    
+                    // Lambda implementation
+                    
+                    let imp = ASTFunctionDeclaration(
+                        name: "invoke",
+                        // TODO make this _self so that we can still capture another self?
+                        parameters: [.init(identifier: "__self", type: .complex(name: typename.name))] + lambda.parameterNames.enumerated().map {
+                            ASTVariableDeclaration(identifier: $0.element, type: parameterTypes[$0.offset])
+                        },
+                        returnType: returnType,
+                        kind: .impl(typename.name),
+                        body: lambda.body
+                    )
+                    
+                    functions[invoke_functionPtr.name] = (
+                        argc: imp.parameters.count,
+                        parameterTypes: imp.parameters.map { $0.type },
+                        returnType: returnType
+                    )
+                    try handle(node: imp)
+                    
+                    
+                    
+                    return ASTFunctionCall(
+                        functionName: initializer,
+                        arguments: [invoke_functionPtr.cast(to: .any)] + accessedIdentifiersFromOutsideScope,
+                        unusedReturnValue: false
+                        ).cast(to: .any)
+                    // the cast to any is important bc we're trying to assign __fn_lambda_literal_x to fn<(...): ...> // TODO update comment, not specific to assignments anymore
+                    // also: we already guarded above that lhs is some function
+                }
+                
+            }
+        }
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     // MARK: Handle Expressions
     
     func handle(functionCall: ASTFunctionCall) throws {
@@ -789,9 +818,14 @@ private extension BytecodeCompiler {
         
         
         // push arguments on the stack
-        for (index, arg) in functionCall.arguments.enumerated().reversed() {
-            let argType = try guessType(ofExpression: arg)
+        for (index, var arg) in functionCall.arguments.enumerated().reversed() {
             let expectedType = functionInfo.parameterTypes[index]
+            
+            if let lambda = arg as? ASTLambda {
+                arg = try resolve(lambda: lambda, expectedSignature: expectedType)
+            }
+            
+            let argType = try guessType(ofExpression: arg)
             guard argType.isCompatible(with: expectedType) else {
                 fatalError("cannot pass '\(argType)' to function expecting '\(expectedType)'")
             }
@@ -800,7 +834,7 @@ private extension BytecodeCompiler {
         
         
         // push the address onto the stack
-        if let builtin = Runtime.builtin(withName: identifier.name) {
+        if let builtin = Runtime.shared[mangledName: identifier.name] {
             add(.push, builtin.address)
             
         } else if isGlobalFunction {

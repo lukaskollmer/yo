@@ -51,7 +51,7 @@ class BytecodeInterpreter {
     private func performAtCurrentInstructionPointer() throws {
         // check whether we're calling a native function (native functions have a negative "virtual" address)
         if instructionPointer < 0 {
-            let nativeFunction = Runtime.getNativeFunction(withAddress: instructionPointer)
+            let nativeFunction = Runtime.shared[address: instructionPointer]
             if nativeFunction.name == SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "dealloc") {
                 
                 // call the object's dealloc function
@@ -65,7 +65,7 @@ class BytecodeInterpreter {
                 
                 try stack.push(nativeFunction.imp(self))
                 // return from the native function
-                try eval(InstructionDescriptor(instruction: Operation.ret.encode(withImmediate: nativeFunction.argc)))
+                try eval(InstructionDescriptor(instruction: Operation.ret.encode(withImmediate: nativeFunction.info.argc)))
             }
             
             
@@ -255,7 +255,7 @@ class BytecodeInterpreter {
                 args.append(try stack.pop())
             }
             
-            if destinationInstructionPointer.isEven {
+            if destinationInstructionPointer > 0 && destinationInstructionPointer.isEven {
                 args.insert(destinationInstructionPointer, at: 0)
                 destinationInstructionPointer = heap[destinationInstructionPointer + 1]
             }
