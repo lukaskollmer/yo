@@ -91,7 +91,7 @@ class Runtime {
             return 0
         }
         
-        self["io", "print", .void, [.int]] = { interpreter in
+        self["io", "printi", .void, [.int]] = { interpreter in
             print(interpreter.stack.peek())
             return 0
         }
