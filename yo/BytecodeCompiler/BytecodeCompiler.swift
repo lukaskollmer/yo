@@ -375,15 +375,14 @@ private extension BytecodeCompiler {
         var localVariables = composite.statements.getLocalVariables(recursive: false)
         
         // Automatic type inference 😎
-        localVariables = try localVariables.map { variable in
-            // TODO
-            // we need to update the local scope **as we infer types**
-            // why? consider the following example:
-            // val x = 5;
-            // val y = x;
-            
-            
-            guard case .unresolved = variable.type else { return variable }
+        // Why is this an indexed for loop, instead of a map call?
+        // We need to have access to the already processed variables.
+        // Consider the following example
+        // val x = 5;
+        // val y = x;
+        // When processing `y`, we need to be able to access the (already inferred) type of `x`
+        for (index, variable) in localVariables.enumerated() {
+            guard case .unresolved = variable.type else { continue }
             
             // https://twitter.com/lukas_kollmer/status/1008687049040375808
             
@@ -397,7 +396,7 @@ private extension BytecodeCompiler {
             let e = d.first  { $0.0 == variable }!
             let f = e.1.value
             
-            return ASTVariableDeclaration(identifier: variable.identifier, type: try guessType(ofExpression: f))
+            localVariables[index] = ASTVariableDeclaration(identifier: variable.identifier, type: try self.guessType(ofExpression: f, additionalIdentifiers: localVariables))
         }
         
         // TODO maybe include a check to make sure that we managed to infer all types?
@@ -959,11 +958,13 @@ private extension BytecodeCompiler {
 
 
 private extension BytecodeCompiler {
-    func guessType(ofExpression expression: ASTExpression) throws -> ASTType {
+    func guessType(ofExpression expression: ASTExpression, additionalIdentifiers: [ASTVariableDeclaration] = []) throws -> ASTType {
         
         if let identifier = expression as? ASTIdentifier {
             if scope.contains(identifier: identifier.name) {
                 return try scope.type(of: identifier.name)
+            } else if let varDecl = additionalIdentifiers.first(where: { $0.identifier == identifier }), varDecl.type != .unresolved {
+                return varDecl.type
             } else if let functionInfo = functions[identifier.name] {
                 return ASTType.function(returnType: functionInfo.returnType, parameterTypes: functionInfo.parameterTypes)
             }
