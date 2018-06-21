@@ -156,13 +156,15 @@ private extension BytecodeCompiler {
     
     
     // updates the scope until `block` returns
-    func withScope(_ newScope: Scope, block: () throws -> Void) rethrows {
+    func withScope<T>(_ newScope: Scope, block: () throws -> T) rethrows -> T {
         let previousScope = scope
         scope = newScope
         
-        try block()
+        let retval = try block()
         
         scope = previousScope
+        
+        return retval
     }
 }
 
@@ -622,22 +624,94 @@ private extension BytecodeCompiler {
                 
                 lambda.signature = lhsType
                 
-                let lambdaFunctionName = ASTIdentifier(name: "\(functionName)_lambda_invoke_\(lambdaCounter.get())")
-                functions[lambdaFunctionName.name] = (parameterTypes.count, parameterTypes, returnType)
+                let accessedIdentifiersFromOutsideScope = lambda.accessedIdentifiersFromOutsideScope
                 
-                let fn = ASTFunctionDeclaration(
-                    name: lambdaFunctionName,
-                    parameters: lambda.parameterNames.enumerated().map { ASTVariableDeclaration(identifier: $0.element, type: parameterTypes[$0.offset]) },
-                    returnType: returnType,
-                    kind: .global,
-                    body: lambda.body
-                )
-                
-                try withScope(Scope(type: .global)) {
-                    try handle(node: fn)
+                if accessedIdentifiersFromOutsideScope.isEmpty {
+                    // "pure" lambda
+                    let lambdaFunctionName = ASTIdentifier(name: "\(functionName)_lambda_invoke_\(lambdaCounter.get())") // TODO prefix w/ __
+                    functions[lambdaFunctionName.name] = (parameterTypes.count, parameterTypes, returnType)
+                    
+                    let fn = ASTFunctionDeclaration(
+                        name: lambdaFunctionName,
+                        parameters: lambda.parameterNames.enumerated().map { ASTVariableDeclaration(identifier: $0.element, type: parameterTypes[$0.offset]) },
+                        returnType: returnType,
+                        kind: .global,
+                        body: lambda.body
+                    )
+                    
+                    try withScope(Scope(type: .global)) {
+                        try handle(node: fn)
+                    }
+                    
+                    rhs = lambdaFunctionName
+
+                } else {
+                    // "impure" lambda
+                    
+                    let importedVariables: [ASTVariableDeclaration] = try accessedIdentifiersFromOutsideScope.map { .init(identifier: $0, type: try guessType(ofExpression: $0)) }
+                    
+                    try withScope(Scope(type: .global)) {
+                        
+                        
+                        // TODO unify typename/invokeptr naming w/ above
+                        let typename = ASTIdentifier(name: "__\(functionName)_lambda_literal_\(lambdaCounter.get())")
+                        let invoke_functionPtr = ASTIdentifier(name: SymbolMangling.mangleInstanceMember(ofType: typename.name, memberName: "invoke"))
+                        
+                        let lambda_impType: ASTType = .function(returnType: returnType, parameterTypes: [.complex(name: typename.name)] + parameterTypes)
+                        
+                        
+                        // Lambda type
+                        
+                        let type = ASTTypeDeclaration(
+                            name: typename,
+                            attributes: [ASTVariableDeclaration(identifier: invoke_functionPtr, type: lambda_impType)] + importedVariables
+                        )
+                        typeCache.register(type: type)
+                        
+                        
+                        // Lambda initializer
+                        
+                        let initializer = SymbolMangling.mangleInitializer(forType: typename.name)
+                        functions[initializer] = (
+                            argc: type.attributes.count,
+                            parameterTypes: type.attributes.map { $0.type },
+                            returnType: .complex(name: type.name.name)
+                        )
+                        try handle(node: type)
+                        
+                        
+                        // Lambda implementation
+                        
+                        let imp = ASTFunctionDeclaration(
+                            name: "invoke",
+                            // TODO make this _self so that we can still capture another self?
+                            parameters: [.init(identifier: "__self", type: .complex(name: typename.name))] + lambda.parameterNames.enumerated().map {
+                                ASTVariableDeclaration(identifier: $0.element, type: parameterTypes[$0.offset])
+                            },
+                            returnType: returnType,
+                            kind: .impl(typename.name),
+                            body: lambda.body
+                        )
+                        
+                        functions[invoke_functionPtr.name] = (
+                            argc: imp.parameters.count,
+                            parameterTypes: imp.parameters.map { $0.type },
+                            returnType: returnType
+                        )
+                        try handle(node: imp)
+                        
+                        
+                        
+                        rhs = ASTFunctionCall(
+                            functionName: initializer,
+                            arguments: [invoke_functionPtr.cast(to: .any)] + accessedIdentifiersFromOutsideScope,
+                            unusedReturnValue: false
+                            ).cast(to: .any)
+                        // the cast to any is important bc we're trying to assign __fn_lambda_literal_x to fn<(...): ...>
+                        // also: we already guarded above that lhs is some function
+                    }
+                    
                 }
-                
-                rhs = lambdaFunctionName
             }
         }
         
@@ -691,32 +765,33 @@ private extension BytecodeCompiler {
     // MARK: Handle Expressions
     
     func handle(functionCall: ASTFunctionCall) throws {
-        let isGlobalFunction = functions.keys.contains(functionCall.functionName)
+        let identifier = ASTIdentifier(name: functionCall.functionName)
+        let functionInfo: SemanticAnalyzer.FunctionInfo
         
-        let parameterTypes: [ASTType]
+        let isGlobalFunction = !scope.contains(identifier: identifier.name)
         
-        if isGlobalFunction {
-            guard let info = functions[functionCall.functionName] else {
-                //fatalError("trying to call non-existent function")
-                throw BytecodeCompilerError.undefinedFunction(functionCall)
-            }
-            parameterTypes = info.parameterTypes
+        if !isGlobalFunction, case .function(let returnType, let parameterTypes) = try scope.type(of: identifier.name) {
+            // calling a function from the local scope
+            // TODO what about supporting implicit function calls on self (ie `foo()` instead of `self.foo()` if `self` has a function `foo`
+            functionInfo = (parameterTypes.count, parameterTypes, returnType)
+        
+        } else if let globalFunctionInfo = functions[identifier.name] {
+            // calling a global function
+            functionInfo = globalFunctionInfo
+        
         } else {
-            guard case ASTType.function(_, let _parameterTypes) = try scope.type(of: functionCall.functionName) else {
-                throw BytecodeCompilerError.undefinedFunction(functionCall)
-            }
-            parameterTypes = _parameterTypes
+            fatalError("cannot resolve call to '\(identifier.name)'")
         }
         
-        guard parameterTypes.count == functionCall.arguments.count else {
-            //fatalError("wrong argc")
-            throw BytecodeCompilerError.wrongNumberOfArgumentsPassedToFunction(functionCall)
+        guard functionInfo.argc == functionCall.arguments.count else {
+            fatalError("wrong argc in call to \(identifier.name): expected \(functionInfo.argc), got \(functionCall.arguments.count)")
         }
+        
         
         // push arguments on the stack
         for (index, arg) in functionCall.arguments.enumerated().reversed() {
             let argType = try guessType(ofExpression: arg)
-            let expectedType = parameterTypes[index]
+            let expectedType = functionInfo.parameterTypes[index]
             guard argType.isCompatible(with: expectedType) else {
                 fatalError("cannot pass '\(argType)' to function expecting '\(expectedType)'")
             }
@@ -725,15 +800,16 @@ private extension BytecodeCompiler {
         
         
         // push the address onto the stack
-        if let builtin = Runtime.builtin(withName: functionCall.functionName) {
+        if let builtin = Runtime.builtin(withName: identifier.name) {
             add(.push, builtin.address)
+            
         } else if isGlobalFunction {
-            add(.push, unresolvedLabel: SymbolMangling.mangleGlobalFunction(name: functionCall.functionName))
-        } else {
-            try handle(identifier: ASTIdentifier(name: functionCall.functionName))
+            add(.push, unresolvedLabel: SymbolMangling.mangleGlobalFunction(name: identifier.name))
+            
+        } else if !isGlobalFunction {
+            try handle(identifier: identifier)
         }
         
-        // call w/ the passed number of arguments
         add(.call, functionCall.arguments.count)
         
         if functionCall.unusedReturnValue {
@@ -774,6 +850,7 @@ private extension BytecodeCompiler {
         }
         
         let updateType: (ASTIdentifier) throws -> Void = {
+            print(#function, $0)
             guard case .complex(let currentTypename) = currentType else { // TODO that force unwrap should not be necessary (currentType is an IUO)
                 fatalError("trying to access attribute on non-complex type")
             }
@@ -787,7 +864,14 @@ private extension BytecodeCompiler {
                 
                 if index == 0 { // first
                     expr = identifier
-                    currentType = try self.scope.type(of: identifier.name)
+                    if !scope.contains(identifier: identifier.name), let selfAccess = processPotentialImplicitSelfAccess(identifier: identifier) {
+                        currentType = selfAccess.selfType
+                        expr = selfAccess.memberAccess
+                        try updateType(identifier)
+                    
+                    } else {
+                        currentType = try self.scope.type(of: identifier.name)
+                    }
                     break
                 }
                 
@@ -963,8 +1047,12 @@ private extension BytecodeCompiler {
 
 private extension BytecodeCompiler {
     func processPotentialImplicitSelfAccess(identifier: ASTIdentifier) -> (memberAccess: ASTMemberAccess, selfType: ASTType, attributeType: ASTType)? {
-        if scope.contains(identifier: "self"), case .complex(let self_type) = try! scope.type(of: "self"), typeCache.type(self_type, hasMember: identifier.name) {
-            let memberAccess: ASTMemberAccess = [.attribute(name: .init(name: "self")), .attribute(name: identifier)]
+        guard let selfName = scope.parameters.first?.identifier.name else {
+            return nil
+        }
+        
+        if scope.contains(identifier: selfName), case .complex(let self_type) = try! scope.type(of: selfName), typeCache.type(self_type, hasMember: identifier.name) {
+            let memberAccess: ASTMemberAccess = [.attribute(name: .init(name: selfName)), .attribute(name: identifier)]
             
             return (
                 memberAccess,
@@ -979,62 +1067,60 @@ private extension BytecodeCompiler {
 
 private extension BytecodeCompiler {
     func guessType(ofExpression expression: ASTExpression, additionalIdentifiers: [ASTVariableDeclaration] = []) throws -> ASTType {
-        
-        if let identifier = expression as? ASTIdentifier {
-            if scope.contains(identifier: identifier.name) {
-                return try scope.type(of: identifier.name)
+        return try withScope(scope.adding(localVariables: additionalIdentifiers)) {
+            if let identifier = expression as? ASTIdentifier {
+                if scope.contains(identifier: identifier.name) {
+                    return try scope.type(of: identifier.name)
+                    
+                } else if let functionInfo = functions[identifier.name] {
+                    return ASTType.function(returnType: functionInfo.returnType, parameterTypes: functionInfo.parameterTypes)
+                    
+                } else if let implicitSelfAccess = processPotentialImplicitSelfAccess(identifier: identifier) {
+                    return implicitSelfAccess.attributeType
+                }
                 
-            } else if let varDecl = additionalIdentifiers.first(where: { $0.identifier == identifier }), varDecl.type != .unresolved {
-                return varDecl.type
-            
-            } else if let functionInfo = functions[identifier.name] {
-                return ASTType.function(returnType: functionInfo.returnType, parameterTypes: functionInfo.parameterTypes)
-                
-            } else if let implicitSelfAccess = processPotentialImplicitSelfAccess(identifier: identifier) {
-                return implicitSelfAccess.attributeType
-            }
-            
-        } else if let functionCall = expression as? ASTFunctionCall {
-            if let returnType = functions[functionCall.functionName]?.returnType {
-                return returnType
-            } else {
-                // not a global function, maybe something from the current scope
-                if case .function(let returnType, _) = try scope.type(of: functionCall.functionName) {
+            } else if let functionCall = expression as? ASTFunctionCall {
+                if let returnType = functions[functionCall.functionName]?.returnType {
                     return returnType
                 } else {
-                    fatalError("unable to resolve function call")
+                    // not a global function, maybe something from the current scope
+                    if case .function(let returnType, _) = try scope.type(of: functionCall.functionName) {
+                        return returnType
+                    } else {
+                        fatalError("unable to resolve function call")
+                    }
                 }
+                
+            } else if let typecast = expression as? ASTTypecast {
+                return typecast.type
+                
+            } else if expression is ASTNumberLiteral {
+                return .int
+                
+            } else if let binop = expression as? ASTBinaryOperation {
+                return try self.guessType(ofExpression: binop.lhs)
+                
+            } else if expression is ASTUnary {
+                return .int
+                
+            } else if expression is ASTStringLiteral {
+                return .complex(name: "String")
+                
+            } else if expression is ASTNoop {
+                return .any // TODO is this the right choice?
+                
+            } else if expression is ASTArrayLiteral {
+                return .complex(name: "Array")
+                
+            } else if let assignedValueMemberAccess = expression as? ASTMemberAccess {
+                return try processMemberAccess(memberAccess: assignedValueMemberAccess).types.last!
+                
+            }  else if expression is ASTArrayGetter {
+                return .int
             }
             
-        } else if let typecast = expression as? ASTTypecast {
-            return typecast.type
-            
-        } else if expression is ASTNumberLiteral {
-            return .int
-            
-        } else if let binop = expression as? ASTBinaryOperation {
-            return try self.guessType(ofExpression: binop.lhs)
-            
-        } else if expression is ASTUnary {
-            return .int
-            
-        } else if expression is ASTStringLiteral {
-            return .complex(name: "String")
-            
-        } else if expression is ASTNoop {
-            return .any // TODO is this the right choice?
-            
-        } else if expression is ASTArrayLiteral {
-            return .complex(name: "Array")
-            
-        } else if let assignedValueMemberAccess = expression as? ASTMemberAccess {
-            return try processMemberAccess(memberAccess: assignedValueMemberAccess).types.last!
-            
-        }  else if expression is ASTArrayGetter {
-            return .int
+            fatalError("unable to infer type of \(expression)")
         }
-        
-        fatalError("unable to infer type of \(expression)")
     }
 }
 

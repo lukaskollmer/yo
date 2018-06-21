@@ -10,6 +10,8 @@ import Foundation
 
 
 class BytecodeInterpreter {
+    static let verboseLogging = false
+    
     let heap = Heap(size: 1 << 8)
     let instructions: [InstructionDescriptor]
     private var instructionPointer = 0    // plz don't use this directly
@@ -132,10 +134,12 @@ class BytecodeInterpreter {
     func eval(_ instruction: InstructionDescriptor) throws {
         let immediate = instruction.immediate
         
-        //Log.info("")
-        //Log.info("")
-        //Log.info("[eval] ip=\(instructionPointer) op=\(instruction.operation) imm=\(immediate)")
-        //Log.info("[eval] ip=\(instructionPointer) stack before: \(stack)")
+        if BytecodeInterpreter.verboseLogging {
+            Log.info("")
+            Log.info("")
+            Log.info("[eval] ip=\(instructionPointer) op=\(instruction.operation) imm=\(immediate)")
+            //Log.info("[eval] ip=\(instructionPointer) stack before: \(stack)")
+        }
         
         
         switch instruction.operation {
@@ -244,20 +248,22 @@ class BytecodeInterpreter {
             }
         
         case .call:
-            let destinationInstructionPointer = try stack.pop()
+            var destinationInstructionPointer = try stack.pop()
             
             var args = [Int]()
             for _ in 0..<immediate {
                 args.append(try stack.pop())
             }
             
+            if destinationInstructionPointer.isEven {
+                args.insert(destinationInstructionPointer, at: 0)
+                destinationInstructionPointer = heap[destinationInstructionPointer + 1]
+            }
+            
             try stack.push(stack.framePointer)
             try stack.push(instructionPointer + 1)
             
-            try args.reversed().forEach {
-                try stack.push($0)
-                // TODO if $0 is an address pointing to somewhere on the heap, retain it
-            }
+            try args.reversed().forEach(stack.push)
             
             stack.framePointer = stack.stackPointer
             instructionPointer = destinationInstructionPointer
@@ -282,6 +288,8 @@ class BytecodeInterpreter {
             ({}())
         }
         
-        //Log.info("[eval] ip=\(instructionPointer) stack after: \(heap.backing)")
+        if BytecodeInterpreter.verboseLogging {
+            Log.info("[eval] ip=\(instructionPointer) stack after: \(heap)")
+        }
     }
 }

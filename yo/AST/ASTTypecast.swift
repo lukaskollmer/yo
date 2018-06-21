@@ -18,3 +18,9 @@ class ASTTypecast: ASTExpression {
         self.type = type
     }
 }
+
+extension ASTExpression {
+    func cast(to type: ASTType) -> ASTExpression {
+        return ASTTypecast(expression: self, type: type)
+    }
+}

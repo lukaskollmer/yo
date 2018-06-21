@@ -14,7 +14,7 @@ struct Scope {
         case unknownSymbol(String)
     }
     
-    enum ScopeType {
+    enum ScopeType: Equatable {
         case global
         case function(name: String, returnType: ASTType)
     }
