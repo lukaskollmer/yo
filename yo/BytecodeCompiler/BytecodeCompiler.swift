@@ -648,23 +648,24 @@ private extension BytecodeCompiler {
             fatalError("cannot assign value of type `\(rhsType)` to `\(lhsType)`")
         }
         
+        var target: ASTExpression = assignment.target
         
-        if let targetIdentifier = assignment.target as? ASTIdentifier {
+        if let targetIdentifier = target as? ASTIdentifier {
             
-            // TODO(ARC) release old value, if object
+            if scope.contains(identifier: targetIdentifier.name) {
+                try handle(node: rhs)
+                add(.store, try scope.index(of: targetIdentifier.name))
+                return
             
-            try handle(node: rhs)
-            add(.store, try scope.index(of: targetIdentifier.name))
-            
-            // TODO(ARC) retain new value, if object
-            
-            return
+            } else if let implicitSelfAccess = processPotentialImplicitSelfAccess(identifier: targetIdentifier) {
+                target = implicitSelfAccess.memberAccess
+                // fallthrough to the member access handling code below
+            }
         }
         
         
-        
         if
-            let memberAccess = assignment.target as? ASTMemberAccess,
+            let memberAccess = target as? ASTMemberAccess,
             let (memberAccessGetterExpression, _) = try processMemberAccess(memberAccess: memberAccess) as? (ASTArrayGetter, [ASTType])
         {
             // if we're assigning to some attribute, `memberAccessGetterExpression` is always an `ASTArrayGetter`
@@ -746,9 +747,13 @@ private extension BytecodeCompiler {
             // local variable
             add(.load, index)
             
+        } else if let selfAccess = processPotentialImplicitSelfAccess(identifier: identifier) {
+            try handle(node: selfAccess.memberAccess)
+            
         } else if functions.keys.contains(identifier.name) {
             // global function
             add(.push, unresolvedLabel: identifier.name)
+    
         } else {
             fatalError("unable to resolve idenfifier '\(identifier.name)'")
         }
@@ -956,6 +961,21 @@ private extension BytecodeCompiler {
     }
 }
 
+private extension BytecodeCompiler {
+    func processPotentialImplicitSelfAccess(identifier: ASTIdentifier) -> (memberAccess: ASTMemberAccess, selfType: ASTType, attributeType: ASTType)? {
+        if scope.contains(identifier: "self"), case .complex(let self_type) = try! scope.type(of: "self"), typeCache.type(self_type, hasMember: identifier.name) {
+            let memberAccess: ASTMemberAccess = [.attribute(name: .init(name: "self")), .attribute(name: identifier)]
+            
+            return (
+                memberAccess,
+                ASTType.complex(name: self_type),
+                typeCache.type(ofMember: identifier.name, ofType: self_type)!
+            )
+        }
+        return nil
+    }
+}
+
 
 private extension BytecodeCompiler {
     func guessType(ofExpression expression: ASTExpression, additionalIdentifiers: [ASTVariableDeclaration] = []) throws -> ASTType {
@@ -963,10 +983,15 @@ private extension BytecodeCompiler {
         if let identifier = expression as? ASTIdentifier {
             if scope.contains(identifier: identifier.name) {
                 return try scope.type(of: identifier.name)
+                
             } else if let varDecl = additionalIdentifiers.first(where: { $0.identifier == identifier }), varDecl.type != .unresolved {
                 return varDecl.type
+            
             } else if let functionInfo = functions[identifier.name] {
                 return ASTType.function(returnType: functionInfo.returnType, parameterTypes: functionInfo.parameterTypes)
+                
+            } else if let implicitSelfAccess = processPotentialImplicitSelfAccess(identifier: identifier) {
+                return implicitSelfAccess.attributeType
             }
             
         } else if let functionCall = expression as? ASTFunctionCall {

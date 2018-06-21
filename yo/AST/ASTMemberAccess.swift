@@ -9,7 +9,7 @@
 import Foundation
 
 
-class ASTMemberAccess: ASTExpression, ASTStatement {
+class ASTMemberAccess: ASTExpression, ASTStatement, ExpressibleByArrayLiteral {
     enum Kind {
         case attribute(name: ASTIdentifier)
         case functionCall(name: ASTIdentifier, arguments: [ASTExpression], unusedReturnValue: Bool)
@@ -19,5 +19,9 @@ class ASTMemberAccess: ASTExpression, ASTStatement {
     
     init(members: [Kind]) {
         self.members = members
+    }
+    
+    convenience required init(arrayLiteral elements: Kind...) {
+        self.init(members: elements)
     }
 }
