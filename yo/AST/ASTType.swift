@@ -24,11 +24,11 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
     var description: String {
         switch self {
         case .primitive(let name):
-            return name
+            return "ASTType.primitive(\(name))"
         case .complex(let name):
-            return name
+            return "ASTType.complex(\(name))"
         case .function(let returnType, let parameterTypes):
-            return "fn<(\(parameterTypes)): \(returnType)>"
+            return "ASTType.function<(\(parameterTypes)): \(returnType)>"
         case .unresolved:
             return "unresolved"
         }

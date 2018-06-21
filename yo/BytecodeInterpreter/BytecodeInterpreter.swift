@@ -79,6 +79,8 @@ class BytecodeInterpreter {
     
     
     func call(address: Int, arguments: [Int]) throws -> Int {
+        // TODO add support for lambdas!!!
+        
         // simulating a function call
         // this is problematic for several reasons:
         // - after the function call, the stack has to be in the *exact* same state as before
