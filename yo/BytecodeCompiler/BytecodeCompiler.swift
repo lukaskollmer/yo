@@ -8,11 +8,6 @@
 
 import Foundation
 
-// MARK: Constants
-// TODO only use these throughout the file
-private let retain  = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "retain")
-private let release = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "release")
-
 
 // MARK: Errors
 enum BytecodeCompilerError: Error {
@@ -116,9 +111,6 @@ class BytecodeCompiler {
         
         // perform semantic analysis
         let semanticAnalysis = SemanticAnalyzer().analyze(ast: ast)
-        
-        // TODO ARC
-        //ast = ARCAnalyzer(semanticAnalysis: semanticAnalysis).foo(ast: ast)
         
         
         // add the bootstrapping instructions
@@ -306,14 +298,13 @@ private extension BytecodeCompiler {
         let initializer = ASTFunctionDeclaration(
             name: ASTIdentifier(name: "init"),
             parameters: typeDeclaration.attributes,
-            returnType: .complex(name: typeDeclaration.name.name), //typeDeclaration.name,
+            returnType: .complex(name: typeDeclaration.name.name),
             kind: .staticImpl(typename),
             body: [
-                // 1. declare self
-                //ASTVariableDeclaration(identifier: _self, type: .primitive(name: "int")), // TODO ARC: declare as int to avoid refcounting and accidentally deallocating before we even return from the initializer?
-                ASTVariableDeclaration(identifier: _self, type: .any),
+                // declare self
+                ASTVariableDeclaration(identifier: _self, type: .any), // TODO use the current type?
                 
-                // 2. allocate space on the heap
+                // allocate space on the heap
                 ASTAssignment(
                     target: _self,
                     value: ASTFunctionCall(
@@ -324,8 +315,6 @@ private extension BytecodeCompiler {
                 
                 // set the address of the type's dealloc function
                 // since we have to resolve this at compile time, we push the address of the function onto the stack, then use a noop as the value expression
-                // TODO if the type did not define a dealloc function, set it to -1 to indicate that?
-                
                 
                 // push the type's dealloc address onto the stack and shift it 41 to the left
                 ASTRawWIPInstruction(instruction: .operation(.push, 40)),
@@ -348,9 +337,7 @@ private extension BytecodeCompiler {
                     }
                 ),
                 
-                //ASTFunctionCall(functionName: retain, arguments: [_self], unusedReturnValue: true),
-                
-                // 4. return the newly created object
+                // return the newly created object
                 ASTReturnStatement(expression: _self)
             ]
         )
@@ -368,10 +355,6 @@ private extension BytecodeCompiler {
         try withScope(self.scope.withType(.function(name: function.mangledName, returnType: function.returnType), newParameters: function.parameters)) {
             // function entry point
             add(label: function.mangledName)
-            
-            // retain all arguments
-            // TODO ARC
-            //insertCalls(to: retain, forObjectsIn: scope.parameters)
             
             // Generate instructions for the function body
             // if the function doesn't have a return statement, we implicitly return 0
@@ -453,8 +436,8 @@ private extension BytecodeCompiler {
             if !hasReturnStatement {
                 try composite.statements.forEach(handle)
                 let localVariables = composite.statements.getLocalVariables(recursive: false)
-                //insertCalls(to: release, forObjectsIn: localVariables)
                 
+                // TODO release local variables before popping them off the stack?
                 for _ in 0..<localVariables.count { add(.pop) }
             } else {
                 // the composite contains a return statement
@@ -463,29 +446,15 @@ private extension BytecodeCompiler {
                 for statement in composite.statements {
                     if let returnStatement = statement as? ASTReturnStatement {
                         
-                        //let returnsLocalVariable = // TODO?
+                        // TODO release local variables before popping them off the stack?
                         
                         let storeRetval = ASTAssignment(
                             target: retval_temp_storage.identifier,
                             value: returnStatement.expression,
-                            shouldRetainAssignedValueIfItIsAnObject: false//(returnStatement.returnValueExpression is ASTIdentifier)
+                            shouldRetainAssignedValueIfItIsAnObject: false
                         )
                         
                         try handle(assignment: storeRetval)
-                        //insertCalls(to: retain, forObjectsIn: [retval_temp_storage])
-                        //insertCalls(to: release, forObjectsIn: [retval_temp_storage])
-                        
-                        
-                        //print(scope.localVariables + scope.parameters)
-                        //insertCalls(to: release, forObjectsIn: scope.localVariables + scope.parameters)
-                        
-                        //let objectsToBeReleased = (scope.localVariables + scope.parameters).filter { $0.identifier != retval_temp_storage.identifier }
-                        //print(objectsToBeReleased)
-                        //insertCalls(to: release, forObjectsIn: objectsToBeReleased)
-                        
-                        // Problem: what if we return one of the local variables? (or one of its attributes) (or it's somehow used in the return value expression)?
-                        // idea: create a local vatiable for the return value (w/ the type of the function's return type), exclude that from all the release calls and return that
-                        //handle(return: returnStatement)
                         try handle(return: ASTReturnStatement(expression: retval_temp_storage.identifier))
                         
                     } else {
@@ -640,7 +609,6 @@ private extension BytecodeCompiler {
         
         var rhs: ASTExpression = assignment.value
         
-        // TODO refactor the lambda code so that we can also use it in function arguments
         if let lambda = rhs as? ASTLambda {
             rhs = try resolve(lambda: lambda, expectedSignature: lhsType)
         }
@@ -727,9 +695,7 @@ private extension BytecodeCompiler {
                     body: lambda.body
                 )
                 
-                //try withScope(Scope(type: .global)) {
-                    try handle(node: fn)
-                //}
+                try handle(node: fn)
                 
                 return lambdaFunctionName
                 
@@ -738,82 +704,65 @@ private extension BytecodeCompiler {
                 
                 let importedVariables: [ASTVariableDeclaration] = try accessedIdentifiersFromOutsideScope.map { .init(identifier: $0, type: try guessType(ofExpression: $0)) }
                 
-                //return try withScope(Scope(type: .global)) {
-                    
-                    
-                    // TODO unify typename/invokeptr naming w/ above
-                    let typename = ASTIdentifier(name: "__\(functionName)_lambda_literal_\(lambdaCounter.get())")
-                    let invoke_functionPtr = ASTIdentifier(name: SymbolMangling.mangleInstanceMember(ofType: typename.name, memberName: "invoke"))
-                    
-                    let lambda_impType: ASTType = .function(returnType: returnType, parameterTypes: [.complex(name: typename.name)] + parameterTypes)
-                    
-                    
-                    // Lambda type
-                    
-                    let type = ASTTypeDeclaration(
-                        name: typename,
-                        attributes: [ASTVariableDeclaration(identifier: invoke_functionPtr, type: lambda_impType)] + importedVariables
-                    )
-                    typeCache.register(type: type)
-                    
-                    
-                    // Lambda initializer
-                    
-                    let initializer = SymbolMangling.mangleInitializer(forType: typename.name)
-                    functions[initializer] = (
-                        argc: type.attributes.count,
-                        parameterTypes: type.attributes.map { $0.type },
-                        returnType: .complex(name: type.name.name)
-                    )
-                    try handle(node: type)
-                    
-                    
-                    // Lambda implementation
-                    
-                    let imp = ASTFunctionDeclaration(
-                        name: "invoke",
-                        // TODO make this _self so that we can still capture another self?
-                        parameters: [.init(identifier: "__self", type: .complex(name: typename.name))] + lambda.parameterNames.enumerated().map {
-                            ASTVariableDeclaration(identifier: $0.element, type: parameterTypes[$0.offset])
-                        },
-                        returnType: returnType,
-                        kind: .impl(typename.name),
-                        body: lambda.body
-                    )
-                    
-                    functions[invoke_functionPtr.name] = (
-                        argc: imp.parameters.count,
-                        parameterTypes: imp.parameters.map { $0.type },
-                        returnType: returnType
-                    )
-                    try handle(node: imp)
-                    
-                    
-                    
-                    return ASTFunctionCall(
-                        functionName: initializer,
-                        arguments: [invoke_functionPtr.cast(to: .any)] + accessedIdentifiersFromOutsideScope,
-                        unusedReturnValue: false
-                        ).cast(to: .any)
-                    // the cast to any is important bc we're trying to assign __fn_lambda_literal_x to fn<(...): ...> // TODO update comment, not specific to assignments anymore
-                    // also: we already guarded above that lhs is some function
-                //}
+                // TODO unify typename/invokeptr naming w/ above
+                let typename = ASTIdentifier(name: "__\(functionName)_lambda_literal_\(lambdaCounter.get())")
+                let invoke_functionPtr = ASTIdentifier(name: SymbolMangling.mangleInstanceMember(ofType: typename.name, memberName: "invoke"))
                 
+                let lambda_impType: ASTType = .function(returnType: returnType, parameterTypes: [.complex(name: typename.name)] + parameterTypes)
+                
+                
+                // Lambda type
+                
+                let type = ASTTypeDeclaration(
+                    name: typename,
+                    attributes: [ASTVariableDeclaration(identifier: invoke_functionPtr, type: lambda_impType)] + importedVariables
+                )
+                typeCache.register(type: type)
+                
+                
+                // Lambda initializer
+                
+                let initializer = SymbolMangling.mangleInitializer(forType: typename.name)
+                functions[initializer] = (
+                    argc: type.attributes.count,
+                    parameterTypes: type.attributes.map { $0.type },
+                    returnType: .complex(name: type.name.name)
+                )
+                try handle(node: type)
+                
+                
+                // Lambda implementation
+                
+                let imp = ASTFunctionDeclaration(
+                    name: "invoke",
+                    // TODO make this _self so that we can still capture another self?
+                    parameters: [.init(identifier: "__self", type: .complex(name: typename.name))] + lambda.parameterNames.enumerated().map {
+                        ASTVariableDeclaration(identifier: $0.element, type: parameterTypes[$0.offset])
+                    },
+                    returnType: returnType,
+                    kind: .impl(typename.name),
+                    body: lambda.body
+                )
+                
+                functions[invoke_functionPtr.name] = (
+                    argc: imp.parameters.count,
+                    parameterTypes: imp.parameters.map { $0.type },
+                    returnType: returnType
+                )
+                try handle(node: imp)
+                
+                
+                
+                return ASTFunctionCall(
+                    functionName: initializer,
+                    arguments: [invoke_functionPtr.cast(to: .any)] + accessedIdentifiersFromOutsideScope,
+                    unusedReturnValue: false
+                    ).cast(to: .any)
+                // the cast to any is important bc we're trying to assign __fn_lambda_literal_x to fn<(...): ...> // TODO update comment, not specific to assignments anymore
+                // also: we already guarded above that lhs is some function
             }
         }
     }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     
     
@@ -910,7 +859,7 @@ private extension BytecodeCompiler {
         }
         
         let updateType: (ASTIdentifier) throws -> Void = {
-            guard case .complex(let currentTypename) = currentType else { // TODO that force unwrap should not be necessary (currentType is an IUO)
+            guard case .complex(let currentTypename) = currentType else {
                 fatalError("trying to access attribute on non-complex type")
             }
             currentType = self.typeCache.type(ofMember: $0.name, ofType: currentTypename)! // TODO don't force unwrap
@@ -1233,26 +1182,6 @@ private extension BytecodeCompiler {
             }
             
             fatalError("unable to infer type of \(expression)")
-        }
-    }
-}
-
-
-// MARK: Helpers
-private extension BytecodeCompiler {
-    func insertCalls(to functionName: String, forObjectsIn variables: [ASTVariableDeclaration]) throws {
-        fatalError("ugh")
-        let identifiers = try variables
-            .map    { $0.identifier }
-            .filter { try self.scope.isObject(identifier: $0.name) }
-        
-        for identifier in identifiers {
-            let call = ASTFunctionCall(
-                functionName: functionName,
-                arguments: [identifier],
-                unusedReturnValue: true
-            )
-            try self.handle(functionCall: call)
         }
     }
 }
