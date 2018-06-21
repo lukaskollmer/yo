@@ -161,16 +161,21 @@ private extension BytecodeCompiler {
     }
     
     
-    func handleLambda<T>(_ block: () throws -> T) rethrows -> T {
+    // inserts all instructions generated in the block after the last label
+    // useful when you're generating functions at compile time
+    func handleFunctionInsertion<T>(_ block: () throws -> T) rethrows -> T {
         var previousInstructions = self.instructions
         self.instructions = []
         
-        let retval = try block()
+        
+        let retval = try withScope(Scope(type: .global)) {
+            try block()
+        }
         
         // self.instructions now contains the instructions inserted in the block
         // we insert these
         guard let insertionPoint = previousInstructions.lastIndex(where: { $0.isLabel })?.advanced(by: 0) else {
-            fatalError("unable to find lambda insertion point")
+            fatalError("unable to find insertion point")
             
         }
         
@@ -359,6 +364,7 @@ private extension BytecodeCompiler {
             fatalError("local variable cannot (yet?) shadow parameter")
         }
         
+        // TODO wouldn't it make much more sense to create a new scope for each function?
         try withScope(self.scope.withType(.function(name: function.mangledName, returnType: function.returnType), newParameters: function.parameters)) {
             // function entry point
             add(label: function.mangledName)
@@ -691,7 +697,7 @@ private extension BytecodeCompiler {
     
     
     func resolve(lambda: ASTLambda, expectedSignature type: ASTType) throws -> ASTExpression {
-        return try handleLambda {
+        return try handleFunctionInsertion {
             guard case .unresolved = lambda.signature else {
                 fatalError("lambda signature should still be unresolved at this point")
             }
@@ -721,9 +727,9 @@ private extension BytecodeCompiler {
                     body: lambda.body
                 )
                 
-                try withScope(Scope(type: .global)) {
+                //try withScope(Scope(type: .global)) {
                     try handle(node: fn)
-                }
+                //}
                 
                 return lambdaFunctionName
                 
@@ -732,7 +738,7 @@ private extension BytecodeCompiler {
                 
                 let importedVariables: [ASTVariableDeclaration] = try accessedIdentifiersFromOutsideScope.map { .init(identifier: $0, type: try guessType(ofExpression: $0)) }
                 
-                return try withScope(Scope(type: .global)) {
+                //return try withScope(Scope(type: .global)) {
                     
                     
                     // TODO unify typename/invokeptr naming w/ above
@@ -791,7 +797,7 @@ private extension BytecodeCompiler {
                         ).cast(to: .any)
                     // the cast to any is important bc we're trying to assign __fn_lambda_literal_x to fn<(...): ...> // TODO update comment, not specific to assignments anymore
                     // also: we already guarded above that lhs is some function
-                }
+                //}
                 
             }
         }
@@ -1033,7 +1039,61 @@ private extension BytecodeCompiler {
             return
         }
         
-        fatalError("array literals for non-constant values not yet implemented")
+        // The code below is awful (not the code but the concept)
+        // TODO come up w/ a better solution (variadic functions?)
+        // TODO if we create a new array initializer for each #elements, we have a ton of duplicate code. maybe we can avoid that somehow?
+        
+        let elements = arrayLiteral.elements
+        
+        let arrayInitializerMemberName = "_arrayLiteralInit\(arrayLiteral.elements.count)"
+        let arrayInitializerMangled = SymbolMangling.mangleStaticMember(ofType: "Array", memberName: arrayInitializerMemberName)
+        
+        if !functions.keys.contains(arrayInitializerMangled) {
+            let arrayType: ASTType = .complex(name: "Array")
+            let array = ASTIdentifier(name: "array")
+            
+            let specializedArrayInitializer = ASTFunctionDeclaration(
+                name: ASTIdentifier(name: arrayInitializerMemberName),
+                parameters: (0..<elements.count).map { ASTVariableDeclaration(identifier: ASTIdentifier(name: "_\($0)"), type: .any) },
+                returnType: arrayType,
+                kind: .staticImpl("Array"),
+                body: [
+                    // create the array
+                    ASTVariableDeclaration(identifier: array, type: arrayType),
+                    ASTAssignment(
+                        target: array,
+                        value: ASTFunctionCall(
+                            functionName: SymbolMangling.mangleStaticMember(ofType: "Array", memberName: "new"),
+                            arguments: [],
+                            unusedReturnValue: false
+                        )
+                    ),
+                    
+                    // fill the array
+                    // TODO we could optimize this by providing an Array initializer that takes an initial capacity, then simply set via offset assignment (that'd avoid the length checks and resizing)
+                    ASTComposite(statements: (0..<elements.count).map { idx in
+                        ASTTypeMemberFunctionCall(
+                            mangledName: SymbolMangling.mangleInstanceMember(ofType: "Array", memberName: "add"),
+                            target: array,
+                            arguments: [ASTIdentifier(name: "_\(idx)")],
+                            unusedReturnValue: true
+                        )
+                    }),
+                    
+                    
+                    // return
+                    ASTReturnStatement(expression: array)
+                ]
+            )
+            
+            try handleFunctionInsertion {
+                functions[arrayInitializerMangled] = (elements.count, Array(repeating: .any, count: elements.count), arrayType)
+                try handle(node: specializedArrayInitializer)
+            }
+        }
+        
+        let initializerCall = ASTFunctionCall(functionName: arrayInitializerMangled, arguments: elements, unusedReturnValue: false)
+        try handle(node: initializerCall)
     }
     
     
