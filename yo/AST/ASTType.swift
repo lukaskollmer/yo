@@ -18,7 +18,8 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
     
     static let `int` = ASTType.primitive(name: "int")
     static let `any` = ASTType.primitive(name: "any")
-    static let void = ASTType.primitive(name: "void")
+    static let void  = ASTType.primitive(name: "void")
+    static let `Self` = ASTType.complex(name: "Self")
     
     var description: String {
         switch self {

@@ -11,7 +11,7 @@ import Foundation
 
 class ASTVariableDeclaration: ASTStatement, Equatable {
     let identifier: ASTIdentifier
-    let type: ASTType
+    var type: ASTType
     
     init(identifier: ASTIdentifier, type: ASTType) {
         self.identifier = identifier

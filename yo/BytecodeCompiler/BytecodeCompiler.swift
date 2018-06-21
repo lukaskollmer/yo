@@ -92,6 +92,29 @@ class BytecodeCompiler {
         
         let ast = try resolveImports(in: ast)
         
+        ast
+            .compactMap { $0 as? ASTTypeImplementation }
+            .lk_flatMap { $0.functions }
+            .forEach { function in
+                function.parameters.forEach { param in
+                    if param.type == .Self {
+                        let self_type: ASTType
+                        switch function.kind {
+                        case .impl(let typename):
+                            self_type = .complex(name: typename)
+                            
+                        case .staticImpl(let typename):
+                            self_type = .complex(name: typename)
+                            
+                        default: fatalError("only member functions of some type can use the `Self` parameter type")
+                            
+                        }   
+                        param.type = self_type
+                    }
+                }
+        }
+        
+        
         // perform semantic analysis
         let semanticAnalysis = SemanticAnalyzer().analyze(ast: ast)
         

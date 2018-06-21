@@ -9,7 +9,7 @@
 import Foundation
 
 class ASTFunctionDeclaration: ASTStatement {
-    enum Kind {
+    enum Kind: Equatable {
         case global              // a global function
         case impl(String)        // instance function for some type
         case staticImpl(String)  // static function for some type
