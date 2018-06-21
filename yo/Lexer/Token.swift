@@ -45,6 +45,7 @@ enum TokenType: Equatable, Hashable {
     case comma
     case colon
     case semicolon
+    case questionmark
     case openingParentheses
     case closingParentheses
     case openingCurlyBrackets
@@ -72,6 +73,7 @@ enum TokenType: Equatable, Hashable {
     case `continue`
     case __asm
     case `protocol`
+    case null
     case `as`
     
     case EOF

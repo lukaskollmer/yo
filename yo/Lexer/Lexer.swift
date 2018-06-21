@@ -53,6 +53,7 @@ private let tokenMapping: [String: TokenType] = [
     "~"     : .tilde,
     
     "@"     : .atSign,
+    "?"     : .questionmark,
     
     // keywords
     "use"   : .use,
@@ -71,6 +72,7 @@ private let tokenMapping: [String: TokenType] = [
     "continue" : .continue,
     "__asm" : .__asm,
     "protocol" : .protocol,
+    "null"  : .null,
     "as"  : .as,
     
 ]

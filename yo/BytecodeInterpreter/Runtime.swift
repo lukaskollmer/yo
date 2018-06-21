@@ -37,7 +37,6 @@ class Runtime {
         get { fatalError() }
         
         set {
-            
             builtins.append((
                 name: SymbolMangling.mangleStaticMember(ofType: ns, memberName: name),
                 address: addressCounter.get(),

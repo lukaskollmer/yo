@@ -41,6 +41,8 @@ impl runtime {
         obj[0] = obj[0] | (newValue << 20);
         obj[0] = obj[0] | typeId;
 
+        //obj[0] = (deallocAddress << 40) | (newValue << 20) | typeId;
+
         ret obj;
     }
 
