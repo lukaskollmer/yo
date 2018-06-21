@@ -36,6 +36,17 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
     
     
     func isCompatible(with other: ASTType) -> Bool {
-        return self == other || [self, other].contains(.any)
+        if self == other || [self, other].contains(.any) {
+            return true
+        }
+        
+        if case .function(let retval1, let parameterTypes1) = self, case .function(let retval2, let parameterTypes2) = other {
+            return
+                retval1.isCompatible(with: retval2)
+                && parameterTypes1.count == parameterTypes2.count
+                && parameterTypes1.enumerated().reduce(true) { $0 && $1.element.isCompatible(with: parameterTypes2[$1.offset]) }
+        }
+        
+        return false // TODO is that the right decision?
     }
 }
