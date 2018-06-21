@@ -63,6 +63,8 @@ class Runtime {
             fatalError(self.getString(atAddress: interpreter.stack.peek(), heap: interpreter.stack.heap))
         }
         
+        self["runtime", "dealloc", .void, [.any]] = {_ in return 0 } // manually implemented in the interpreter
+        
         // Sorting
         
         self["runtime", "sort", .void, [.int, .int]] = { interpreter in
