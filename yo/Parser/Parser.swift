@@ -988,18 +988,19 @@ private extension Parser {
             next()
             
             var parameterTypes = [ASTType]()
-            parseParameters: while true {
-                parameterTypes.append(try parseType())
+            while let type = try? parseType() {
+                parameterTypes.append(type)
                 
                 if case .comma = currentToken.type {
                     next()
                 }
                 
-                if case TokenType.closingParentheses = currentToken.type {
-                    next()
-                    break parseParameters
-                }
             }
+            
+            guard case TokenType.closingParentheses = currentToken.type else {
+                fatalError("oh no")
+            }
+            next()
             
             guard case .colon = currentToken.type else {
                 fatalError("expected : after parameters in function signature")
@@ -1021,7 +1022,7 @@ private extension Parser {
         
         
         
-        fatalError("should not reach here")
+        throw ParserError.other("not a type")
     }
     
     
