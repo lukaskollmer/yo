@@ -38,6 +38,25 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
         }
     }
     
+    var typename: String {
+        switch self {
+        case .primitive(let name):
+            return name
+        case .complex(let name):
+            return name
+        case .function(let returnType, let parameterTypes):
+            let params: String = parameterTypes.enumerated().reduce(into: "") {
+                $0 += $1.element.typename
+                if $1.offset < parameterTypes.count - 1 {
+                    $0 += ", "
+                }
+            }
+            return "fn<(\(params)): \(returnType.typename)>"
+        case .unresolved:
+            return "unresolved"
+        }
+    }
+    
     
     func isCompatible(with other: ASTType) -> Bool {
         if self == other || [self, other].contains(.any) {
