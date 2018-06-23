@@ -102,9 +102,10 @@ class Lexer {
         // we then ignore everything until the next line break
         var currentlyParsingComment = false
         var currentlyParsingStringLiteral = false
+        var lastScalarWasEscapeSequenceSignal = false
         
         for (index, char) in scalars.enumerated() { // tbh i have no idea what i'm doing here
-            if (ignoredCharacters.contains(char) && !currentlyParsingStringLiteral) || (!currentlyParsingComment && char == "\n") { continue }
+            if (ignoredCharacters.contains(char) && !currentlyParsingStringLiteral) || (!currentlyParsingComment && !currentlyParsingStringLiteral && char == "\n") { continue }
             
             currentToken.unicodeScalars.append(char)
             
@@ -143,6 +144,44 @@ class Lexer {
                     currentToken = ""
                     continue
                 }
+                
+                
+                
+                if currentlyParsingStringLiteral {
+                    if char == "\\" {
+                        
+                        // support escaped escaped sequences
+                        // Examples:
+                        // - "\\n" -> "\n"
+                        // - "\\\n" -> "\\n" (ie backslash + newline)
+                        if lastScalarWasEscapeSequenceSignal {
+                            currentToken.unicodeScalars.removeLast()
+                        }
+                        
+                        lastScalarWasEscapeSequenceSignal = !lastScalarWasEscapeSequenceSignal
+                        continue
+                    }
+                } else {
+                    lastScalarWasEscapeSequenceSignal = false
+                }
+                
+                
+                if currentlyParsingStringLiteral && lastScalarWasEscapeSequenceSignal {
+                    switch char {
+                    case "n":
+                        currentToken.unicodeScalars.removeLast()
+                        currentToken.unicodeScalars.removeLast()
+                        currentToken += "\n"
+                        
+                        // TODO add more characters that require special handling in escape sequences (\t, etc?)
+                        
+                    default:
+                        fatalError("invalid escape sequence in string literal: '\\\(next)'") // TODO incorrect syntax highlighting (all 3 \s are white, only the last one should be. File radar!
+                    }
+                }
+                
+                
+                
                 
                 
                 
