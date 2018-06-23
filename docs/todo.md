@@ -1,28 +1,27 @@
 - [ ] reference counting
-- [ ] `self.foo += x;` assignments
+- [ ] `self.foo += x;` assignments (currently kinda works as a side effect of implicit seld access, ie `foo += 1` if self has a foo attribute)
 - [ ] chained property access
 - [ ] chained method calls
 - [ ] tests
 - [x] bitwise operators (NOT, AND, OR, XOR)
 - [x] bitshift operators
 - [ ] implement bools
-- [ ] add support for floating point numbers
-- [ ] array literals
-- [ ] nested binops (`((1 << 4) << 7)`)
+- [ ] add support for floating point numbers (custom instructions `addf`, `subf`, `mulf` `divf`, what about `mod`, `not`, etc?)
+- [x] array literals (TODO improve)
+- [ ] nested binops (`((1 << 4) << 7)`) (TODO check, this might already work)
 - [x] binary number literals
 - [x] `ret obj[0] & 1048575;`
 - [ ] underscores in number literals
-- [ ] implicitly import stdlib modules (ie import "std/string" if the code contains a string literal, same for numbers)
+- [ ] implicitly import stdlib modules (ie import "std/string" if the code contains a string literal, same for numbers, arrays)
 - [ ] test that the examples in the documentation actually work
-- [ ] auto-synthesize `dealloc` functions (only if not otherwise defined)
+- [x] auto-synthesize `dealloc` functions (only if not otherwise defined)
 - [ ] throw an error when the stack grows into allocated heap space / vice versa
-- [ ] implement some sort of `fatalError` function to abort w/ an error message
-- [ ] a `break` keyword
-- [ ] `Array.get`: negative index to access elements from back
+- [x] implement some sort of `fatalError` function to abort w/ an error message
+- [x] `Array.get`: negative index to access elements from back
 - [ ] ternary expressions (only for assignment at first)
 - [ ] elvis operator (`a ?? b`)
 - [ ] `else if`
-- [ ] add type checks when assigning the return value of a function?
+- [x] add type checks when assigning the return value of a function?
 - [ ] macros
 - [ ] make `nil` a macro for `0`
 - [x] `break` out of `for`/`while` loops
@@ -30,4 +29,5 @@
 - [ ] ensure that `void` returning functions don't return anything other than `void`
 - [ ] disallow `void` variable declarations (and function parameters)? they're currently treated as ints (as in also getting allocated stack space)
 - [ ] support casts in chained access `(5 as Foo).bar`
-- [ ] `Self` to refer to whatever the current type is
+- [x] `Self` to refer to whatever the current type is
+- [ ] short circuit evaluation
