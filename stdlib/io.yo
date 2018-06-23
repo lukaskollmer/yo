@@ -1,0 +1,17 @@
+// io module
+
+use "std/string";
+
+impl io {
+    static fn printi(arg: int): void {
+        runtime::_printi(arg);
+    }
+
+    static fn print(arg: String): void {
+        runtime::_print(arg);
+    }
+
+    static fn printf(format: String, args: Array): void {
+        runtime::_print(String::format(format, args));
+    }
+}

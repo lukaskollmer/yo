@@ -89,17 +89,17 @@ class Runtime {
         }
         
         
-        self["io", "print", .void, [.String]] = { interpreter in
+        self["runtime", "_print", .void, [.String]] = { interpreter in
             print(self.getString(atAddress: interpreter.stack.peek(), heap: interpreter.heap))
             return 0
         }
         
-        self["io", "printi", .void, [.int]] = { interpreter in
+        self["runtime", "_printi", .void, [.int]] = { interpreter in
             print(interpreter.stack.peek())
             return 0
         }
         
-        self["io", "printf", .void, [.String, .Array]] = { interpreter in
+        self["runtime", "__format", .int, [.String, .Array]] = { interpreter in
             let heap = interpreter.heap
             
             let format = self.getString(atAddress: interpreter.stack.peek(), heap: heap)
@@ -134,9 +134,11 @@ class Runtime {
                 nextScalarFormatToken = scalar == "%"
             }
             
-            print(text, terminator: "")
+            let string_backing = heap.alloc(size: text.count + 1)
+            heap[string_backing] = text.count
+            text.unicodeScalars.enumerated().forEach { heap[string_backing + $0.offset + 1] = Int($0.element.value) }
             
-            return 0
+            return string_backing
         }
     }
     

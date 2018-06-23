@@ -9,7 +9,7 @@
 import Foundation
 
 
-private let internalModules = ["std"]
+private let internalModules = ["std", "io"]
 
 
 enum ImportPathResolver {
