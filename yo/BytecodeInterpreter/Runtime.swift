@@ -98,6 +98,46 @@ class Runtime {
             print(interpreter.stack.peek())
             return 0
         }
+        
+        self["io", "printf", .void, [.String, .Array]] = { interpreter in
+            let heap = interpreter.heap
+            
+            let format = self.getString(atAddress: interpreter.stack.peek(), heap: heap)
+            let args_ptr = heap[interpreter.stack.peek(offset: -1) + 3]
+            
+            let getArgAtIndex: (Int) -> Int = { heap[args_ptr + $0] }
+            
+            var text = ""
+            let scalars = format.unicodeScalars.map { $0 }
+            var nextScalarFormatToken = false
+            var arg_index = 0
+            
+            for scalar in scalars {
+                
+                if nextScalarFormatToken {
+                    switch scalar {
+                    case "i": // int
+                        text += String(getArgAtIndex(arg_index))
+                        
+                    case "s": // String
+                        text += self.getString(atAddress: getArgAtIndex(arg_index), heap: heap)
+                        
+                    default:
+                        fatalError("invalid format specifier '\(scalar)'")
+                    }
+                    
+                    arg_index += 1
+                    
+                } else if scalar != "%" {
+                    text.unicodeScalars.append(scalar)
+                }
+                nextScalarFormatToken = scalar == "%"
+            }
+            
+            print(text, terminator: "")
+            
+            return 0
+        }
     }
     
     
