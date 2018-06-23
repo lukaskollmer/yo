@@ -59,7 +59,7 @@ class Runtime {
             return 0
         }
         
-        self["runtime", "fatalError", .void, [.complex(name: "String")]] = { interpreter in
+        self["runtime", "fatalError", .void, [.String]] = { interpreter in
             fatalError(self.getString(atAddress: interpreter.stack.peek(), heap: interpreter.stack.heap))
         }
         
@@ -88,7 +88,7 @@ class Runtime {
         }
         
         
-        self["io", "print", .void, [.complex(name: "String")]] = { interpreter in
+        self["io", "print", .void, [.String]] = { interpreter in
             print(self.getString(atAddress: interpreter.stack.peek(), heap: interpreter.heap))
             return 0
         }

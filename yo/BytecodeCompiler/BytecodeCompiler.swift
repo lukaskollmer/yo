@@ -1001,17 +1001,16 @@ private extension BytecodeCompiler {
         let arrayInitializerMangled = SymbolMangling.mangleStaticMember(ofType: "Array", memberName: arrayInitializerMemberName)
         
         if !functions.keys.contains(arrayInitializerMangled) {
-            let arrayType: ASTType = .complex(name: "Array")
             let array = ASTIdentifier(name: "array")
             
             let specializedArrayInitializer = ASTFunctionDeclaration(
                 name: ASTIdentifier(name: arrayInitializerMemberName),
                 parameters: (0..<elements.count).map { ASTVariableDeclaration(identifier: ASTIdentifier(name: "_\($0)"), type: .any) },
-                returnType: arrayType,
+                returnType: .Array,
                 kind: .staticImpl("Array"),
                 body: [
                     // create the array
-                    ASTVariableDeclaration(identifier: array, type: arrayType),
+                    ASTVariableDeclaration(identifier: array, type: .Array),
                     ASTAssignment(
                         target: array,
                         value: ASTFunctionCall(
@@ -1039,7 +1038,7 @@ private extension BytecodeCompiler {
             )
             
             try handleFunctionInsertion {
-                functions[arrayInitializerMangled] = (elements.count, Array(repeating: .any, count: elements.count), arrayType)
+                functions[arrayInitializerMangled] = (elements.count, Array(repeating: .any, count: elements.count), .Array)
                 try withScope(Scope(type: .global)) {
                     try handle(node: specializedArrayInitializer)
                 }
@@ -1171,13 +1170,13 @@ private extension BytecodeCompiler {
                 return .int
                 
             } else if expression is ASTStringLiteral {
-                return .complex(name: "String")
+                return .String
                 
             } else if expression is ASTNoop {
                 return .any // TODO is this the right choice?
                 
             } else if expression is ASTArrayLiteral {
-                return .complex(name: "Array")
+                return .Array
                 
             } else if let assignedValueMemberAccess = expression as? ASTMemberAccess {
                 return try processMemberAccess(memberAccess: assignedValueMemberAccess).types.last!
