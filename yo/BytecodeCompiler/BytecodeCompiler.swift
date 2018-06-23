@@ -979,6 +979,16 @@ private extension BytecodeCompiler {
         // TODO if the array is just number literals, store it as a constant (like strings)
         // otherwise, just generate a bunch of Array.add calls? (that wouldn't work inline)
         
+        if arrayLiteral.elements.isEmpty {
+            let newCall = ASTFunctionCall(
+                functionName: SymbolMangling.mangleStaticMember(ofType: "Array", memberName: "new"),
+                arguments: [],
+                unusedReturnValue: false
+            )
+            try handle(node: newCall)
+            return
+        }
+        
         let isConstant = arrayLiteral.elements.all { $0 is ASTNumberLiteral }
         
         if isConstant {
