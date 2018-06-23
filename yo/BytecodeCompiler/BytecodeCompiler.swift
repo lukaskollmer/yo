@@ -159,10 +159,7 @@ private extension BytecodeCompiler {
         var previousInstructions = self.instructions
         self.instructions = []
         
-        
-        let retval = try withScope(Scope(type: .global)) {
-            try block()
-        }
+        let retval = try block()
         
         // self.instructions now contains the instructions inserted in the block
         // we insert these
@@ -695,7 +692,9 @@ private extension BytecodeCompiler {
                     body: lambda.body
                 )
                 
-                try handle(node: fn)
+                try withScope(Scope(type: .global)) {
+                    try handle(node: fn)
+                }
                 
                 return lambdaFunctionName
                 
@@ -728,7 +727,9 @@ private extension BytecodeCompiler {
                     parameterTypes: type.attributes.map { $0.type },
                     returnType: .complex(name: type.name.name)
                 )
-                try handle(node: type)
+                try withScope(Scope(type: .global)) {
+                    try handle(node: type)
+                }
                 
                 
                 // Lambda implementation
@@ -749,7 +750,9 @@ private extension BytecodeCompiler {
                     parameterTypes: imp.parameters.map { $0.type },
                     returnType: returnType
                 )
-                try handle(node: imp)
+                try withScope(Scope(type: .global)) {
+                    try handle(node: imp)
+                }
                 
                 
                 
@@ -1037,7 +1040,9 @@ private extension BytecodeCompiler {
             
             try handleFunctionInsertion {
                 functions[arrayInitializerMangled] = (elements.count, Array(repeating: .any, count: elements.count), arrayType)
-                try handle(node: specializedArrayInitializer)
+                try withScope(Scope(type: .global)) {
+                    try handle(node: specializedArrayInitializer)
+                }
             }
         }
         
