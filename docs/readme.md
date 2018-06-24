@@ -6,6 +6,9 @@
 Yo is an interpreted programming language with a rust-inspired syntax.
 
 ```rust
+use "io";
+use "std/string";
+
 fn main(): int {
     io::print("hello world");
 }
