@@ -52,26 +52,12 @@ class BytecodeInterpreter {
         // check whether we're calling a native function (native functions have a negative "virtual" address)
         if instructionPointer < 0 {
             let nativeFunction = Runtime.shared[address: instructionPointer]
-            if nativeFunction.name == SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "dealloc") {
-                
-                // call the object's dealloc function
-                // a negative destination address indicates that the type does not have a deallc function
-                let destinationAddress = heap[stack.peek()] >> 40
-                if destinationAddress > 0 {
-                    try eval(InstructionDescriptor(instruction: Operation.push.encode(withImmediate: -1)))
-                    try eval(InstructionDescriptor(instruction: Operation.jump.encode(withImmediate: destinationAddress)))
-                }
-            } else {
-                
-                try stack.push(nativeFunction.imp(self))
-                // return from the native function
-                try eval(InstructionDescriptor(instruction: Operation.ret.encode(withImmediate: nativeFunction.info.argc)))
-            }
-            
+            try stack.push(nativeFunction.imp(self))
+            // return from the native function
+            try eval(InstructionDescriptor(instruction: Operation.ret.encode(withImmediate: nativeFunction.info.argc)))
             
         } else {
             let instruction = instructions[instructionPointer]
-            
             try eval(instruction)
         }
     }

@@ -24,7 +24,8 @@ impl runtime {
     // we call the object's dealloc method and free it from the heap
     static fn release(obj: any): any {
         if runtime::getRetainCount(obj) == 1 {
-            runtime::dealloc(obj);
+            val dealloc_fn: fn<(any): void> = runtime::_getDeallocAddress(obj) as any;
+            dealloc_fn(obj);
             runtime::free(obj);
         } else {
             runtime::_setRetainCount(obj, runtime::getRetainCount(obj) - 1);
@@ -33,9 +34,14 @@ impl runtime {
     }
 
 
+    static fn _getDeallocAddress(obj: any): int {
+        ret obj[0] >> 40;
+    }
+
+
     static fn _setRetainCount(obj: any, newValue: int): any {
-        val typeId: int = runtime::getTypeId(obj);
-        val deallocAddress: int = obj[0] >> 40;
+        val typeId = runtime::getTypeId(obj);
+        val deallocAddress = runtime::_getDeallocAddress(obj);
 
         obj[0] = (deallocAddress << 40);
         obj[0] = obj[0] | (newValue << 20);
