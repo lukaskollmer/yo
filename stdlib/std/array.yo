@@ -39,6 +39,9 @@ impl Array {
             // array is full, we need to switch to a bigger backing
 
             // TODO come up w/ some clever algorithm determining the new backing length?
+
+            // TODO what if `self` is an array from a literal? that means that _allocatedLength == count for any count.
+            // the issue w/ that is that if we just add 10, we might have an odd allocated length
             self._resizeBacking(self._allocatedLength + 10);
         }
 

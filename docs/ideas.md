@@ -131,6 +131,16 @@ val x: fn<(Foo, Bar): any> = |x, y| -> { ret x + y +  };
 // becomes This
 type __main_lambda_literal_1();
 impl __main_lambda_literal_1 {
-  fn invoke(self: __x: int, y: int): any
+  fn invoke(self: __x: int, y: int): any {};
 }
+```
+
+## string formatting
+
+```rust
+val me = "Lukas";
+
+val greeting = f"Hello, ${me}";
+
+val greeting = String::format("Hello, TODO")
 ```
