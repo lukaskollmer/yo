@@ -40,7 +40,7 @@ class Runtime {
             builtins.append((
                 name: SymbolMangling.mangleStaticMember(ofType: ns, memberName: name),
                 address: addressCounter.get(),
-                info: (parameterTypes.count, parameterTypes, returnType),
+                info: (parameterTypes.count, parameterTypes, returnType, []),
                 imp: newValue)
             )
         }

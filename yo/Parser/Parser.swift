@@ -31,6 +31,8 @@ class Parser {
     private let tokens: [Token]
     private var currentPosition = 0
     
+    private var annotations = [ASTAnnotation]()
+    
     init(tokens: [Token]) {
         self.tokens = tokens
     }
@@ -88,6 +90,9 @@ private extension Parser {
                 return try parseImplementation()
             case .protocol:
                 fatalError("protocols not yet implemented")
+            case .hashtag:
+                annotations.append(try parseAnnotation())
+                return ASTNoop()
             case .EOF:
                 currentPosition += 1 // stop parsing
                 return ASTNoop()
@@ -606,12 +611,16 @@ private extension Parser {
         
         let functionBody = try parseComposite()
         
+        let annotations = self.annotations.reduce(into: []) { $0.append(contentsOf: $1.elements) }
+        self.annotations = []
+        
         return ASTFunctionDeclaration(
             name: ASTIdentifier(name: functionName),
             parameters: parameters,
             returnType: returnType,
             kind: kind,
-            body: functionBody
+            body: functionBody,
+            annotations: annotations
         )
     }
     
@@ -638,6 +647,58 @@ private extension Parser {
         }
         
         return ASTComposite(statements: statements)
+    }
+    
+    
+    func parseAnnotation() throws -> ASTAnnotation {
+        guard case .hashtag = currentToken.type, case .openingSquareBrackets = peek().type else {
+            throw ParserError.unexpectedToken(currentToken)
+        }
+        next()
+        next()
+        
+        var elements = [ASTAnnotation.Element]()
+        
+        while let key = try? parseIdentifier().name {
+            var value: ASTAnnotation.ElementValue?
+            
+            if case .equalsSign = currentToken.type {
+                next()
+                
+                let expr = try parseExpression()
+                
+                if let id = expr as? ASTIdentifier {
+                    switch id.name {
+                    case "true":  value = .bool(true)
+                    case "false": value = .bool(false)
+                    default: fatalError("TODO?")
+                    }
+                
+                } else if let str = expr as? ASTStringLiteral {
+                    value = .string(str.value)
+                
+                } else if let num = expr as? ASTNumberLiteral {
+                    value = .number(num.value)
+                
+                } else {
+                    fatalError("unsupported data type in annotation: \(type(of: expr))")
+                }
+            }
+            
+            if case .comma = currentToken.type {
+                next()
+            }
+            
+            if case .closingSquareBrackets = currentToken.type {
+                next()
+            }
+            
+            elements.append((key, value ?? .bool(true)))
+            
+            // TODO how does this handle trailing commas? `#[format_function,]`
+        }
+        
+        return ASTAnnotation(elements: elements)
     }
     
     

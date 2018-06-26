@@ -682,7 +682,7 @@ private extension BytecodeCompiler {
             if accessedIdentifiersFromOutsideScope.isEmpty {
                 // "pure" lambda
                 let lambdaFunctionName = ASTIdentifier(name: "__\(functionName)_lambda_invoke_\(lambdaCounter.get())") // TODO prefix w/ __
-                functions[lambdaFunctionName.name] = (parameterTypes.count, parameterTypes, returnType)
+                functions[lambdaFunctionName.name] = (parameterTypes.count, parameterTypes, returnType, [])
                 
                 let fn = ASTFunctionDeclaration(
                     name: lambdaFunctionName,
@@ -725,7 +725,8 @@ private extension BytecodeCompiler {
                 functions[initializer] = (
                     argc: type.attributes.count,
                     parameterTypes: type.attributes.map { $0.type },
-                    returnType: .complex(name: type.name.name)
+                    returnType: .complex(name: type.name.name),
+                    annotations: []
                 )
                 try withScope(Scope(type: .global)) {
                     try handle(node: type)
@@ -748,7 +749,8 @@ private extension BytecodeCompiler {
                 functions[invoke_functionPtr.name] = (
                     argc: imp.parameters.count,
                     parameterTypes: imp.parameters.map { $0.type },
-                    returnType: returnType
+                    returnType: returnType,
+                    annotations: []
                 )
                 try withScope(Scope(type: .global)) {
                     try handle(node: imp)
@@ -780,7 +782,7 @@ private extension BytecodeCompiler {
         if !isGlobalFunction, case .function(let returnType, let parameterTypes) = try scope.type(of: identifier.name) {
             // calling a function from the local scope
             // TODO what about supporting implicit function calls on self (ie `foo()` instead of `self.foo()` if `self` has a function `foo`
-            functionInfo = (parameterTypes.count, parameterTypes, returnType)
+            functionInfo = (parameterTypes.count, parameterTypes, returnType, [])
         
         } else if let globalFunctionInfo = functions[identifier.name] {
             // calling a global function
@@ -1054,7 +1056,7 @@ private extension BytecodeCompiler {
             )
             
             try handleFunctionInsertion {
-                functions[arrayInitializerMangled] = (elements.count, Array(repeating: .any, count: elements.count), .Array)
+                functions[arrayInitializerMangled] = (elements.count, Array(repeating: .any, count: elements.count), .Array, [])
                 try withScope(Scope(type: .global)) {
                     try handle(node: specializedArrayInitializer)
                 }

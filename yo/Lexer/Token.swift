@@ -39,6 +39,7 @@ enum TokenType: Equatable, Hashable {
     case tilde          // ~
     
     case atSign         // @
+    case hashtag
     
     // other
     case period

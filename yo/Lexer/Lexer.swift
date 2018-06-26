@@ -53,6 +53,7 @@ private let tokenMapping: [String: TokenType] = [
     "~"     : .tilde,
     
     "@"     : .atSign,
+    "#"     : .hashtag,
     "?"     : .questionmark,
     
     // keywords
