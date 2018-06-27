@@ -115,6 +115,11 @@ class BytecodeCompiler {
         }
         
         
+        // TODO
+        // problem: how can we detect whether types define a custom dealloc function if we generate the initializers before semantic analysis?
+        //generateInitializers(forTypesIn: &ast)
+        
+        
         // perform semantic analysis
         let semanticAnalysis = SemanticAnalyzer().analyze(ast: ast)
         
@@ -137,6 +142,18 @@ class BytecodeCompiler {
         return (instructions, stats)
         
     }
+}
+
+
+private extension BytecodeCompiler {
+    // TODO
+    //func generateInitializers(forTypesIn ast: inout [ASTNode]) {
+    //    ast = ast.lk_flatMap { node in
+    //        guard let typeDecl = node as? ASTTypeDeclaration else {
+    //            return [node]
+    //        }
+    //    }
+    //}
 }
 
 // MARK: Codegen
