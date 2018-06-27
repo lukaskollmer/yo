@@ -11,6 +11,9 @@ import Foundation
 
 class ASTMemberAccess: ASTExpression, ASTStatement, ExpressibleByArrayLiteral {
     enum Kind {
+        case initial_identifier(ASTIdentifier)
+        case initial_functionCall(ASTFunctionCall)
+        
         case attribute(name: ASTIdentifier)
         case functionCall(name: ASTIdentifier, arguments: [ASTExpression], unusedReturnValue: Bool)
     }

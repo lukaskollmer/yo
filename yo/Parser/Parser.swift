@@ -777,6 +777,12 @@ private extension Parser {
                 }
             }
             
+            if case .period = currentToken.type {
+                // member getter?
+                next()
+                expression = try parseChainedAccess(firstElement: expression)
+            }
+            
             if case .openingSquareBrackets = currentToken.type {
                 // array subscript getter
                 next()
@@ -918,9 +924,11 @@ private extension Parser {
     
     
     
-    func parseChainedAccess() throws -> ASTExpression {
-        guard case .identifier(_) = currentToken.type, case .period = peek().type, case .identifier(_) = peek(2).type else {
-            throw ParserError.unexpectedToken(currentToken)
+    func parseChainedAccess(firstElement: ASTExpression? = nil) throws -> ASTExpression {
+        if firstElement == nil {
+            guard case .identifier(_) = currentToken.type, case .period = peek().type, case .identifier(_) = peek(2).type else {
+                throw ParserError.unexpectedToken(currentToken)
+            }
         }
         
         // in this function, we parse member accesses, which is any expression where we access *some* member of another object
@@ -935,8 +943,17 @@ private extension Parser {
         // TODO what about `foo().bar` where foo is a global function?
         
         var members = [ASTMemberAccess.Kind]()
-        members.append(.attribute(name: try parseIdentifier()))
-        next()
+        if let functionCall = firstElement as? ASTFunctionCall {
+            members.append(.initial_functionCall(functionCall))
+            //members.append(.functionCall(name: ASTIdentifier(name: functionCall.functionName), arguments: functionCall.arguments, unusedReturnValue: functionCall.unusedReturnValue))
+        } else if let identifier = firstElement as? ASTIdentifier {
+            //members.append(.attribute(name: identifier))
+            members.append(.initial_identifier(identifier))
+        } else {
+            members.append(.initial_identifier(try parseIdentifier()))
+            //members.append(.attribute(name: try parseIdentifier()))
+            next()
+        }
         
         while let identifier = try? parseIdentifier() {
             
