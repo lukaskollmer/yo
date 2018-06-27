@@ -20,7 +20,7 @@ class ASTFunctionDeclaration: ASTStatement {
     let returnType: ASTType
     let kind: Kind
     let body: ASTComposite
-    let annotations: [ASTAnnotation.Element]
+    var annotations: [ASTAnnotation.Element]
     
     init(name: ASTIdentifier, parameters: [ASTVariableDeclaration], returnType: ASTType, kind: Kind, body: ASTComposite, annotations: [ASTAnnotation.Element] = []) {
         self.name = name
