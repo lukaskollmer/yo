@@ -33,4 +33,6 @@
 - [ ] short circuit evaluation
 - [ ] compile time check to make sure that format functions are passed the correct number of arguments (maybe introduce some sort of annotation or macro that can be applied to functions to tell the compiler to run that check, like objc's `NS_FORMAT_FUNCTION`)
 - [ ] remove unused functions from the generated instructions?
-- [ ] custom string literal prefix/suffix functions (like what ES6 and c++ have) (maybe via a macro thing) 
+- [ ] custom string literal prefix/suffix functions (like what ES6 and c++ have) (maybe via a macro thing)
+- [ ] pass static function reference as argument (ie `array.forEach(io::printi)`)
+- [ ] allow `val` etc to be used as identifiers, if fit
