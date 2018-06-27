@@ -19,7 +19,7 @@ struct SourceCodeLocation {
 }
 
 
-protocol ASTNode {
+protocol ASTNode: _AssociatedObjectImp {
     /// position in the original source code
     //var sourceCodeLocation: SourceCodeLocation { get } // TODO
 }
