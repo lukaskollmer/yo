@@ -74,7 +74,7 @@ extension ASTNode {
             return retval
         
         } else if let functionCall = self as? ASTFunctionCall {
-            return functionCall.arguments.reduce(into: [], { $0.append(contentsOf: $1.getAccessedIdentifiers()) })
+            return functionCall.arguments.reduce(into: [ASTIdentifier(name: functionCall.functionName)], { $0.append(contentsOf: $1.getAccessedIdentifiers()) })
         
         } else if let memberAccess = self as? ASTMemberAccess {
             // we only look at the very first one
@@ -88,6 +88,9 @@ extension ASTNode {
         
         } else if let binop = self as? ASTBinaryOperation {
             return binop.lhs.getAccessedIdentifiers() + binop.rhs.getAccessedIdentifiers()
+        
+        } else if let typecast = self as? ASTTypecast {
+            return typecast.expression.getAccessedIdentifiers()
         }
         
         fatalError("unhandled node \(self)")

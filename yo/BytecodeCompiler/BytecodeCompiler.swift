@@ -804,7 +804,7 @@ private extension BytecodeCompiler {
         let identifier = ASTIdentifier(name: functionCall.functionName)
         let functionInfo: SemanticAnalyzer.FunctionInfo
         
-        let isGlobalFunction = !scope.contains(identifier: identifier.name)
+        var isGlobalFunction = !scope.contains(identifier: identifier.name)
         
         if !isGlobalFunction, case .function(let returnType, let parameterTypes) = try scope.type(of: identifier.name) {
             // calling a function from the local scope
@@ -814,6 +814,10 @@ private extension BytecodeCompiler {
         } else if let globalFunctionInfo = functions[identifier.name] {
             // calling a global function
             functionInfo = globalFunctionInfo
+            
+        } else if let implicitSelfAccess = processPotentialImplicitSelfAccess(identifier: identifier), case .function(let returnType, let parameterTypes) = implicitSelfAccess.attributeType {
+            isGlobalFunction = false
+            functionInfo = (parameterTypes.count, parameterTypes, returnType, [])
         
         } else {
             fatalError("cannot resolve call to '\(identifier.name)'")
@@ -857,6 +861,9 @@ private extension BytecodeCompiler {
             
         } else if !isGlobalFunction {
             try handle(identifier: identifier)
+        
+        } else {
+            fatalError("unable to resolve function call")
         }
         
         add(.call, functionCall.arguments.count)
@@ -907,22 +914,35 @@ private extension BytecodeCompiler {
         
         for (index, member) in memberAccess.members.enumerated() {
             
+            
             switch member {
-            case .attribute(name: let identifier):
-                
-                if index == 0 { // first
-                    expr = identifier
-                    if !scope.contains(identifier: identifier.name), let selfAccess = processPotentialImplicitSelfAccess(identifier: identifier) {
-                        currentType = selfAccess.selfType
-                        expr = selfAccess.memberAccess
-                        try updateType(identifier)
+            case .initial_identifier(let identifier):
+                expr = identifier
+                if !scope.contains(identifier: identifier.name), let selfAccess = processPotentialImplicitSelfAccess(identifier: identifier) {
+                    currentType = selfAccess.selfType
+                    expr = selfAccess.memberAccess
+                    try updateType(identifier)
                     
-                    } else {
-                        currentType = try self.scope.type(of: identifier.name)
-                    }
-                    break
+                } else {
+                    currentType = try self.scope.type(of: identifier.name)
                 }
                 
+            case .initial_functionCall(let functionCall):
+                expr = functionCall
+                
+                if scope.contains(identifier: functionCall.functionName) {
+                    // TODO calling some local function / lambda?
+                    print()
+                
+                } else if let functionInfo = functions[functionCall.functionName] {
+                    currentType = functionInfo.returnType
+                
+                } else {
+                    fatalError("cannot resolve call to '\(functionCall.functionName)'")
+                }
+                
+                
+            case .attribute(let identifier):
                 guard case .complex(let currentTypename) = currentType else {
                     fatalError("ugh")
                 }
@@ -936,8 +956,8 @@ private extension BytecodeCompiler {
                     try updateType(identifier)
                 }
                 
-                
-            case .functionCall(name: let functionName, arguments: let arguments, let unusedReturnValue):
+            case .functionCall(let functionName, let arguments, let unusedReturnValue):
+                print(currentType)
                 guard case .complex(let currentTypename) = currentType else { fatalError("ugh") } // TODO redundant code!!! (see above)
                 
                 let mangledName = SymbolMangling.mangleInstanceMember(ofType: currentTypename, memberName: functionName.name)
@@ -1165,7 +1185,7 @@ private extension BytecodeCompiler {
         }
         
         if scope.contains(identifier: selfName), case .complex(let self_type) = try! scope.type(of: selfName), typeCache.type(self_type, hasMember: identifier.name) {
-            let memberAccess: ASTMemberAccess = [.attribute(name: .init(name: selfName)), .attribute(name: identifier)]
+            let memberAccess: ASTMemberAccess = [.initial_identifier(.init(name: selfName)), .attribute(name: identifier)]
             
             return (
                 memberAccess,
@@ -1197,8 +1217,12 @@ private extension BytecodeCompiler {
                     return returnType
                 } else {
                     // not a global function, maybe something from the current scope
-                    if case .function(let returnType, _) = try scope.type(of: functionCall.functionName) {
+                    if scope.contains(identifier: functionCall.functionName), case .function(let returnType, _) = try scope.type(of: functionCall.functionName) {
                         return returnType
+                    
+                    } else if case .function(let returnType, _)? = processPotentialImplicitSelfAccess(identifier: ASTIdentifier(name: functionCall.functionName))?.attributeType {
+                        return returnType
+                    
                     } else {
                         fatalError("unable to resolve function call")
                     }
