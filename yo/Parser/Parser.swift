@@ -589,6 +589,11 @@ private extension Parser {
     
     
     func parseFunction(kind: ASTFunctionDeclaration.Kind = .global) throws -> ASTFunctionDeclaration {
+        
+        while let annotation = try? parseAnnotation() {
+            self.annotations.append(annotation)
+        }
+        
         guard
             case .fn = currentToken.type,
             case .identifier(let functionName) = next().type,
@@ -660,7 +665,7 @@ private extension Parser {
         var elements = [ASTAnnotation.Element]()
         
         while let key = try? parseIdentifier().name {
-            var value: ASTAnnotation.ElementValue?
+            var value: ASTAnnotation.Element.Value?
             
             if case .equalsSign = currentToken.type {
                 next()
@@ -693,7 +698,7 @@ private extension Parser {
                 next()
             }
             
-            elements.append((key, value ?? .bool(true)))
+            elements.append(ASTAnnotation.Element(key: key, value: value ?? .bool(true)))
             
             // TODO how does this handle trailing commas? `#[format_function,]`
         }
