@@ -1,2 +1,5 @@
 [Makefile]
 indent_style = tab
+
+[*.swift]
+trim_trailing_whitespace = false
