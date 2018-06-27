@@ -46,6 +46,10 @@ struct Counter {
 /// Class that compiles an AST to bytecode instructions
 class BytecodeCompiler {
     
+    struct CompilationStats {
+        var calledFunctions = Set<String>()
+    }
+    
     private var instructions = [WIPInstruction]()
     private var conditionalStatementCounter = Counter()
     private var lambdaCounter = Counter()
@@ -59,6 +63,8 @@ class BytecodeCompiler {
     private var breakDestination: String?
     private var continueDestination: String?
     
+    private var stats = CompilationStats()
+    
     init() {
         // fill the functions table w/ all native functions
         for builtin in Runtime.shared.builtins {
@@ -67,7 +73,7 @@ class BytecodeCompiler {
     }
     
     
-    func compile(ast: [ASTNode]) throws -> [WIPInstruction] {
+    func compile(ast: [ASTNode]) throws -> (instructions: [WIPInstruction], stats: CompilationStats) {
         var importedPaths = [String]()
         
         // why is this a local function, insetad of a closure?
@@ -128,7 +134,7 @@ class BytecodeCompiler {
         try ast.forEach(handle)
         
         add(label: "end")
-        return instructions
+        return (instructions, stats)
         
     }
 }
@@ -344,6 +350,10 @@ private extension BytecodeCompiler {
     
     
     func handle(function: ASTFunctionDeclaration) throws {
+        if function.mangledName == "main" {
+            function.annotations.append("unused")
+        }
+        
         guard function.body.statements.getLocalVariables(recursive: true).intersection(with: function.parameters).isEmpty else {
             fatalError("local variable cannot (yet?) shadow parameter")
         }
@@ -512,7 +522,7 @@ private extension BytecodeCompiler {
         }
         
         let counter = conditionalStatementCounter.get()
-        let generateLabel: (String) -> String = { "\(functionName)_ifwhile_\(counter)_\($0)" } // TOOD replace `ifwhile` w/ just if or while?
+        let generateLabel: (String) -> String = { ".\(functionName)_ifwhile_\(counter)_\($0)" } // TOOD replace `ifwhile` w/ just if or while?
         
         let oldBreakDestination = breakDestination
         let oldContinueDestination = continueDestination
@@ -824,7 +834,9 @@ private extension BytecodeCompiler {
             add(.push, builtin.address)
             
         } else if isGlobalFunction {
-            add(.push, unresolvedLabel: SymbolMangling.mangleGlobalFunction(name: identifier.name))
+            let mangledName = SymbolMangling.mangleGlobalFunction(name: identifier.name)
+            add(.push, unresolvedLabel: mangledName)
+            stats.calledFunctions.insert(mangledName)
             
         } else if !isGlobalFunction {
             try handle(identifier: identifier)
