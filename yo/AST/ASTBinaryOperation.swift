@@ -9,7 +9,7 @@
 import Foundation
 
 
-struct ASTBinaryOperation: ASTExpression {
+class ASTBinaryOperation: ASTExpression {
     
     // We can't use the name `Operation` bc that would shadow the `Operation` enum defining the different stack operations
     // TODO rename Instruction (the Int typealias) to something like CompiledInstruction or RawInstruction, rename Operation to Instruction and rename the enum below to Operation

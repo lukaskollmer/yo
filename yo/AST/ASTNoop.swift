@@ -9,4 +9,4 @@
 import Foundation
 
 
-struct ASTNoop: ASTStatement & ASTExpression {}
+class ASTNoop: ASTStatement & ASTExpression {}
