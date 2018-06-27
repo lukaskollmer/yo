@@ -125,6 +125,13 @@ impl Array {
     }
 
 
+    fn forEach(self: Array, f: fn<(any): void>): void {
+        for i in 0..<self.count {
+            f(self.get(i));
+        }
+    }
+
+
     fn map(self: Array, f: fn<(any): any>): Array {
         val newArray: Array = Array::new();
 
@@ -146,6 +153,24 @@ impl Array {
             }
         }
         ret newArray;
+    }
+
+
+    fn reduce(self: Array, initial: any, f: fn<(any, any): any>): any {
+        for i in 0..<self.count {
+            initial = f(initial, self.get(i));
+        }
+
+        ret initial;
+    }
+
+
+    fn reduceInto(self: Array, obj: any, f: fn<(any, any): void>): any {
+        self.forEach(|x| -> {
+            f(obj, x);
+        });
+
+        ret obj;
     }
 
 
