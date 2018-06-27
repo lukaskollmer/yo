@@ -28,34 +28,27 @@ enum yo {
     
     
     static func tokenize(atPath path: String) throws -> [ASTNode] {
-        return try tokenize(code: read(file: path))
-    }
-    
-    
-    static func tokenize(code: String) throws -> [ASTNode] {
-        let tokens = try Lexer(source: code).tokenize()
+        let tokens = try Lexer(source: try read(file: path)).tokenize()
         return try Parser(tokens: tokens).parse()
     }
     
     
-    
-    static func compile(atPath path: String) throws -> [WIPInstruction] {
-        return try compile(code: try read(file: path))
-    }
-    
-    
-    static func compile(code: String) throws -> [WIPInstruction] {
-        return try BytecodeCompiler().compile(ast: try tokenize(code: code))
-    }
-    
-    
     static func run(atPath path: String) throws -> Int {
-        return try run(code: read(file: path))
-    }
-    
-    static func run(code: String) throws -> Int {
-        let instructions = try compile(code: code).withArrayLiteralsResolved().withLabelsPadded()
+        let code = try read(file: path)
+        let tokens = try Lexer(source: code).tokenize()
+        let ast = try Parser(tokens: tokens).parse()
+        var (instructions, stats) = try BytecodeCompiler().compile(ast: ast)
+        
+        instructions = instructions.withArrayLiteralsResolved()
+        
+        // TODO optimize
+        
+        let optimizer = Optimizer(instructions: instructions, ast: ast, stats: stats)
+        //instructions = optimizer.optimize([.unusedSymbols]) // TODO
+        instructions = instructions.withLabelsPadded()
+        
         Log.info("\n\(instructions.fancyDescription)")
+        
         
         return try BytecodeInterpreter(instructions: instructions.finalized()).run()
     }

@@ -17,18 +17,23 @@ enum WIPInstruction {
     
     
     var isLabel: Bool {
-        if case .label(_) = self { return true }
-        return false
+        return labelValue != nil
     }
     
     var isArrayLiteral: Bool {
         if case .arrayLiteral(_) = self { return true }
         return false
     }
+    
+    var labelValue: String? {
+        if case .label(let label) = self { return label }
+        return nil
+    }
 }
 
 
 extension Array where Element == WIPInstruction {
+    
     
     func withArrayLiteralsResolved() -> [WIPInstruction] {
         
@@ -83,13 +88,19 @@ extension Array where Element == WIPInstruction {
         }
     }
     
-    private func getAddress(ofLabel label: String) -> Int {
+    func getAddress(ofLabel label: String) -> Index {
         return self.index { instruction in
             if case .label(let name) = instruction {
                 return name == label
             }
             return false
         }!
+    }
+    
+    
+    
+    func firstIndex(after index: Index, where block: (Element) -> Bool) -> Index {
+        return self.enumerated().first { $0.offset > index && block($0.1) }!.offset
     }
     
     
