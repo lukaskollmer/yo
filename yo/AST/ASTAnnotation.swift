@@ -10,17 +10,29 @@ import Foundation
 
 
 class ASTAnnotation {
-    enum ElementValue {
-        case bool(Bool)
-        case string(String)
-        case number(Int)
+    struct Element: Equatable {
+        enum Value: Equatable {
+            case bool(Bool)
+            case string(String)
+            case number(Int)
+        }
+        
+        let key: String
+        let value: Value
     }
-    
-    typealias Element = (String, ElementValue)
     
     let elements: [Element]
     
     init(elements: [Element]) {
         self.elements = elements
     }
+}
+
+
+extension ASTAnnotation.Element: ExpressibleByStringLiteral {
+    public init(stringLiteral value: String) {
+        self.init(key: value, value: .bool(true))
+    }
+    
+    
 }
