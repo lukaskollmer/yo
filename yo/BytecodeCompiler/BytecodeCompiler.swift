@@ -97,20 +97,23 @@ class BytecodeCompiler {
             .compactMap { $0 as? ASTTypeImplementation }
             .lk_flatMap { $0.functions }
             .forEach { function in
+                let self_type: ASTType
+                switch function.kind {
+                case .impl(let typename):
+                    self_type = .complex(name: typename)
+                    
+                case .staticImpl(let typename):
+                    self_type = .complex(name: typename)
+                    
+                default: fatalError("only member functions of some type can use the `Self` type")
+                }
+                
                 function.parameters
                     .filter { $0.type == .Self }
-                    .forEach { parameter in
-                        let self_type: ASTType
-                        switch function.kind {
-                        case .impl(let typename):
-                            self_type = .complex(name: typename)
-                            
-                        case .staticImpl(let typename):
-                            self_type = .complex(name: typename)
-                            
-                        default: fatalError("only member functions of some type can use the `Self` parameter type")
-                        }
-                        parameter.type = self_type
+                    .forEach { $0.type = self_type }
+                
+                if function.returnType == .Self {
+                    function.returnType = self_type
                 }
         }
         
