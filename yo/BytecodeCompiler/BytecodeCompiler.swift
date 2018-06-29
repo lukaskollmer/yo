@@ -178,6 +178,10 @@ private extension BytecodeCompiler {
         instructions.append(instruction)
     }
     
+    func add(comment: String) {
+        instructions.append(.comment(comment))
+    }
+    
     
     // inserts all instructions generated in the block after the last label
     // useful when you're generating functions at compile time
