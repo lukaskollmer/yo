@@ -336,7 +336,7 @@ private extension BytecodeCompiler {
                 // set the address of the type's dealloc function
                 // since we have to resolve this at compile time, we push the address of the function onto the stack, then use a noop as the value expression
                 
-                // push the type's dealloc address onto the stack and shift it 41 to the left
+                // push the type's dealloc address onto the stack and shift it 40 to the left
                 ASTRawWIPInstruction(instruction: .operation(.push, 40)),
                 ASTRawWIPInstruction(instruction: .unresolved(.push, deallocFunction)),
                 ASTRawWIPInstruction(instruction: .operation(.shl, 0)),
