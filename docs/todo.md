@@ -36,3 +36,6 @@
 - [ ] custom string literal prefix/suffix functions (like what ES6 and c++ have) (maybe via a macro thing)
 - [ ] pass static function reference as argument (ie `array.forEach(io::printi)`)
 - [ ] allow `val` etc to be used as identifiers, if fit
+- [ ] make sure typenames used in function signatures actually exist
+- [ ] `#expr` to get an array's length
+- [ ] reset parsed annotations when they'd become invalid (not sure if this is actually a problem)
