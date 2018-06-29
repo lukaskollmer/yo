@@ -12,7 +12,7 @@ CONFIG     ?= debug
 
 ROOT_DIR    = $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 OUTPUT_DIR  = $(ROOT_DIR)/bin
-TARGET_DIR  = $(OUTPUT_DIR)/$(SDK)/$(CONFIG)
+TARGET_DIR  = $(OUTPUT_DIR)/swiftc/$(SDK)/$(CONFIG)
 SRC_DIR     = $(ROOT_DIR)/yo
 
 ifeq ($(CONFIG), debug)
@@ -26,9 +26,17 @@ CLANG       = $(shell xcrun -f clang)
 SDK_PATH    = $(shell xcrun --show-sdk-path --sdk $(SDK))
 SWIFT_FILES = $(shell find `pwd`/yo -type f -name '*.swift')
 
+XCODEBUILD  = $(shell xcrun -f xcodebuild)
+XCPRETTY    = $(shell which xcpretty)
+TARGET_NAME = yo
+SYMROOT     = $(OUTPUT_DIR)/xcodebuild
+
 build:
 	mkdir -p $(TARGET_DIR)
 	$(SWIFTC) $(SWIFT_FILES) -emit-executable -sdk $(SDK_PATH) -o $(TARGET_DIR)/$(MODULE_NAME)
+
+xcodebuild:
+	$(XCODEBUILD) -target $(TARGET_NAME) SYMROOT=$(SYMROOT) -configuration Debug build | $(XCPRETTY)
 
 clean:
 	rm -rf $(OUTPUT_DIR)
