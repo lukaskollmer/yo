@@ -1,10 +1,27 @@
 // runtime.yo
 
+use "std/string";
+
 impl runtime {
 
     // Note: type ids are not guaranteed to be the same across different compilations of the same program
+    #[disable_arc]
     static fn getTypeId(obj: any): int {
         ret obj[0] & 0xfffff;
+    }
+
+
+    #[disable_arc]
+    static fn isObject(obj: any): int {
+        if obj == 0 {
+            ret 0;
+        }
+
+        if obj % 2 == 0 {
+            ret 1;
+        }
+
+        ret 0;
     }
 
 
@@ -14,7 +31,15 @@ impl runtime {
     //
 
     // Increment an object's retain count by 1
+    #[disable_arc]
     static fn retain(obj: any): any {
+        if runtime::isObject(obj) == 0 { ret obj; }
+
+        if runtime::isMarkedForRelease(obj) == 1 {
+            runtime::unmarkForRelease(obj);
+            ret obj;
+        }
+
         ret runtime::_setRetainCount(obj, runtime::getRetainCount(obj) + 1);
     }
 
@@ -22,7 +47,15 @@ impl runtime {
     // Decrement an object's retain count by 1
     // If the object's new retain count is 0,
     // we call the object's dealloc method and free it from the heap
+    #[disable_arc]
     static fn release(obj: any): any {
+        if runtime::isObject(obj) == 0 { ret obj; }
+
+        if runtime::isMarkedForRelease(obj) == 1 {
+            // we reach here when releasing the unused return vslue from a function call returning a complex object
+            runtime::unmarkForRelease(obj);
+        }
+
         if runtime::getRetainCount(obj) == 1 {
             val dealloc_fn: fn<(any): void> = runtime::_getDeallocAddress(obj) as any;
             dealloc_fn(obj);
@@ -33,12 +66,52 @@ impl runtime {
         ret obj;
     }
 
+    // 0000|00000000000000000000|00000000000000000000|00000000000000000000
+    // 0000|dddddddddddddddddddd|rrrrrrrrrrrrrrrrrrrr|tttttttttttttttttttt
+    // ----|--------------------|--------------------|--------------------
+    // 6666|55555555554444444444|33333333332222222222|11111111110000000000
+    // 3210|98765432109876543210|98765432109876543210|98765432109876543210
 
+
+    #[disable_arc]
+    static fn markForRelease(obj: any): any {
+        if runtime::isObject(obj) == 0 { ret obj; }
+
+        // make sure the same object isn't marked for release twice
+        if runtime::isMarkedForRelease(obj) == 1 {
+            runtime::fatalError("Fatal Error: object is already marked for release");
+        }
+
+        obj[0] = obj[0] | (1 << 39);
+        ret obj;
+    }
+
+    // newValue should be 0 or 1, everything else is UB
+    #[disable_arc]
+    static fn unmarkForRelease(obj: any): any {
+        if runtime::isObject(obj) == 0 { ret obj; }
+        obj[0] = obj[0] & ~(1 << 39);
+        ret obj;
+    }
+
+    #[disable_arc]
+    static fn isMarkedForRelease(obj: any): int {
+        if runtime::isObject(obj) == 0 { ret 0; }
+        val bit: int = obj[0] & (1 << 39);
+        if bit == 0 {
+            ret 0;
+        }
+        ret 1;
+    }
+
+
+    #[disable_arc]
     static fn _getDeallocAddress(obj: any): int {
         ret obj[0] >> 40;
     }
 
 
+    #[disable_arc]
     static fn _setRetainCount(obj: any, newValue: int): any {
         val typeId = runtime::getTypeId(obj);
         val deallocAddress = runtime::_getDeallocAddress(obj);
@@ -53,6 +126,7 @@ impl runtime {
     }
 
 
+    #[disable_arc]
     static fn getRetainCount(obj: any): int {
         val retainCount: int = obj[0] & 0xfffff00000;
         ret retainCount >> 20;
@@ -60,5 +134,6 @@ impl runtime {
 
 
     // default `dealloc` function called for types who don't specify their own
+    #[disable_arc]
     static fn _dealloc(obj: any): void {}
 }

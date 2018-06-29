@@ -27,4 +27,12 @@ enum SymbolMangling {
         return name
     }
     
+    static func mangleGetter(forType typename: String, attributeName: String) -> String {
+        return mangleInstanceMember(ofType: typename, memberName: attributeName)
+    }
+    
+    static func mangleSetter(forType typename: String, attributeName: String) -> String {
+        return mangleInstanceMember(ofType: typename, memberName: "set" + attributeName.capitalized)
+    }
+    
 }
