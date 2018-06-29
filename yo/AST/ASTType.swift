@@ -18,6 +18,7 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
     
     static let `int` = ASTType.primitive(name: "int")
     static let `any` = ASTType.primitive(name: "any")
+    static let id    = ASTType.complex(name: "id")
     static let void  = ASTType.primitive(name: "void")
     
     static let `Self` = ASTType.complex(name: "Self")
@@ -57,9 +58,22 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
         }
     }
     
+    var isComplex: Bool {
+        if case .complex(_) = self {
+            return true
+        }
+        return false
+    }
+    
     
     func isCompatible(with other: ASTType) -> Bool {
-        if self == other || [self, other].contains(.any) {
+        let both = [self, other]
+        
+        if self == other || both.contains(.any) {
+            return true
+        }
+        
+        if both.contains(.id) && both.all({ $0.isComplex }) {
             return true
         }
         
