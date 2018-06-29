@@ -560,6 +560,12 @@ private extension Parser {
         var functionKind: ASTFunctionDeclaration.Kind!
         
         let updateFunctionKind = {
+            if case .hashtag = self.currentToken.type {
+                while let annotation = try? self.parseAnnotation() {
+                    self.annotations.append(annotation)
+                }
+            }
+            
             if case .static = self.currentToken.type {
                 functionKind = .staticImpl(typename.name)
                 self.next()
@@ -624,8 +630,8 @@ private extension Parser {
             parameters: parameters,
             returnType: returnType,
             kind: kind,
-            body: functionBody,
-            annotations: annotations
+            annotations: annotations,
+            body: functionBody
         )
     }
     
