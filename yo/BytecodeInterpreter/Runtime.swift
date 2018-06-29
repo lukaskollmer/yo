@@ -121,6 +121,10 @@ class Runtime {
                     case "s": // String
                         text += self.getString(atAddress: getArgAtIndex(arg_index), heap: heap)
                         
+                    case "n": // Number
+                        text += String(heap[getArgAtIndex(arg_index) + 1])
+                        break
+                        
                     default:
                         fatalError("invalid format specifier '\(scalar)'")
                     }
