@@ -34,7 +34,7 @@ struct Scope {
         self.localVariables = []
     }
     
-    init(type: ScopeType, parameters: [ASTVariableDeclaration], localVariables: [ASTVariableDeclaration]) {
+    init(type: ScopeType, parameters: [ASTVariableDeclaration], localVariables: [ASTVariableDeclaration] = []) {
         self.type = type
         self.parameters = parameters
         self.localVariables = localVariables
@@ -72,15 +72,6 @@ struct Scope {
             throw Error.unknownSymbol(name)
         }
         return type
-    }
-    
-    
-    func withType(_ newType: ScopeType, newParameters: [ASTVariableDeclaration]) -> Scope {
-        return Scope(
-            type: newType,
-            parameters: self.parameters + newParameters,
-            localVariables: localVariables
-        )
     }
     
     

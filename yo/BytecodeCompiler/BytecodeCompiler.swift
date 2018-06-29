@@ -376,7 +376,7 @@ private extension BytecodeCompiler {
         }
         
         // TODO wouldn't it make much more sense to create a new scope for each function?
-        try withScope(self.scope.withType(.function(name: function.mangledName, returnType: function.returnType), newParameters: function.parameters)) {
+        try withScope(Scope(type: .function(name: function.mangledName, returnType: function.returnType), parameters: function.parameters)) {
             // function entry point
             add(label: function.mangledName)
             
