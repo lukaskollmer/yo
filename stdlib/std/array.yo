@@ -1,7 +1,7 @@
 use "std/string";
 use "std/runtime";
 
-type Array(count: int, _allocatedLength: int, _backing: int);
+type Array(_count: int, _allocatedLength: int, _backing: int);
 
 // TODO write tests for all of this!
 
@@ -35,7 +35,7 @@ impl Array {
     // Add an object to the array
     // TODO make `object` id and require it to be a heap allocated instance
     fn add(self: Array, object: any): int {
-        if self.count == self._allocatedLength {
+        if self._count == self._allocatedLength {
             // array is full, we need to switch to a bigger backing
 
             // TODO come up w/ some clever algorithm determining the new backing length?
@@ -45,9 +45,10 @@ impl Array {
             self._resizeBacking(self._allocatedLength + 10);
         }
 
-        self._backing[self.count] = object;
-        self.count = self.count + 1; // TODO make this `self.count += 1;`
-        ret self.count;
+        self._backing[self._count] = object;
+        runtime::retain(object);
+        self._count = self._count + 1; // TODO make this `self._count += 1;`
+        ret self._count;
     }
 
 
@@ -79,7 +80,7 @@ impl Array {
     // Get the first index of an object in the array
     // Returns -1 if the array does not contain the object
     fn indexOf(self: Array, obj: any): int {
-        for i in 0..<self.count {
+        for i in 0..<self._count {
             if self.get(i) == obj {
                 ret i;
             }
@@ -91,7 +92,7 @@ impl Array {
     // Remove all occurrences of an object from the array
     fn removeObject(self: Array, object: any): void {
         // TODO take a reduced length due to mutations into account!!!
-        for i in 0..<self.count {
+        for i in 0..<self._count {
             if self.get(i) == object {
                 self.removeObjectAtIndex(i);
             }
@@ -103,11 +104,13 @@ impl Array {
     fn removeObjectAtIndex(self: Array, index: int): void {
         index = self._normalizeIndexAndCheckBounds(index);
 
-        self.count = self.count - 1;
+        runtime::release(self.get(index));
 
-        Array::_copy(self._backing, index + 1, self._backing, index, self.count - index);
+        self._count = self._count - 1;
 
-        if (self._allocatedLength - self.count) >= 5 {
+        Array::_copy(self._backing, index + 1, self._backing, index, self._count - index);
+
+        if (self._allocatedLength - self._count) >= 5 {
             self._resizeBacking(self._allocatedLength - 5);
         }
     }
@@ -115,18 +118,18 @@ impl Array {
 
     // Sort the array in ascending order
     fn sort(self: Array): void {
-        runtime::sort(self._backing, self.count);
+        runtime::sort(self._backing, self._count);
     }
 
 
     // Sort the array using a custom sorting function
     fn sortf(self: Array, f: fn<(any, any): int>): void {
-        runtime::sortf(self._backing, self.count, f);
+        runtime::sortf(self._backing, self._count, f);
     }
 
 
     fn forEach(self: Array, f: fn<(any): void>): void {
-        for i in 0..<self.count {
+        for i in 0..<self._count {
             f(self.get(i));
         }
     }
@@ -135,7 +138,7 @@ impl Array {
     fn map(self: Array, f: fn<(any): any>): Array {
         val newArray: Array = Array::new();
 
-        for i in 0..<self.count {
+        for i in 0..<self._count {
             newArray.add(f(self.get(i)));
         }
 
@@ -146,7 +149,7 @@ impl Array {
     fn filter(self: Array, f: fn<(any): int>): Array {
         val newArray: Array = Array::new();
 
-        for i in 0..<self.count {
+        for i in 0..<self._count {
             val element: any = self.get(i);
             if f(element) == 1 {
                 newArray.add(element);
@@ -157,7 +160,7 @@ impl Array {
 
 
     fn reduce(self: Array, initial: any, f: fn<(any, any): any>): any {
-        for i in 0..<self.count {
+        for i in 0..<self._count {
             initial = f(initial, self.get(i));
         }
 
@@ -176,11 +179,14 @@ impl Array {
 
     // Get the number of objects in the array
     fn length(self: Array): int {
-        ret self.count;
+        ret self._count;
     }
 
 
-    fn dealloc(self: Array): int {
+    fn dealloc(self: Array): void {
+        for i in 0..<self._count {
+            runtime::release(self.get(i));
+        }
         runtime::free(self._backing);
     }
 
@@ -191,10 +197,10 @@ impl Array {
 
     fn _normalizeIndexAndCheckBounds(self: Array, index: int): int {
         if index < 0 {
-            index = self.count + index;
+            index = self._count + index;
         }
 
-        if index > self.count - 1 {
+        if index > self._count - 1 {
             runtime::fatalError("array index out of bounds");
         }
 
@@ -207,7 +213,7 @@ impl Array {
     fn _resizeBacking(self: Array, newSize: int): void {
         val newBacking: int = runtime::alloc(newSize);
 
-        Array::_copy(self._backing, 0, newBacking, 0, self.count);
+        Array::_copy(self._backing, 0, newBacking, 0, self._count);
 
         runtime::free(self._backing);
         self._backing = newBacking;

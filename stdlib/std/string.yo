@@ -1,11 +1,11 @@
 use "std/runtime";
 use "std/array";
 
-type String(backing: int);
+type String(_backing: int);
 
 impl String {
     fn length(self: String): int {
-        ret self.backing[0];
+        ret self._backing[0];
     }
 
 
@@ -15,8 +15,8 @@ impl String {
         val newBacking: int = runtime::alloc(newLength + 1);
         newBacking[0] = newLength;
 
-        Array::_copy(self.backing, 1, newBacking, 1, self.length());
-        Array::_copy(other.backing, 1, newBacking, self.length() + 1, other.length());
+        Array::_copy(self._backing, 1, newBacking, 1, self.length());
+        Array::_copy(other._backing, 1, newBacking, self.length() + 1, other.length());
 
         ret String::init(newBacking);
 
@@ -24,9 +24,8 @@ impl String {
 
 
     fn dealloc(self: String): void {
-        runtime::free(self.backing);
+        runtime::free(self._backing);
     }
-
 
     static fn format(fmt: String, args: Array): String {
         ret String::init(runtime::__format(fmt, args));
