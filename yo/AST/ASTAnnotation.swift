@@ -33,6 +33,17 @@ extension ASTAnnotation.Element: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
         self.init(key: value, value: .bool(true))
     }
-    
-    
 }
+
+
+// TODO come up w/ a better name
+protocol ASTTypeThatCanBeAnnotated {
+    var annotations: [ASTAnnotation.Element] { get set }
+}
+
+extension ASTTypeThatCanBeAnnotated {
+    func hasAnnotation(_ annotation: ASTAnnotation.Element) -> Bool {
+        return annotations.contains(annotation)
+    }
+}
+

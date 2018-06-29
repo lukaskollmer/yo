@@ -8,7 +8,7 @@
 
 import Foundation
 
-class ASTFunctionDeclaration: ASTStatement {
+class ASTFunctionDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated {
     enum Kind: Equatable {
         case global              // a global function
         case impl(String)        // instance function for some type
@@ -17,12 +17,12 @@ class ASTFunctionDeclaration: ASTStatement {
     
     let name: ASTIdentifier
     let parameters: [ASTVariableDeclaration]
-    let returnType: ASTType
+    var returnType: ASTType
     let kind: Kind
     let body: ASTComposite
     var annotations: [ASTAnnotation.Element]
     
-    init(name: ASTIdentifier, parameters: [ASTVariableDeclaration], returnType: ASTType, kind: Kind, body: ASTComposite, annotations: [ASTAnnotation.Element] = []) {
+    init(name: ASTIdentifier, parameters: [ASTVariableDeclaration], returnType: ASTType, kind: Kind, annotations: [ASTAnnotation.Element] = [], body: ASTComposite) {
         self.name = name
         self.parameters = parameters
         self.returnType = returnType
