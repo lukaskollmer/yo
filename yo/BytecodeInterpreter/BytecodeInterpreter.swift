@@ -278,7 +278,7 @@ class BytecodeInterpreter {
             
             
         case .debug:
-            let stack = heap.stack
+            //let stack = heap.stack
             ({}())
         }
         

@@ -58,7 +58,7 @@ extension Array {
     //func lk_flatMap<T>(_ block: (Element) throws -> [T]) rethrows ->
     
     // remove all elements matching a predicate and return the removed elements
-    mutating func remove(where block: (Element) -> Bool) -> [Element] {
+    @discardableResult mutating func remove(where block: (Element) -> Bool) -> [Element] {
         let initialSize = self.count
         var retval = [Element]()
         
