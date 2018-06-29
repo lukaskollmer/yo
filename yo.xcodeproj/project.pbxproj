@@ -60,7 +60,7 @@
 		80C82A2120BEEBBD00C97214 /* ASTIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48120B82D990043A6F6 /* ASTIdentifier.swift */; };
 		80C82A2220BEEBBD00C97214 /* ASTCondition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48520B855650043A6F6 /* ASTCondition.swift */; };
 		80C82A2320BEEBBD00C97214 /* ASTComposite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48720B857860043A6F6 /* ASTComposite.swift */; };
-		80C82A2420BEEBBD00C97214 /* ASTUnary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48920B85BA00043A6F6 /* ASTUnary.swift */; };
+		80C82A2420BEEBBD00C97214 /* ASTUnaryExpression.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48920B85BA00043A6F6 /* ASTUnaryExpression.swift */; };
 		80C82A2520BEEBBD00C97214 /* ASTAssignment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48F20B899980043A6F6 /* ASTAssignment.swift */; };
 		80C82A2620BEEBBD00C97214 /* ASTVariableDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49520B95BB60043A6F6 /* ASTVariableDeclaration.swift */; };
 		80C82A2720BEEBBD00C97214 /* ASTConditionalStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49920B965CE0043A6F6 /* ASTConditionalStatement.swift */; };
@@ -87,7 +87,7 @@
 		80EAA48420B83C670043A6F6 /* Scope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48320B83C670043A6F6 /* Scope.swift */; };
 		80EAA48620B855650043A6F6 /* ASTCondition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48520B855650043A6F6 /* ASTCondition.swift */; };
 		80EAA48820B857860043A6F6 /* ASTComposite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48720B857860043A6F6 /* ASTComposite.swift */; };
-		80EAA48A20B85BA00043A6F6 /* ASTUnary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48920B85BA00043A6F6 /* ASTUnary.swift */; };
+		80EAA48A20B85BA00043A6F6 /* ASTUnaryExpression.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48920B85BA00043A6F6 /* ASTUnaryExpression.swift */; };
 		80EAA49020B899980043A6F6 /* ASTAssignment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA48F20B899980043A6F6 /* ASTAssignment.swift */; };
 		80EAA49420B95A9A0043A6F6 /* Runtime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49320B95A9A0043A6F6 /* Runtime.swift */; };
 		80EAA49620B95BB60043A6F6 /* ASTVariableDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA49520B95BB60043A6F6 /* ASTVariableDeclaration.swift */; };
@@ -158,7 +158,7 @@
 		80EAA48320B83C670043A6F6 /* Scope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scope.swift; sourceTree = "<group>"; };
 		80EAA48520B855650043A6F6 /* ASTCondition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTCondition.swift; sourceTree = "<group>"; };
 		80EAA48720B857860043A6F6 /* ASTComposite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTComposite.swift; sourceTree = "<group>"; };
-		80EAA48920B85BA00043A6F6 /* ASTUnary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTUnary.swift; sourceTree = "<group>"; };
+		80EAA48920B85BA00043A6F6 /* ASTUnaryExpression.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTUnaryExpression.swift; sourceTree = "<group>"; };
 		80EAA48F20B899980043A6F6 /* ASTAssignment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTAssignment.swift; sourceTree = "<group>"; };
 		80EAA49320B95A9A0043A6F6 /* Runtime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runtime.swift; sourceTree = "<group>"; };
 		80EAA49520B95BB60043A6F6 /* ASTVariableDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTVariableDeclaration.swift; sourceTree = "<group>"; };
@@ -295,7 +295,7 @@
 				80EAA48120B82D990043A6F6 /* ASTIdentifier.swift */,
 				80EAA48520B855650043A6F6 /* ASTCondition.swift */,
 				80EAA48720B857860043A6F6 /* ASTComposite.swift */,
-				80EAA48920B85BA00043A6F6 /* ASTUnary.swift */,
+				80EAA48920B85BA00043A6F6 /* ASTUnaryExpression.swift */,
 				80EAA48F20B899980043A6F6 /* ASTAssignment.swift */,
 				80EAA49520B95BB60043A6F6 /* ASTVariableDeclaration.swift */,
 				80EAA49920B965CE0043A6F6 /* ASTConditionalStatement.swift */,
@@ -447,7 +447,7 @@
 				80AE212A20BB0D9F004900DC /* yo.swift in Sources */,
 				80EAA49420B95A9A0043A6F6 /* Runtime.swift in Sources */,
 				804834DC20B6D699009E59FC /* extensions.swift in Sources */,
-				80EAA48A20B85BA00043A6F6 /* ASTUnary.swift in Sources */,
+				80EAA48A20B85BA00043A6F6 /* ASTUnaryExpression.swift in Sources */,
 				805E370A20D3E42500F5BB63 /* ASTMemberAccess.swift in Sources */,
 				80EAA47820B75F370043A6F6 /* BytecodeInterpreter.swift in Sources */,
 				80EAA48020B826730043A6F6 /* ASTBinaryOperation.swift in Sources */,
@@ -495,7 +495,7 @@
 				80C82A2120BEEBBD00C97214 /* ASTIdentifier.swift in Sources */,
 				80C82A2220BEEBBD00C97214 /* ASTCondition.swift in Sources */,
 				80C82A2320BEEBBD00C97214 /* ASTComposite.swift in Sources */,
-				80C82A2420BEEBBD00C97214 /* ASTUnary.swift in Sources */,
+				80C82A2420BEEBBD00C97214 /* ASTUnaryExpression.swift in Sources */,
 				80C82A2520BEEBBD00C97214 /* ASTAssignment.swift in Sources */,
 				80C82A2620BEEBBD00C97214 /* ASTVariableDeclaration.swift in Sources */,
 				80C82A2720BEEBBD00C97214 /* ASTConditionalStatement.swift in Sources */,

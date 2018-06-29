@@ -741,9 +741,13 @@ private extension Parser {
         
         var expression: ASTExpression!
         
-        if case .minus = currentToken.type { // unary
+        // unary
+        if case .minus = currentToken.type {
             next()
-            expression = ASTUnary(expression: try parseExpression())
+            expression = ASTUnaryExpression(expression: try parseExpression(), operator: .negate)
+        } else if case .tilde = currentToken.type {
+            next()
+            expression = ASTUnaryExpression(expression: try parseExpression(), operator: .bitwiseNot)
         }
         
         if case .openingParentheses = currentToken.type {

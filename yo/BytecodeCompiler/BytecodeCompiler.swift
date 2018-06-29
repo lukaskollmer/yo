@@ -235,7 +235,7 @@ private extension BytecodeCompiler {
         } else if let identifier = node as? ASTIdentifier {
             try handle(identifier: identifier)
             
-        } else if let unary = node as? ASTUnary {
+        } else if let unary = node as? ASTUnaryExpression {
             try handle(unary: unary)
             
         } else if let composite = node as? ASTComposite {
@@ -995,10 +995,17 @@ private extension BytecodeCompiler {
         add(binop.operation.operation)
     }
     
-    func handle(unary: ASTUnary) throws {
-        // TODO add support for NOT
+    func handle(unary: ASTUnaryExpression) throws {
         // TODO if `unary.expression` is a literal, perform at compile time?
-        try handle(binop: ASTBinaryOperation(lhs: ASTNumberLiteral(value: -1), operation: .mul, rhs: unary.expression))
+        
+        switch unary.operator {
+        case .negate:
+            try handle(binop: ASTBinaryOperation(lhs: ASTNumberLiteral(value: -1), operation: .mul, rhs: unary.expression))
+        
+        case .bitwiseNot:
+            try handle(node: unary.expression)
+            add(.not)
+        }
     }
     
     
@@ -1237,7 +1244,7 @@ private extension BytecodeCompiler {
             } else if let binop = expression as? ASTBinaryOperation {
                 return try self.guessType(ofExpression: binop.lhs)
                 
-            } else if expression is ASTUnary {
+            } else if expression is ASTUnaryExpression {
                 return .int
                 
             } else if expression is ASTStringLiteral {
