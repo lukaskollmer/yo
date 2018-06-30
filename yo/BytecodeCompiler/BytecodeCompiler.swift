@@ -224,7 +224,7 @@ private extension BytecodeCompiler {
         guard case .function(let functionName, _) = scope.type else {
             return false
         }
-        return !functions[functionName]!.annotations.contains("disable_arc")
+        return !functions[functionName]!.annotations.contains(.disable_arc)
     }
     
 }

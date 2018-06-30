@@ -17,6 +17,8 @@ class ASTAnnotation {
             case number(Int)
         }
         
+        static let disable_arc = Element(key: "disable_arc", value: .bool(true))
+        
         let key: String
         let value: Value
     }
