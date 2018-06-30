@@ -549,7 +549,7 @@ private extension BytecodeCompiler {
                 try composite.statements.forEach(handle)
                 let localVariables = composite.statements.getLocalVariables(recursive: false)
                 
-                // TODO release local variables before popping them off the stack?
+                try localVariables.filter { $0.type.isComplex }.forEach { try release(expression: $0.identifier) }
                 for _ in 0..<localVariables.count { add(.pop) }
             } else {
                 // the composite contains a return statement
