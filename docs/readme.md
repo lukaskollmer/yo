@@ -3,7 +3,7 @@
 
 <br>
 
-Yo is an interpreted programming language with a rust-inspired syntax.
+Yo is an interpreted, statically typed programming language with a rust-inspired syntax.
 
 ```rust
 use "io";
