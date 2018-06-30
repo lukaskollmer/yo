@@ -1413,7 +1413,7 @@ extension BytecodeCompiler {
     }
     
     func call(_ functionName: String, arguments: [ASTExpression], unusedReturnValue: Bool = true) throws {
-        //add(comment: "\(functionName) \((expression as? ASTIdentifier)?.name ?? String(describing: expression))")
+        //add(comment: "\(functionName) \((arguments.first as? ASTIdentifier)?.name ?? String(describing: arguments.first))")
         let call = ASTFunctionCall(
             functionName: functionName,
             arguments: arguments,
