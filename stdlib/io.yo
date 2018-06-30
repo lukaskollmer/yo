@@ -12,6 +12,10 @@ impl io {
     }
 
     static fn printf(format: String, args: Array): void {
-        runtime::_print(String::format(format, args));
+        // We have to split this into declaration and function call to get the right arc behaviour
+        // TODO fix this
+        val msg = String::format(format, args);
+        runtime::_print(msg);
+        //runtime::_print(String::format(format, args));
     }
 }
