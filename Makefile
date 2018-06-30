@@ -30,6 +30,7 @@ XCODEBUILD  = $(shell xcrun -f xcodebuild)
 XCPRETTY    = $(shell which xcpretty)
 TARGET_NAME = yo
 SYMROOT     = $(OUTPUT_DIR)/xcodebuild
+CLOC        = $(shell which cloc)
 
 build:
 	mkdir -p $(TARGET_DIR)
@@ -37,6 +38,9 @@ build:
 
 xcodebuild:
 	$(XCODEBUILD) -target $(TARGET_NAME) SYMROOT=$(SYMROOT) -configuration Debug build | $(XCPRETTY)
+
+cloc:
+	$(CLOC) . --force-lang="Rust",yo --exclude-dir=bin
 
 clean:
 	rm -rf $(OUTPUT_DIR)
