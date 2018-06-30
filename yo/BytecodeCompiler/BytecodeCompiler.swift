@@ -549,7 +549,7 @@ private extension BytecodeCompiler {
                 try composite.statements.forEach(handle)
                 let localVariables = composite.statements.getLocalVariables(recursive: false)
                 
-                try localVariables.filter { $0.type.isComplex }.forEach { try release(expression: $0.identifier) }
+                try localVariables.filter { try scope.type(of: $0.identifier.name).isComplex }.forEach { try release(expression: $0.identifier) }
                 for _ in 0..<localVariables.count { add(.pop) }
             } else {
                 // the composite contains a return statement
@@ -1413,7 +1413,7 @@ extension BytecodeCompiler {
     }
     
     func call(_ functionName: String, arguments: [ASTExpression], unusedReturnValue: Bool = true) throws {
-        //add(comment: "\(functionName) \((arguments.first as? ASTIdentifier)?.name ?? String(describing: arguments.first))")
+        add(comment: "\(functionName) \((arguments.first as? ASTIdentifier)?.name ?? String(describing: arguments.first))")
         let call = ASTFunctionCall(
             functionName: functionName,
             arguments: arguments,
