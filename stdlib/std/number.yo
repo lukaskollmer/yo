@@ -1,8 +1,8 @@
-type Number(value: int);
+type Number(_value: int);
 
 impl Number {
 
     fn value(self: Number): int {
-        ret self.value;
+        ret self._value;
     }
 }
