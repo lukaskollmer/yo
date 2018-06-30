@@ -65,6 +65,17 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
         return false
     }
     
+    var isFunction: Bool {
+        if case .function(_) = self {
+            return true
+        }
+        return false
+    }
+    
+    var supportsReferenceCounting: Bool {
+        return isComplex || isFunction
+    }
+    
     
     func isCompatible(with other: ASTType) -> Bool {
         let both = [self, other]

@@ -50,7 +50,13 @@ extension ASTNode {
         } else if self is ASTNumberLiteral {
             return []
             
+        } else if self is ASTStringLiteral {
+            return []
+            
         } else if self is ASTVariableDeclaration {
+            return []
+            
+        } else if self is ASTArrayLiteral {
             return []
         
         } else if let composite = self as? ASTComposite {
@@ -77,8 +83,8 @@ extension ASTNode {
             return functionCall.arguments.reduce(into: [ASTIdentifier(name: functionCall.functionName)], { $0.append(contentsOf: $1.getAccessedIdentifiers()) })
         
         } else if let memberAccess = self as? ASTMemberAccess {
-            // we only look at the very first one
-            if case .attribute(let identifier)? = memberAccess.members.first {
+            // we only look at the very first one // TODO support captured functions!
+            if case .initial_identifier(let identifier)? = memberAccess.members.first {
                 return [identifier]
             }
             return []

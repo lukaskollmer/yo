@@ -58,11 +58,11 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "yo/BytecodeCompiler/BytecodeCompiler.swift"
-            timestampString = "552004928.830175"
+            timestampString = "552057246.8244359"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1066"
-            endingLineNumber = "1066"
+            startingLineNumber = "932"
+            endingLineNumber = "932"
             landmarkName = "processMemberAccess(memberAccess:)"
             landmarkType = "7">
          </BreakpointContent>

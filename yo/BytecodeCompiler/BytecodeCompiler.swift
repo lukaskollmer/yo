@@ -9,6 +9,9 @@
 import Foundation
 
 
+typealias GlobalFunctions = [String: SemanticAnalyzer.FunctionInfo]
+
+
 // MARK: Errors
 enum BytecodeCompilerError: Error {
     // Function calls
@@ -58,7 +61,7 @@ class BytecodeCompiler {
     // Scope info
     private var scope = Scope(type: .global)
     private var typeCache = TypeCache()
-    private var functions = [String: SemanticAnalyzer.FunctionInfo]()
+    private var functions = GlobalFunctions()
     
     private var breakDestination: String?
     private var continueDestination: String?
@@ -91,7 +94,7 @@ class BytecodeCompiler {
             }
         }
         
-        let ast = try resolveImports(in: ast)
+        var ast = try resolveImports(in: ast)
         
         ast
             .compactMap { $0 as? ASTTypeImplementation }
@@ -126,17 +129,17 @@ class BytecodeCompiler {
         // perform semantic analysis
         let semanticAnalysis = SemanticAnalyzer().analyze(ast: ast)
         
+        // import semantic analysis results
+        self.functions.insert(contentsOf: semanticAnalysis.globalFunctions)
+        semanticAnalysis.types.forEach(self.typeCache.register)
+        
+        ast.insert(contentsOf: AutoSynthesizedCodeGen.synthesize(for: ast, globalFunctions: &functions, typeCache: typeCache), at: ast.count - 2) // TODO what if theres less elements in the ast?
         
         // add the bootstrapping instructions
         add(.push, unresolvedLabel: "main")
         add(.call, 0)
         add(.push, -1)
         add(.jump, unresolvedLabel: "end")
-        
-        
-        // import semantic analysis results
-        self.functions.insert(contentsOf: semanticAnalysis.globalFunctions)
-        semanticAnalysis.types.forEach(self.typeCache.register)
         
         // run codegen
         try ast.forEach(handle)
@@ -271,7 +274,7 @@ private extension BytecodeCompiler {
             try handle(comparison: comparison)
             
         } else if let typeDeclaration = node as? ASTTypeDeclaration {
-            try handle(typeDeclaration: typeDeclaration)
+            // initializers etc have already been generated
             
         } else if let arraySetter = node as? ASTArraySetter {
             try handle(arraySetter: arraySetter)
@@ -320,134 +323,6 @@ private extension BytecodeCompiler {
     
     // MARK: Handle Statements
     
-    func handle(typeDeclaration: ASTTypeDeclaration) throws {
-        
-        let typename = typeDeclaration.name.name
-        
-        var deallocFunction = SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "dealloc")
-        if !functions.keys.contains(deallocFunction) {
-            deallocFunction = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "_dealloc")
-        }
-
-        // generate an initializer, getters and setters
-        let _self = ASTIdentifier(name: "self")
-        let _selfType = ASTType.complex(name: typeDeclaration.name.name)
-        
-        let initializer = ASTFunctionDeclaration(
-            name: ASTIdentifier(name: "init"),
-            parameters: typeDeclaration.attributes,
-            returnType: _selfType,
-            kind: .staticImpl(typename),
-            body: [
-                // declare self
-                ASTVariableDeclaration(identifier: _self, type: .any), // TODO use the current type?
-                
-                // allocate space on the heap
-                ASTAssignment(
-                    target: _self,
-                    value: ASTFunctionCall(
-                        functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "alloc"),
-                        arguments: [ASTNumberLiteral(value: typeDeclaration.attributes.count + 1)],
-                        unusedReturnValue: false)
-                ),
-                
-                // set the address of the type's dealloc function
-                // since we have to resolve this at compile time, we push the address of the function onto the stack, then use a noop as the value expression
-                
-                // push the type's dealloc address onto the stack and shift it 40 to the left
-                ASTRawWIPInstruction(instruction: .operation(.push, 40)),
-                ASTRawWIPInstruction(instruction: .unresolved(.push, deallocFunction)),
-                ASTRawWIPInstruction(instruction: .operation(.shl, 0)),
-                
-                // push the type's id onto the stack
-                ASTRawWIPInstruction(instruction: .operation(.push, typeCache.index(ofType: typename))),
-                
-                // combine dealloc address and type id
-                ASTRawWIPInstruction(instruction: .operation(.or, 0)),
-                
-                // set the type's dealloc address and type id (from the steps above) in its first field
-                ASTArraySetter(target: _self, offset: ASTNumberLiteral(value: 0), value: ASTNoop()),
-                
-                // go through the parameters and fill the attributes
-                ASTComposite(
-                    statements: typeDeclaration.attributes.enumerated().map { arg0 -> ASTStatement in
-                        let (offset, attribute) = arg0
-                        return ASTArraySetter(
-                            target: _self,
-                            offset: ASTNumberLiteral(value: offset + 1),
-                            value: !attribute.type.isComplex
-                                ? attribute.identifier
-                                : ASTFunctionCall(
-                                    functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "retain"),
-                                    arguments: [attribute.identifier],
-                                    unusedReturnValue: false
-                                  )
-                        )
-                    }
-                ),
-                
-                // return the newly created object
-                ASTReturnStatement(expression: _self)
-            ]
-        )
-        
-        try handle(function: initializer)
-        
-        
-        
-        if !typeDeclaration.hasAnnotation("disable_getters_setters") {
-            for attribute in typeDeclaration.attributes.filter({ !$0.identifier.name.hasPrefix("_") }) {
-                
-                let offset = ASTNumberLiteral(value: typeCache.offset(ofMember: attribute.identifier.name, inType: typename))
-                
-                let setter = ASTFunctionDeclaration(
-                    name: ASTIdentifier(name: "set".appending(attribute.identifier.name.capitalized)),
-                    parameters: [.init(identifier: _self, type: _selfType), .init(identifier: .init(name: "newValue"), type: attribute.type)],
-                    returnType: .void,
-                    kind: .impl(typename),
-                    annotations: ["disable_arc"],
-                    body: [
-                        // TODO this code is pretty bad, but it was the best i could come up with that keeps the retain/release dance within the body literal
-                        
-                        // release the old value
-                        !attribute.type.isComplex ? ASTNoop() :
-                            ASTFunctionCall(
-                                functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "release"),
-                                arguments: [ASTArrayGetter(target: _self, offset: offset)],
-                                unusedReturnValue: true
-                        ),
-                        
-                        // store the new value
-                        ASTArraySetter(target: _self, offset: offset, value: ASTIdentifier(name: "newValue")),
-                        
-                        // retain the new value
-                        !attribute.type.isComplex ? ASTNoop() :
-                            ASTFunctionCall(
-                                functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "retain"),
-                                arguments: [ASTIdentifier(name: "newValue")],
-                                unusedReturnValue: true
-                        ),
-                        ]
-                )
-                
-                let getter = ASTFunctionDeclaration(
-                    name:  attribute.identifier,
-                    parameters: [.init(identifier: _self, type: _selfType)],
-                    returnType: attribute.type,
-                    kind: .impl(typename),
-                    annotations: ["disable_arc"],
-                    body: [
-                        ASTReturnStatement(expression: ASTArrayGetter(target: _self, offset: offset))
-                    ]
-                )
-                
-                try handle(function: getter)
-                try handle(function: setter)
-            }
-        }
-    }
-    
-    
     func handle(function: ASTFunctionDeclaration) throws {
         if function.mangledName == "main" {
             function.annotations.append("unused")
@@ -464,7 +339,7 @@ private extension BytecodeCompiler {
             
             if arcEnabledInCurrentScope {
                 try function.parameters
-                    .filter { $0.type.isComplex }
+                    .filter { $0.type.supportsReferenceCounting }
                     .forEach { try retain(expression: $0.identifier) }
             }
             
@@ -549,7 +424,7 @@ private extension BytecodeCompiler {
                 try composite.statements.forEach(handle)
                 let localVariables = composite.statements.getLocalVariables(recursive: false)
                 
-                try localVariables.filter { try scope.type(of: $0.identifier.name).isComplex }.forEach { try release(expression: $0.identifier) }
+                try localVariables.filter { try scope.type(of: $0.identifier.name).supportsReferenceCounting }.forEach { try release(expression: $0.identifier) }
                 for _ in 0..<localVariables.count { add(.pop) }
             } else {
                 // the composite contains a return statement
@@ -561,7 +436,7 @@ private extension BytecodeCompiler {
                         let returnedLocalIdentifier: ASTIdentifier?
                         
                         if let _returnedLocalIdentifier = returnStatement.expression as? ASTIdentifier,
-                            try scope.contains(identifier: _returnedLocalIdentifier.name) && scope.type(of: _returnedLocalIdentifier.name).isComplex {
+                            try scope.contains(identifier: _returnedLocalIdentifier.name) && scope.type(of: _returnedLocalIdentifier.name).supportsReferenceCounting { // TODO not sure whether replacing isComplex w/ supportsReferenceCounting was the right idea here...
                             returnedLocalIdentifier = _returnedLocalIdentifier
                         } else {
                             returnedLocalIdentifier = nil
@@ -580,7 +455,7 @@ private extension BytecodeCompiler {
                                 .filter { $0 != retval_temp_storage }
                                 .filter { returnedLocalIdentifier == nil || $0.identifier != returnedLocalIdentifier! }
                                 .forEach { variable in
-                                    if try scope.type(of: variable.identifier.name).isComplex {
+                                    if try scope.type(of: variable.identifier.name).supportsReferenceCounting {
                                         try release(expression: variable.identifier)
                                     }
                                 }
@@ -755,7 +630,7 @@ private extension BytecodeCompiler {
             fatalError("cannot assign value of type `\(rhsType)` to `\(lhsType)`")
         }
         
-        let shouldArcLhs = assignment.shouldRetainAssignedValueIfItIsAnObject && arcEnabledInCurrentScope && lhsType.isCompatible(with: .id)
+        let shouldArcLhs = assignment.shouldRetainAssignedValueIfItIsAnObject && arcEnabledInCurrentScope && lhsType.supportsReferenceCounting
         
         var target: ASTExpression = assignment.target
         
@@ -855,34 +730,26 @@ private extension BytecodeCompiler {
                 
                 let importedVariables: [ASTVariableDeclaration] = try accessedIdentifiersFromOutsideScope.map { .init(identifier: $0, type: try guessType(ofExpression: $0)) }
                 
-                // TODO unify typename/invokeptr naming w/ above
-                let typename = ASTIdentifier(name: "__\(functionName)_lambda_literal_\(lambdaCounter.get())")
-                let invoke_functionPtr = ASTIdentifier(name: SymbolMangling.mangleInstanceMember(ofType: typename.name, memberName: "invoke"))
+                // TODO unify typename/invokeptr naming w/ above // TODO is this still relevant?
+                let typename = "__\(functionName)_lambda_literal_\(lambdaCounter.get())"
+                let invoke_functionPtr = ASTIdentifier(name: SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "invoke"))
                 
-                let lambda_impType: ASTType = .function(returnType: returnType, parameterTypes: [.complex(name: typename.name)] + parameterTypes)
+                let lambda_impType: ASTType = .function(returnType: returnType, parameterTypes: [.complex(name: typename)] + parameterTypes)
                 
                 
                 // Lambda type
                 
                 let type = ASTTypeDeclaration(
-                    name: typename,
+                    name: ASTIdentifier(name: typename),
                     attributes: [ASTVariableDeclaration(identifier: invoke_functionPtr, type: lambda_impType)] + importedVariables,
                     annotations: ["disable_getters_setters"]
                 )
                 typeCache.register(type: type)
                 
+                let lambdaAST = AutoSynthesizedCodeGen.synthesize(for: [type], globalFunctions: &functions, typeCache: typeCache)
                 
-                // Lambda initializer
-                
-                let initializer = SymbolMangling.mangleInitializer(forType: typename.name)
-                functions[initializer] = (
-                    argc: type.attributes.count,
-                    parameterTypes: type.attributes.map { $0.type },
-                    returnType: .complex(name: type.name.name),
-                    annotations: []
-                )
                 try withScope(Scope(type: .global)) {
-                    try handle(node: type)
+                    try lambdaAST.forEach(handle)
                 }
                 
                 
@@ -890,12 +757,11 @@ private extension BytecodeCompiler {
                 
                 let imp = ASTFunctionDeclaration(
                     name: "invoke",
-                    // TODO make this _self so that we can still capture another self?
-                    parameters: [.init(identifier: "__self", type: .complex(name: typename.name))] + lambda.parameterNames.enumerated().map {
+                    parameters: [.init(identifier: "__self", type: .complex(name: typename))] + lambda.parameterNames.enumerated().map {
                         ASTVariableDeclaration(identifier: $0.element, type: parameterTypes[$0.offset])
                     },
                     returnType: returnType,
-                    kind: .impl(typename.name),
+                    kind: .impl(typename),
                     body: lambda.body
                 )
                 
@@ -912,7 +778,7 @@ private extension BytecodeCompiler {
                 
                 
                 return ASTFunctionCall(
-                    functionName: initializer,
+                    functionName: SymbolMangling.mangleInitializer(forType: typename),
                     arguments: [invoke_functionPtr.cast(to: .any)] + accessedIdentifiersFromOutsideScope,
                     unusedReturnValue: false
                     ).cast(to: .any)
@@ -995,7 +861,7 @@ private extension BytecodeCompiler {
         add(.call, functionCall.arguments.count)
         
         if functionCall.unusedReturnValue {
-            if functionInfo.returnType.isComplex {
+            if functionInfo.returnType.supportsReferenceCounting {
                 // return value is still on the stack
                 try release(expression: ASTNoop())
             } else {
@@ -1392,9 +1258,8 @@ private extension BytecodeCompiler {
             }  else if expression is ASTArrayGetter {
                 return .int
                 
-            } else if let _ = expression as? ASTTypeMemberFunctionCall {
-                // TODO in what situation would we reach this branch?
-                fatalError("not yet implemented")
+            } else if let typeMemberFunctionCall = expression as? ASTTypeMemberFunctionCall {
+                return functions[typeMemberFunctionCall.mangledName]!.returnType // TODO don't force unwrap!
             }
             
             fatalError("unable to infer type of \(expression)")
@@ -1405,11 +1270,11 @@ private extension BytecodeCompiler {
 
 extension BytecodeCompiler {
     func retain(expression: ASTExpression) throws {
-        try call(SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "retain"), arguments: [expression])
+        try call(SymbolMangling.retain, arguments: [expression])
     }
     
     func release(expression: ASTExpression) throws {
-        try call(SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "release"), arguments: [expression])
+        try call(SymbolMangling.release, arguments: [expression])
     }
     
     func call(_ functionName: String, arguments: [ASTExpression], unusedReturnValue: Bool = true) throws {

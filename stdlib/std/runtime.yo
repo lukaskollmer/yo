@@ -18,6 +18,9 @@ impl runtime {
         }
 
         if obj % 2 == 0 {
+            if obj[0] == 0 {
+                ret 0;
+            }
             ret 1;
         }
 
@@ -131,9 +134,4 @@ impl runtime {
         val retainCount: int = obj[0] & 0xfffff00000;
         ret retainCount >> 20;
     }
-
-
-    // default `dealloc` function called for types who don't specify their own
-    #[disable_arc]
-    static fn _dealloc(obj: any): void {}
 }

@@ -11,6 +11,9 @@ import Foundation
 
 enum SymbolMangling {
     
+    static let retain = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "retain")
+    static let release = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "release")
+    
     static func mangleStaticMember(ofType typename: String, memberName: String) -> String {
         return typename + "_S" + memberName
     }

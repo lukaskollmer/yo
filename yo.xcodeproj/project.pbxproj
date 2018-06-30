@@ -29,6 +29,7 @@
 		80AE212C20BB0E43004900DC /* WIPInstruction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE212B20BB0E43004900DC /* WIPInstruction.swift */; };
 		80AE212E20BB13EA004900DC /* ImportPathResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE212D20BB13EA004900DC /* ImportPathResolver.swift */; };
 		80BEEE8620D7C99D002456D1 /* ASTTypecast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80BEEE8520D7C99D002456D1 /* ASTTypecast.swift */; };
+		80C3381420E799C600E98F15 /* AutoSynthesizedCodeGen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80C3381320E799C600E98F15 /* AutoSynthesizedCodeGen.swift */; };
 		80C5C29B20CA99B500A1B3B7 /* ASTType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80C5C29A20CA99B500A1B3B7 /* ASTType.swift */; };
 		80C82A0120BEE93500C97214 /* test.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80C82A0020BEE93500C97214 /* test.swift */; };
 		80C82A0620BEEBBD00C97214 /* extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834DB20B6D699009E59FC /* extensions.swift */; };
@@ -140,6 +141,7 @@
 		80AE212B20BB0E43004900DC /* WIPInstruction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WIPInstruction.swift; sourceTree = "<group>"; };
 		80AE212D20BB13EA004900DC /* ImportPathResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportPathResolver.swift; sourceTree = "<group>"; };
 		80BEEE8520D7C99D002456D1 /* ASTTypecast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTTypecast.swift; sourceTree = "<group>"; };
+		80C3381320E799C600E98F15 /* AutoSynthesizedCodeGen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoSynthesizedCodeGen.swift; sourceTree = "<group>"; };
 		80C5C29A20CA99B500A1B3B7 /* ASTType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTType.swift; sourceTree = "<group>"; };
 		80C829FE20BEE93500C97214 /* test.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = test.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		80C82A0020BEE93500C97214 /* test.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = test.swift; sourceTree = "<group>"; };
@@ -258,6 +260,7 @@
 			isa = PBXGroup;
 			children = (
 				80EAA47420B75EE40043A6F6 /* BytecodeCompiler.swift */,
+				80C3381320E799C600E98F15 /* AutoSynthesizedCodeGen.swift */,
 				80F1E9B920BEB1A500336F4C /* SemanticAnalyzer.swift */,
 				80EAA48320B83C670043A6F6 /* Scope.swift */,
 				80AE211820BA06D1004900DC /* TypeCache.swift */,
@@ -443,6 +446,7 @@
 				80EAA49620B95BB60043A6F6 /* ASTVariableDeclaration.swift in Sources */,
 				80EAA4A120B9C60F0043A6F6 /* ASTTypeDeclaration.swift in Sources */,
 				80EAA46C20B74B920043A6F6 /* ASTReturnStatement.swift in Sources */,
+				80C3381420E799C600E98F15 /* AutoSynthesizedCodeGen.swift in Sources */,
 				80F1E9BA20BEB1A500336F4C /* SemanticAnalyzer.swift in Sources */,
 				80AE212A20BB0D9F004900DC /* yo.swift in Sources */,
 				80EAA49420B95A9A0043A6F6 /* Runtime.swift in Sources */,
