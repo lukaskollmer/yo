@@ -34,7 +34,7 @@ impl Array {
 
     // Add an object to the array
     // TODO make `object` id and require it to be a heap allocated instance
-    fn add(self: Array, object: any): int {
+    fn add(self: Array, object: id): int {
         if self._count == self._allocatedLength {
             // array is full, we need to switch to a bigger backing
 
@@ -53,17 +53,19 @@ impl Array {
 
 
     // Get the object at `index`
-    fn get(self: Array, index: int): any {
-        ret self._backing[self._normalizeIndexAndCheckBounds(index)];
+    fn get(self: Array, index: int): id {
+        ret self._backing[self._normalizeIndexAndCheckBounds(index)] as id;
     }
 
 
     // Set the object at `index`
     // Returns the previous value
-    fn set(self: Array, index: int, object: any): any {
+    fn set(self: Array, index: int, object: id): id {
         index = self._normalizeIndexAndCheckBounds(index);
-        val oldValue: int = self.get(index);
+        val oldValue = self.get(index);
+        runtime::release(oldValue);
         self._backing[index] = object;
+        runtime::retain(object);
         ret oldValue;
     }
 
@@ -90,7 +92,7 @@ impl Array {
 
 
     // Remove all occurrences of an object from the array
-    fn removeObject(self: Array, object: any): void {
+    fn removeObject(self: Array, object: id): void {
         // TODO take a reduced length due to mutations into account!!!
         for i in 0..<self._count {
             if self.get(i) == object {
@@ -128,15 +130,15 @@ impl Array {
     }
 
 
-    fn forEach(self: Array, f: fn<(any): void>): void {
+    fn forEach(self: Array, f: fn<(id): void>): void {
         for i in 0..<self._count {
             f(self.get(i));
         }
     }
 
 
-    fn map(self: Array, f: fn<(any): any>): Array {
-        val newArray: Array = Array::new();
+    fn map(self: Array, f: fn<(id): id>): Array {
+        val newArray = Array::new();
 
         for i in 0..<self._count {
             newArray.add(f(self.get(i)));
@@ -146,11 +148,11 @@ impl Array {
     }
 
 
-    fn filter(self: Array, f: fn<(any): int>): Array {
+    fn filter(self: Array, f: fn<(id): id>): Array {
         val newArray: Array = Array::new();
 
         for i in 0..<self._count {
-            val element: any = self.get(i);
+            val element = self.get(i);
             if f(element) == 1 {
                 newArray.add(element);
             }
@@ -178,7 +180,7 @@ impl Array {
 
 
     // Get the number of objects in the array
-    fn length(self: Array): int {
+    fn count(self: Array): int {
         ret self._count;
     }
 
