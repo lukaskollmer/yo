@@ -1088,7 +1088,6 @@ private extension BytecodeCompiler {
                 }
                 
             case .functionCall(let functionName, let arguments, let unusedReturnValue):
-                print(currentType)
                 guard case .complex(let currentTypename) = currentType else { fatalError("ugh") } // TODO redundant code!!! (see above)
                 
                 let mangledName = SymbolMangling.mangleInstanceMember(ofType: currentTypename, memberName: functionName.name)
