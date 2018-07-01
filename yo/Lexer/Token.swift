@@ -20,7 +20,8 @@ enum TokenType: Equatable, Hashable {
     
     // literals
     case stringLiteral(String)
-    case numberLiteral(Int) // TODO make all numbers doubles. Maybe use a public typealias?
+    case integerLiteral(Int)
+    case doubleLiteral(Double)
     
     case plus           // +
     case minus          // -

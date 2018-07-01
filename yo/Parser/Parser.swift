@@ -1053,12 +1053,16 @@ private extension Parser {
     
     
     func parseNumberLiteral() throws -> ASTExpression {
-        guard case .numberLiteral(let value) = currentToken.type else {
+        switch currentToken.type {
+        case .integerLiteral(let value):
+            next()
+            return ASTNumberLiteral(value: value)
+        case .doubleLiteral(let value):
+            next()
+            return ASTNumberLiteral(value: value)
+        default:
             throw ParserError.unexpectedToken(currentToken)
         }
-        next()
-        
-        return ASTNumberLiteral(value: value)
     }
     
     
@@ -1079,7 +1083,7 @@ private extension Parser {
         case .identifier(let identifier):
             next()
             // TODO what if we introduce other primitive types. refactor into constant declaring all primitive types?
-            return ["int", "void", "any"].contains(identifier) ? .primitive(name: identifier) : .complex(name: identifier)
+            return ["int", "double", "void", "any"].contains(identifier) ? .primitive(name: identifier) : .complex(name: identifier)
             
         case .fn:
             // a function pointer

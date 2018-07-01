@@ -7,6 +7,10 @@ impl io {
         runtime::_printi(arg);
     }
 
+    static fn printd(arg: double): void {
+        runtime::_printd(arg);
+    }
+
     static fn print(arg: String): void {
         runtime::_print(arg);
     }

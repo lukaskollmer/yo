@@ -309,7 +309,7 @@ private extension BytecodeCompiler {
             try handle(memberAccess: memberAccess)
             
         } else if let typecast = node as? ASTTypecast {
-            try handle(node: typecast.expression)
+            try handle(typecast: typecast)
             
         } else if let _ = node as? ASTNoop {
             
@@ -989,6 +989,23 @@ private extension BytecodeCompiler {
     }
     
     
+    func handle(typecast: ASTTypecast) throws {
+        try handle(node: typecast.expression)
+        
+        let srcType = try guessType(ofExpression: typecast.expression)
+        let dstType = typecast.type
+        
+        let intToDoubleConversion = srcType == .int && dstType == .double
+        let doubleToIntConversion = srcType == .double && dstType == .int
+        
+        if intToDoubleConversion {
+            add(.cvti2d)
+        } else if doubleToIntConversion {
+            add(.cvtd2i)
+        }
+    }
+    
+    
     func handle(binop: ASTBinaryOperation) throws {
         let lhsType = try guessType(ofExpression: binop.lhs)
         let rhsType = try guessType(ofExpression: binop.rhs)
@@ -999,7 +1016,22 @@ private extension BytecodeCompiler {
         try handle(node: binop.rhs)
         try handle(node: binop.lhs)
         
-        add(binop.operation.operation)
+        switch (lhsType, rhsType) {
+        case (.any, _), (_, .any), (.int, .int): // we interpret `any` (most likely some object/pointer) as `int`
+            add(binop.operation.operation)
+        case (.int, .double):
+            fatalError("int/double binops not yet implemented")
+            break
+        case (.double, .int):
+            fatalError("double/int binops not yet implemented")
+            break
+        case (.double, .double):
+            add(binop.operation.operation.doubleVariant)
+        default:
+            fatalError("cannot perform binary operation \(binop.operation) with types \(lhsType) and \(rhsType)")
+        }
+        
+        
     }
     
     func handle(unary: ASTUnaryExpression) throws {
@@ -1017,7 +1049,25 @@ private extension BytecodeCompiler {
     
     
     func handle(numberLiteral: ASTNumberLiteral) throws {
-        add(.push, numberLiteral.value)
+        let value = numberLiteral.value
+        var binaryRepresentation = String(value, radix: 2)
+        
+        if binaryRepresentation.count <= ImmediateSize {
+            add(.push, numberLiteral.value)
+            return
+        }
+        
+        binaryRepresentation = binaryRepresentation.padding(.left, toLength: 64, withPad: "0")
+        
+        let upperHalf = binaryRepresentation.ns.substring(with: NSRange(location: 00, length: 32))
+        let lowerHalf = binaryRepresentation.ns.substring(with: NSRange(location: 32, length: 32))
+        
+        add(.push, 32)
+        add(.push, Int(upperHalf, radix: 2)!)
+        add(.shl)
+        
+        add(.push, Int(lowerHalf, radix: 2)!)
+        add(.or)
     }
     
     func handle(stringLiteral: ASTStringLiteral) throws {
@@ -1245,13 +1295,14 @@ private extension BytecodeCompiler {
             } else if let typecast = expression as? ASTTypecast {
                 return typecast.type
                 
-            } else if expression is ASTNumberLiteral {
-                return .int
+            } else if let numberLiteral = expression as? ASTNumberLiteral {
+                return numberLiteral.type
                 
             } else if let binop = expression as? ASTBinaryOperation {
                 return try self.guessType(ofExpression: binop.lhs)
                 
             } else if expression is ASTUnaryExpression {
+                // TODO is that an ok assumption? what if we're negating a float?
                 return .int
                 
             } else if expression is ASTStringLiteral {

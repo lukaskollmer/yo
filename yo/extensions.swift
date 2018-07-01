@@ -12,6 +12,20 @@ func cast<T, R>(_ arg0: inout T) -> R {
     return withUnsafeBytes(of: &arg0) { $0.load(as: R.self) }
 }
 
+extension Int {
+    var unsafe_loadAsDouble: Double {
+        var value = self
+        return cast(&value)
+    }
+}
+
+extension Double {
+    var unsafe_loadAsInt: Int {
+        var value = self
+        return cast(&value)
+    }
+}
+
 
 
 extension Int {
@@ -94,7 +108,10 @@ extension String {
 extension String {
     func allScalarsInCharacterSet(_ set: CharacterSet) -> Bool {
         return self.unicodeScalars.all { set.contains($0) }
-        //return self.unicodeScalars.first(where: { !set.contains($0) }) == nil
+    }
+    
+    func anyScalarInCharacterSet(_ set: CharacterSet) -> Bool {
+        return self.unicodeScalars.any { set.contains($0) }
     }
 }
 

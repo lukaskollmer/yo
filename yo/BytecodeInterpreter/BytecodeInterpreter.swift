@@ -140,22 +140,40 @@ class BytecodeInterpreter {
         case .noop:
             break
             
+        // Arithmetic Operations
         case .add:
             try stack.push(try stack.pop() + stack.pop())
             
+        case .d_add:
+            try stack.push((try stack.pop().unsafe_loadAsDouble + stack.pop().unsafe_loadAsDouble).unsafe_loadAsInt)
+            
+            
         case .sub:
             try stack.push(try stack.pop() - stack.pop())
+            
+        case .d_sub:
+            try stack.push((try stack.pop().unsafe_loadAsDouble - stack.pop().unsafe_loadAsDouble).unsafe_loadAsInt)
+            
         
         case .mul:
             try stack.push(try stack.pop() * stack.pop())
+            
+        case .d_mul:
+            try stack.push((try stack.pop().unsafe_loadAsDouble * stack.pop().unsafe_loadAsDouble).unsafe_loadAsInt)
+            
         
         case .div:
             try stack.push(try stack.pop() / stack.pop())
+            
+        case .d_div:
+            try stack.push((try stack.pop().unsafe_loadAsDouble / stack.pop().unsafe_loadAsDouble).unsafe_loadAsInt)
+            
         
         case .mod:
             try stack.push(try stack.pop() % stack.pop())
             
             
+        // Bitwise Operations
         case .and:
             try stack.push(try stack.pop() & stack.pop())
             
@@ -176,6 +194,15 @@ class BytecodeInterpreter {
             try stack.push(~(try stack.pop()))
             
             
+        // Int <-> Double conversion
+        case .cvti2d:
+            try stack.push(Double(try stack.pop()).unsafe_loadAsInt)
+            
+        case .cvtd2i:
+            try stack.push(Int(try stack.pop().unsafe_loadAsDouble))
+            
+            
+        // Comparisons
         case .eq:
             try stack.push((try stack.pop() == stack.pop()) ? -1 : 0)
             

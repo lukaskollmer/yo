@@ -15,6 +15,7 @@ private let identifierStartCharacters = CharacterSet.letters.union(.init(charact
 private let identifierCharacters = CharacterSet.alphanumerics.union(identifierStartCharacters)
 private let binaryLiteralCharacters = CharacterSet(charactersIn: "b01")
 private let hexadecimalLiteralCharacters = CharacterSet(charactersIn: "x0123456789abcdef")
+private let floatLiteralCharacters = CharacterSet.decimalDigits.union(.init(charactersIn: "."))
 
 // set of characters we ignore
 private let ignoredCharacters: [Unicode.Scalar] = [" "] // TODO what about CharacterSet.whitespace?
@@ -191,10 +192,18 @@ class Lexer {
                 // a) the next scalar is a delimiter
                 // b) the current character is a delimiter (this catches things like `(x` in a function signature)
                 if !currentlyParsingStringLiteral && (delimiters.contains(next) || delimiters.contains(char)) {
+                    // TODO comment this to explain what's going on
+                    let isCurrentlyParsingFloatLiteral =
+                        (currentToken.allScalarsInCharacterSet(.decimalDigits) && next == "." && CharacterSet.decimalDigits.contains(scalars[index + 2]))
+                    || (char == "." && currentToken.anyScalarInCharacterSet(.decimalDigits) && currentToken.allScalarsInCharacterSet(floatLiteralCharacters) && CharacterSet.decimalDigits.contains(next) )
+                    
+                    if isCurrentlyParsingFloatLiteral { continue }
+                    
                     try handleRawToken(currentToken, endLocation: index)
                     currentToken = ""
                 }
             } else {
+                // TODO seems like we never reach here. investigate!
                 try handleRawToken(currentToken, endLocation: index)
             }
         }
@@ -213,8 +222,8 @@ class Lexer {
     
     private func getType(token: String) throws -> TokenType {
         
-        if token.allScalarsInCharacterSet(.decimalDigits) { // TODO instead of the check, just call the Int/Double initializer w/ the string and return that if nonnull?
-            return .numberLiteral(Int(token)!)
+        if token.allScalarsInCharacterSet(.decimalDigits), let value = Int(token) { // TODO instead of the check, just call the Int/Double initializer w/ the string and return that if nonnull?
+            return .integerLiteral(value)
         }
         
         if let type = tokenMapping[token] {
@@ -226,10 +235,14 @@ class Lexer {
         }
         
         if token.hasPrefix("0b") && token.allScalarsInCharacterSet(binaryLiteralCharacters) {
-            return .numberLiteral(Int(token.replacingOccurrences(of: "0b", with: ""), radix: 2)!)
+            return .integerLiteral(Int(token.replacingOccurrences(of: "0b", with: ""), radix: 2)!)
             
         } else if token.hasPrefix("0x") && token.allScalarsInCharacterSet(hexadecimalLiteralCharacters) {
-            return .numberLiteral(Int(token.replacingOccurrences(of: "0x", with: ""), radix: 16)!)
+            return .integerLiteral(Int(token.replacingOccurrences(of: "0x", with: ""), radix: 16)!)
+        }
+        
+        if token.split(separator: ".").count == 2, let value = Double(token) {
+            return .doubleLiteral(value)
         }
         
         

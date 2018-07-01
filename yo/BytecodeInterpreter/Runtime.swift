@@ -87,6 +87,8 @@ class Runtime {
             return 0
         }
         
+        // MARK: IO
+        
         
         self["runtime", "_print", .void, [.String]] = { interpreter in
             print(self.getString(atAddress: interpreter.stack.peek(), heap: interpreter.heap))
@@ -97,6 +99,13 @@ class Runtime {
             print(interpreter.stack.peek())
             return 0
         }
+        
+        
+        self["runtime", "_printd", .void, [.double]] = { interpreter in
+            print(interpreter.stack.peek().unsafe_loadAsDouble)
+            return 0
+        }
+        
         
         self["runtime", "__format", .int, [.String, .Array]] = { interpreter in
             let heap = interpreter.heap

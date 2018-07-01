@@ -16,10 +16,11 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
     case function(returnType: ASTType, parameterTypes: [ASTType])   // a function pointer
     case unresolved
     
-    static let `int` = ASTType.primitive(name: "int")
-    static let `any` = ASTType.primitive(name: "any")
-    static let id    = ASTType.complex(name: "id")
-    static let void  = ASTType.primitive(name: "void")
+    static let int    = ASTType.primitive(name: "int")
+    static let double = ASTType.primitive(name: "double")
+    static let any    = ASTType.primitive(name: "any")
+    static let id     = ASTType.complex(name: "id")
+    static let void   = ASTType.primitive(name: "void")
     
     static let `Self` = ASTType.complex(name: "Self")
     

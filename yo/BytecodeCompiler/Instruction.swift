@@ -10,7 +10,8 @@ import Foundation
 
 
 typealias Instruction = Int
-let InstructionSize = MemoryLayout<Instruction>.size
+let InstructionSize = MemoryLayout<Instruction>.size * 8
+let ImmediateSize = InstructionSize - 8 // It's probably best to avoid using the sign bit
 // An instruction is an integer, with the following layout:
 // The lower 7 bits are used to encode the opcode and the upper 57 to encode the immediate
 
@@ -43,6 +44,11 @@ enum Operation: Int {
     case div
     case mod
     
+    case d_add
+    case d_sub
+    case d_mul
+    case d_div
+    
     // bitwise operations
     case and
     case or
@@ -51,6 +57,10 @@ enum Operation: Int {
     case shr
     
     case not
+    
+    // floating point support // TODO
+    case cvti2d
+    case cvtd2i
     
     // comparisons
     case eq
@@ -93,5 +103,16 @@ enum Operation: Int {
         }
         
         return nil
+    }
+    
+    
+    var doubleVariant: Operation {
+        switch self {
+        case .add: return .d_add
+        case .sub: return .d_sub
+        case .mul: return .d_mul
+        case .div: return .d_div
+        default: fatalError("operation \(self) does not have a double variant")
+        }
     }
 }
