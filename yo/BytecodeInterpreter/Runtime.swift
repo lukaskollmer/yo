@@ -131,7 +131,17 @@ class Runtime {
                         text += self.getString(atAddress: getArgAtIndex(arg_index), heap: heap)
                         
                     case "n": // Number
-                        text += String(heap[getArgAtIndex(arg_index) + 1])
+                        let addr = getArgAtIndex(arg_index)
+                        let value = heap[addr + 1]
+                        let type = heap[addr + 2]
+                        switch type {
+                        case 0:
+                            text += String(value)
+                        case 1:
+                            text += String(value.unsafe_loadAsDouble)
+                        default:
+                            fatalError("Unsupported Number type \(type)")
+                        }
                         break
                         
                     default:
