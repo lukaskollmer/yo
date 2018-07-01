@@ -311,6 +311,9 @@ private extension BytecodeCompiler {
         } else if let typecast = node as? ASTTypecast {
             try handle(typecast: typecast)
             
+        } else if let boxedExpression = node as? ASTBoxedExpression {
+            try handle(boxedExpression: boxedExpression)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -1181,6 +1184,26 @@ private extension BytecodeCompiler {
     }
     
     
+    func handle(boxedExpression: ASTBoxedExpression) throws {
+        let type = try guessType(ofExpression: boxedExpression.expression)
+        switch type {
+        case .int, .double:
+            
+            let _type: Int = type == .int ? 0 : 1
+            
+            let initCall = ASTFunctionCall(
+                functionName: SymbolMangling.mangleInitializer(forType: "Number"),
+                arguments: [boxedExpression.expression, ASTNumberLiteral(value: _type)],
+                unusedReturnValue: false
+            )
+            
+            try handle(node: initCall)
+        default:
+            fatalError("Unable to box expression of type \(type)")
+        }
+    }
+    
+    
     
     func handle(condition: ASTCondition) throws {
         if let comparison = condition as? ASTComparison {
@@ -1322,9 +1345,23 @@ private extension BytecodeCompiler {
                 
             } else if let typeMemberFunctionCall = expression as? ASTTypeMemberFunctionCall {
                 return functions[typeMemberFunctionCall.mangledName]!.returnType // TODO don't force unwrap!
+            
+            } else if let boxedExpression = expression as? ASTBoxedExpression {
+                return try boxedType(ofExpression: boxedExpression.expression)
             }
             
             fatalError("unable to infer type of \(expression)")
+        }
+    }
+    
+    
+    func boxedType(ofExpression expression: ASTExpression) throws -> ASTType {
+        let type = try guessType(ofExpression: expression)
+        switch type {
+        case .int, .double:
+            return .complex(name: "Number")
+        default:
+            return .unresolved
         }
     }
 }

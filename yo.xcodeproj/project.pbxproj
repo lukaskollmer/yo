@@ -17,6 +17,7 @@
 		804834F020B6F36B009E59FC /* Token.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834EF20B6F36B009E59FC /* Token.swift */; };
 		804E4EB420BBE92800736FCC /* ASTStringLiteral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804E4EB320BBE92800736FCC /* ASTStringLiteral.swift */; };
 		805E370A20D3E42500F5BB63 /* ASTMemberAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 805E370920D3E42500F5BB63 /* ASTMemberAccess.swift */; };
+		8072C75A20E90DA100FA9F62 /* ASTBoxedExpression.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8072C75920E90DA100FA9F62 /* ASTBoxedExpression.swift */; };
 		8073276320E2760400FF25E7 /* Optimizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8073276220E2760400FF25E7 /* Optimizer.swift */; };
 		807936F720D24D0700DCCE1F /* ASTBreakStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807936F620D24D0700DCCE1F /* ASTBreakStatement.swift */; };
 		807936F920D252AB00DCCE1F /* ASTContinueStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807936F820D252AB00DCCE1F /* ASTContinueStatement.swift */; };
@@ -129,6 +130,7 @@
 		804834EF20B6F36B009E59FC /* Token.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Token.swift; sourceTree = "<group>"; };
 		804E4EB320BBE92800736FCC /* ASTStringLiteral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTStringLiteral.swift; sourceTree = "<group>"; };
 		805E370920D3E42500F5BB63 /* ASTMemberAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTMemberAccess.swift; sourceTree = "<group>"; };
+		8072C75920E90DA100FA9F62 /* ASTBoxedExpression.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTBoxedExpression.swift; sourceTree = "<group>"; };
 		8073276220E2760400FF25E7 /* Optimizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Optimizer.swift; sourceTree = "<group>"; };
 		807936F620D24D0700DCCE1F /* ASTBreakStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTBreakStatement.swift; sourceTree = "<group>"; };
 		807936F820D252AB00DCCE1F /* ASTContinueStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTContinueStatement.swift; sourceTree = "<group>"; };
@@ -318,6 +320,7 @@
 				80BEEE8520D7C99D002456D1 /* ASTTypecast.swift */,
 				809761B220D7F21F004DB9A4 /* ASTLambda.swift */,
 				80E106A920DE93AB0021F453 /* ASTAnnotation.swift */,
+				8072C75920E90DA100FA9F62 /* ASTBoxedExpression.swift */,
 			);
 			path = AST;
 			sourceTree = "<group>";
@@ -453,6 +456,7 @@
 				804834DC20B6D699009E59FC /* extensions.swift in Sources */,
 				80EAA48A20B85BA00043A6F6 /* ASTUnaryExpression.swift in Sources */,
 				805E370A20D3E42500F5BB63 /* ASTMemberAccess.swift in Sources */,
+				8072C75A20E90DA100FA9F62 /* ASTBoxedExpression.swift in Sources */,
 				80EAA47820B75F370043A6F6 /* BytecodeInterpreter.swift in Sources */,
 				80EAA48020B826730043A6F6 /* ASTBinaryOperation.swift in Sources */,
 				804834F020B6F36B009E59FC /* Token.swift in Sources */,

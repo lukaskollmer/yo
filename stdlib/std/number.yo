@@ -1,8 +1,28 @@
-type Number(_value: int);
+// std/number
+
+type Number(_value: any, _type: int);
 
 impl Number {
 
-    fn value(self: Number): int {
-        ret self._value;
+    static fn fromInt(value: int): Number {
+        ret Number::init(value, 0);
+    }
+
+    static fn fromDouble(value: double): Number {
+        ret Number::init(value, 1);
+    }
+
+    fn intValue(self: Number): int {
+        if self._type == 0 {
+            ret self._value;
+        }
+        ret (self._value as double) as int;
+    }
+
+    fn doubleValue(self: Number): double {
+        if self._type == 1 {
+            ret self._value;
+        }
+        ret (self._value as int) as double;
     }
 }

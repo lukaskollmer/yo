@@ -723,12 +723,8 @@ private extension Parser {
         
         if case .atSign = currentToken.type {
             next()
-            let value = try parseExpression()
-            return ASTFunctionCall(
-                functionName: SymbolMangling.mangleInitializer(forType: "Number"),
-                arguments: [value],
-                unusedReturnValue: false
-            )
+            let expression = try parseExpression()
+            return ASTBoxedExpression(expression: expression)
         }
         
         if case .pipe = currentToken.type {

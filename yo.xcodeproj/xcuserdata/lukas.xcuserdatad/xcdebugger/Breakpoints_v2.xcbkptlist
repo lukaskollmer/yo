@@ -58,13 +58,45 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "yo/BytecodeCompiler/BytecodeCompiler.swift"
-            timestampString = "552125314.508216"
+            timestampString = "552145508.090495"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "945"
-            endingLineNumber = "945"
+            startingLineNumber = "948"
+            endingLineNumber = "948"
             landmarkName = "processMemberAccess(memberAccess:)"
             landmarkType = "7">
+            <Locations>
+               <Location
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "yo.BytecodeCompiler.(processMemberAccess in _5F569FF61A5BD381EB7BAB1549620E60)(memberAccess: yo.ASTMemberAccess) throws -&gt; (expr: yo.ASTExpression, types: Swift.Array&lt;yo.ASTType&gt;)"
+                  moduleName = "yo"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/lukas/Developer/yo/yo/BytecodeCompiler/BytecodeCompiler.swift"
+                  timestampString = "552145508.4392771"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "948"
+                  endingLineNumber = "948"
+                  offsetFromSymbolStart = "3842">
+               </Location>
+               <Location
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "yo.BytecodeCompiler.(processMemberAccess in _5F569FF61A5BD381EB7BAB1549620E60)(memberAccess: yo.ASTMemberAccess) throws -&gt; (expr: yo.ASTExpression, types: Swift.Array&lt;yo.ASTType&gt;)"
+                  moduleName = "yo"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/lukas/Developer/yo/yo/BytecodeCompiler/BytecodeCompiler.swift"
+                  timestampString = "552145508.443776"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "948"
+                  endingLineNumber = "948"
+                  offsetFromSymbolStart = "3865">
+               </Location>
+            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>
