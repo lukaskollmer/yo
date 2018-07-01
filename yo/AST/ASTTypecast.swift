@@ -20,7 +20,7 @@ class ASTTypecast: ASTExpression {
 }
 
 extension ASTExpression {
-    func cast(to type: ASTType) -> ASTExpression {
+    func `as`(_ type: ASTType) -> ASTExpression {
         return ASTTypecast(expression: self, type: type)
     }
 }

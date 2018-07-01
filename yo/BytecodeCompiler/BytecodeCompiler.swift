@@ -790,9 +790,9 @@ private extension BytecodeCompiler {
                 
                 return ASTFunctionCall(
                     functionName: SymbolMangling.mangleInitializer(forType: typename),
-                    arguments: [invoke_functionPtr.cast(to: .any)] + accessedIdentifiersFromOutsideScope,
+                    arguments: [invoke_functionPtr.as(.any)] + accessedIdentifiersFromOutsideScope,
                     unusedReturnValue: false
-                    ).cast(to: .any)
+                    ).as(.any)
                 // the cast to any is important bc we're trying to assign __fn_lambda_literal_x to fn<(...): ...> // TODO update comment, not specific to assignments anymore
                 // also: we already guarded above that lhs is some function
             }
