@@ -34,6 +34,10 @@ enum yo {
     
     
     static func run(atPath path: String) throws -> Int {
+        if hasArgument("--verbose") {
+            Log.info("Input file: \(filepath)")
+        }
+        
         let code = try read(file: path)
         let tokens = try Lexer(source: code).tokenize()
         let ast = try Parser(tokens: tokens).parse()
@@ -43,13 +47,29 @@ enum yo {
         
         // TODO optimize
         
-        let optimizer = Optimizer(instructions: instructions, ast: ast, stats: stats)
+        //let optimizer = Optimizer(instructions: instructions, ast: ast, stats: stats)
         //instructions = optimizer.optimize([.unusedSymbols]) // TODO
+        
         instructions = instructions.withLabelsPadded()
         
-        Log.info("\n\(instructions.fancyDescription)")
+        if hasArgument("--verbose") {
+            Log.info("\n\(instructions.fancyDescription)")
+        }
         
+        let interpreter = BytecodeInterpreter(instructions: instructions.finalized())
         
-        return try BytecodeInterpreter(instructions: instructions.finalized()).run()
+        let retval = try interpreter.run()
+        
+        if hasArgument("--verbose") {
+            print("heap after: \(interpreter.heap.backing)")
+            Log.info("main returned with exit code \(retval)")
+        }
+        
+        return retval
+    }
+    
+    
+    private static func hasArgument(_ argument: String) -> Bool {
+        return ProcessInfo.processInfo.arguments.contains(argument)
     }
 }

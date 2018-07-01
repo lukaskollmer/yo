@@ -8,6 +8,18 @@
 
 import Foundation
 
+let arguments = ProcessInfo.processInfo.arguments
+
+if arguments.count > 1 && arguments[1] == "--help" {
+    let message =
+"""
+yo
+"""
+    
+    print(message)
+    exit(EXIT_SUCCESS)
+}
+
 
 // TODO set this dynamically!
 yo.workingDirectory = "/Users/lukas/Developer/yo"
@@ -30,12 +42,9 @@ let filepath: String = {
     }
 }()
 
-Log.info("Input file: \(filepath)")
-
 guard FileManager.default.fileExists(atPath: filepath) else {
     fatalError("input file does not exist")
 }
 
-let retval = try yo.run(atPath: filepath)
-Log.info("main returned with exit code \(retval)")
+exit(try Int32(yo.run(atPath: filepath)))
 
