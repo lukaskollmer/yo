@@ -23,7 +23,7 @@
 - [ ] `else if`
 - [x] add type checks when assigning the return value of a function?
 - [ ] macros
-- [ ] make `nil` a macro for `0`
+- [ ] make `nil` a macro for `0 as id`
 - [x] `break` out of `for`/`while` loops
 - [ ] ensure that all custom `dealloc` methods return `void`
 - [ ] ensure that `void` returning functions don't return anything other than `void`
