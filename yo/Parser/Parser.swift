@@ -721,6 +721,16 @@ private extension Parser {
     
     func parseExpression() throws -> ASTExpression {
         
+        if case .atSign = currentToken.type {
+            next()
+            let value = try parseExpression()
+            return ASTFunctionCall(
+                functionName: SymbolMangling.mangleInitializer(forType: "Number"),
+                arguments: [value],
+                unusedReturnValue: false
+            )
+        }
+        
         if case .pipe = currentToken.type {
             return try parseLambda()
         }
@@ -1043,29 +1053,12 @@ private extension Parser {
     
     
     func parseNumberLiteral() throws -> ASTExpression {
-        let isObject: Bool
-        if case .atSign = currentToken.type {
-            isObject = true
-            next()
-        } else {
-            isObject = false
-        }
-        
         guard case .numberLiteral(let value) = currentToken.type else {
             throw ParserError.unexpectedToken(currentToken)
         }
         next()
         
-        if !isObject {
-            return ASTNumberLiteral(value: value)
-        } else {
-            return ASTFunctionCall(
-                functionName: SymbolMangling.mangleInitializer(forType: "Number"),
-                arguments: [ASTNumberLiteral(value: value)],
-                unusedReturnValue: false
-            )
-        }
-        
+        return ASTNumberLiteral(value: value)
     }
     
     
