@@ -916,7 +916,25 @@ private extension Parser {
         }
         next()
         
-        let parameterNames = try parseIdentifierList()
+        var parameters = [ASTVariableDeclaration]()
+        
+        while true { // TODO maybe while let identifier = try? parseIdentifier()?
+            let identifier = try parseIdentifier()
+            if case .colon = currentToken.type {
+                next()
+                parameters.append(ASTVariableDeclaration(identifier: identifier, type: try parseType()))
+            } else {
+                parameters.append(ASTVariableDeclaration(identifier: identifier, type: .unresolved))
+            }
+            
+            if case .comma = currentToken.type {
+                next()
+            }
+            
+            if case .pipe = currentToken.type {
+                break
+            }
+        }
         
         guard
             case .pipe = currentToken.type,
@@ -929,7 +947,7 @@ private extension Parser {
         
         let body = try parseComposite()
         
-        return ASTLambda(signature: .unresolved, parameterNames: parameterNames, body: body)
+        return ASTLambda(signature: .unresolved, parameters: parameters, body: body)
     }
     
     

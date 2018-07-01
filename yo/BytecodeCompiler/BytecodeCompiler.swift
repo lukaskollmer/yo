@@ -689,6 +689,19 @@ private extension BytecodeCompiler {
     
     
     func resolve(lambda: ASTLambda, expectedSignature type: ASTType) throws -> ASTExpression {
+        
+        // Resolve a lambda's parameter types
+        // If the lambda already specifies an explicit type for a parameter, that one is used instead of the expected one
+        let resolveLambdaParameterList: ([ASTVariableDeclaration], [ASTType]) -> [ASTVariableDeclaration] = { parameters, expectedTypes in
+            return parameters.enumerated().map {
+                if case .unresolved = $0.element.type {
+                    return ASTVariableDeclaration(identifier: $0.element.identifier, type: expectedTypes[$0.offset])
+                } else {
+                    return $0.element
+                }
+            }
+        }
+        
         return try handleFunctionInsertion {
             guard case .unresolved = lambda.signature else {
                 fatalError("lambda signature should still be unresolved at this point")
@@ -713,7 +726,7 @@ private extension BytecodeCompiler {
                 
                 let fn = ASTFunctionDeclaration(
                     name: lambdaFunctionName,
-                    parameters: lambda.parameterNames.enumerated().map { ASTVariableDeclaration(identifier: $0.element, type: parameterTypes[$0.offset]) },
+                    parameters: resolveLambdaParameterList(lambda.parameters, parameterTypes),
                     returnType: returnType,
                     kind: .global,
                     body: lambda.body
@@ -757,9 +770,7 @@ private extension BytecodeCompiler {
                 
                 let imp = ASTFunctionDeclaration(
                     name: "invoke",
-                    parameters: [.init(identifier: "__self", type: .complex(name: typename))] + lambda.parameterNames.enumerated().map {
-                        ASTVariableDeclaration(identifier: $0.element, type: parameterTypes[$0.offset])
-                    },
+                    parameters: [.init(identifier: "__self", type: .complex(name: typename))] + resolveLambdaParameterList(lambda.parameters, parameterTypes),
                     returnType: returnType,
                     kind: .impl(typename),
                     body: lambda.body

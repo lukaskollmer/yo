@@ -13,24 +13,24 @@ import Foundation
 // Doesn't (yet) support captured variables // TODO
 class ASTLambda: ASTExpression {
     var signature: ASTType // is always .function
-    let parameterNames: [ASTIdentifier]
+    let parameters: [ASTVariableDeclaration]
     let body: ASTComposite
     
-    init(signature: ASTType, parameterNames: [ASTIdentifier], body: ASTComposite) {
+    init(signature: ASTType, parameters: [ASTVariableDeclaration], body: ASTComposite) {
         
         // TODO
         //guard case .function(_) = signature else {
         //    fatalError() // TODO throw instead
         //}
         self.signature = signature
-        self.parameterNames = parameterNames
+        self.parameters = parameters
         self.body = body
     }
     
     
     var accessedIdentifiersFromOutsideScope: [ASTIdentifier] {
         var localVariables = [ASTIdentifier]()
-        localVariables.append(contentsOf: parameterNames)
+        localVariables.append(contentsOf: parameters.map { $0.identifier })
         localVariables.append(contentsOf: body.statements.getLocalVariables(recursive: true).map { $0.identifier })
         
         var accessed = body.getAccessedIdentifiers()
