@@ -1,5 +1,6 @@
 // runtime.yo
 
+use "std/object";
 use "std/string";
 
 impl runtime {
