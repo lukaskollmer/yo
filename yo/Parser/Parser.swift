@@ -89,7 +89,7 @@ private extension Parser {
             case .impl:
                 return try parseImplementation()
             case .protocol:
-                fatalError("protocols not yet implemented")
+                return try parseProtocolDeclaration()
             case .hashtag:
                 annotations.append(try parseAnnotation())
                 return ASTNoop()
@@ -506,6 +506,16 @@ private extension Parser {
         next()
         
         let name = try parseIdentifier()
+        
+        let protocols: [ASTIdentifier]
+        
+        if case .colon = currentToken.type {
+            next()
+            protocols = try parseIdentifierList()
+        } else {
+            protocols = []
+        }
+        
         guard case .openingParentheses = currentToken.type else {
             throw ParserError.unexpectedToken(currentToken)
         }
@@ -520,7 +530,11 @@ private extension Parser {
         }
         next()
         
-        return ASTTypeDeclaration(name: name, attributes: attributes)
+        return ASTTypeDeclaration(
+            name: name,
+            attributes: attributes,
+            protocols: protocols
+        )
     }
     
     
@@ -556,33 +570,18 @@ private extension Parser {
         }
         next()
         
-        var functions = [ASTFunctionDeclaration]()
-        var functionKind: ASTFunctionDeclaration.Kind!
-        
-        let updateFunctionKind = {
-            if case .hashtag = self.currentToken.type {
-                while let annotation = try? self.parseAnnotation() {
-                    self.annotations.append(annotation)
+        let functions = try parseFunctionList()
+        for function in functions {
+            function.kind = {
+                switch function.kind {
+                case .impl(_):
+                    return .impl(typename.name)
+                case .staticImpl(_):
+                    return .staticImpl(typename.name)
+                default:
+                    fatalError("unexpected non-impl function kind")
                 }
-            }
-            
-            if case .static = self.currentToken.type {
-                functionKind = .staticImpl(typename.name)
-                self.next()
-            } else {
-                functionKind = .impl(typename.name)
-            }
-        }
-        
-        updateFunctionKind()
-        
-        
-        while let function = try? parseFunction(kind: functionKind) {
-            functions.append(function)
-            updateFunctionKind()
-            if case .closingCurlyBrackets = currentToken.type {
-                break
-            }
+            }()
         }
         
         guard case .closingCurlyBrackets = currentToken.type else {
@@ -633,6 +632,40 @@ private extension Parser {
             annotations: annotations,
             body: functionBody
         )
+    }
+    
+    
+    func parseFunctionList() throws -> [ASTFunctionDeclaration] {
+        var functions = [ASTFunctionDeclaration]()
+        var functionKind: ASTFunctionDeclaration.Kind!
+        
+        let updateFunctionKind = {
+            if case .hashtag = self.currentToken.type {
+                while let annotation = try? self.parseAnnotation() {
+                    self.annotations.append(annotation)
+                }
+            }
+            
+            if case .static = self.currentToken.type {
+                functionKind = .staticImpl("")
+                self.next()
+            } else {
+                functionKind = .impl("")
+            }
+        }
+        
+        updateFunctionKind()
+        
+        
+        while let function = try? parseFunction(kind: functionKind) {
+            functions.append(function)
+            updateFunctionKind()
+            if case .closingCurlyBrackets = currentToken.type {
+                break
+            }
+        }
+        
+        return functions
     }
     
     
@@ -712,6 +745,39 @@ private extension Parser {
         return ASTAnnotation(elements: elements)
     }
     
+    
+    
+    
+    func parseProtocolDeclaration() throws -> ASTProtocolDeclaration {
+        guard
+            case .protocol = currentToken.type,
+            case .identifier(let protocolName) = next().type,
+            case .openingCurlyBrackets = next().type else {
+                throw ParserError.unexpectedToken(currentToken)
+        }
+        next()
+        
+        let functions = try parseFunctionList()
+        for function in functions {
+            function.kind = {
+                switch function.kind {
+                case .impl(_):
+                    return .impl(protocolName)
+                case .staticImpl(_):
+                    return .staticImpl(protocolName)
+                default:
+                    fatalError("unexpected function kind in protocol")
+                }
+            }()
+        }
+        
+        guard case .closingCurlyBrackets = currentToken.type else {
+            throw ParserError.unexpectedToken(currentToken)
+        }
+        next()
+        
+        return ASTProtocolDeclaration(name: ASTIdentifier(name: protocolName), functions: functions)
+    }
     
     
     

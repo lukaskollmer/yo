@@ -13,12 +13,23 @@ class ASTFunctionDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated {
         case global              // a global function
         case impl(String)        // instance function for some type
         case staticImpl(String)  // static function for some type
+        
+        func withTypename(_ typename: String) -> Kind {
+            switch self {
+            case .global:
+                return .global
+            case .impl(_):
+                return .impl(typename)
+            case .staticImpl(_):
+                return .staticImpl(typename)
+            }
+        }
     }
     
     let name: ASTIdentifier
     let parameters: [ASTVariableDeclaration]
     var returnType: ASTType
-    let kind: Kind
+    var kind: Kind
     let body: ASTComposite
     var annotations: [ASTAnnotation.Element]
     

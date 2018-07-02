@@ -22,6 +22,10 @@ impl String {
 
     }
 
+    fn hashValue(self: String): int {
+        ret runtime::_hashString(self);
+    }
+
 
     fn dealloc(self: String): void {
         runtime::free(self._backing);

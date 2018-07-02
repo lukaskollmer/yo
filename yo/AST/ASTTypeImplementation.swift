@@ -11,7 +11,7 @@ import Foundation
 
 class ASTTypeImplementation: ASTStatement {
     let typename: ASTIdentifier
-    let functions: [ASTFunctionDeclaration]
+    var functions: [ASTFunctionDeclaration]
     
     init(typename: ASTIdentifier, functions: [ASTFunctionDeclaration]) {
         self.typename = typename

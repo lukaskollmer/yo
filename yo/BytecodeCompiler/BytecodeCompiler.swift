@@ -96,7 +96,9 @@ class BytecodeCompiler {
         
         var ast = try resolveImports(in: ast)
         
-        ast
+        
+        // TODO do we really need this?
+        /*ast
             .compactMap { $0 as? ASTTypeImplementation }
             .lk_flatMap { $0.functions }
             .forEach { function in
@@ -118,8 +120,7 @@ class BytecodeCompiler {
                 if function.returnType == .Self {
                     function.returnType = self_type
                 }
-        }
-        
+        }*/
         
         // TODO
         // problem: how can we detect whether types define a custom dealloc function if we generate the initializers before semantic analysis?
@@ -132,6 +133,62 @@ class BytecodeCompiler {
         // import semantic analysis results
         self.functions.insert(contentsOf: semanticAnalysis.globalFunctions)
         semanticAnalysis.types.forEach(self.typeCache.register)
+        
+        
+        let _allProtocols = ast.compactMap { $0 as? ASTProtocolDeclaration }
+        let getProtocolWithName: (ASTIdentifier) -> ASTProtocolDeclaration? = { identifier in
+            _allProtocols
+                .first { $0.name == identifier }
+        }
+        
+        // Every type implicitly comforms to `Object`
+        ast
+            .compactMap { $0 as? ASTTypeDeclaration }
+            .forEach { $0.protocols.append("Object") }
+        
+        for typeDeclaration in ast.compactMap({ $0 as? ASTTypeDeclaration }) {
+            let typename = typeDeclaration.name.name
+            let allTypeFunctions = ast.compactMap { $0 as? ASTTypeImplementation }.lk_flatMap { $0.functions }.map { $0.mangledName }
+            
+            let protocolImplementation = ASTTypeImplementation(typename: typeDeclaration.name, functions: [])
+            
+            for protocolName in typeDeclaration.protocols {
+                guard let _protocol = getProtocolWithName(protocolName) else {
+                    fatalError("Cannot implement nonexistent protocol \(protocolName)")
+                }
+                
+                for fn in _protocol.functions {
+                    let implementation = ASTFunctionDeclaration(
+                        name: fn.name,
+                        parameters: fn.parameters.map { parameter in
+                            return ASTVariableDeclaration(identifier: parameter.identifier, type: parameter.type == .Self ? .complex(name: typename) : parameter.type)
+                        },
+                        returnType: fn.returnType,
+                        kind: fn.kind.withTypename(typename),
+                        annotations: fn.annotations,
+                        body: fn.body)
+                    
+                    if allTypeFunctions.contains(implementation.mangledName) {
+                        // Q: Why can't we check this before creating the function object?
+                        // A: We don't (yet) have the mangled name at that point in time
+                        // TODO fix?
+                        continue
+                    }
+                    
+                    protocolImplementation.functions.append(implementation)
+                    functions[implementation.mangledName] = (
+                        implementation.parameters.count,
+                        implementation.parameters.map { $0.type },
+                        implementation.returnType,
+                        implementation.annotations
+                    )
+                }
+                
+            }
+            
+            ast.append(protocolImplementation)
+        }
+        
         
         ast.insert(contentsOf: AutoSynthesizedCodeGen.synthesize(for: ast, globalFunctions: &functions, typeCache: typeCache), at: ast.count - 2) // TODO what if theres less elements in the ast?
         
@@ -313,6 +370,9 @@ private extension BytecodeCompiler {
             
         } else if let boxedExpression = node as? ASTBoxedExpression {
             try handle(boxedExpression: boxedExpression)
+            
+        } else if let protocolDeclaration = node as? ASTProtocolDeclaration {
+            // pass? // TODO
             
         } else if let _ = node as? ASTNoop {
             
@@ -681,6 +741,7 @@ private extension BytecodeCompiler {
         }
         
     }
+
     
     
     

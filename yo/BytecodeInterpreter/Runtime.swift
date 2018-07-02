@@ -87,6 +87,12 @@ class Runtime {
             return 0
         }
         
+        // MARK: Hashing?
+        
+        self["runtime", "_hashString", .int, [.String]] = { interpreter in
+            return self.getString(atAddress: interpreter.stack.peek(), heap: interpreter.heap).hashValue
+        }
+        
         // MARK: IO
         
         
@@ -120,7 +126,14 @@ class Runtime {
             var nextScalarFormatToken = false
             var arg_index = 0
             
-            for scalar in scalars {
+            var skipNext = false
+            for (index, scalar) in scalars.enumerated() {
+                if skipNext {
+                    skipNext = false
+                    continue
+                }
+                
+                let isLast = index >= scalars.count - 1
                 
                 if nextScalarFormatToken {
                     switch scalar {
@@ -136,7 +149,12 @@ class Runtime {
                         let type = heap[addr + 2]
                         switch type {
                         case 0:
-                            text += String(value)
+                            if !isLast && scalars[index + 1] == "h" {
+                                skipNext = true
+                                text += "0x" + String(value, radix: 16).padding(.left, toLength: 9, withPad: "0")
+                            } else {
+                                text += String(value, radix: 10)
+                            }
                         case 1:
                             text += String(value.unsafe_loadAsDouble)
                         default:

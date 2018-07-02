@@ -12,11 +12,13 @@ import Foundation
 class ASTTypeDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated {
     let name: ASTIdentifier
     let attributes: [ASTVariableDeclaration]
+    var protocols: [ASTIdentifier]
     var annotations: [ASTAnnotation.Element]
     
-    init(name: ASTIdentifier, attributes: [ASTVariableDeclaration], annotations: [ASTAnnotation.Element] = []) {
+    init(name: ASTIdentifier, attributes: [ASTVariableDeclaration], protocols: [ASTIdentifier] = [], annotations: [ASTAnnotation.Element] = []) {
         self.name = name
         self.attributes = attributes
+        self.protocols = protocols
         self.annotations = annotations
     }
 }

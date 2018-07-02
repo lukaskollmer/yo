@@ -25,4 +25,9 @@ impl Number {
         }
         ret (self._value as int) as double;
     }
+
+
+    fn hashValue(self: Number): int {
+        ret (self._value << 1) | self._type;
+    }
 }
