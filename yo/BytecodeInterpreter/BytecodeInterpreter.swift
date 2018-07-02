@@ -77,6 +77,7 @@ class BytecodeInterpreter {
         try stack.push(stack.framePointer)
         try stack.push(instructionPointer + 0)  // return address. since this is a native call, we return to the same address?
         
+        //try arguments/*.reversed()*/.forEach(stack.push)
         try arguments.reversed().forEach(stack.push)
         
         stack.framePointer = stack.stackPointer
@@ -283,6 +284,7 @@ class BytecodeInterpreter {
             try stack.push(stack.framePointer)
             try stack.push(instructionPointer + 1)
             
+            //try args/*.reversed()*/.forEach(stack.push)
             try args.reversed().forEach(stack.push)
             
             stack.framePointer = stack.stackPointer

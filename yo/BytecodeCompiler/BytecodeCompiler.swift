@@ -914,6 +914,7 @@ private extension BytecodeCompiler {
         
         
         // push arguments on the stack
+        //for (index, var arg) in functionCall.arguments.enumerated() { //.reversed() {
         for (index, var arg) in functionCall.arguments.enumerated().reversed() {
             let expectedType = functionInfo.parameterTypes[index]
             
