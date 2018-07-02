@@ -1314,17 +1314,17 @@ private extension BytecodeCompiler {
             add(.eq)
         case .notEqual:
             add(.eq)
-            add(.not)
+            add(.lnot)
         case .less:
             add(.lt)
         case .greater:
             add(.le)
-            add(.not)
+            add(.lnot)
         case .lessEqual:
             add(.le)
         case .greaterEqual:
             add(.lt)
-            add(.not)
+            add(.lnot)
         }
     }
     
