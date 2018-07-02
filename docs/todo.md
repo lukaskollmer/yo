@@ -41,3 +41,4 @@
 - [ ] reset parsed annotations when they'd become invalid (not sure if this is actually a problem)
 - [ ] allow disabling arc for an entire type/impl block
 - [ ] allow disabling getters/setters for individual attributes
+- [ ] don't evaluate function arguments right to left
