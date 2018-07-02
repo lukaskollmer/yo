@@ -16,6 +16,10 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
     case function(returnType: ASTType, parameterTypes: [ASTType])   // a function pointer
     case unresolved
     
+    static let primitives: [ASTType] = [.bool, .int, .double, .any, .void]
+    static let primitiveTypenames = ASTType.primitives.map { $0.typename }
+    
+    static let bool   = ASTType.primitive(name: "bool")
     static let int    = ASTType.primitive(name: "int")
     static let double = ASTType.primitive(name: "double")
     static let any    = ASTType.primitive(name: "any")

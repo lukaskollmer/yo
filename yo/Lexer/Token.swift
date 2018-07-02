@@ -77,7 +77,8 @@ enum TokenType: Equatable, Hashable {
     case `protocol`
     case null
     case `as`
-    
+    case `true`
+    case `false`
     case EOF
 }
 

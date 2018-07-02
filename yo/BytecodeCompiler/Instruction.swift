@@ -56,7 +56,8 @@ enum Operation: Int {
     case shl
     case shr
     
-    case not
+    case not    // ~<expr>  (bitwise not)
+    case lnot   // !<expr>  (logical not)
     
     // floating point support // TODO
     case cvti2d

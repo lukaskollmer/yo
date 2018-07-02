@@ -195,7 +195,7 @@ class BytecodeCompiler {
         // add the bootstrapping instructions
         add(.push, unresolvedLabel: "main")
         add(.call, 0)
-        add(.push, -1)
+        add(.push, ASTBooleanLiteral.trueRawValue)
         add(.jump, unresolvedLabel: "end")
         
         // run codegen
@@ -371,8 +371,11 @@ private extension BytecodeCompiler {
         } else if let boxedExpression = node as? ASTBoxedExpression {
             try handle(boxedExpression: boxedExpression)
             
-        } else if let protocolDeclaration = node as? ASTProtocolDeclaration {
+        } else if let _ = node as? ASTProtocolDeclaration {
             // pass? // TODO
+            
+        } else if let booleanLiteral = node as? ASTBooleanLiteral {
+            try handle(booleanLiteral: booleanLiteral)
             
         } else if let _ = node as? ASTNoop {
             
@@ -616,7 +619,7 @@ private extension BytecodeCompiler {
         // 3. handle the else jump
         // if this is a while loop, we just jump to the end
         // if this is an if statement that has an else branch, we jump there, otherwise to the end
-        add(.push, -1)
+        add(.push, ASTBooleanLiteral.trueRawValue)
         if case .if(let elseBranch) = conditionalStatement.kind, elseBranch != nil {
             add(.jump, unresolvedLabel: generateLabel("else"))
         } else {
@@ -629,7 +632,7 @@ private extension BytecodeCompiler {
         try handle(composite: conditionalStatement.body)
         
         // depending on which kind of conditional statement this is, we jump to the end (if) the condition (while), or the increment (for)
-        add(.push, -1)
+        add(.push, ASTBooleanLiteral.trueRawValue)
         
         switch conditionalStatement.kind {
         case .while:
@@ -664,7 +667,7 @@ private extension BytecodeCompiler {
             fatalError("ugh something went wrong")
         }
         
-        add(.push, -1)
+        add(.push, ASTBooleanLiteral.trueRawValue)
         add(.jump, unresolvedLabel: breakDestination)
     }
     
@@ -673,7 +676,7 @@ private extension BytecodeCompiler {
             fatalError("ugh sorry for that")
         }
         
-        add(.push, -1)
+        add(.push, ASTBooleanLiteral.trueRawValue)
         add(.jump, unresolvedLabel: continueDestination)
     }
     
@@ -1108,6 +1111,10 @@ private extension BytecodeCompiler {
         case .bitwiseNot:
             try handle(node: unary.expression)
             add(.not)
+            
+        case .logicalNegation:
+            try handle(node: unary.expression)
+            add(.lnot)
         }
     }
     
@@ -1265,6 +1272,11 @@ private extension BytecodeCompiler {
     }
     
     
+    func handle(booleanLiteral: ASTBooleanLiteral) throws {
+        add(.push, booleanLiteral.value ? 1 : 0)
+    }
+    
+    
     
     func handle(condition: ASTCondition) throws {
         if let comparison = condition as? ASTComparison {
@@ -1308,17 +1320,17 @@ private extension BytecodeCompiler {
         try handle(node: binaryCondition.rhs)
         
         // the last two values on the stack are now one of these options:
-        // -1, -1   (lhs: true  | rhs: true )
-        // -1,  0   (lhs: true  | rhs: false)
-        //  0, -1   (lhs: false | rhs: true )
-        //  0,  0   (lhs: false | rhs: false)
+        // 1, 1   (lhs: true  | rhs: true )
+        // 1, 0   (lhs: true  | rhs: false)
+        // 0, 1   (lhs: false | rhs: true )
+        // 0, 0   (lhs: false | rhs: false)
         
         // we now add the last two entries on the stack
-        // if the result is -2, both are true
-        // if the result is -1, one of them is true
+        // if the result is 2, both are true
+        // if the result is 1, one of them is true
         // if the result is  0, both are false
         
-        let expectedResult = binaryCondition.operator == .and ? -2 : -1
+        let expectedResult = binaryCondition.operator == .and ? 2 : 1
         
         add(.add)
         add(.push, expectedResult)
@@ -1398,6 +1410,9 @@ private extension BytecodeCompiler {
             } else if expression is ASTArrayLiteral {
                 return .Array
                 
+            } else if expression is ASTBooleanLiteral {
+                return .bool
+                
             } else if let assignedValueMemberAccess = expression as? ASTMemberAccess {
                 return try processMemberAccess(memberAccess: assignedValueMemberAccess).types.last!
                 
@@ -1411,6 +1426,8 @@ private extension BytecodeCompiler {
                 return try boxedType(ofExpression: boxedExpression.expression)
             }
             
+            // We seem to hit this error pretty often (/always?) when encountering an undefined identifier
+            // TODO add a check whether the identifier actually exists first, so that we can throw a proper error message
             fatalError("unable to infer type of \(expression)")
         }
     }

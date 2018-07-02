@@ -58,11 +58,11 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "yo/BytecodeCompiler/BytecodeCompiler.swift"
-            timestampString = "552209851.549628"
+            timestampString = "552215351.102548"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1009"
-            endingLineNumber = "1009"
+            startingLineNumber = "1012"
+            endingLineNumber = "1012"
             landmarkName = "processMemberAccess(memberAccess:)"
             landmarkType = "7">
             <Locations>
@@ -74,11 +74,11 @@
                   moduleName = "yo"
                   usesParentBreakpointCondition = "Yes"
                   urlString = "file:///Users/lukas/Developer/yo/yo/BytecodeCompiler/BytecodeCompiler.swift"
-                  timestampString = "552209852.1081049"
+                  timestampString = "552215351.351463"
                   startingColumnNumber = "9223372036854775807"
                   endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "1009"
-                  endingLineNumber = "1009"
+                  startingLineNumber = "1012"
+                  endingLineNumber = "1012"
                   offsetFromSymbolStart = "3842">
                </Location>
                <Location
@@ -89,11 +89,11 @@
                   moduleName = "yo"
                   usesParentBreakpointCondition = "Yes"
                   urlString = "file:///Users/lukas/Developer/yo/yo/BytecodeCompiler/BytecodeCompiler.swift"
-                  timestampString = "552209852.110113"
+                  timestampString = "552215351.354602"
                   startingColumnNumber = "9223372036854775807"
                   endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "1009"
-                  endingLineNumber = "1009"
+                  startingLineNumber = "1012"
+                  endingLineNumber = "1012"
                   offsetFromSymbolStart = "3865">
                </Location>
             </Locations>

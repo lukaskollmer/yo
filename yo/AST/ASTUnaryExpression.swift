@@ -13,6 +13,7 @@ class ASTUnaryExpression: ASTExpression {
     enum Operator {
         case negate
         case bitwiseNot
+        case logicalNegation
     }
     
     let `operator`: ASTUnaryExpression.Operator

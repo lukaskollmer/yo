@@ -787,6 +787,18 @@ private extension Parser {
     
     func parseExpression() throws -> ASTExpression {
         
+        if [TokenType.true, .false].contains(currentToken.type) {
+            let value = currentToken.type == .true ? true : false
+            next()
+            return ASTBooleanLiteral(value: value)
+        }
+        
+        if case .exclamationMark = currentToken.type {
+            next()
+            let expression = try parseExpression()
+            return ASTUnaryExpression(expression: expression, operator: .logicalNegation)
+        }
+        
         if case .atSign = currentToken.type {
             next()
             let expression = try parseExpression()
@@ -1145,7 +1157,7 @@ private extension Parser {
         case .identifier(let identifier):
             next()
             // TODO what if we introduce other primitive types. refactor into constant declaring all primitive types?
-            return ["int", "double", "void", "any"].contains(identifier) ? .primitive(name: identifier) : .complex(name: identifier)
+            return ASTType.primitiveTypenames.contains(identifier) ? .primitive(name: identifier) : .complex(name: identifier)
             
         case .fn:
             // a function pointer
@@ -1231,7 +1243,8 @@ private extension Parser {
             next()
         
         default:
-            throw ParserError.other("invalid comparison operator")
+            // lhs not followed by a comparison operator -> simple boolean check
+            return ASTComparison(lhs: lhs, operator: .equal, rhs: ASTBooleanLiteral(value: true))
         }
         next()
         

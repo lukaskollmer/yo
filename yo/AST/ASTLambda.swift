@@ -58,6 +58,9 @@ extension ASTNode {
             
         } else if self is ASTArrayLiteral {
             return []
+            
+        } else if self is ASTBooleanLiteral {
+            return []
         
         } else if let composite = self as? ASTComposite {
             return composite.statements.lk_flatMap { $0.getAccessedIdentifiers() }

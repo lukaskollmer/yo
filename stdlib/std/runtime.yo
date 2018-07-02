@@ -13,19 +13,19 @@ impl runtime {
 
 
     #[disable_arc]
-    static fn isObject(obj: any): int {
+    static fn isObject(obj: any): bool {
         if obj == 0 {
-            ret 0;
+            ret false;
         }
 
         if obj % 2 == 0 {
             if obj[0] == 0 {
-                ret 0;
+                ret false;
             }
-            ret 1;
+            ret true;
         }
 
-        ret 0;
+        ret false;
     }
 
 
@@ -37,9 +37,11 @@ impl runtime {
     // Increment an object's retain count by 1
     #[disable_arc]
     static fn retain(obj: any): any {
-        if runtime::isObject(obj) == 0 { ret obj; }
+        if !runtime::isObject(obj) {
+            ret obj;
+        }
 
-        if runtime::isMarkedForRelease(obj) == 1 {
+        if runtime::isMarkedForRelease(obj) {
             runtime::unmarkForRelease(obj);
             ret obj;
         }
@@ -53,14 +55,16 @@ impl runtime {
     // we call the object's dealloc method and free it from the heap
     #[disable_arc]
     static fn release(obj: any): any {
-        if runtime::isObject(obj) == 0 { ret obj; }
+        if !runtime::isObject(obj) {
+            ret obj;
+        }
 
-        if runtime::isMarkedForRelease(obj) == 1 {
+        if runtime::isMarkedForRelease(obj) {
             // we reach here when releasing the unused return vslue from a function call returning a complex object
             runtime::unmarkForRelease(obj);
         }
 
-        if runtime::getRetainCount(obj) == 1 {
+        if runtime::getRetainCount(obj) {
             val dealloc_fn: fn<(any): void> = runtime::_getDeallocAddress(obj) as any;
             dealloc_fn(obj);
             runtime::free(obj);
@@ -79,10 +83,12 @@ impl runtime {
 
     #[disable_arc]
     static fn markForRelease(obj: any): any {
-        if runtime::isObject(obj) == 0 { ret obj; }
+        if !runtime::isObject(obj) {
+            ret obj;
+        }
 
         // make sure the same object isn't marked for release twice
-        if runtime::isMarkedForRelease(obj) == 1 {
+        if runtime::isMarkedForRelease(obj) {
             runtime::fatalError("Fatal Error: object is already marked for release");
         }
 
@@ -93,19 +99,25 @@ impl runtime {
     // newValue should be 0 or 1, everything else is UB
     #[disable_arc]
     static fn unmarkForRelease(obj: any): any {
-        if runtime::isObject(obj) == 0 { ret obj; }
+        if !runtime::isObject(obj) {
+            ret obj;
+        }
+
         obj[0] = obj[0] & ~(1 << 39);
         ret obj;
     }
 
     #[disable_arc]
-    static fn isMarkedForRelease(obj: any): int {
-        if runtime::isObject(obj) == 0 { ret 0; }
+    static fn isMarkedForRelease(obj: any): bool {
+        if !runtime::isObject(obj) {
+            ret false;
+        }
+
         val bit: int = obj[0] & (1 << 39);
         if bit == 0 {
-            ret 0;
+            ret false;
         }
-        ret 1;
+        ret true;
     }
 
 

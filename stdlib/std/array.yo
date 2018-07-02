@@ -71,11 +71,11 @@ impl Array {
 
 
     // Check whether the array contains an object
-    fn contains(self: Array, object: any): int {
+    fn contains(self: Array, object: any): bool {
         if self.indexOf(object) == -1 {
-            ret 0;
+            ret false;
         }
-        ret 1;
+        ret true;
     }
 
 
@@ -148,12 +148,12 @@ impl Array {
     }
 
 
-    fn filter(self: Array, f: fn<(id): id>): Array {
+    fn filter(self: Array, f: fn<(id): bool>): Array {
         val newArray: Array = Array::new();
 
         for i in 0..<self._count {
             val element = self.get(i);
-            if f(element) == 1 {
+            if f(element) {
                 newArray.add(element);
             }
         }

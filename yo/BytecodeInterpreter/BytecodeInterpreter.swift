@@ -189,6 +189,9 @@ class BytecodeInterpreter {
         case .not:
             try stack.push(~(try stack.pop()))
             
+        case .lnot:
+            try stack.push(try stack.pop() == ASTBooleanLiteral.trueRawValue ? ASTBooleanLiteral.falseRawValue : ASTBooleanLiteral.trueRawValue)
+            
             
         // Int <-> Double conversion
         case .cvti2d:
@@ -200,13 +203,13 @@ class BytecodeInterpreter {
             
         // Comparisons
         case .eq:
-            try stack.push((try stack.pop() == stack.pop()) ? -1 : 0)
+            try stack.push((try stack.pop() == stack.pop()) ? ASTBooleanLiteral.trueRawValue : ASTBooleanLiteral.falseRawValue)
             
         case .lt:
-            try stack.push((try stack.pop() < stack.pop()) ? -1 : 0)
+            try stack.push((try stack.pop() < stack.pop()) ? ASTBooleanLiteral.trueRawValue : ASTBooleanLiteral.falseRawValue)
             
         case .le:
-            try stack.push((try stack.pop() <= stack.pop()) ? -1 : 0)
+            try stack.push((try stack.pop() <= stack.pop()) ? ASTBooleanLiteral.trueRawValue : ASTBooleanLiteral.falseRawValue)
         
         
         // Stack operations
@@ -260,7 +263,7 @@ class BytecodeInterpreter {
             
         // jump/call/ret
         case .jump:
-            if try stack.pop() == -1 {
+            if try stack.pop() == ASTBooleanLiteral.trueRawValue {
                 instructionPointer = immediate
             }
         
