@@ -195,7 +195,7 @@ class BytecodeCompiler {
         // add the bootstrapping instructions
         add(.push, unresolvedLabel: "main")
         add(.call, 0)
-        add(.push, ASTBooleanLiteral.trueRawValue)
+        add(.push, Constants.BooleanValues.true)
         add(.jump, unresolvedLabel: "end")
         
         // run codegen
@@ -619,7 +619,7 @@ private extension BytecodeCompiler {
         // 3. handle the else jump
         // if this is a while loop, we just jump to the end
         // if this is an if statement that has an else branch, we jump there, otherwise to the end
-        add(.push, ASTBooleanLiteral.trueRawValue)
+        add(.push, Constants.BooleanValues.true)
         if case .if(let elseBranch) = conditionalStatement.kind, elseBranch != nil {
             add(.jump, unresolvedLabel: generateLabel("else"))
         } else {
@@ -632,7 +632,7 @@ private extension BytecodeCompiler {
         try handle(composite: conditionalStatement.body)
         
         // depending on which kind of conditional statement this is, we jump to the end (if) the condition (while), or the increment (for)
-        add(.push, ASTBooleanLiteral.trueRawValue)
+        add(.push, Constants.BooleanValues.true)
         
         switch conditionalStatement.kind {
         case .while:
@@ -667,7 +667,7 @@ private extension BytecodeCompiler {
             fatalError("ugh something went wrong")
         }
         
-        add(.push, ASTBooleanLiteral.trueRawValue)
+        add(.push, Constants.BooleanValues.true)
         add(.jump, unresolvedLabel: breakDestination)
     }
     
@@ -676,7 +676,7 @@ private extension BytecodeCompiler {
             fatalError("ugh sorry for that")
         }
         
-        add(.push, ASTBooleanLiteral.trueRawValue)
+        add(.push, Constants.BooleanValues.true)
         add(.jump, unresolvedLabel: continueDestination)
     }
     
@@ -1254,21 +1254,27 @@ private extension BytecodeCompiler {
     
     func handle(boxedExpression: ASTBoxedExpression) throws {
         let type = try guessType(ofExpression: boxedExpression.expression)
-        switch type {
-        case .int, .double:
-            
-            let _type: Int = type == .int ? 0 : 1
-            
-            let initCall = ASTFunctionCall(
-                functionName: SymbolMangling.mangleInitializer(forType: "Number"),
-                arguments: [boxedExpression.expression, ASTNumberLiteral(value: _type)],
-                unusedReturnValue: false
-            )
-            
-            try handle(node: initCall)
-        default:
+        
+        guard [ASTType.int, .double, .bool].contains(type) else {
             fatalError("Unable to box expression of type \(type)")
         }
+        
+        let _type: Int = {
+            switch type {
+            case .int:    return Constants.NumberTypeMapping.integer
+            case .bool:   return Constants.NumberTypeMapping.boolean
+            case .double: return Constants.NumberTypeMapping.double
+            default: fatalError()
+            }
+        }()
+        
+        let initCall = ASTFunctionCall(
+            functionName: SymbolMangling.mangleInitializer(forType: "Number"),
+            arguments: [boxedExpression.expression, ASTNumberLiteral(value: _type)],
+            unusedReturnValue: false
+        )
+        
+        try handle(node: initCall)
     }
     
     

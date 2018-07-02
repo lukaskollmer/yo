@@ -190,7 +190,7 @@ class BytecodeInterpreter {
             try stack.push(~(try stack.pop()))
             
         case .lnot:
-            try stack.push(try stack.pop() == ASTBooleanLiteral.trueRawValue ? ASTBooleanLiteral.falseRawValue : ASTBooleanLiteral.trueRawValue)
+            try stack.push(try stack.pop() == Constants.BooleanValues.true ? Constants.BooleanValues.false : Constants.BooleanValues.true)
             
             
         // Int <-> Double conversion
@@ -203,13 +203,13 @@ class BytecodeInterpreter {
             
         // Comparisons
         case .eq:
-            try stack.push((try stack.pop() == stack.pop()) ? ASTBooleanLiteral.trueRawValue : ASTBooleanLiteral.falseRawValue)
+            try stack.push((try stack.pop() == stack.pop()) ? Constants.BooleanValues.true : Constants.BooleanValues.false)
             
         case .lt:
-            try stack.push((try stack.pop() < stack.pop()) ? ASTBooleanLiteral.trueRawValue : ASTBooleanLiteral.falseRawValue)
+            try stack.push((try stack.pop() < stack.pop()) ? Constants.BooleanValues.true : Constants.BooleanValues.false)
             
         case .le:
-            try stack.push((try stack.pop() <= stack.pop()) ? ASTBooleanLiteral.trueRawValue : ASTBooleanLiteral.falseRawValue)
+            try stack.push((try stack.pop() <= stack.pop()) ? Constants.BooleanValues.true : Constants.BooleanValues.false)
         
         
         // Stack operations
@@ -263,7 +263,7 @@ class BytecodeInterpreter {
             
         // jump/call/ret
         case .jump:
-            if try stack.pop() == ASTBooleanLiteral.trueRawValue {
+            if try stack.pop() == Constants.BooleanValues.true {
                 instructionPointer = immediate
             }
         

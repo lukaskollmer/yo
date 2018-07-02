@@ -148,14 +148,16 @@ class Runtime {
                         let value = heap[addr + 1]
                         let type = heap[addr + 2]
                         switch type {
-                        case 0:
+                        case Constants.NumberTypeMapping.integer:
                             if !isLast && scalars[index + 1] == "h" {
                                 skipNext = true
                                 text += "0x" + String(value, radix: 16).padding(.left, toLength: 9, withPad: "0")
                             } else {
                                 text += String(value, radix: 10)
                             }
-                        case 1:
+                        case Constants.NumberTypeMapping.boolean:
+                            text += value == 0 ? "false" : "true"
+                        case Constants.NumberTypeMapping.double:
                             text += String(value.unsafe_loadAsDouble)
                         default:
                             fatalError("Unsupported Number type \(type)")

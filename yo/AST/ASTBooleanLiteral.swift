@@ -10,8 +10,6 @@ import Foundation
 
 
 class ASTBooleanLiteral: ASTExpression {
-    static let trueRawValue  = 1
-    static let falseRawValue = 0
     
     let value: Bool
     

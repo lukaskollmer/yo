@@ -8,9 +8,14 @@ impl Number {
         ret Number::init(value, 0);
     }
 
-    static fn fromDouble(value: double): Number {
+    static fn fromBoolean(value: bool): Number {
         ret Number::init(value, 1);
     }
+
+    static fn fromDouble(value: double): Number {
+        ret Number::init(value, 2);
+    }
+
 
     fn intValue(self: Number): int {
         if self._type == 0 {
@@ -28,6 +33,6 @@ impl Number {
 
 
     fn hashValue(self: Number): int {
-        ret (self._value << 1) | self._type;
+        ret (self._value << 2) | self._type;
     }
 }
