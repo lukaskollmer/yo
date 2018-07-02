@@ -144,6 +144,7 @@ class BytecodeCompiler {
         // Every type implicitly comforms to `Object`
         ast
             .compactMap { $0 as? ASTTypeDeclaration }
+            .filter { !$0.isStruct }
             .forEach { $0.protocols.append("Object") }
         
         for typeDeclaration in ast.compactMap({ $0 as? ASTTypeDeclaration }) {
@@ -405,7 +406,7 @@ private extension BytecodeCompiler {
             
             if arcEnabledInCurrentScope {
                 try function.parameters
-                    .filter { $0.type.supportsReferenceCounting }
+                    .filter { $0.type.supportsReferenceCounting && !typeCache.isStruct($0.type.typename) }
                     .forEach { try retain(expression: $0.identifier) }
             }
             
@@ -490,7 +491,12 @@ private extension BytecodeCompiler {
                 try composite.statements.forEach(handle)
                 let localVariables = composite.statements.getLocalVariables(recursive: false)
                 
-                try localVariables.filter { try scope.type(of: $0.identifier.name).supportsReferenceCounting }.forEach { try release(expression: $0.identifier) }
+                try localVariables
+                    .filter { variable in
+                        let type = try scope.type(of: variable.identifier.name)
+                        return type.supportsReferenceCounting && !typeCache.isStruct(type.typename)
+                    }
+                    .forEach { try release(expression: $0.identifier) }
                 for _ in 0..<localVariables.count { add(.pop) }
             } else {
                 // the composite contains a return statement
@@ -502,7 +508,9 @@ private extension BytecodeCompiler {
                         let returnedLocalIdentifier: ASTIdentifier?
                         
                         if let _returnedLocalIdentifier = returnStatement.expression as? ASTIdentifier,
-                            try scope.contains(identifier: _returnedLocalIdentifier.name) && scope.type(of: _returnedLocalIdentifier.name).supportsReferenceCounting { // TODO not sure whether replacing isComplex w/ supportsReferenceCounting was the right idea here...
+                            scope.contains(identifier: _returnedLocalIdentifier.name),
+                            case let type = try scope.type(of: _returnedLocalIdentifier.name),
+                            type.supportsReferenceCounting && !typeCache.isStruct(type.typename) { // TODO not sure whether replacing isComplex w/ supportsReferenceCounting was the right idea here...
                             returnedLocalIdentifier = _returnedLocalIdentifier
                         } else {
                             returnedLocalIdentifier = nil
@@ -521,7 +529,8 @@ private extension BytecodeCompiler {
                                 .filter { $0 != retval_temp_storage }
                                 .filter { returnedLocalIdentifier == nil || $0.identifier != returnedLocalIdentifier! }
                                 .forEach { variable in
-                                    if try scope.type(of: variable.identifier.name).supportsReferenceCounting {
+                                    let type = try scope.type(of: variable.identifier.name)
+                                    if try type.supportsReferenceCounting && !typeCache.isStruct(type.typename) {
                                         try release(expression: variable.identifier)
                                     }
                                 }
@@ -696,7 +705,7 @@ private extension BytecodeCompiler {
             fatalError("cannot assign value of type `\(rhsType)` to `\(lhsType)`")
         }
         
-        let shouldArcLhs = assignment.shouldRetainAssignedValueIfItIsAnObject && arcEnabledInCurrentScope && lhsType.supportsReferenceCounting
+        let shouldArcLhs = assignment.shouldRetainAssignedValueIfItIsAnObject && arcEnabledInCurrentScope && lhsType.supportsReferenceCounting && !typeCache.isStruct(lhsType.typename)
         
         var target: ASTExpression = assignment.target
         

@@ -12,7 +12,7 @@ import Foundation
 /// An `ASTType` describes the type of an identifier: whether it is primitive, complex or a function pointer
 indirect enum ASTType: Equatable, CustomStringConvertible {
     case primitive(name: String)    // int/void
-    case complex(name: String)      // something declared w/ the `type` keyword
+    case complex(name: String)      // something declared w/ the `type` or `struct` keyword
     case function(returnType: ASTType, parameterTypes: [ASTType])   // a function pointer
     case unresolved
     

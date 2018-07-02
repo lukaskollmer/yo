@@ -61,6 +61,7 @@ enum TokenType: Equatable, Hashable {
     // keywords
     case use
     case type
+    case `struct`
     case impl
     case `static`
     case fn

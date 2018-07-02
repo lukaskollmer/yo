@@ -30,13 +30,17 @@ class TypeCache {
     }
     
     func offset(ofMember member: String, inType typename: String) -> Int {
-        guard typeExists(withName: typename) else {
+        guard let type = self.type(withName: typename) else {
             fatalError("type \(typename) doesn't exist")
         }
         
-        return self.type(withName: typename)!
+        return type
             .attributes
-            .index { $0.identifier.name == member }! + 1
+            .index { $0.identifier.name == member }! + (type.isStruct ? 0 : 1)
+    }
+    
+    func isStruct(_ typename: String) -> Bool {
+        return self.type(withName: typename)?.isStruct ?? false
     }
     
     

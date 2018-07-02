@@ -20,8 +20,11 @@ class AutoSynthesizedCodeGen {
         
         for typeDeclaration in ast.compactMap({ $0 as? ASTTypeDeclaration }) {
             retval.append(generateInitializer(forType: typeDeclaration, globalFunctions: &globalFunctions, typeCache: typeCache))
-            retval.append(generateDeallocFunction(forType: typeDeclaration, globalFunctions: &globalFunctions))
-            retval.append(contentsOf: generateGettersAndSetters(forType: typeDeclaration, globalFunctions: &globalFunctions, typeCache: typeCache))
+            
+            if !typeDeclaration.isStruct {
+                retval.append(generateDeallocFunction(forType: typeDeclaration, globalFunctions: &globalFunctions))
+                retval.append(contentsOf: generateGettersAndSetters(forType: typeDeclaration, globalFunctions: &globalFunctions, typeCache: typeCache))
+            }
         }
         
         return retval
@@ -49,26 +52,32 @@ class AutoSynthesizedCodeGen {
                     target: _self,
                     value: ASTFunctionCall(
                         functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "alloc"),
-                        arguments: [ASTNumberLiteral(value: typeDeclaration.attributes.count + 1)],
+                        arguments: [ASTNumberLiteral(value: typeDeclaration.attributes.count + (typeDeclaration.isStruct ? 0 : 1))],
                         unusedReturnValue: false)
                 ),
                 
-                // set the address of the type's dealloc function
-                // since we have to resolve this at compile time, we push the address of the function onto the stack, then use a noop as the value expression
-                
-                // push the type's dealloc address onto the stack and shift it 40 to the left
-                ASTRawWIPInstruction(instruction: .operation(.push, 40)),
-                ASTRawWIPInstruction(instruction: .unresolved(.push, deallocFunction)),
-                ASTRawWIPInstruction(instruction: .operation(.shl, 0)),
-                
-                // push the type's id onto the stack
-                ASTRawWIPInstruction(instruction: .operation(.push, typeCache.index(ofType: typename))),
-                
-                // combine dealloc address and type id
-                ASTRawWIPInstruction(instruction: .operation(.or, 0)),
-                
-                // set the type's dealloc address and type id (from the steps above) in its first field
-                ASTArraySetter(target: _self, offset: ASTNumberLiteral(value: 0), value: ASTNoop()),
+                typeDeclaration.isStruct
+                    ? ASTNoop()
+                    : ASTComposite(statements: [
+                        // fill the metadata field
+                        // set the address of the type's dealloc function
+                        // since we have to resolve this at compile time, we push the address of the function onto the stack, then use a noop as the value expression
+                        
+                        // push the type's dealloc address onto the stack and shift it 40 to the left
+                        ASTRawWIPInstruction(instruction: .operation(.push, 40)),
+                        ASTRawWIPInstruction(instruction: .unresolved(.push, deallocFunction)),
+                        ASTRawWIPInstruction(instruction: .operation(.shl, 0)),
+                        
+                        // push the type's id onto the stack
+                        ASTRawWIPInstruction(instruction: .operation(.push, typeCache.index(ofType: typename))),
+                        
+                        // combine dealloc address and type id
+                        ASTRawWIPInstruction(instruction: .operation(.or, 0)),
+                        
+                        // set the type's dealloc address and type id (from the steps above) in its first field
+                        ASTArraySetter(target: _self, offset: ASTNumberLiteral(value: 0), value: ASTNoop()),
+                    ]
+                ),
                 
                 // go through the parameters and fill the attributes
                 ASTComposite(
@@ -76,8 +85,8 @@ class AutoSynthesizedCodeGen {
                         let (offset, attribute) = arg0
                         return ASTArraySetter(
                             target: _self,
-                            offset: ASTNumberLiteral(value: offset + 1),
-                            value: !attribute.type.isComplex
+                            offset: ASTNumberLiteral(value: offset + (typeDeclaration.isStruct ? 0 : 1)),
+                            value: typeDeclaration.isStruct || !attribute.type.isComplex
                                 ? attribute.identifier
                                 : ASTFunctionCall(
                                     functionName: SymbolMangling.retain,

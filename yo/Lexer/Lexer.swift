@@ -60,6 +60,7 @@ private let tokenMapping: [String: TokenType] = [
     // keywords
     "use"   : .use,
     "type"  : .type,
+    "struct": .struct,
     "impl"  : .impl,
     "static": .static,
     "fn"    : .fn,

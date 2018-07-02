@@ -15,6 +15,10 @@ class ASTTypeDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated {
     var protocols: [ASTIdentifier]
     var annotations: [ASTAnnotation.Element]
     
+    var isStruct: Bool {
+        return annotations.contains("struct")
+    }
+    
     init(name: ASTIdentifier, attributes: [ASTVariableDeclaration], protocols: [ASTIdentifier] = [], annotations: [ASTAnnotation.Element] = []) {
         self.name = name
         self.attributes = attributes

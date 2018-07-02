@@ -77,12 +77,11 @@ private extension Parser {
         
         if isTopLevel {
             // Currently parsing a top level expression
-            // The only allowed top level statement are `use`, `type`, `impl` and `fn`
             
             switch currentToken.type {
             case .use:
                 return try parseImport()
-            case .type:
+            case .type, .struct:
                 return try parseTypeDeclaration()
             case .fn:
                 return try parseFunction()
@@ -500,9 +499,11 @@ private extension Parser {
     
     
     func parseTypeDeclaration() throws -> ASTTypeDeclaration {
-        guard case .type = currentToken.type else {
+        guard [TokenType.type, .struct].contains(currentToken.type) else {
             throw ParserError.unexpectedToken(currentToken)
         }
+        
+        let isStruct = currentToken.type == .struct
         next()
         
         let name = try parseIdentifier()
@@ -533,7 +534,8 @@ private extension Parser {
         return ASTTypeDeclaration(
             name: name,
             attributes: attributes,
-            protocols: protocols
+            protocols: protocols,
+            annotations: isStruct ? ["struct"] : []
         )
     }
     
