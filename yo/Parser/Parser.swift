@@ -789,6 +789,11 @@ private extension Parser {
     
     func parseExpression() throws -> ASTExpression {
         
+        if case .nil = currentToken.type {
+            next()
+            return ASTNumberLiteral(value: 0).as(.id) // TODO make this a macro instead?
+        }
+        
         if [TokenType.true, .false].contains(currentToken.type) {
             let value = currentToken.type == .true ? true : false
             next()

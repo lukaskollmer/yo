@@ -80,6 +80,7 @@ enum TokenType: Equatable, Hashable {
     case `as`
     case `true`
     case `false`
+    case `nil`
     case EOF
 }
 

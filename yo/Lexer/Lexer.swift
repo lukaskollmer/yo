@@ -79,6 +79,7 @@ private let tokenMapping: [String: TokenType] = [
     "as"    : .as,
     "true"  : .true,
     "false" : .false,
+    "nil"   : .nil,
     
 ]
 
