@@ -80,6 +80,9 @@ enum Operation: Int {
     case storeh // write a value to an array allocated on the heap
     case loadc  // load the array constant starting at immediate into a heap array and push the address onto the heap
     
+    case readh  // read a value from the address in the immediate
+    case writeh // write a value at the address in the immediate
+    
     case jump
     case call
     case ret

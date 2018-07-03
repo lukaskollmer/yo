@@ -62,6 +62,7 @@ class BytecodeCompiler {
     private var scope = Scope(type: .global)
     private var typeCache = TypeCache()
     private var functions = GlobalFunctions()
+    private var globals = [ASTVariableDeclaration]()
     
     private var breakDestination: String?
     private var continueDestination: String?
@@ -121,10 +122,6 @@ class BytecodeCompiler {
                     function.returnType = self_type
                 }
         }*/
-        
-        // TODO
-        // problem: how can we detect whether types define a custom dealloc function if we generate the initializers before semantic analysis?
-        //generateInitializers(forTypesIn: &ast)
         
         
         // perform semantic analysis
@@ -191,11 +188,85 @@ class BytecodeCompiler {
         }
         
         
+        // Generate initializers, getters/setters and dealloc functions
         ast.insert(contentsOf: AutoSynthesizedCodeGen.synthesize(for: ast, globalFunctions: &functions, typeCache: typeCache), at: ast.count - 2) // TODO what if theres less elements in the ast?
         
-        // add the bootstrapping instructions
-        add(.push, unresolvedLabel: "main")
-        add(.call, 0)
+        globals.append(contentsOf: semanticAnalysis.globals.map { ASTVariableDeclaration(identifier: $0.identifier, type: $0.type) })
+        
+        
+        // Generate a static initializer to initialize all globals
+        
+        let initializeGlobals = ASTFunctionDeclaration(
+            name: "__initialize_globals",
+            parameters: [],
+            returnType: .void,
+            kind: .global,
+            annotations: [.static_initializer],
+            body: [
+                // First, we allocate space for the pointers to each global variable (or their values, if they are primitives)
+                ASTFunctionCall(functionName: SymbolMangling.alloc, arguments: [ASTNumberLiteral(value: semanticAnalysis.globals.count * 2)], unusedReturnValue: true),
+                ASTComposite(statements:
+                    semanticAnalysis.globals.map { global in
+                        let value: ASTExpression = {
+                            if let initialValue = global.initialValue {
+                                return !global.type.supportsReferenceCounting
+                                ? initialValue
+                                : ASTFunctionCall(functionName: SymbolMangling.retain, arguments: [initialValue], unusedReturnValue: false)
+                            }
+                            
+                            return ASTNumberLiteral(value: 0)
+                        }()
+                        
+                        return ASTArraySetter(
+                            target: ASTNumberLiteral(value: 0),
+                            offset: ASTNumberLiteral(value: _actualAddressOfGlobal(withIdentifier: global.identifier)!),
+                            value: value
+                        )
+                    }
+                )
+            ]
+        )
+        functions[initializeGlobals.mangledName] = (0, [], .void, [.static_initializer])
+        ast.insert(initializeGlobals, at: 0)
+        
+        let releaseGlobals = ASTFunctionDeclaration(
+            name: "__release_globals",
+            parameters: [],
+            returnType: .void,
+            kind: .global,
+            annotations: [.static_cleanup],
+            body: ASTComposite(statements:
+                semanticAnalysis.globals.filter{ $0.type.supportsReferenceCounting }.map { global in
+                    return ASTFunctionCall(functionName: SymbolMangling.release, arguments: [global.identifier], unusedReturnValue: true)
+                } + [
+                    ASTFunctionCall(functionName: SymbolMangling.free, arguments: [ASTNumberLiteral(value: 2)], unusedReturnValue: true)
+                ]
+            )
+        )
+        functions[releaseGlobals.mangledName] = (0, [], .void, [.static_cleanup])
+        ast.insert(releaseGlobals, at: 1)
+        
+        let callAllFunctionsWithAnnotation: (ASTAnnotation.Element) throws -> Void = { annotation in
+            try ast
+                .compactMap { $0 as? ASTFunctionDeclaration }
+                .filter { $0.hasAnnotation(annotation) }
+                .forEach { try self.handle(node: ASTFunctionCall(functionName: $0.mangledName, arguments: [], unusedReturnValue: true)) }
+        }
+        
+        
+        
+        // Generate the bootstrapping instructions
+        // 1. Call all static initializers
+        try callAllFunctionsWithAnnotation(.static_initializer)
+        
+        // 2. Call `main`
+        try handle(node: ASTFunctionCall(functionName: "main", arguments: [], unusedReturnValue: false))
+        
+        // 3. Call cleanup functions
+        try callAllFunctionsWithAnnotation(.static_cleanup)
+        
+        
+        // 3. Jump to `end`
         add(.push, Constants.BooleanValues.true)
         add(.jump, unresolvedLabel: "end")
         
@@ -288,6 +359,14 @@ private extension BytecodeCompiler {
         return !functions[functionName]!.annotations.contains(.disable_arc)
     }
     
+    
+    func _actualAddressOfGlobal(withIdentifier identifier: ASTIdentifier) -> Int? {
+        guard let index = globals.index(where: { $0.identifier == identifier }) else {
+            return nil
+        }
+        return 2 + (2 * index)
+    }
+    
 }
 
 private extension BytecodeCompiler {
@@ -377,6 +456,9 @@ private extension BytecodeCompiler {
             
         } else if let booleanLiteral = node as? ASTBooleanLiteral {
             try handle(booleanLiteral: booleanLiteral)
+        
+        } else if let staticVariableDeclaration = node as? ASTStaticVariableDeclaration {
+            // TODO?
             
         } else if let _ = node as? ASTNoop {
             
@@ -711,11 +793,26 @@ private extension BytecodeCompiler {
         
         if let targetIdentifier = target as? ASTIdentifier {
             
-            if scope.contains(identifier: targetIdentifier.name) {
+            if scope.contains(identifier: targetIdentifier.name) || _actualAddressOfGlobal(withIdentifier: targetIdentifier) != nil {
+                
+                let store: () throws -> Void
+                
+                if scope.contains(identifier: targetIdentifier.name) {
+                    store = {
+                        self.add(.store, try self.scope.index(of: targetIdentifier.name))
+                    }
+                } else if let globalAddress = _actualAddressOfGlobal(withIdentifier: targetIdentifier) {
+                    store = {
+                        self.add(.writeh, globalAddress)
+                    }
+                } else {
+                    fatalError() // should never reach here
+                }
                 
                 if !shouldArcLhs {
                     try handle(node: rhs)
-                    add(.store, try scope.index(of: targetIdentifier.name))
+                    try store()
+                    //add(.store, try scope.index(of: targetIdentifier.name))
                     return
                 }
                 
@@ -723,13 +820,17 @@ private extension BytecodeCompiler {
                 // TODO there's no need to release the olf value if this is the initial assignment
                 try handle(node: rhs)
                 try release(expression: targetIdentifier)
-                add(.store, try scope.index(of: targetIdentifier.name))
+                try store()
+                //add(.store, try scope.index(of: targetIdentifier.name))
                 try retain(expression: targetIdentifier)
                 return
             
             } else if let implicitSelfAccess = processPotentialImplicitSelfAccess(identifier: targetIdentifier) {
                 target = implicitSelfAccess.memberAccess
                 // fallthrough to the member access handling code below
+            
+            } else if let globalAddress = _actualAddressOfGlobal(withIdentifier: targetIdentifier) {
+                
             }
         }
         
@@ -970,6 +1071,9 @@ private extension BytecodeCompiler {
         } else if functions.keys.contains(identifier.name) {
             // global function
             add(.push, unresolvedLabel: identifier.name)
+            
+        } else if let globalAddress = _actualAddressOfGlobal(withIdentifier: identifier) {
+            add(.readh, globalAddress)
     
         } else {
             fatalError("unable to resolve idenfifier '\(identifier.name)'")
@@ -1386,6 +1490,9 @@ private extension BytecodeCompiler {
                     
                 } else if let implicitSelfAccess = processPotentialImplicitSelfAccess(identifier: identifier) {
                     return implicitSelfAccess.attributeType
+                
+                } else if let global = globals.first(where: { $0.identifier == identifier }) {
+                    return global.type
                 }
                 
             } else if let functionCall = expression as? ASTFunctionCall {

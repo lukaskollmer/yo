@@ -81,6 +81,8 @@ private extension Parser {
             switch currentToken.type {
             case .use:
                 return try parseImport()
+            case .static:
+                return try parseStaticVariableDeclaration()
             case .type, .struct:
                 return try parseTypeDeclaration()
             case .fn:
@@ -494,6 +496,39 @@ private extension Parser {
         next()
         
         return ASTImportStatement(moduleName: moduleName, isInternal: true) // TODO somwhow decide whether the module is internal or not
+    }
+    
+    
+    func parseStaticVariableDeclaration() throws -> ASTStaticVariableDeclaration {
+        guard case .static = currentToken.type else {
+            fatalError()
+        }
+        next()
+        
+        let identifier = try parseIdentifier()
+        guard case .colon = currentToken.type else {
+            fatalError()
+        }
+        next()
+        
+        let type = try parseType()
+        
+        if case .semicolon = currentToken.type {
+            // static variable w/out an initial value
+            next()
+            return ASTStaticVariableDeclaration(identifier: identifier, type: type, initialValue: nil)
+        
+        } else if case .equalsSign = currentToken.type {
+            // static variable w/ an initial value
+            next()
+            let initialValue = try parseExpression()
+            guard case .semicolon = currentToken.type else { fatalError() }
+            next()
+            
+            return ASTStaticVariableDeclaration(identifier: identifier, type: type, initialValue: initialValue)
+        }
+        
+        fatalError("should not reach here")
     }
     
     

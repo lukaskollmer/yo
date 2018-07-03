@@ -18,6 +18,8 @@ class ASTAnnotation {
         }
         
         static let disable_arc = Element(key: "disable_arc", value: .bool(true))
+        static let static_initializer = Element(key: "static_initializer", value: .bool(true))
+        static let static_cleanup = Element(key: "static_cleanup", value: .bool(true))
         
         let key: String
         let value: Value

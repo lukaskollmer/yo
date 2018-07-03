@@ -10,7 +10,7 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "yo/BytecodeCompiler/Scope.swift"
-            timestampString = "551994441.345937"
+            timestampString = "552331384.8758579"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "72"
@@ -34,7 +34,7 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "yo/BytecodeCompiler/Scope.swift"
-            timestampString = "551994441.346505"
+            timestampString = "552331384.8762749"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "60"
@@ -58,45 +58,13 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "yo/BytecodeCompiler/BytecodeCompiler.swift"
-            timestampString = "552304129.714978"
+            timestampString = "552331384.876591"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1022"
-            endingLineNumber = "1022"
-            landmarkName = "unknown"
-            landmarkType = "0">
-            <Locations>
-               <Location
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "yo.BytecodeCompiler.(processMemberAccess in _5F569FF61A5BD381EB7BAB1549620E60)(memberAccess: yo.ASTMemberAccess) throws -&gt; (expr: yo.ASTExpression, types: Swift.Array&lt;yo.ASTType&gt;)"
-                  moduleName = "yo"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/lukas/Developer/yo/yo/BytecodeCompiler/BytecodeCompiler.swift"
-                  timestampString = "552304130.21984"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "1022"
-                  endingLineNumber = "1022"
-                  offsetFromSymbolStart = "3842">
-               </Location>
-               <Location
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "yo.BytecodeCompiler.(processMemberAccess in _5F569FF61A5BD381EB7BAB1549620E60)(memberAccess: yo.ASTMemberAccess) throws -&gt; (expr: yo.ASTExpression, types: Swift.Array&lt;yo.ASTType&gt;)"
-                  moduleName = "yo"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/lukas/Developer/yo/yo/BytecodeCompiler/BytecodeCompiler.swift"
-                  timestampString = "552304130.221854"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "1022"
-                  endingLineNumber = "1022"
-                  offsetFromSymbolStart = "3865">
-               </Location>
-            </Locations>
+            startingLineNumber = "1111"
+            endingLineNumber = "1111"
+            landmarkName = "processMemberAccess(memberAccess:)"
+            landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>

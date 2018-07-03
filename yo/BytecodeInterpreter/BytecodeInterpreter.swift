@@ -261,6 +261,13 @@ class BytecodeInterpreter {
             
             try! stack.push(address)
             
+            
+        case .readh:
+            try stack.push(heap[immediate])
+            
+        case .writeh:
+            heap[immediate] = try stack.pop()
+            
         
             
         // jump/call/ret

@@ -15,9 +15,9 @@ class SemanticAnalyzer {
     typealias FunctionInfo = (argc: Int, parameterTypes: [ASTType], returnType: ASTType, annotations: [ASTAnnotation.Element])
     
     struct Result {
-        
         let globalFunctions: [String: FunctionInfo]
         let types: [ASTTypeDeclaration]
+        let globals: [ASTStaticVariableDeclaration]
     }
     
     
@@ -25,6 +25,7 @@ class SemanticAnalyzer {
     func analyze(ast: [ASTNode]) -> SemanticAnalyzer.Result {
         var types = [ASTTypeDeclaration]()
         var functions = [String: FunctionInfo]()
+        let globals = ast.compactMap { $0 as? ASTStaticVariableDeclaration }
         
         let handleFunction = { (functionDecl: ASTFunctionDeclaration) -> Void in
             functions[functionDecl.mangledName] = (
@@ -47,6 +48,6 @@ class SemanticAnalyzer {
             }
         }
         
-        return SemanticAnalyzer.Result(globalFunctions: functions, types: types)
+        return SemanticAnalyzer.Result(globalFunctions: functions, types: types, globals: globals)
     }
 }
