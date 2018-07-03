@@ -12,7 +12,7 @@ import Foundation
 class BytecodeInterpreter {
     static let verboseLogging = false
     
-    let heap = Heap(size: 1 << 9)
+    let heap: Heap
     let instructions: [InstructionDescriptor]
     private var instructionPointer = 0    // plz don't use this directly
     
@@ -21,7 +21,8 @@ class BytecodeInterpreter {
     }
     
     
-    init(instructions: [Instruction]) {
+    init(instructions: [Instruction], heapSize: Int) {
+        self.heap = Heap(size: heapSize)
         self.instructions = instructions.map(InstructionDescriptor.init)
     }
     

@@ -33,8 +33,8 @@ enum yo {
     }
     
     
-    static func run(atPath path: String) throws -> Int {
-        if hasArgument("--verbose") {
+    static func run(atPath path: String, heapSize: Int) throws -> Int {
+        if CLI.isVerbose {
             Log.info("Input file: \(filepath)")
         }
         
@@ -52,24 +52,19 @@ enum yo {
         
         instructions = instructions.withLabelsPadded()
         
-        if hasArgument("--verbose") {
+        if CLI.isVerbose {
             Log.info("\n\(instructions.fancyDescription)")
         }
         
-        let interpreter = BytecodeInterpreter(instructions: instructions.finalized())
+        let interpreter = BytecodeInterpreter(instructions: instructions.finalized(), heapSize: heapSize)
         
         let retval = try interpreter.run()
         
-        if hasArgument("--verbose") {
+        if CLI.isVerbose {
             print("heap after: \(interpreter.heap.backing)")
             Log.info("main returned with exit code \(retval)")
         }
         
         return retval
-    }
-    
-    
-    private static func hasArgument(_ argument: String) -> Bool {
-        return ProcessInfo.processInfo.arguments.contains(argument)
     }
 }

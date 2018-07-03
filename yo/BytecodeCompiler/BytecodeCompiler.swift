@@ -331,7 +331,7 @@ private extension BytecodeCompiler {
         } else if let comparison = node as? ASTComparison {
             try handle(comparison: comparison)
             
-        } else if let typeDeclaration = node as? ASTTypeDeclaration {
+        } else if node is ASTTypeDeclaration {
             // initializers etc have already been generated
             
         } else if let arraySetter = node as? ASTArraySetter {
@@ -530,7 +530,7 @@ private extension BytecodeCompiler {
                                 .filter { returnedLocalIdentifier == nil || $0.identifier != returnedLocalIdentifier! }
                                 .forEach { variable in
                                     let type = try scope.type(of: variable.identifier.name)
-                                    if try type.supportsReferenceCounting && !typeCache.isStruct(type.typename) {
+                                    if type.supportsReferenceCounting && !typeCache.isStruct(type.typename) {
                                         try release(expression: variable.identifier)
                                     }
                                 }

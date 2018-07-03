@@ -8,17 +8,22 @@
 
 import Foundation
 
-let arguments = ProcessInfo.processInfo.arguments
-
-if arguments.count > 1 && arguments[1] == "--help" {
+if CLI.hasArgument("--help") {
     let message =
 """
 yo
+
+    Options:
+    --verbose
+    
+    Flags:
+    -heap-size (Default: 1024)
 """
     
     print(message)
     exit(EXIT_SUCCESS)
 }
+
 
 
 // TODO set this dynamically!
@@ -46,5 +51,6 @@ guard FileManager.default.fileExists(atPath: filepath) else {
     fatalError("input file does not exist")
 }
 
-exit(try Int32(yo.run(atPath: filepath)))
+let heapSize = CLI.value(ofFlag: "-heap-size", type: Int.self) ?? 1 << 10
+exit(try Int32(yo.run(atPath: filepath, heapSize: heapSize)))
 
