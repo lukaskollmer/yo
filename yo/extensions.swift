@@ -83,6 +83,15 @@ extension Array {
         }
         return retval
     }
+    
+    subscript(safe index: Index) -> Element? {
+        get {
+            guard index >= self.startIndex && index < self.endIndex else {
+                return nil
+            }
+            return self[index]
+        }
+    }
 }
 
 

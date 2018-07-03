@@ -8,9 +8,9 @@
 
 import Foundation
 
-if CLI.hasArgument("--help") {
+func printHelpAndExit() -> Never {
     let message =
-"""
+    """
 yo
 
     Options:
@@ -22,26 +22,26 @@ yo
     
     print(message)
     exit(EXIT_SUCCESS)
+
+}
+
+if CLI.hasArgument("--help") {
+    printHelpAndExit()
 }
 
 
+guard let filename = CLI.arguments[safe: 1] else {
+    printHelpAndExit()
+}
 
 // TODO set this dynamically!
 yo.workingDirectory = "/Users/lukas/Developer/yo"
-
-let filename: String = {
-    if ProcessInfo.processInfo.arguments.count > 1 {
-        return ProcessInfo.processInfo.arguments[1]
-    } else {
-        return "main.yo"
-    }
-}()
 
 let filepath: String = {
     if filename.hasPrefix("/") {
         return filename
     } else if filename.hasPrefix("~") {
-        return NSString(string: filename).expandingTildeInPath
+        return filename.ns.expandingTildeInPath
     } else {
         return yo.workingDirectory.appending(pathComponent: filename)
     }
