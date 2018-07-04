@@ -11,7 +11,7 @@ import Foundation
 
 enum yo {
     
-    static var workingDirectory: String = FileManager.default.currentDirectoryPath
+    //static var workingDirectory: String = FileManager.default.currentDirectoryPath
     
     
     static func read(file path: String) throws -> String {

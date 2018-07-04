@@ -18,7 +18,7 @@ enum ImportPathResolver {
         let split = moduleName.split(separator: "/").map(String.init)
         
         if internalModules.contains(split[0]) {
-            return yo.workingDirectory.appending(pathComponent: "stdlib/\(moduleName).yo")
+            return "/Users/lukas/Developer/yo".appending(pathComponent: "stdlib/\(moduleName).yo") // TODO don't hardcode the stdlib path
         }
         
         fatalError("external modules not yet implemented")

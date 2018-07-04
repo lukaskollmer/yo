@@ -34,8 +34,6 @@ guard let filename = CLI.arguments[safe: 1] else {
     printHelpAndExit()
 }
 
-// TODO set this dynamically!
-yo.workingDirectory = "/Users/lukas/Developer/yo"
 
 let filepath: String = {
     if filename.hasPrefix("/") {
@@ -43,7 +41,7 @@ let filepath: String = {
     } else if filename.hasPrefix("~") {
         return filename.ns.expandingTildeInPath
     } else {
-        return yo.workingDirectory.appending(pathComponent: filename)
+        return FileManager.default.currentDirectoryPath.appending(pathComponent: filename)
     }
 }()
 
