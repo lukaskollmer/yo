@@ -237,7 +237,7 @@ class BytecodeCompiler {
             annotations: [.static_cleanup],
             body: ASTComposite(statements:
                 semanticAnalysis.globals.filter{ $0.type.supportsReferenceCounting }.map { global in
-                    return ASTFunctionCall(functionName: SymbolMangling.release, arguments: [global.identifier], unusedReturnValue: true)
+                    ASTFunctionCall(functionName: SymbolMangling.release, arguments: [global.identifier], unusedReturnValue: true)
                 } + [
                     ASTFunctionCall(functionName: SymbolMangling.free, arguments: [ASTNumberLiteral(value: 2)], unusedReturnValue: true)
                 ]
@@ -249,14 +249,17 @@ class BytecodeCompiler {
         let callAllFunctionsWithAnnotation: (ASTAnnotation.Element) throws -> Void = { annotation in
             try ast
                 .compactMap { $0 as? ASTFunctionDeclaration }
-                .filter { $0.hasAnnotation(annotation) }
-                .forEach { try self.handle(node: ASTFunctionCall(functionName: $0.mangledName, arguments: [], unusedReturnValue: true)) }
+                .filter     { $0.hasAnnotation(annotation)  }
+                .forEach {
+                    try self.handle(node: ASTFunctionCall(functionName: $0.mangledName, arguments: [], unusedReturnValue: true))
+                }
         }
         
         
         
         // Generate the bootstrapping instructions
         // 1. Call all static initializers
+        // TODO guarantee that the builtin static initializer is called first
         try callAllFunctionsWithAnnotation(.static_initializer)
         
         // 2. Call `main`
