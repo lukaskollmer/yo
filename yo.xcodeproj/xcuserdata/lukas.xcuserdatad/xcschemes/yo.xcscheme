@@ -71,7 +71,7 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-heap-size 256"
+            argument = "-heap-size 512"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
