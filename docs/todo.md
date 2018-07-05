@@ -42,3 +42,4 @@
 - [ ] allow disabling arc for an entire type/impl block
 - [ ] allow disabling getters/setters for individual attributes
 - [ ] don't evaluate function arguments right to left
+- [ ] simple heap array literal. ie `val x = {1, 3, 4};` would call `runtime::alloc(3)` and fill that w/ 1, 3 and 4
