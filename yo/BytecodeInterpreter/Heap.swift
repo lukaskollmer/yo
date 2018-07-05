@@ -71,12 +71,22 @@ class Heap {
         }
     }
     
+    private func _invalidHeapAccess(atIndex index: Int) -> Never {
+        fatalError("Ran out of heap space. Tried to access \(index). Heap size: \(self.size)")
+    }
+    
     
     subscript(index: Int) -> Int {
         get {
-            return backing[index]
+            guard let value = backing[safe: index] else {
+                _invalidHeapAccess(atIndex: index)
+            }
+            return value
         }
         set {
+            guard backing.isValidIndex(index) else {
+                _invalidHeapAccess(atIndex: index)
+            }
             backing[index] = newValue
         }
     }
