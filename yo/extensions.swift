@@ -84,9 +84,13 @@ extension Array {
         return retval
     }
     
+    func isValidIndex(_ index: Index) -> Bool {
+        return index >= self.startIndex && index < self.endIndex
+    }
+    
     subscript(safe index: Index) -> Element? {
         get {
-            guard index >= self.startIndex && index < self.endIndex else {
+            guard self.isValidIndex(index) else {
                 return nil
             }
             return self[index]
