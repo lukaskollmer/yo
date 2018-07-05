@@ -203,6 +203,7 @@ class BytecodeCompiler {
             kind: .global,
             annotations: [.static_initializer],
             body: [
+                globals.isEmpty ? ASTNoop() :
                 // First, we allocate space for the pointers to each global variable (or their values, if they are primitives)
                 ASTFunctionCall(functionName: SymbolMangling.alloc, arguments: [ASTNumberLiteral(value: semanticAnalysis.globals.count * 2)], unusedReturnValue: true),
                 ASTComposite(statements:
@@ -235,21 +236,27 @@ class BytecodeCompiler {
             returnType: .void,
             kind: .global,
             annotations: [.static_cleanup],
-            body: ASTComposite(statements:
-                semanticAnalysis.globals.filter{ $0.type.supportsReferenceCounting }.map { global in
-                    ASTFunctionCall(functionName: SymbolMangling.release, arguments: [global.identifier], unusedReturnValue: true)
-                } + [
-                    ASTFunctionCall(functionName: SymbolMangling.free, arguments: [ASTNumberLiteral(value: 2)], unusedReturnValue: true)
-                ]
-            )
+            body: globals.isEmpty
+                ? [ASTNoop()] as ASTComposite
+                : ASTComposite(statements:
+                    semanticAnalysis.globals.filter{ $0.type.supportsReferenceCounting }.map { global in
+                        ASTFunctionCall(functionName: SymbolMangling.release, arguments: [global.identifier], unusedReturnValue: true)
+                    } + [
+                        ASTFunctionCall(functionName: SymbolMangling.free, arguments: [ASTNumberLiteral(value: 2)], unusedReturnValue: true)
+                    ]
+                  )
         )
         functions[releaseGlobals.mangledName] = (0, [], .void, [.static_cleanup])
         ast.insert(releaseGlobals, at: 1)
         
-        let callAllFunctionsWithAnnotation: (ASTAnnotation.Element) throws -> Void = { annotation in
-            try ast
-                .compactMap { $0 as? ASTFunctionDeclaration }
-                .filter     { $0.hasAnnotation(annotation)  }
+        let callAllFunctionsWithAnnotationGivingPriorityTo: (ASTAnnotation.Element, String) throws -> Void = { annotation, priorityName in
+            let allFunctionsWithAnnotation = ast.compactMap { $0 as? ASTFunctionDeclaration }.filter { $0.hasAnnotation(annotation) }
+            if let priorityFunction = allFunctionsWithAnnotation.first(where: { $0.mangledName == priorityName }) {
+                try self.handle(node: ASTFunctionCall(functionName: priorityFunction.mangledName, arguments: [], unusedReturnValue: true))
+            }
+            
+            try allFunctionsWithAnnotation
+                .filter { $0.mangledName != priorityName }
                 .forEach {
                     try self.handle(node: ASTFunctionCall(functionName: $0.mangledName, arguments: [], unusedReturnValue: true))
                 }
@@ -260,13 +267,13 @@ class BytecodeCompiler {
         // Generate the bootstrapping instructions
         // 1. Call all static initializers
         // TODO guarantee that the builtin static initializer is called first
-        try callAllFunctionsWithAnnotation(.static_initializer)
+        try callAllFunctionsWithAnnotationGivingPriorityTo(.static_initializer, "__initialize_globals")
         
         // 2. Call `main`
         try handle(node: ASTFunctionCall(functionName: "main", arguments: [], unusedReturnValue: false))
         
         // 3. Call cleanup functions
-        try callAllFunctionsWithAnnotation(.static_cleanup)
+        try callAllFunctionsWithAnnotationGivingPriorityTo(.static_cleanup, "__release_globals")
         
         
         // 3. Jump to `end`
