@@ -24,6 +24,8 @@
 		8073276320E2760400FF25E7 /* Optimizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8073276220E2760400FF25E7 /* Optimizer.swift */; };
 		807936F720D24D0700DCCE1F /* ASTBreakStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807936F620D24D0700DCCE1F /* ASTBreakStatement.swift */; };
 		807936F920D252AB00DCCE1F /* ASTContinueStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807936F820D252AB00DCCE1F /* ASTContinueStatement.swift */; };
+		808CC63A20EFB0B9003F62F4 /* Parser+Statements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 808CC63920EFB0B9003F62F4 /* Parser+Statements.swift */; };
+		808CC63C20EFB18A003F62F4 /* Parser+Expressions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 808CC63B20EFB18A003F62F4 /* Parser+Expressions.swift */; };
 		809761B320D7F21F004DB9A4 /* ASTLambda.swift in Sources */ = {isa = PBXBuildFile; fileRef = 809761B220D7F21F004DB9A4 /* ASTLambda.swift */; };
 		80AE211920BA06D1004900DC /* TypeCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE211820BA06D1004900DC /* TypeCache.swift */; };
 		80AE211B20BAB48D004900DC /* ASTTypeImplementation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE211A20BAB48D004900DC /* ASTTypeImplementation.swift */; };
@@ -81,6 +83,8 @@
 		80CF5AA320EA3612000A969A /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80CF5AA220EA3612000A969A /* Constants.swift */; };
 		80E106AA20DE93AB0021F453 /* ASTAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80E106A920DE93AB0021F453 /* ASTAnnotation.swift */; };
 		80E74FF320EB751400C7DB90 /* CLI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80E74FF220EB751400C7DB90 /* CLI.swift */; };
+		80EA785D20EE57C900882378 /* NativeFunctions+IO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EA785C20EE57C900882378 /* NativeFunctions+IO.swift */; };
+		80EA785F20EE57F600882378 /* NativeFunctions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EA785E20EE57F600882378 /* NativeFunctions.swift */; };
 		80EAA46A20B7468B0043A6F6 /* ASTFunctionDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA46920B7468B0043A6F6 /* ASTFunctionDeclaration.swift */; };
 		80EAA46C20B74B920043A6F6 /* ASTReturnStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA46B20B74B920043A6F6 /* ASTReturnStatement.swift */; };
 		80EAA47020B758BE0043A6F6 /* ASTNumberLiteral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EAA46F20B758BE0043A6F6 /* ASTNumberLiteral.swift */; };
@@ -142,6 +146,8 @@
 		8073276220E2760400FF25E7 /* Optimizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Optimizer.swift; sourceTree = "<group>"; };
 		807936F620D24D0700DCCE1F /* ASTBreakStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTBreakStatement.swift; sourceTree = "<group>"; };
 		807936F820D252AB00DCCE1F /* ASTContinueStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTContinueStatement.swift; sourceTree = "<group>"; };
+		808CC63920EFB0B9003F62F4 /* Parser+Statements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Parser+Statements.swift"; sourceTree = "<group>"; };
+		808CC63B20EFB18A003F62F4 /* Parser+Expressions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Parser+Expressions.swift"; sourceTree = "<group>"; };
 		809761B220D7F21F004DB9A4 /* ASTLambda.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTLambda.swift; sourceTree = "<group>"; };
 		80AE211820BA06D1004900DC /* TypeCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypeCache.swift; sourceTree = "<group>"; };
 		80AE211A20BAB48D004900DC /* ASTTypeImplementation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTTypeImplementation.swift; sourceTree = "<group>"; };
@@ -159,6 +165,8 @@
 		80CF5AA220EA3612000A969A /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		80E106A920DE93AB0021F453 /* ASTAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTAnnotation.swift; sourceTree = "<group>"; };
 		80E74FF220EB751400C7DB90 /* CLI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLI.swift; sourceTree = "<group>"; };
+		80EA785C20EE57C900882378 /* NativeFunctions+IO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NativeFunctions+IO.swift"; sourceTree = "<group>"; };
+		80EA785E20EE57F600882378 /* NativeFunctions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeFunctions.swift; sourceTree = "<group>"; };
 		80EAA46920B7468B0043A6F6 /* ASTFunctionDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTFunctionDeclaration.swift; sourceTree = "<group>"; };
 		80EAA46B20B74B920043A6F6 /* ASTReturnStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTReturnStatement.swift; sourceTree = "<group>"; };
 		80EAA46F20B758BE0043A6F6 /* ASTNumberLiteral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTNumberLiteral.swift; sourceTree = "<group>"; };
@@ -247,6 +255,8 @@
 			isa = PBXGroup;
 			children = (
 				804834E220B6EABD009E59FC /* Parser.swift */,
+				808CC63920EFB0B9003F62F4 /* Parser+Statements.swift */,
+				808CC63B20EFB18A003F62F4 /* Parser+Expressions.swift */,
 			);
 			path = Parser;
 			sourceTree = "<group>";
@@ -292,6 +302,8 @@
 			children = (
 				80EAA47720B75F370043A6F6 /* BytecodeInterpreter.swift */,
 				80EAA49320B95A9A0043A6F6 /* Runtime.swift */,
+				80EA785E20EE57F600882378 /* NativeFunctions.swift */,
+				80EA785C20EE57C900882378 /* NativeFunctions+IO.swift */,
 				80EAA49B20B97DE60043A6F6 /* Heap.swift */,
 				80EAA49D20B9C0470043A6F6 /* Stack.swift */,
 				80CF5AA220EA3612000A969A /* Constants.swift */,
@@ -454,6 +466,7 @@
 				80AE211920BA06D1004900DC /* TypeCache.swift in Sources */,
 				80EAA49A20B965CE0043A6F6 /* ASTConditionalStatement.swift in Sources */,
 				80EAA4A720B9D1B10043A6F6 /* SymbolMangling.swift in Sources */,
+				80EA785F20EE57F600882378 /* NativeFunctions.swift in Sources */,
 				80EAA49E20B9C0470043A6F6 /* Stack.swift in Sources */,
 				80EAA46A20B7468B0043A6F6 /* ASTFunctionDeclaration.swift in Sources */,
 				80BEEE8620D7C99D002456D1 /* ASTTypecast.swift in Sources */,
@@ -463,8 +476,10 @@
 				807936F920D252AB00DCCE1F /* ASTContinueStatement.swift in Sources */,
 				80F1E9B820BD95C200336F4C /* ASTArrayLiteral.swift in Sources */,
 				80EAA49620B95BB60043A6F6 /* ASTVariableDeclaration.swift in Sources */,
+				808CC63A20EFB0B9003F62F4 /* Parser+Statements.swift in Sources */,
 				80EAA4A120B9C60F0043A6F6 /* ASTTypeDeclaration.swift in Sources */,
 				80EAA46C20B74B920043A6F6 /* ASTReturnStatement.swift in Sources */,
+				808CC63C20EFB18A003F62F4 /* Parser+Expressions.swift in Sources */,
 				80C3381420E799C600E98F15 /* AutoSynthesizedCodeGen.swift in Sources */,
 				80F1E9BA20BEB1A500336F4C /* SemanticAnalyzer.swift in Sources */,
 				80AE212A20BB0D9F004900DC /* yo.swift in Sources */,
@@ -486,6 +501,7 @@
 				80F1E9B620BD658100336F4C /* ASTRawOperation.swift in Sources */,
 				80EAA47C20B7629C0043A6F6 /* Instruction.swift in Sources */,
 				80EAA47220B75BE20043A6F6 /* ASTNoop.swift in Sources */,
+				80EA785D20EE57C900882378 /* NativeFunctions+IO.swift in Sources */,
 				8072C76920EA1C2600FA9F62 /* ASTBooleanLiteral.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
