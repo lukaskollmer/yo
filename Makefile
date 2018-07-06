@@ -32,7 +32,7 @@ TARGET_NAME = yo
 SYMROOT     = $(OUTPUT_DIR)/xcodebuild
 CLOC        = $(shell which cloc)
 
-build:
+swiftc:
 	mkdir -p $(TARGET_DIR)
 	$(SWIFTC) $(SWIFT_FILES) -emit-executable -sdk $(SDK_PATH) -o $(TARGET_DIR)/$(MODULE_NAME)
 
