@@ -794,6 +794,7 @@
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";
+				GCC_PREPROCESSOR_DEFINITIONS = "USE_DL_PREFIX=1";
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/yo/deps/libffi/include";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -815,6 +816,7 @@
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";
+				GCC_PREPROCESSOR_DEFINITIONS = "USE_DL_PREFIX=1";
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/yo/deps/libffi/include";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
