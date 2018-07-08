@@ -17,6 +17,7 @@
 		804834ED20B6F311009E59FC /* Lexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834EC20B6F311009E59FC /* Lexer.swift */; };
 		804834F020B6F36B009E59FC /* Token.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834EF20B6F36B009E59FC /* Token.swift */; };
 		804E4EB420BBE92800736FCC /* ASTStringLiteral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804E4EB320BBE92800736FCC /* ASTStringLiteral.swift */; };
+		805509EF20F0C5B5001B4867 /* FFI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 805509EE20F0C5B5001B4867 /* FFI.swift */; };
 		805E370A20D3E42500F5BB63 /* ASTMemberAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 805E370920D3E42500F5BB63 /* ASTMemberAccess.swift */; };
 		8072C75A20E90DA100FA9F62 /* ASTBoxedExpression.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8072C75920E90DA100FA9F62 /* ASTBoxedExpression.swift */; };
 		8072C76720E931D600FA9F62 /* ASTProtocolDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8072C76620E931D600FA9F62 /* ASTProtocolDeclaration.swift */; };
@@ -81,6 +82,19 @@
 		80C82A3120BEEBBD00C97214 /* ASTRawOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80F1E9B520BD658100336F4C /* ASTRawOperation.swift */; };
 		80C82A3220BEEBBD00C97214 /* ASTArrayLiteral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80F1E9B720BD95C200336F4C /* ASTArrayLiteral.swift */; };
 		80CF5AA320EA3612000A969A /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80CF5AA220EA3612000A969A /* Constants.swift */; };
+		80D82C7720F0F37500EB340D /* prep_cif.c in Sources */ = {isa = PBXBuildFile; fileRef = 80D82C6720F0F37300EB340D /* prep_cif.c */; settings = {COMPILER_FLAGS = "-w"; }; };
+		80D82C7820F0F37500EB340D /* closures.c in Sources */ = {isa = PBXBuildFile; fileRef = 80D82C6820F0F37300EB340D /* closures.c */; settings = {COMPILER_FLAGS = "-w"; }; };
+		80D82C7920F0F37500EB340D /* win64_x86_64.S in Sources */ = {isa = PBXBuildFile; fileRef = 80D82C6920F0F37300EB340D /* win64_x86_64.S */; settings = {COMPILER_FLAGS = "-w"; }; };
+		80D82C7A20F0F37500EB340D /* sysv_i386.S in Sources */ = {isa = PBXBuildFile; fileRef = 80D82C6B20F0F37300EB340D /* sysv_i386.S */; settings = {COMPILER_FLAGS = "-w"; }; };
+		80D82C7B20F0F37500EB340D /* ffiw64_x86_64.c in Sources */ = {isa = PBXBuildFile; fileRef = 80D82C6C20F0F37400EB340D /* ffiw64_x86_64.c */; settings = {COMPILER_FLAGS = "-w"; }; };
+		80D82C7C20F0F37500EB340D /* types.c in Sources */ = {isa = PBXBuildFile; fileRef = 80D82C6D20F0F37400EB340D /* types.c */; settings = {COMPILER_FLAGS = "-w"; }; };
+		80D82C7D20F0F37500EB340D /* raw_api.c in Sources */ = {isa = PBXBuildFile; fileRef = 80D82C6F20F0F37400EB340D /* raw_api.c */; settings = {COMPILER_FLAGS = "-w"; }; };
+		80D82C7E20F0F37500EB340D /* ffi64_x86_64.c in Sources */ = {isa = PBXBuildFile; fileRef = 80D82C7020F0F37400EB340D /* ffi64_x86_64.c */; settings = {COMPILER_FLAGS = "-w"; }; };
+		80D82C7F20F0F37500EB340D /* unix64_x86_64.S in Sources */ = {isa = PBXBuildFile; fileRef = 80D82C7120F0F37400EB340D /* unix64_x86_64.S */; settings = {COMPILER_FLAGS = "-w"; }; };
+		80D82C8020F0F37500EB340D /* debug.c in Sources */ = {isa = PBXBuildFile; fileRef = 80D82C7220F0F37400EB340D /* debug.c */; settings = {COMPILER_FLAGS = "-w"; }; };
+		80D82C8120F0F37500EB340D /* ffi_i386.c in Sources */ = {isa = PBXBuildFile; fileRef = 80D82C7320F0F37400EB340D /* ffi_i386.c */; settings = {COMPILER_FLAGS = "-w"; }; };
+		80D82C8220F0F37500EB340D /* dlmalloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 80D82C7520F0F37400EB340D /* dlmalloc.c */; settings = {COMPILER_FLAGS = "-w"; }; };
+		80D82C8320F0F37500EB340D /* java_raw_api.c in Sources */ = {isa = PBXBuildFile; fileRef = 80D82C7620F0F37400EB340D /* java_raw_api.c */; settings = {COMPILER_FLAGS = "-w"; }; };
 		80E106AA20DE93AB0021F453 /* ASTAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80E106A920DE93AB0021F453 /* ASTAnnotation.swift */; };
 		80E74FF320EB751400C7DB90 /* CLI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80E74FF220EB751400C7DB90 /* CLI.swift */; };
 		80EA785D20EE57C900882378 /* NativeFunctions+IO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EA785C20EE57C900882378 /* NativeFunctions+IO.swift */; };
@@ -139,6 +153,7 @@
 		804834EC20B6F311009E59FC /* Lexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lexer.swift; sourceTree = "<group>"; };
 		804834EF20B6F36B009E59FC /* Token.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Token.swift; sourceTree = "<group>"; };
 		804E4EB320BBE92800736FCC /* ASTStringLiteral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTStringLiteral.swift; sourceTree = "<group>"; };
+		805509EE20F0C5B5001B4867 /* FFI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFI.swift; sourceTree = "<group>"; };
 		805E370920D3E42500F5BB63 /* ASTMemberAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTMemberAccess.swift; sourceTree = "<group>"; };
 		8072C75920E90DA100FA9F62 /* ASTBoxedExpression.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTBoxedExpression.swift; sourceTree = "<group>"; };
 		8072C76620E931D600FA9F62 /* ASTProtocolDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTProtocolDeclaration.swift; sourceTree = "<group>"; };
@@ -148,6 +163,12 @@
 		807936F820D252AB00DCCE1F /* ASTContinueStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTContinueStatement.swift; sourceTree = "<group>"; };
 		808CC63920EFB0B9003F62F4 /* Parser+Statements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Parser+Statements.swift"; sourceTree = "<group>"; };
 		808CC63B20EFB18A003F62F4 /* Parser+Expressions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Parser+Expressions.swift"; sourceTree = "<group>"; };
+		808CC63D20EFC029003F62F4 /* yo-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "yo-Bridging-Header.h"; sourceTree = "<group>"; };
+		808CC93E20EFC7E0003F62F4 /* ffi_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ffi_common.h; sourceTree = "<group>"; };
+		808CC93F20EFC7E0003F62F4 /* ffi_cfi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ffi_cfi.h; sourceTree = "<group>"; };
+		808CC95E20EFC827003F62F4 /* ffi.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ffi.h; sourceTree = "<group>"; };
+		808CC95F20EFC838003F62F4 /* ffitarget.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ffitarget.h; sourceTree = "<group>"; };
+		808CC96020EFC874003F62F4 /* fficonfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fficonfig.h; sourceTree = "<group>"; };
 		809761B220D7F21F004DB9A4 /* ASTLambda.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTLambda.swift; sourceTree = "<group>"; };
 		80AE211820BA06D1004900DC /* TypeCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypeCache.swift; sourceTree = "<group>"; };
 		80AE211A20BAB48D004900DC /* ASTTypeImplementation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTTypeImplementation.swift; sourceTree = "<group>"; };
@@ -163,6 +184,22 @@
 		80C82A0020BEE93500C97214 /* test.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = test.swift; sourceTree = "<group>"; };
 		80C82A0220BEE93500C97214 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		80CF5AA220EA3612000A969A /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
+		80D82C6720F0F37300EB340D /* prep_cif.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = prep_cif.c; path = x86/prep_cif.c; sourceTree = "<group>"; };
+		80D82C6820F0F37300EB340D /* closures.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = closures.c; path = x86/closures.c; sourceTree = "<group>"; };
+		80D82C6920F0F37300EB340D /* win64_x86_64.S */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; name = win64_x86_64.S; path = x86/win64_x86_64.S; sourceTree = "<group>"; };
+		80D82C6A20F0F37300EB340D /* internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = internal.h; path = x86/internal.h; sourceTree = "<group>"; };
+		80D82C6B20F0F37300EB340D /* sysv_i386.S */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; name = sysv_i386.S; path = x86/sysv_i386.S; sourceTree = "<group>"; };
+		80D82C6C20F0F37400EB340D /* ffiw64_x86_64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ffiw64_x86_64.c; path = x86/ffiw64_x86_64.c; sourceTree = "<group>"; };
+		80D82C6D20F0F37400EB340D /* types.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = types.c; path = x86/types.c; sourceTree = "<group>"; };
+		80D82C6E20F0F37400EB340D /* asmnames.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = asmnames.h; path = x86/asmnames.h; sourceTree = "<group>"; };
+		80D82C6F20F0F37400EB340D /* raw_api.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = raw_api.c; path = x86/raw_api.c; sourceTree = "<group>"; };
+		80D82C7020F0F37400EB340D /* ffi64_x86_64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ffi64_x86_64.c; path = x86/ffi64_x86_64.c; sourceTree = "<group>"; };
+		80D82C7120F0F37400EB340D /* unix64_x86_64.S */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; name = unix64_x86_64.S; path = x86/unix64_x86_64.S; sourceTree = "<group>"; };
+		80D82C7220F0F37400EB340D /* debug.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = debug.c; path = x86/debug.c; sourceTree = "<group>"; };
+		80D82C7320F0F37400EB340D /* ffi_i386.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ffi_i386.c; path = x86/ffi_i386.c; sourceTree = "<group>"; };
+		80D82C7420F0F37400EB340D /* internal64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = internal64.h; path = x86/internal64.h; sourceTree = "<group>"; };
+		80D82C7520F0F37400EB340D /* dlmalloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dlmalloc.c; path = x86/dlmalloc.c; sourceTree = "<group>"; };
+		80D82C7620F0F37400EB340D /* java_raw_api.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = java_raw_api.c; path = x86/java_raw_api.c; sourceTree = "<group>"; };
 		80E106A920DE93AB0021F453 /* ASTAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTAnnotation.swift; sourceTree = "<group>"; };
 		80E74FF220EB751400C7DB90 /* CLI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLI.swift; sourceTree = "<group>"; };
 		80EA785C20EE57C900882378 /* NativeFunctions+IO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NativeFunctions+IO.swift"; sourceTree = "<group>"; };
@@ -237,6 +274,8 @@
 			isa = PBXGroup;
 			children = (
 				8001BC8120B6CF8500B55D00 /* main.swift */,
+				80D82C8420F0F3C800EB340D /* deps */,
+				805509ED20F0C576001B4867 /* libffiSwift */,
 				804834DB20B6D699009E59FC /* extensions.swift */,
 				804834DD20B6D962009E59FC /* Log.swift */,
 				80149F3C20E3971F0068CE03 /* AssociatedObject.swift */,
@@ -247,6 +286,7 @@
 				804834EE20B6F34C009E59FC /* Lexer */,
 				804834E120B6EAB2009E59FC /* Parser */,
 				80EAA49F20B9C2610043A6F6 /* AST */,
+				808CC63D20EFC029003F62F4 /* yo-Bridging-Header.h */,
 			);
 			path = yo;
 			sourceTree = "<group>";
@@ -270,6 +310,58 @@
 			path = Lexer;
 			sourceTree = "<group>";
 		};
+		805509ED20F0C576001B4867 /* libffiSwift */ = {
+			isa = PBXGroup;
+			children = (
+				805509EE20F0C5B5001B4867 /* FFI.swift */,
+			);
+			path = libffiSwift;
+			sourceTree = "<group>";
+		};
+		808CC6EC20EFC47D003F62F4 /* libffi */ = {
+			isa = PBXGroup;
+			children = (
+				808CC93D20EFC7E0003F62F4 /* include */,
+				808CC94020EFC7E1003F62F4 /* src */,
+			);
+			path = libffi;
+			sourceTree = "<group>";
+		};
+		808CC93D20EFC7E0003F62F4 /* include */ = {
+			isa = PBXGroup;
+			children = (
+				808CC95F20EFC838003F62F4 /* ffitarget.h */,
+				808CC96020EFC874003F62F4 /* fficonfig.h */,
+				808CC95E20EFC827003F62F4 /* ffi.h */,
+				808CC93E20EFC7E0003F62F4 /* ffi_common.h */,
+				808CC93F20EFC7E0003F62F4 /* ffi_cfi.h */,
+			);
+			path = include;
+			sourceTree = "<group>";
+		};
+		808CC94020EFC7E1003F62F4 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				80D82C6E20F0F37400EB340D /* asmnames.h */,
+				80D82C6820F0F37300EB340D /* closures.c */,
+				80D82C7220F0F37400EB340D /* debug.c */,
+				80D82C7520F0F37400EB340D /* dlmalloc.c */,
+				80D82C7320F0F37400EB340D /* ffi_i386.c */,
+				80D82C7020F0F37400EB340D /* ffi64_x86_64.c */,
+				80D82C6C20F0F37400EB340D /* ffiw64_x86_64.c */,
+				80D82C6A20F0F37300EB340D /* internal.h */,
+				80D82C7420F0F37400EB340D /* internal64.h */,
+				80D82C7620F0F37400EB340D /* java_raw_api.c */,
+				80D82C6720F0F37300EB340D /* prep_cif.c */,
+				80D82C6F20F0F37400EB340D /* raw_api.c */,
+				80D82C6B20F0F37300EB340D /* sysv_i386.S */,
+				80D82C6D20F0F37400EB340D /* types.c */,
+				80D82C7120F0F37400EB340D /* unix64_x86_64.S */,
+				80D82C6920F0F37300EB340D /* win64_x86_64.S */,
+			);
+			path = src;
+			sourceTree = "<group>";
+		};
 		80C829FF20BEE93500C97214 /* test */ = {
 			isa = PBXGroup;
 			children = (
@@ -277,6 +369,14 @@
 				80C82A0220BEE93500C97214 /* Info.plist */,
 			);
 			path = test;
+			sourceTree = "<group>";
+		};
+		80D82C8420F0F3C800EB340D /* deps */ = {
+			isa = PBXGroup;
+			children = (
+				808CC6EC20EFC47D003F62F4 /* libffi */,
+			);
+			path = deps;
 			sourceTree = "<group>";
 		};
 		80EAA47320B75EDA0043A6F6 /* BytecodeCompiler */ = {
@@ -401,6 +501,7 @@
 				TargetAttributes = {
 					8001BC7D20B6CF8500B55D00 = {
 						CreatedOnToolsVersion = 9.3;
+						LastSwiftMigration = 0930;
 					};
 					80C829FD20BEE93500C97214 = {
 						CreatedOnToolsVersion = 9.3;
@@ -440,6 +541,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				80D82C8120F0F37500EB340D /* ffi_i386.c in Sources */,
+				80D82C8220F0F37500EB340D /* dlmalloc.c in Sources */,
+				80D82C7E20F0F37500EB340D /* ffi64_x86_64.c in Sources */,
+				80D82C8320F0F37500EB340D /* java_raw_api.c in Sources */,
+				80D82C7C20F0F37500EB340D /* types.c in Sources */,
+				80D82C7F20F0F37500EB340D /* unix64_x86_64.S in Sources */,
+				80D82C7920F0F37500EB340D /* win64_x86_64.S in Sources */,
+				80D82C8020F0F37500EB340D /* debug.c in Sources */,
+				80D82C7D20F0F37500EB340D /* raw_api.c in Sources */,
+				80D82C7B20F0F37500EB340D /* ffiw64_x86_64.c in Sources */,
+				80D82C7820F0F37500EB340D /* closures.c in Sources */,
+				80D82C7A20F0F37500EB340D /* sysv_i386.S in Sources */,
+				80D82C7720F0F37500EB340D /* prep_cif.c in Sources */,
 				80EAA48620B855650043A6F6 /* ASTCondition.swift in Sources */,
 				80EAA48820B857860043A6F6 /* ASTComposite.swift in Sources */,
 				80C5C29B20CA99B500A1B3B7 /* ASTType.swift in Sources */,
@@ -457,6 +571,7 @@
 				8073276320E2760400FF25E7 /* Optimizer.swift in Sources */,
 				809761B320D7F21F004DB9A4 /* ASTLambda.swift in Sources */,
 				80EAA47520B75EE40043A6F6 /* BytecodeCompiler.swift in Sources */,
+				805509EF20F0C5B5001B4867 /* FFI.swift in Sources */,
 				80EAA4AB20B9D4C50043A6F6 /* ASTArrayGetter.swift in Sources */,
 				80EAA47E20B8060B0043A6F6 /* ASTFunctionCall.swift in Sources */,
 				80AE212120BABB6E004900DC /* ASTTypeMemberFunctionCall.swift in Sources */,
@@ -675,11 +790,20 @@
 		8001BC8620B6CF8500B55D00 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/yo/deps/libffi/include";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "yo/yo-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 4.0;
 			};
 			name = Debug;
@@ -687,11 +811,19 @@
 		8001BC8720B6CF8500B55D00 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/yo/deps/libffi/include";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "yo/yo-Bridging-Header.h";
 				SWIFT_VERSION = 4.0;
 			};
 			name = Release;
