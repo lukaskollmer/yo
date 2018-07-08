@@ -1,2 +1,2 @@
 *.yo linguist-language=Rust
-deps/* linguist-vendored=true
+yo/deps/* linguist-vendored=true
