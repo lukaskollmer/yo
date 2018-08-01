@@ -144,3 +144,12 @@ val greeting = f"Hello, ${me}";
 
 val greeting = String::format("Hello, TODO")
 ```
+
+
+## function overloading
+
+(in the compiler)
+```swift
+func labelForFunctionInvocation(mangledFunctionName: String, parameterTypes: [ASTType]) -> String
+```
+if a function is defined w/ multiple overloads, the generated versions get a counter appended and we call the right one depending on the arguments we're passing there
