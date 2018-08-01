@@ -36,7 +36,7 @@ swiftc:
 	mkdir -p $(TARGET_DIR)
 	$(SWIFTC) $(SWIFT_FILES) -emit-executable -sdk $(SDK_PATH) -o $(TARGET_DIR)/$(MODULE_NAME)
 
-xcodebuild:
+build:
 	$(XCODEBUILD) -target $(TARGET_NAME) SYMROOT=$(SYMROOT) -configuration Debug build | $(XCPRETTY)
 
 cloc:
