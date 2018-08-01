@@ -1,5 +1,3 @@
-main.yo
-
 bin/
-
+temp/
 *.xcuserstate
