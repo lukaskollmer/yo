@@ -1,6 +1,31 @@
 // io module
 
+// WIP. Does not work yet
+
 use "std/string";
+
+struct File (
+    _handle: int,
+);
+
+impl File {
+    fn read(self: File, length: int): int {
+        // TODO
+    }
+
+    fn close(self: File): void {
+        io::_close(self._handle);
+        runtime::free(self as int);
+    }
+}
+
+impl io {
+    static fn open(path: String, mode: String): File {
+        val _handle: int = io::_open(path, mode);
+        io::printf("_handle: %n", [@_handle]);
+        ret File::init(_handle);
+    }
+}
 
 impl io {
     static fn printi(arg: int): void {

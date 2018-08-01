@@ -9,7 +9,10 @@
 import Foundation
 
 
-class Runtime {
+// TODO don't have Runtime conform to NativeFunctions. it's just a temporary hack to get the getString function
+class Runtime: NativeFunctions {
+    static func register(_ runtime: Runtime) {}
+    
     typealias NativeFunctionImp = (BytecodeInterpreter) -> Int
     typealias NativeFunction = (name: String, address: Int, info: SemanticAnalyzer.FunctionInfo, imp: NativeFunctionImp)
     
@@ -49,6 +52,8 @@ class Runtime {
     
     private init() {
         
+        NativeFunctions_IO.register(self)
+        
         self["runtime", "alloc", .int, [.int]] = { interpreter in
             let size = interpreter.stack.peek()
             return interpreter.heap.alloc(size: size)
@@ -60,7 +65,7 @@ class Runtime {
         }
         
         self["runtime", "fatalError", .void, [.String]] = { interpreter in
-            fatalError(self.getString(atAddress: interpreter.stack.peek(), heap: interpreter.stack.heap))
+            fatalError(Runtime.getString(atAddress: interpreter.stack.peek(), heap: interpreter.stack.heap))
         }
         
         self["runtime", "typeof", .String, [.any]] = {_ in return 0 }   // manually implemented in the compiler
@@ -90,14 +95,14 @@ class Runtime {
         // MARK: Hashing?
         
         self["runtime", "_hashString", .int, [.String]] = { interpreter in
-            return self.getString(atAddress: interpreter.stack.peek(), heap: interpreter.heap).hashValue
+            return Runtime.getString(atAddress: interpreter.stack.peek(), heap: interpreter.heap).hashValue
         }
         
         // MARK: IO
         
         
         self["runtime", "_print", .void, [.String]] = { interpreter in
-            print(self.getString(atAddress: interpreter.stack.peek(), heap: interpreter.heap))
+            print(Runtime.getString(atAddress: interpreter.stack.peek(), heap: interpreter.heap))
             return 0
         }
         
@@ -116,7 +121,7 @@ class Runtime {
         self["runtime", "__format", .int, [.String, .Array]] = { interpreter in
             let heap = interpreter.heap
             
-            let format = self.getString(atAddress: interpreter.stack.peek(), heap: heap)
+            let format = Runtime.getString(atAddress: interpreter.stack.peek(), heap: heap)
             let args_ptr = heap[interpreter.stack.peek(offset: -1) + 3]
             
             let getArgAtIndex: (Int) -> Int = { heap[args_ptr + $0] }
@@ -141,7 +146,7 @@ class Runtime {
                         text += String(getArgAtIndex(arg_index))
                         
                     case "s": // String
-                        text += self.getString(atAddress: getArgAtIndex(arg_index), heap: heap)
+                        text += Runtime.getString(atAddress: getArgAtIndex(arg_index), heap: heap)
                         
                     case "n": // Number
                         let addr = getArgAtIndex(arg_index)
@@ -182,29 +187,6 @@ class Runtime {
             
             return string_backing
         }
-    }
-    
-    
-    
-    
-    
-   
-    
-    
-    // MARK: helpers
-    
-    private func getString(atAddress _address: Int, heap: Heap) -> String {
-        let address = heap[_address + 1]
-        let size = heap[address]
-        
-        let start = address + 1
-        let end = start + size
-        
-        let characters: [Character] = heap[start..<end]
-            .compactMap(UnicodeScalar.init)
-            .map(Character.init)
-        
-        return String(characters)
     }
 
 }
