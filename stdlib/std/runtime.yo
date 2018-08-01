@@ -64,7 +64,7 @@ impl runtime {
             runtime::unmarkForRelease(obj);
         }
 
-        if runtime::getRetainCount(obj) {
+        if runtime::getRetainCount(obj) == 1 {
             val dealloc_fn: fn<(any): void> = runtime::_getDeallocAddress(obj) as any;
             dealloc_fn(obj);
             runtime::free(obj);
