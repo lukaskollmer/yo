@@ -65,6 +65,11 @@ enum yo {
             Log.info("main returned with exit code \(retval)")
         }
         
+        if CLI.checkHeapEmpty {
+            let heapEmpty = interpreter.heap.backing.all { $0 == 0 }
+            Log.info("Heap empty: \(heapEmpty)")
+        }
+        
         return retval
     }
 }

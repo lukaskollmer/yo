@@ -13,6 +13,7 @@ class CLI {
     static let arguments = ProcessInfo.processInfo.arguments
     
     static let isVerbose = hasArgument("--verbose")
+    static let checkHeapEmpty = hasArgument("--check-heap-empty")
     
     static func hasArgument(_ argument: String) -> Bool {
         return arguments.contains(argument)

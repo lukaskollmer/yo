@@ -1350,7 +1350,7 @@ private extension BytecodeCompiler {
                     // TODO we could optimize this by providing an Array initializer that takes an initial capacity, then simply set via offset assignment (that'd avoid the length checks and resizing)
                     ASTComposite(statements: (0..<elements.count).map { idx in
                         ASTTypeMemberFunctionCall(
-                            mangledName: SymbolMangling.mangleInstanceMember(ofType: "Array", memberName: "add"),
+                            mangledName: SymbolMangling.mangleInstanceMember(ofType: "Array", memberName: "append"),
                             target: array,
                             arguments: [ASTIdentifier(name: "_\(idx)")],
                             unusedReturnValue: true
