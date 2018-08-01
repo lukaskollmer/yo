@@ -3,6 +3,10 @@
 use "std/object";
 use "std/string";
 
+fn NotYetImplemented(): void {
+    runtime::fatalError("not yet implemented");
+}
+
 impl runtime {
 
     // Note: type ids are not guaranteed to be the same across different compilations of the same program
