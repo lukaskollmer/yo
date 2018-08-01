@@ -34,7 +34,7 @@ impl Array {
 
     // Add an object to the array
     // TODO make `object` id and require it to be a heap allocated instance
-    fn add(self: Array, object: id): int {
+    fn append(self: Array, object: id): int {
         if self._count == self._allocatedLength {
             // array is full, we need to switch to a bigger backing
 
@@ -141,7 +141,7 @@ impl Array {
         val newArray = Array::new();
 
         for i in 0..<self._count {
-            newArray.add(f(self.get(i)));
+            newArray.append(f(self.get(i)));
         }
 
         ret newArray;
@@ -154,7 +154,7 @@ impl Array {
         for i in 0..<self._count {
             val element = self.get(i);
             if f(element) {
-                newArray.add(element);
+                newArray.append(element);
             }
         }
         ret newArray;
