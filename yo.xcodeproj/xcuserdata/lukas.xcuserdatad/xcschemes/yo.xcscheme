@@ -63,7 +63,15 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "/Users/lukas/Developer/yo/main.yo"
+            argument = "/Users/lukas/Developer/yo/temp/main_hashmap.yo"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--print-heap"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--check-heap-empty"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
@@ -71,7 +79,7 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-heap-size 512"
+            argument = "-heap-size 2000"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
