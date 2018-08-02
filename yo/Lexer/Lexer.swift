@@ -142,7 +142,8 @@ class Lexer {
                     continue
                 }
                 
-                if char == "\"" && currentlyParsingStringLiteral {
+                
+                if char == "\"" && currentlyParsingStringLiteral && !lastScalarWasEscapeSequenceSignal {
                     // TODO continue string literal parsing if the previous character was \ (escape sequence)
                     currentlyParsingStringLiteral = false
                     let string = NSString(string: currentToken).substring(with: NSRange(location: 1, length: currentToken.count - 2))
@@ -151,12 +152,25 @@ class Lexer {
                     continue
                 }
                 
+                //if char == "\"" && currentlyParsingStringLiteral && lastScalarWasEscapeSequenceSignal {
+                //    currentToken.unicodeScalars.removeFirst(2)
+                //    currentToken.unicodeScalars.append(char)
+                //    currentToken.unicodeScalars.enumerated().forEach { index, _scalar in
+                //        print(index, _scalar)
+                //    }
+                //}
                 
                 
+                
+                // TODO this is terrible code
+                // a) what does it do?
+                // b) why is it necessary?
+                // c) why is the same fucking assignment in two different branches? UPDATE it isn't anymore but the code still doesn't make sense
+                // d) seriously what does it do?
                 if currentlyParsingStringLiteral {
                     if char == "\\" {
                         
-                        // support escaped escaped sequences
+                        // support escaped escape sequences
                         // Examples:
                         // - "\\n" -> "\n"
                         // - "\\\n" -> "\\n" (ie backslash + newline)
@@ -179,11 +193,17 @@ class Lexer {
                         currentToken.unicodeScalars.removeLast()
                         currentToken += "\n"
                         
+                    case "\"":
+                        currentToken.unicodeScalars.removeLast(2)
+                        currentToken += "\""
+                        
                         // TODO add more characters that require special handling in escape sequences (\t, etc?)
                         
                     default:
-                        fatalError("invalid escape sequence in string literal: '\\\(next)'") // TODO incorrect syntax highlighting (all 3 \s are white, only the last one should be. File radar!
+                        fatalError("invalid escape sequence in string literal: '\\\(next)' (char: \(char))") // TODO incorrect syntax highlighting (all 3 \s are white, only the last one should be. File radar!
                     }
+                    
+                    lastScalarWasEscapeSequenceSignal = false
                 }
                 
                 
