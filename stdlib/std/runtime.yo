@@ -7,6 +7,8 @@ fn NotYetImplemented(): void {
     runtime::fatalError("not yet implemented");
 }
 
+static _is_marked_for_release_bit: int = 38;
+
 impl runtime {
 
     // Note: type ids are not guaranteed to be the same across different compilations of the same program
@@ -96,7 +98,7 @@ impl runtime {
             runtime::fatalError("Fatal Error: object is already marked for release");
         }
 
-        obj[0] = obj[0] | (1 << 39);
+        obj[0] = obj[0] | (1 << _is_marked_for_release_bit);
         ret obj;
     }
 
@@ -107,7 +109,7 @@ impl runtime {
             ret obj;
         }
 
-        obj[0] = obj[0] & ~(1 << 39);
+        obj[0] = obj[0] & ~(1 << _is_marked_for_release_bit);
         ret obj;
     }
 
@@ -117,7 +119,7 @@ impl runtime {
             ret false;
         }
 
-        val bit: int = obj[0] & (1 << 39);
+        val bit: int = obj[0] & (1 << _is_marked_for_release_bit);
         if bit == 0 {
             ret false;
         }
