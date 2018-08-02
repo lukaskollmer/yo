@@ -57,7 +57,7 @@ enum yo {
             Log.info("\n\(instructions.fancyDescription)")
         }
         
-        let interpreter = BytecodeInterpreter(instructions: instructions.finalized(), heapSize: heapSize)
+        let interpreter = BytecodeInterpreter(wipInstructions: instructions, heapSize: heapSize)
         
         let retval = try interpreter.run()
         

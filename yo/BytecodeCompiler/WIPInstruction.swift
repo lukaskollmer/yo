@@ -73,15 +73,22 @@ extension Array where Element == WIPInstruction {
         return retval
     }
     
-    func finalized() -> [Instruction] {
+    struct WIPInstructionFinalizationResult {
+        let instructions: [Instruction]
+        let procedureEntryAddresses: [Int: String]
+    }
+    
+    func finalized() -> WIPInstructionFinalizationResult {
         // TODO move withArrayLiteralsResolved back into finalized?
-        return self.map { instruction in
+        var procedureEntryAddresses = [Int: String]()
+        let instructions: [Instruction] = self.enumerated().map { index, instruction in
             switch instruction {
             case .operation(let operation, let immediate):
                 return operation.encode(withImmediate: immediate)
             case .unresolved(let operation, let label):
                 return operation.encode(withImmediate: getAddress(ofLabel: label))
-            case .label(_):
+            case .label(let label):
+                procedureEntryAddresses[index] = label
                 return 0
             case .comment(_):
                 return 0
@@ -89,6 +96,8 @@ extension Array where Element == WIPInstruction {
                 fatalError() // should never reach here
             }
         }
+        
+        return WIPInstructionFinalizationResult(instructions: instructions, procedureEntryAddresses: procedureEntryAddresses)
     }
     
     func getAddress(ofLabel label: String) -> Index {

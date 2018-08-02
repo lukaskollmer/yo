@@ -14,16 +14,22 @@ class BytecodeInterpreter {
     
     let heap: Heap
     let instructions: [InstructionDescriptor]
-    private var instructionPointer = 0    // plz don't use this directly
+    let procedureEntryAddresses: [Int: String]
+    
+    private var instructionPointer = 0  // plz don't use this directly
+    private var callStack = [Int]()     // function entry points
+    
     
     var stack: Stack {
         return heap.stack
     }
     
     
-    init(instructions: [Instruction], heapSize: Int) {
+    init(wipInstructions: [WIPInstruction], heapSize: Int) {
         self.heap = Heap(size: heapSize)
-        self.instructions = instructions.map(InstructionDescriptor.init)
+        let finalizedInstructions    = wipInstructions.finalized()
+        self.instructions            = finalizedInstructions.instructions.map(InstructionDescriptor.init)
+        self.procedureEntryAddresses = finalizedInstructions.procedureEntryAddresses
     }
     
     
@@ -298,6 +304,8 @@ class BytecodeInterpreter {
             stack.framePointer = stack.stackPointer
             instructionPointer = destinationInstructionPointer
             
+            callStack.append(destinationInstructionPointer)
+            
         case .ret:
             let returnValue = try stack.pop()
             // TODO if returnValue is an address pointing to somewhere on the heap, retain it
@@ -312,8 +320,22 @@ class BytecodeInterpreter {
             
             try stack.push(returnValue)
             
+            callStack.removeLast()
+            
             
         case .debug:
+            
+            // print current call stack
+            print("Current Call Stack:")
+            for (index, address) in callStack.reversed().enumerated() {
+                var entry = ""
+                entry += "\(index)".padding(.left, toLength: 4, withPad: " ").padding(.right, toLength: 7, withPad: " ")
+                entry += "\(address)".padding(.left, toLength: 5, withPad: "0")
+                entry += " " + String(procedureEntryAddresses[address]!)
+                print(entry)
+            }
+            
+            
             fatalError()
         }
         
