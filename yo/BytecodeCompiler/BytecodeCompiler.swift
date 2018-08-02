@@ -196,7 +196,23 @@ class BytecodeCompiler {
         
         // Global variables
         if !globals.isEmpty {
-            // Generate a static initializer to initialize all globals
+            // How do global variables work?
+            // At startup time (before calling main), we call all functions w/ the `static_initializer` attribute
+            // The synthesized `__initialize_globals` function is always called first
+            // `__initialize_globals` allocates an array at the beginning of the heap (address: 2)
+            // This array is used as the "registry" of all global variables and stores the pointers to each global variable
+            // (or, if they are primitives, their values)
+            // We then (still in __initialize_globals) fill that array with the initial values provided for all global variables.
+            // If a variable does not have an initial value, we simply leave that slot in the register empty (aka 0)
+            // After filling all initial values, we call all other functions with the `static_initializer` attribute
+            
+            // At shutdown (ie after `main` returns), we call all functions w/ the `static_cleanup` attribute
+            // We first call `__release_globals`, which frees/releases all globals that have an initial value
+            // After that, we call all other functions w/ the `static_cleanup` attribute
+            // At the end, we call `__free_global_variable_registry`, which frees the array allocated at the beginning of `__initialize_globals`
+            
+            
+            // Generate a static initializer to initialize all globals that have an initial value
             
             let initializeGlobals = ASTFunctionDeclaration(
                 name: "__initialize_globals",
@@ -241,15 +257,34 @@ class BytecodeCompiler {
                 body: globals.isEmpty
                     ? [ASTNoop()] as ASTComposite
                     : ASTComposite(statements:
-                        semanticAnalysis.globals.filter{ $0.type.supportsReferenceCounting }.map { global in
-                            ASTFunctionCall(functionName: SymbolMangling.release, arguments: [global.identifier], unusedReturnValue: true)
-                            } + [
-                                ASTFunctionCall(functionName: SymbolMangling.free, arguments: [ASTNumberLiteral(value: 2)], unusedReturnValue: true)
-                        ]
+                        // TODO reqrite this
+                        // a) only release/free globals w/ an initial value
+                        // b) for globals that are "primitive arrays" w/ an initial value, free them
+                        semanticAnalysis.globals.filter { $0.type.supportsReferenceCounting }.map { global -> ASTStatement in
+                            global.initialValue == nil
+                                ? ASTNoop()
+                                : ASTFunctionCall(functionName: SymbolMangling.release, arguments: [global.identifier], unusedReturnValue: true)
+                        }
                 )
             )
             functions[releaseGlobals.mangledName] = (0, [], .void, [.static_cleanup])
             ast.insert(releaseGlobals, at: 1)
+            
+            
+            let freeGlobalVariableRegistry = ASTFunctionDeclaration(
+                name: "__free_global_variable_registry",
+                parameters: [],
+                returnType: .void,
+                kind: .global,
+                body: globals.isEmpty
+                    ? [] as ASTComposite
+                    : [
+                        ASTFunctionCall(functionName: SymbolMangling.free, arguments: [ASTNumberLiteral(value: 2)], unusedReturnValue: true)
+                    ] as ASTComposite
+                
+            )
+            functions[freeGlobalVariableRegistry.mangledName] = (0, [], .void, [])
+            ast.insert(freeGlobalVariableRegistry, at: 2)
         }
         
         
@@ -266,6 +301,12 @@ class BytecodeCompiler {
                 }
         }
         
+        let callIfPossible: (String) throws -> Void = { functionName in
+            if self.functions.keys.contains(functionName) {
+                try self.handle(node: ASTFunctionCall(functionName: functionName, arguments: [], unusedReturnValue: true))
+            }
+        }
+        
         
         
         // Generate the bootstrapping instructions
@@ -278,6 +319,9 @@ class BytecodeCompiler {
         
         // 3. Call cleanup functions
         try callAllFunctionsWithAnnotationGivingPriorityTo(.static_cleanup, "__release_globals")
+        
+        // 4. Call the function freeing the global variable registry
+        try callIfPossible("__free_global_variable_registry")
         
         
         // 3. Jump to `end`
