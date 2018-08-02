@@ -1,0 +1,210 @@
+use "std/runtime";
+use "std/string";
+
+static _maxSizeIndex: int = 5;
+static _primes: int = runtime::alloc(_maxSizeIndex + 1);
+
+#[static_initializer]
+fn _initPrimes(): void {
+    _primes[0] = 13;
+    _primes[1] = 23;
+    _primes[2] = 41;
+    _primes[3] = 71;
+    _primes[4] = 127;
+    _primes[5] = 421;
+}
+
+#[static_cleanup]
+fn _freePrimes(): void {
+    runtime::free(_primes);
+}
+
+
+struct HashMapKeyValuePair(key: String, value: id);
+
+
+type HashMap (
+    _usedSize: int,
+    _allocatedSize: int,
+    _sizeIndex: int,
+    _backing: int
+);
+
+impl HashMap {
+
+    static fn new(): HashMap {
+        ret HashMap::_withSize(_primes[0], 0);
+    }
+
+    static fn _withSize(size: int, sizeIndex: int): HashMap {
+        ret HashMap::init(0, size, sizeIndex, runtime::alloc(2 * size));
+    }
+
+
+    fn insert(self: HashMap, key: String, value: id): void {
+        if self._usedSize >= (self._allocatedSize - 5) {
+            self._resize(true);
+        }
+        // assuming the key isn't already present
+
+        val bucketIndex = self.findBucketForKey(key);
+
+        self._usedSize += 1;
+
+        self._backing[2 * bucketIndex] = key;
+        self._backing[(2 * bucketIndex) + 1] = value;
+
+        runtime::retain(key);
+        runtime::retain(value);
+    }
+
+
+    fn _resize(self: HashMap, makeLarger: bool): void {
+        val newSize: int;
+        val newSizeIndex: int;
+        if makeLarger {
+            if self._sizeIndex != -1 && self._sizeIndex < _maxSizeIndex {
+                newSizeIndex = self._sizeIndex + 1;
+                newSize = _primes[newSizeIndex];
+            } else {
+                // largest size index maps to 421. if we exceed that, it's likely that many objects are being added
+                // so it makes sense to increase by a large number
+                newSizeIndex = -1;
+                newSize = self._allocatedSize + 100;
+            }
+        } else {
+            // TODO implement downsizing
+            runtime::fatalError("not yet implemented");
+        }
+
+        // What's going on here?
+        // We create a new HashMap with the new size (either smaller or larger than `self`)
+        // We then insert all key/value pairs from `self` into the new hash map
+        // and simply replace our attributes w/ the new hash map's attributes
+        // However, since the new hash map (`temp`) gets deallocated when it leaves scope, we have
+        // to make sure that its deallocation process won't mess up our backing and our key/value pairs.
+        // That's why we
+        // a) set temp's `_usedSize` and`_allocatedSize` to 0.
+        //    setting _allocatedSize to 0 is important because -[HashMap dealloc] iterates over its
+        //    backing to release all objects, but since we set the backing to 0, it would just
+        //    release random objects at the beginning of the heap. Also setting _allocatedSize to 0
+        //    solves that issue, since -[HashMap enumerateKeyValuePairs] uses _allocatedSize to iterate
+        //    over the key/value pairs
+        // b) set temp's `_backing` to 0. runtime::free simply returns requests to free 0, so that
+        //    ensures that we don't accidentally free some random heap space
+        // We also have to re-adjust the key/value pair's retain counts (-1), because inserting them
+        // into the new HashMap increases them by one, which is not balanced out.
+
+        val temp = HashMap::_withSize(newSize, newSizeIndex);
+
+        self.enumerateKeyValuePairs(|pair| -> {
+            temp.insert(pair.key, pair.value);
+            runtime::release(pair.key);
+            runtime::release(pair.value);
+        });
+
+        runtime::free(self._backing);
+        self._sizeIndex = temp._sizeIndex;
+        self._allocatedSize = temp._allocatedSize;
+        self._backing = temp._backing;
+
+        // make sure temp doesn't free our new backing when it goes out of scope
+        // also, since HashMap's dealloc function iterates over the backing, we have to set
+        // _usedSize and _allocatedSize to 0, to prevent these iterations
+        temp._usedSize = 0;
+        temp._allocatedSize = 0;
+        temp._backing = 0;
+    }
+
+
+    fn get(self: HashMap, key: String): id {
+        val bucketIndex = self.findBucketForKey(key);
+        ret self._backing[(2 * bucketIndex) + 1] as id;
+    }
+
+
+    fn _bucketIndexForKey(self: HashMap, key: String): int {
+        ret key.hashValue() % self._allocatedSize;
+    }
+
+    fn findBucketForKey(self: HashMap, key: String): int {
+        val hashValue = key.hashValue();
+
+        // index of the bucket in which the key would be stored under perfect coditions (no collisions)
+        val bucketIndex = hashValue % self._allocatedSize;
+
+        for i in 0..<self._allocatedSize {
+            val fetchedKey = self._backing[2 * bucketIndex];
+            if fetchedKey == 0 {
+                ret bucketIndex;
+            } else {
+                val _fetchedKey = fetchedKey as String;
+                if _fetchedKey == key {
+                    ret bucketIndex;
+                } else {
+                    if _fetchedKey.isEqualToString(key) {
+                        ret bucketIndex;
+                    }
+                }
+            }
+
+            bucketIndex += 1;
+
+            if bucketIndex == self._allocatedSize {
+                bucketIndex = 0;
+            }
+        }
+
+        runtime::fatalError("unable to find bucket");
+    }
+
+
+
+    fn description(self: HashMap): String {
+        val desc = StringBuilder::new();
+        desc.append("HashMap {\n");
+        for i in 0..<self._allocatedSize {
+            val key = self._backing[2 * i] as String;
+            val value = self._backing[(2 * i) + 1] as Number;
+
+            val key_description: String;
+            val value_description: String;
+
+            if key == 0 {
+                key_description = "0";
+            } else {
+                key_description = key.description();
+            }
+
+            if value == 0 {
+                value_description = "0";
+            } else {
+                value_description = value.description();
+            }
+            desc.append_format("  [ ] (%s, %s)\n", [key_description, value_description]);
+        }
+        desc.append("}");
+
+        ret desc.stringValue();
+    }
+
+
+    fn enumerateKeyValuePairs(self: HashMap, block: fn<(HashMapKeyValuePair): void>): void {
+        for i in 0..<self._allocatedSize {
+            val offset = 2 * i;
+            if self._backing[offset] != 0 {
+                val pair = (self._backing + offset) as HashMapKeyValuePair;
+                block(pair);
+            }
+        }
+    }
+
+
+    fn dealloc(self: HashMap): void {
+        self.enumerateKeyValuePairs(|pair| -> {
+            runtime::release(pair.key);
+            runtime::release(pair.value);
+        });
+        runtime::free(self._backing);
+    }
+}
