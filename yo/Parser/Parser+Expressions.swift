@@ -98,7 +98,7 @@ extension Parser {
                 
                 if case .closingParentheses = currentToken.type {
                     next()
-                    expression = ASTFunctionCall(functionName: identifier.name, arguments: arguments, unusedReturnValue: false) // TODO is false the right assumption here?
+                    expression = ASTFunctionCall(functionName: identifier.value, arguments: arguments, unusedReturnValue: false) // TODO is false the right assumption here?
                 }
             }
             
@@ -137,7 +137,7 @@ extension Parser {
                 next()
                 
                 expression = ASTFunctionCall(
-                    functionName: SymbolMangling.mangleStaticMember(ofType: identifier.name, memberName: memberName.name),
+                    functionName: SymbolMangling.mangleStaticMember(ofType: identifier.value, memberName: memberName.value),
                     arguments: arguments,
                     unusedReturnValue: false) // TODO is false the right assumption here?
             }
@@ -373,9 +373,18 @@ extension Parser {
     
     
     func parseIdentifier() throws -> ASTIdentifier {
+        let isBuiltin: Bool
+        
+        if case .hashtag = currentToken.type {
+            next()
+            isBuiltin = true
+        } else {
+            isBuiltin = false
+        }
+        
         if case .identifier(let name) = currentToken.type {
             next()
-            return ASTIdentifier(name: name)
+            return ASTIdentifier(value: name, isBuiltin: isBuiltin)
         }
         
         throw ParserError.unexpectedToken(currentToken)

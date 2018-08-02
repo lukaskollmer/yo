@@ -41,11 +41,11 @@ struct Scope {
         
         numberOfParameters = parameters.count
         
-        symbols.append(contentsOf: parameters.map     { $0.identifier.name })
-        symbols.append(contentsOf: localVariables.map { $0.identifier.name })
+        symbols.append(contentsOf: parameters.map     { $0.identifier.value })
+        symbols.append(contentsOf: localVariables.map { $0.identifier.value })
         
-        parameters.forEach     { types[$0.identifier.name] = $0.type }
-        localVariables.forEach { types[$0.identifier.name] = $0.type }
+        parameters.forEach     { types[$0.identifier.value] = $0.type }
+        localVariables.forEach { types[$0.identifier.value] = $0.type }
         
         
     }

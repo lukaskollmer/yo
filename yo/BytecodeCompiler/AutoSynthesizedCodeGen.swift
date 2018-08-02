@@ -8,7 +8,7 @@
 
 import Foundation
 
-private let _self = ASTIdentifier(name: "self")
+private let _self = ASTIdentifier(value: "self")
 
 /// Generates some functions for types:
 /// - Initializers
@@ -33,13 +33,13 @@ class AutoSynthesizedCodeGen {
     
     
     private static func generateInitializer(forType typeDeclaration: ASTTypeDeclaration, globalFunctions: inout GlobalFunctions, typeCache: TypeCache) -> ASTFunctionDeclaration {
-        let typename = typeDeclaration.name.name
+        let typename = typeDeclaration.name.value
         let _selfType = ASTType.complex(name: typename)
         
         let deallocFunction = SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "__dealloc")
         
         let initializer = ASTFunctionDeclaration(
-            name: ASTIdentifier(name: "init"),
+            name: ASTIdentifier(value: "init"),
             parameters: typeDeclaration.attributes,
             returnType: _selfType,
             kind: .staticImpl(typename),
@@ -118,7 +118,7 @@ class AutoSynthesizedCodeGen {
     
     private static func generateDeallocFunction(forType typeDeclaration: ASTTypeDeclaration, globalFunctions: inout GlobalFunctions) -> ASTFunctionDeclaration {
         
-        let typename = typeDeclaration.name.name
+        let typename = typeDeclaration.name.value
         let _selfType = ASTType.complex(name: typename)
         
         // Function names
@@ -163,16 +163,16 @@ class AutoSynthesizedCodeGen {
         }
         
         var retval = [ASTFunctionDeclaration]()
-        let typename = typeDeclaration.name.name
+        let typename = typeDeclaration.name.value
         let _selfType = ASTType.complex(name: typename)
         
         for attribute in typeDeclaration.attributes {
-            let attributeName = attribute.identifier.name
+            let attributeName = attribute.identifier.value
             let offset = ASTNumberLiteral(value: typeCache.offset(ofMember: attributeName, inType: typename))
             
             // Generate a getter
             let getter = ASTFunctionDeclaration(
-                name: ASTIdentifier(name: attributeName),
+                name: ASTIdentifier(value: attributeName),
                 parameters: [ASTVariableDeclaration(identifier: _self, type: _selfType)],
                 returnType: attribute.type,
                 kind: .impl(typename),
@@ -192,7 +192,7 @@ class AutoSynthesizedCodeGen {
             }
             
             let setter = ASTFunctionDeclaration(
-                name: ASTIdentifier(name: setterName),
+                name: ASTIdentifier(value: setterName),
                 parameters: [.init(identifier: _self, type: _selfType), .init(identifier: "newValue", type: attribute.type)],
                 returnType: .void,
                 kind: .impl(typename),
@@ -209,13 +209,13 @@ class AutoSynthesizedCodeGen {
                     ),
                     
                     // store the new value
-                    ASTArraySetter(target: _self, offset: offset, value: ASTIdentifier(name: "newValue")),
+                    ASTArraySetter(target: _self, offset: offset, value: ASTIdentifier(value: "newValue")),
                     
                     // retain the new value
                     !attribute.type.isComplex ? ASTNoop() :
                         ASTFunctionCall(
                             functionName: SymbolMangling.retain,
-                            arguments: [ASTIdentifier(name: "newValue")],
+                            arguments: [ASTIdentifier(value: "newValue")],
                             unusedReturnValue: true
                     ),
                 ]

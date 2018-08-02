@@ -9,22 +9,33 @@
 import Foundation
 
 
-class ASTIdentifier: ASTExpression, Equatable, ExpressibleByStringLiteral {
-    let name: String
+class ASTIdentifier: ASTExpression, Hashable, ExpressibleByStringLiteral, CustomStringConvertible {
+    let value: String
+    let isBuiltin: Bool
     
-    init(name: String) {
-        self.name = name
+    init(value: String, isBuiltin: Bool = false) {
+        self.value = value
+        self.isBuiltin = isBuiltin
+    }
+    
+    convenience init(builtin value: String) {
+        self.init(value: value, isBuiltin: true)
     }
     
     convenience required init(stringLiteral value: String) {
-        self.init(name: value)
+        self.init(value: value, isBuiltin: false)
     }
     
+    var description: String {
+        return "<ASTIdentifier name='\(isBuiltin ? "#" : "")\(value)'>"
+    }
+    
+    var hashValue: Int {
+        return value.hashValue ^ isBuiltin.hashValue
+    }
     
     static func == (lhs: ASTIdentifier, rhs: ASTIdentifier) -> Bool {
-        return lhs.name == rhs.name
+        return lhs.value == rhs.value && lhs.isBuiltin == rhs.isBuiltin
     }
-    
-    
 }
 

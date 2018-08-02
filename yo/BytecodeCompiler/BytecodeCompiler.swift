@@ -145,7 +145,7 @@ class BytecodeCompiler {
             .forEach { $0.protocols.append("Object") }
         
         for typeDeclaration in ast.compactMap({ $0 as? ASTTypeDeclaration }) {
-            let typename = typeDeclaration.name.name
+            let typename = typeDeclaration.name.value
             let allTypeFunctions = ast.compactMap { $0 as? ASTTypeImplementation }.lk_flatMap { $0.functions }.map { $0.mangledName }
             
             let protocolImplementation = ASTTypeImplementation(typename: typeDeclaration.name, functions: [])
@@ -568,7 +568,7 @@ private extension BytecodeCompiler {
         
         // only used if `hasReturnStatement == true`
         let retval_temp_storage = ASTVariableDeclaration(
-            identifier: ASTIdentifier(name: "__retval_\(functionName)"),
+            identifier: ASTIdentifier(value: "__retval_\(functionName)"),
             type: returnType != .void ? returnType : .int
         )
         
@@ -585,7 +585,7 @@ private extension BytecodeCompiler {
                 
                 try localVariables
                     .filter { variable in
-                        let type = try scope.type(of: variable.identifier.name)
+                        let type = try scope.type(of: variable.identifier.value)
                         return type.supportsReferenceCounting && !typeCache.isStruct(type.typename)
                     }
                     .forEach { try release(expression: $0.identifier) }
@@ -600,8 +600,8 @@ private extension BytecodeCompiler {
                         let returnedLocalIdentifier: ASTIdentifier?
                         
                         if let _returnedLocalIdentifier = returnStatement.expression as? ASTIdentifier,
-                            scope.contains(identifier: _returnedLocalIdentifier.name),
-                            case let type = try scope.type(of: _returnedLocalIdentifier.name),
+                            scope.contains(identifier: _returnedLocalIdentifier.value),
+                            case let type = try scope.type(of: _returnedLocalIdentifier.value),
                             type.supportsReferenceCounting && !typeCache.isStruct(type.typename) { // TODO not sure whether replacing isComplex w/ supportsReferenceCounting was the right idea here...
                             returnedLocalIdentifier = _returnedLocalIdentifier
                         } else {
@@ -621,7 +621,7 @@ private extension BytecodeCompiler {
                                 .filter { $0 != retval_temp_storage }
                                 .filter { returnedLocalIdentifier == nil || $0.identifier != returnedLocalIdentifier! }
                                 .forEach { variable in
-                                    let type = try scope.type(of: variable.identifier.name)
+                                    let type = try scope.type(of: variable.identifier.value)
                                     if type.supportsReferenceCounting && !typeCache.isStruct(type.typename) {
                                         try release(expression: variable.identifier)
                                     }
@@ -803,13 +803,13 @@ private extension BytecodeCompiler {
         
         if let targetIdentifier = target as? ASTIdentifier {
             
-            if scope.contains(identifier: targetIdentifier.name) || _actualAddressOfGlobal(withIdentifier: targetIdentifier) != nil {
+            if scope.contains(identifier: targetIdentifier.value) || _actualAddressOfGlobal(withIdentifier: targetIdentifier) != nil {
                 
                 let store: () throws -> Void
                 
-                if scope.contains(identifier: targetIdentifier.name) {
+                if scope.contains(identifier: targetIdentifier.value) {
                     store = {
-                        self.add(.store, try self.scope.index(of: targetIdentifier.name))
+                        self.add(.store, try self.scope.index(of: targetIdentifier.value))
                     }
                 } else if let globalAddress = _actualAddressOfGlobal(withIdentifier: targetIdentifier) {
                     store = {
@@ -908,8 +908,8 @@ private extension BytecodeCompiler {
             
             if accessedIdentifiersFromOutsideScope.isEmpty {
                 // "pure" lambda
-                let lambdaFunctionName = ASTIdentifier(name: "__\(functionName)_lambda_invoke_\(lambdaCounter.get())") // TODO prefix w/ __
-                functions[lambdaFunctionName.name] = (parameterTypes.count, parameterTypes, returnType, [])
+                let lambdaFunctionName = ASTIdentifier(value: "__\(functionName)_lambda_invoke_\(lambdaCounter.get())") // TODO prefix w/ __
+                functions[lambdaFunctionName.value] = (parameterTypes.count, parameterTypes, returnType, [])
                 
                 let fn = ASTFunctionDeclaration(
                     name: lambdaFunctionName,
@@ -932,7 +932,7 @@ private extension BytecodeCompiler {
                 
                 // TODO unify typename/invokeptr naming w/ above // TODO is this still relevant?
                 let typename = "__\(functionName)_lambda_literal_\(lambdaCounter.get())"
-                let invoke_functionPtr = ASTIdentifier(name: SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "invoke"))
+                let invoke_functionPtr = ASTIdentifier(value: SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "invoke"))
                 
                 let lambda_impType: ASTType = .function(returnType: returnType, parameterTypes: [.complex(name: typename)] + parameterTypes)
                 
@@ -940,7 +940,7 @@ private extension BytecodeCompiler {
                 // Lambda type
                 
                 let type = ASTTypeDeclaration(
-                    name: ASTIdentifier(name: typename),
+                    name: ASTIdentifier(value: typename),
                     attributes: [ASTVariableDeclaration(identifier: invoke_functionPtr, type: lambda_impType)] + importedVariables,
                     annotations: ["disable_getters_setters"]
                 )
@@ -963,7 +963,7 @@ private extension BytecodeCompiler {
                     body: lambda.body
                 )
                 
-                functions[invoke_functionPtr.name] = (
+                functions[invoke_functionPtr.value] = (
                     argc: imp.parameters.count,
                     parameterTypes: imp.parameters.map { $0.type },
                     returnType: returnType,
@@ -991,17 +991,17 @@ private extension BytecodeCompiler {
     // MARK: Handle Expressions
     
     func handle(functionCall: ASTFunctionCall) throws {
-        let identifier = ASTIdentifier(name: functionCall.functionName)
+        let identifier = ASTIdentifier(value: functionCall.functionName)
         let functionInfo: SemanticAnalyzer.FunctionInfo
         
-        var isGlobalFunction = !scope.contains(identifier: identifier.name)
+        var isGlobalFunction = !scope.contains(identifier: identifier.value)
         
-        if !isGlobalFunction, case .function(let returnType, let parameterTypes) = try scope.type(of: identifier.name) {
+        if !isGlobalFunction, case .function(let returnType, let parameterTypes) = try scope.type(of: identifier.value) {
             // calling a function from the local scope
             // TODO what about supporting implicit function calls on self (ie `foo()` instead of `self.foo()` if `self` has a function `foo`
             functionInfo = (parameterTypes.count, parameterTypes, returnType, [])
         
-        } else if let globalFunctionInfo = functions[identifier.name] {
+        } else if let globalFunctionInfo = functions[identifier.value] {
             // calling a global function
             functionInfo = globalFunctionInfo
             
@@ -1010,11 +1010,11 @@ private extension BytecodeCompiler {
             functionInfo = (parameterTypes.count, parameterTypes, returnType, [])
         
         } else {
-            fatalError("cannot resolve call to '\(identifier.name)'")
+            fatalError("cannot resolve call to '\(identifier.value)'")
         }
         
         guard functionInfo.argc == functionCall.arguments.count else {
-            fatalError("wrong argc in call to \(identifier.name): expected \(functionInfo.argc), got \(functionCall.arguments.count)")
+            fatalError("wrong argc in call to \(identifier.value): expected \(functionInfo.argc), got \(functionCall.arguments.count)")
         }
         
         if functionCall.functionName == SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "typeof") {
@@ -1042,11 +1042,11 @@ private extension BytecodeCompiler {
         
         
         // push the address onto the stack
-        if let builtin = Runtime.shared[mangledName: identifier.name] {
+        if let builtin = Runtime.shared[mangledName: identifier.value] {
             add(.push, builtin.address)
             
         } else if isGlobalFunction {
-            let mangledName = SymbolMangling.mangleGlobalFunction(name: identifier.name)
+            let mangledName = SymbolMangling.mangleGlobalFunction(name: identifier.value)
             add(.push, unresolvedLabel: mangledName)
             stats.calledFunctions.insert(mangledName)
             
@@ -1071,22 +1071,50 @@ private extension BytecodeCompiler {
     
     
     func handle(identifier: ASTIdentifier) throws {
-        if let index = try? scope.index(of: identifier.name) {
+        if identifier.isBuiltin {
+            switch identifier.builtin_identifier {
+            case .function:
+                // #function expands to a string containing the name of the current function
+                guard
+                    case Scope.ScopeType.function(let mangledFunctionName, returnType: _) = scope.type,
+                    let functionInfo = functions[mangledFunctionName]
+                else {
+                    fatalError("unable to expand #function")
+                }
+                
+                var prettyFunctionName = mangledFunctionName
+                prettyFunctionName += "("
+                for (index, parameterType) in functionInfo.parameterTypes.enumerated() {
+                    prettyFunctionName += parameterType.typename
+                    if index < functionInfo.parameterTypes.count - 1 {
+                        prettyFunctionName += ", "
+                    }
+                }
+                prettyFunctionName += "): "
+                prettyFunctionName += functionInfo.returnType.typename
+                
+                try handle(stringLiteral: ASTStringLiteral(value: prettyFunctionName))
+            }
+            
+            return
+        }
+        
+        if let index = try? scope.index(of: identifier.value) {
             // local variable
             add(.load, index)
             
         } else if let selfAccess = processPotentialImplicitSelfAccess(identifier: identifier) {
             try handle(node: selfAccess.memberAccess)
             
-        } else if functions.keys.contains(identifier.name) {
+        } else if functions.keys.contains(identifier.value) {
             // global function
-            add(.push, unresolvedLabel: identifier.name)
+            add(.push, unresolvedLabel: identifier.value)
             
         } else if let globalAddress = _actualAddressOfGlobal(withIdentifier: identifier) {
             add(.readh, globalAddress)
     
         } else {
-            fatalError("unable to resolve idenfifier '\(identifier.name)'")
+            fatalError("unable to resolve idenfifier '\(identifier)'")
         }
     }
     
@@ -1108,7 +1136,7 @@ private extension BytecodeCompiler {
             guard case .complex(let currentTypename) = currentType else {
                 fatalError("trying to access attribute on non-complex type")
             }
-            currentType = self.typeCache.type(ofMember: $0.name, ofType: currentTypename)! // TODO don't force unwrap
+            currentType = self.typeCache.type(ofMember: $0.value, ofType: currentTypename)! // TODO don't force unwrap
         }
         
         for (index, member) in memberAccess.members.enumerated() {
@@ -1117,13 +1145,13 @@ private extension BytecodeCompiler {
             switch member {
             case .initial_identifier(let identifier):
                 expr = identifier
-                if !scope.contains(identifier: identifier.name), let selfAccess = processPotentialImplicitSelfAccess(identifier: identifier) {
+                if !scope.contains(identifier: identifier.value), let selfAccess = processPotentialImplicitSelfAccess(identifier: identifier) {
                     currentType = selfAccess.selfType
                     expr = selfAccess.memberAccess
                     try updateType(identifier)
                     
                 } else {
-                    currentType = try self.scope.type(of: identifier.name)
+                    currentType = try self.scope.type(of: identifier.value)
                 }
                 
             case .initial_functionCall(let functionCall):
@@ -1148,7 +1176,7 @@ private extension BytecodeCompiler {
                 
                 expr = ASTArrayGetter(
                     target: expr,
-                    offset: ASTNumberLiteral(value: typeCache.offset(ofMember: identifier.name, inType: currentTypename))
+                    offset: ASTNumberLiteral(value: typeCache.offset(ofMember: identifier.value, inType: currentTypename))
                 )
                 
                 if index < memberAccess.members.count {
@@ -1158,7 +1186,11 @@ private extension BytecodeCompiler {
             case .functionCall(let functionName, let arguments, let unusedReturnValue):
                 guard case .complex(let currentTypename) = currentType else { fatalError("ugh") } // TODO redundant code!!! (see above)
                 
-                let mangledName = SymbolMangling.mangleInstanceMember(ofType: currentTypename, memberName: functionName.name)
+                let mangledName = SymbolMangling.mangleInstanceMember(ofType: currentTypename, memberName: functionName.value)
+                
+                guard let functionInfo = functions[mangledName] else {
+                    fatalError("unable to resolve member function call to '\(mangledName)'")
+                }
                 
                 expr = ASTTypeMemberFunctionCall(
                     mangledName: mangledName,
@@ -1167,7 +1199,7 @@ private extension BytecodeCompiler {
                     unusedReturnValue: unusedReturnValue
                 )
                 
-                currentType = functions[mangledName]!.returnType // TODO don't force-unwrap!!!
+                currentType = functionInfo.returnType
             }
         }
         
@@ -1327,11 +1359,11 @@ private extension BytecodeCompiler {
         let arrayInitializerMangled = SymbolMangling.mangleStaticMember(ofType: "Array", memberName: arrayInitializerMemberName)
         
         if !functions.keys.contains(arrayInitializerMangled) {
-            let array = ASTIdentifier(name: "array")
+            let array = ASTIdentifier(value: "array")
             
             let specializedArrayInitializer = ASTFunctionDeclaration(
-                name: ASTIdentifier(name: arrayInitializerMemberName),
-                parameters: (0..<elements.count).map { ASTVariableDeclaration(identifier: ASTIdentifier(name: "_\($0)"), type: .any) },
+                name: ASTIdentifier(value: arrayInitializerMemberName),
+                parameters: (0..<elements.count).map { ASTVariableDeclaration(identifier: ASTIdentifier(value: "_\($0)"), type: .any) },
                 returnType: .Array,
                 kind: .staticImpl("Array"),
                 body: [
@@ -1352,7 +1384,7 @@ private extension BytecodeCompiler {
                         ASTTypeMemberFunctionCall(
                             mangledName: SymbolMangling.mangleInstanceMember(ofType: "Array", memberName: "append"),
                             target: array,
-                            arguments: [ASTIdentifier(name: "_\(idx)")],
+                            arguments: [ASTIdentifier(value: "_\(idx)")],
                             unusedReturnValue: true
                         )
                     }),
@@ -1470,17 +1502,17 @@ private extension BytecodeCompiler {
 
 private extension BytecodeCompiler {
     func processPotentialImplicitSelfAccess(identifier: ASTIdentifier) -> (memberAccess: ASTMemberAccess, selfType: ASTType, attributeType: ASTType)? {
-        guard let selfName = scope.parameters.first?.identifier.name else {
+        guard let selfName = scope.parameters.first?.identifier.value else {
             return nil
         }
         
-        if scope.contains(identifier: selfName), case .complex(let self_type) = try! scope.type(of: selfName), typeCache.type(self_type, hasMember: identifier.name) {
-            let memberAccess: ASTMemberAccess = [.initial_identifier(.init(name: selfName)), .attribute(name: identifier)]
+        if scope.contains(identifier: selfName), case .complex(let self_type) = try! scope.type(of: selfName), typeCache.type(self_type, hasMember: identifier.value) {
+            let memberAccess: ASTMemberAccess = [.initial_identifier(.init(value: selfName)), .attribute(name: identifier)]
             
             return (
                 memberAccess,
                 ASTType.complex(name: self_type),
-                typeCache.type(ofMember: identifier.name, ofType: self_type)!
+                typeCache.type(ofMember: identifier.value, ofType: self_type)!
             )
         }
         return nil
@@ -1492,10 +1524,14 @@ private extension BytecodeCompiler {
     func guessType(ofExpression expression: ASTExpression, additionalIdentifiers: [ASTVariableDeclaration] = []) throws -> ASTType {
         return try withScope(scope.adding(localVariables: additionalIdentifiers)) {
             if let identifier = expression as? ASTIdentifier {
-                if scope.contains(identifier: identifier.name) {
-                    return try scope.type(of: identifier.name)
+                if identifier.isBuiltin {
+                    return identifier.builtin_type
+                }
+                
+                if scope.contains(identifier: identifier.value) {
+                    return try scope.type(of: identifier.value)
                     
-                } else if let functionInfo = functions[identifier.name] {
+                } else if let functionInfo = functions[identifier.value] {
                     return ASTType.function(returnType: functionInfo.returnType, parameterTypes: functionInfo.parameterTypes)
                     
                 } else if let implicitSelfAccess = processPotentialImplicitSelfAccess(identifier: identifier) {
@@ -1513,11 +1549,11 @@ private extension BytecodeCompiler {
                     if scope.contains(identifier: functionCall.functionName), case .function(let returnType, _) = try scope.type(of: functionCall.functionName) {
                         return returnType
                     
-                    } else if case .function(let returnType, _)? = processPotentialImplicitSelfAccess(identifier: ASTIdentifier(name: functionCall.functionName))?.attributeType {
+                    } else if case .function(let returnType, _)? = processPotentialImplicitSelfAccess(identifier: ASTIdentifier(value: functionCall.functionName))?.attributeType {
                         return returnType
                     
                     } else {
-                        fatalError("unable to resolve function call")
+                        fatalError("[\(#function)] unable to resolve function call to \(functionCall.functionName)")
                     }
                 }
                 
@@ -1588,7 +1624,7 @@ extension BytecodeCompiler {
     }
     
     func call(_ functionName: String, arguments: [ASTExpression], unusedReturnValue: Bool = true) throws {
-        add(comment: "\(functionName) \((arguments.first as? ASTIdentifier)?.name ?? String(describing: arguments.first))")
+        add(comment: "\(functionName) \((arguments.first as? ASTIdentifier)?.value ?? String(describing: arguments.first))")
         let call = ASTFunctionCall(
             functionName: functionName,
             arguments: arguments,

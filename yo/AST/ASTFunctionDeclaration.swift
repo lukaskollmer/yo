@@ -46,11 +46,11 @@ class ASTFunctionDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated {
     var mangledName: String {
         switch kind {
         case .global:
-            return name.name
+            return name.value
         case .impl(let typename):
-            return SymbolMangling.mangleInstanceMember(ofType: typename, memberName: name.name)
+            return SymbolMangling.mangleInstanceMember(ofType: typename, memberName: name.value)
         case .staticImpl(let typename):
-            return SymbolMangling.mangleStaticMember(ofType: typename, memberName: name.name)
+            return SymbolMangling.mangleStaticMember(ofType: typename, memberName: name.value)
         }
     }
 }

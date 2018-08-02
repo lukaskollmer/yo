@@ -22,11 +22,11 @@ class TypeCache {
     }
     
     func type(_ typename: String, hasMember member: String) -> Bool {
-        return type(withName: typename)!.attributes.contains { $0.identifier.name == member } // TODO don't force unwrap
+        return type(withName: typename)!.attributes.contains { $0.identifier.value == member } // TODO don't force unwrap
     }
     
     func index(ofType typename: String) -> Int {
-        return types.index { $0.name.name == typename }! // TODO don't force-unwrap
+        return types.index { $0.name.value == typename }! // TODO don't force-unwrap
     }
     
     func offset(ofMember member: String, inType typename: String) -> Int {
@@ -36,7 +36,7 @@ class TypeCache {
         
         return type
             .attributes
-            .index { $0.identifier.name == member }! + (type.isStruct ? 0 : 1)
+            .index { $0.identifier.value == member }! + (type.isStruct ? 0 : 1)
     }
     
     func isStruct(_ typename: String) -> Bool {
@@ -45,11 +45,11 @@ class TypeCache {
     
     
     func type(ofMember member: String, ofType typename: String) -> ASTType? {
-        return type(withName: typename)?.attributes.first { $0.identifier.name == member }?.type
+        return type(withName: typename)?.attributes.first { $0.identifier.value == member }?.type
     }
     
     
     private func type(withName typename: String) -> ASTTypeDeclaration? {
-        return types.first { $0.name.name == typename }
+        return types.first { $0.name.value == typename }
     }
 }

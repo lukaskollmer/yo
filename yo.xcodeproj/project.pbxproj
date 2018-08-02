@@ -10,6 +10,7 @@
 		8001BC8220B6CF8500B55D00 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8001BC8120B6CF8500B55D00 /* main.swift */; };
 		80049ABD20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80049ABC20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift */; };
 		80149F3D20E397200068CE03 /* AssociatedObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80149F3C20E3971F0068CE03 /* AssociatedObject.swift */; };
+		803ECFD6211320FC001B9975 /* BuiltinIdentifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803ECFD5211320FC001B9975 /* BuiltinIdentifiers.swift */; };
 		804834DC20B6D699009E59FC /* extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834DB20B6D699009E59FC /* extensions.swift */; };
 		804834DE20B6D962009E59FC /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834DD20B6D962009E59FC /* Log.swift */; };
 		804834E320B6EABD009E59FC /* Parser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834E220B6EABD009E59FC /* Parser.swift */; };
@@ -146,6 +147,7 @@
 		8001BC8120B6CF8500B55D00 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		80049ABC20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTStaticVariableDeclaration.swift; sourceTree = "<group>"; };
 		80149F3C20E3971F0068CE03 /* AssociatedObject.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AssociatedObject.swift; sourceTree = "<group>"; };
+		803ECFD5211320FC001B9975 /* BuiltinIdentifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltinIdentifiers.swift; sourceTree = "<group>"; };
 		804834DB20B6D699009E59FC /* extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = extensions.swift; sourceTree = "<group>"; };
 		804834DD20B6D962009E59FC /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
 		804834E220B6EABD009E59FC /* Parser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Parser.swift; sourceTree = "<group>"; };
@@ -383,6 +385,7 @@
 			isa = PBXGroup;
 			children = (
 				80EAA47420B75EE40043A6F6 /* BytecodeCompiler.swift */,
+				803ECFD5211320FC001B9975 /* BuiltinIdentifiers.swift */,
 				80C3381320E799C600E98F15 /* AutoSynthesizedCodeGen.swift */,
 				80F1E9B920BEB1A500336F4C /* SemanticAnalyzer.swift */,
 				80EAA48320B83C670043A6F6 /* Scope.swift */,
@@ -573,6 +576,7 @@
 				80EAA47520B75EE40043A6F6 /* BytecodeCompiler.swift in Sources */,
 				805509EF20F0C5B5001B4867 /* FFI.swift in Sources */,
 				80EAA4AB20B9D4C50043A6F6 /* ASTArrayGetter.swift in Sources */,
+				803ECFD6211320FC001B9975 /* BuiltinIdentifiers.swift in Sources */,
 				80EAA47E20B8060B0043A6F6 /* ASTFunctionCall.swift in Sources */,
 				80AE212120BABB6E004900DC /* ASTTypeMemberFunctionCall.swift in Sources */,
 				80CF5AA320EA3612000A969A /* Constants.swift in Sources */,

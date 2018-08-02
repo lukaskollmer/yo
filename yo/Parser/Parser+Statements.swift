@@ -193,7 +193,7 @@ extension Parser {
                     }
                     next() // skip the semicolon
                     
-                    return ASTFunctionCall(functionName: identifier.name, arguments: arguments, unusedReturnValue: true)
+                    return ASTFunctionCall(functionName: identifier.value, arguments: arguments, unusedReturnValue: true)
                 }
                 
                 if case .openingSquareBrackets = currentToken.type {
@@ -231,7 +231,7 @@ extension Parser {
                     next()
                     
                     return ASTFunctionCall(
-                        functionName: SymbolMangling.mangleStaticMember(ofType: identifier.name, memberName: memberName.name),
+                        functionName: SymbolMangling.mangleStaticMember(ofType: identifier.value, memberName: memberName.value),
                         arguments: arguments,
                         unusedReturnValue: true
                     )
@@ -382,9 +382,9 @@ extension Parser {
             function.kind = {
                 switch function.kind {
                 case .impl(_):
-                    return .impl(typename.name)
+                    return .impl(typename.value)
                 case .staticImpl(_):
-                    return .staticImpl(typename.name)
+                    return .staticImpl(typename.value)
                 default:
                     fatalError("unexpected non-impl function kind")
                 }
@@ -432,7 +432,7 @@ extension Parser {
         self.annotations = []
         
         return ASTFunctionDeclaration(
-            name: ASTIdentifier(name: functionName),
+            name: ASTIdentifier(value: functionName),
             parameters: parameters,
             returnType: returnType,
             kind: kind,
@@ -510,7 +510,7 @@ extension Parser {
         
         var elements = [ASTAnnotation.Element]()
         
-        while let key = try? parseIdentifier().name {
+        while let key = try? parseIdentifier().value {
             var value: ASTAnnotation.Element.Value?
             
             if case .equalsSign = currentToken.type {
@@ -519,7 +519,7 @@ extension Parser {
                 let expr = try parseExpression()
                 
                 if let id = expr as? ASTIdentifier {
-                    switch id.name {
+                    switch id.value {
                     case "true":  value = .bool(true)
                     case "false": value = .bool(false)
                     default: fatalError("TODO?")
@@ -583,7 +583,7 @@ extension Parser {
         }
         next()
         
-        return ASTProtocolDeclaration(name: ASTIdentifier(name: protocolName), functions: functions)
+        return ASTProtocolDeclaration(name: ASTIdentifier(value: protocolName), functions: functions)
     }
     
     
@@ -783,7 +783,7 @@ extension Parser {
         }
         next()
         
-        let rawOperationName = try parseIdentifier().name
+        let rawOperationName = try parseIdentifier().value
         guard let operation = Operation(name: rawOperationName) else {
             throw ParserError.other("unknown operation in __asm literal: \(rawOperationName)")
         }
@@ -801,7 +801,7 @@ extension Parser {
             if let immediate = immediate as? ASTNumberLiteral {
                 return ASTRawWIPInstruction(instruction: .operation(operation, immediate.value))
             } else if let immediate = immediate as? ASTIdentifier {
-                return ASTRawWIPInstruction(instruction: .unresolved(operation, immediate.name))
+                return ASTRawWIPInstruction(instruction: .unresolved(operation, immediate.value))
             }
             fatalError("should not reach here")
         }
