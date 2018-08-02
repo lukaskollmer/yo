@@ -9,7 +9,7 @@ type Array(_count: int, _allocatedLength: int, _backing: int);
 impl Array {
     // Create a new Array
     static fn new(): Array {
-        ret Array::init(0, 5, runtime::alloc(5));
+        ret Array::init(0, 10, runtime::alloc(10));
     }
 
     // Create a new Array from the contents of the heap, at the specified address
@@ -92,18 +92,19 @@ impl Array {
 
 
     // Remove all occurrences of an object from the array
-    fn removeObject(self: Array, object: id): void {
+    fn remove(self: Array, object: id): void {
+        NotYetImplemented();
         // TODO take a reduced length due to mutations into account!!!
         for i in 0..<self._count {
-            if self.get(i) == object {
-                self.removeObjectAtIndex(i);
+            if self.get(i) == object { // TODO we probably should also check the object's hash values or call isEqual or something like that
+                self.removeAtIndex(i);
             }
         }
     }
 
 
     // Remove the object at the specified index
-    fn removeObjectAtIndex(self: Array, index: int): void {
+    fn removeAtIndex(self: Array, index: int): void {
         index = self._normalizeIndexAndCheckBounds(index);
 
         runtime::release(self.get(index));
@@ -191,6 +192,22 @@ impl Array {
         }
         runtime::free(self._backing);
     }
+
+
+//    fn description(self: Array): String {
+//        val desc = "Array [\n";
+//
+//        val count = self._count;
+//
+//        for i in 0..<count {
+//            desc = desc.appending(String::format("  %n\n", [self.get(i) as Number]));
+//        }
+//
+//
+//        desc = desc.appending("]");
+//
+//        ret desc;
+//    }
 
 
     //
