@@ -7,6 +7,7 @@ fn NotYetImplemented(): void {
     runtime::fatalError("not yet implemented");
 }
 
+static _is_deallocating_bit: int = 38;
 static _is_marked_for_release_bit: int = 38;
 
 impl runtime {
@@ -71,6 +72,12 @@ impl runtime {
         }
 
         if runtime::getRetainCount(obj) == 1 {
+            // the object is already in the process of being deallocated, so we'll just ignore this release call
+            if runtime::is_deallocating(obj) {
+                ret obj;
+            }
+
+            runtime::set_is_deallocating(obj);
             val dealloc_fn: fn<(any): void> = runtime::_getDeallocAddress(obj) as any;
             dealloc_fn(obj);
             runtime::free(obj);
@@ -124,6 +131,28 @@ impl runtime {
             ret false;
         }
         ret true;
+    }
+
+    #[disable_arc]
+    static fn is_deallocating(obj: any): bool {
+        if !runtime::isObject(obj) {
+            ret false;
+        }
+        val bit: int = obj[0] & (1 << 38);
+        if bit == 0 {
+            ret false;
+        }
+        ret true;
+    }
+
+    #[disable_arc]
+    static fn set_is_deallocating(obj: any): void {
+        if !runtime::isObject(obj) {
+            ret obj;
+        }
+
+        obj[0] = obj[0] & ~(1 << 38);
+        ret obj;
     }
 
 
