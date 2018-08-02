@@ -314,8 +314,7 @@ class BytecodeInterpreter {
             
             
         case .debug:
-            //let stack = heap.stack
-            ({}())
+            fatalError()
         }
         
         if BytecodeInterpreter.verboseLogging {

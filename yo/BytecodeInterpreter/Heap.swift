@@ -55,12 +55,17 @@ class Heap {
         
         let address = firstFreeAddress(forSize: size)
         allocations.append((address, size))
+        
+        // TODO this is a giant bottleneck
         allocations.sort { $0.address < $1.address } // not sure why but it seems like new tupels aren't always appended to the end of the array?
+        
         return address
     }
     
     
     func free(address: Int) {
+        guard address > 0 else { return }
+        
         let index = allocations.index { $0.address == address }!
         let allocation = allocations.remove(at: index)
         
