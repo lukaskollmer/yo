@@ -1,5 +1,8 @@
 // object
 
+use "std/string";
+use "std/number";
+
 // every custom type you declare implicitly conforms to the `Object` protocol
 
 protocol Object {
