@@ -194,60 +194,64 @@ class BytecodeCompiler {
         globals.append(contentsOf: semanticAnalysis.globals.map { ASTVariableDeclaration(identifier: $0.identifier, type: $0.type) })
         
         
-        // Generate a static initializer to initialize all globals
-        
-        let initializeGlobals = ASTFunctionDeclaration(
-            name: "__initialize_globals",
-            parameters: [],
-            returnType: .void,
-            kind: .global,
-            annotations: [.static_initializer],
-            body: [
-                globals.isEmpty ? ASTNoop() :
-                // First, we allocate space for the pointers to each global variable (or their values, if they are primitives)
-                ASTFunctionCall(functionName: SymbolMangling.alloc, arguments: [ASTNumberLiteral(value: semanticAnalysis.globals.count * 2)], unusedReturnValue: true),
-                ASTComposite(statements:
-                    semanticAnalysis.globals.map { global in
-                        let value: ASTExpression = {
-                            if let initialValue = global.initialValue {
-                                return !global.type.supportsReferenceCounting
-                                ? initialValue
-                                : ASTFunctionCall(functionName: SymbolMangling.retain, arguments: [initialValue], unusedReturnValue: false)
-                            }
+        // Global variables
+        if !globals.isEmpty {
+            // Generate a static initializer to initialize all globals
+            
+            let initializeGlobals = ASTFunctionDeclaration(
+                name: "__initialize_globals",
+                parameters: [],
+                returnType: .void,
+                kind: .global,
+                annotations: [.static_initializer],
+                body: [
+                    globals.isEmpty ? ASTNoop() :
+                        // First, we allocate space for the pointers to each global variable (or their values, if they are primitives)
+                        ASTFunctionCall(functionName: SymbolMangling.alloc, arguments: [ASTNumberLiteral(value: semanticAnalysis.globals.count * 2)], unusedReturnValue: true),
+                    ASTComposite(statements:
+                        semanticAnalysis.globals.map { global in
+                            let value: ASTExpression = {
+                                if let initialValue = global.initialValue {
+                                    return !global.type.supportsReferenceCounting
+                                        ? initialValue
+                                        : ASTFunctionCall(functionName: SymbolMangling.retain, arguments: [initialValue], unusedReturnValue: false)
+                                }
+                                
+                                return ASTNumberLiteral(value: 0)
+                            }()
                             
-                            return ASTNumberLiteral(value: 0)
-                        }()
-                        
-                        return ASTArraySetter(
-                            target: ASTNumberLiteral(value: 0),
-                            offset: ASTNumberLiteral(value: _actualAddressOfGlobal(withIdentifier: global.identifier)!),
-                            value: value
-                        )
-                    }
+                            return ASTArraySetter(
+                                target: ASTNumberLiteral(value: 0),
+                                offset: ASTNumberLiteral(value: _actualAddressOfGlobal(withIdentifier: global.identifier)!),
+                                value: value
+                            )
+                        }
+                    )
+                ]
+            )
+            functions[initializeGlobals.mangledName] = (0, [], .void, [.static_initializer])
+            ast.insert(initializeGlobals, at: 0)
+            
+            let releaseGlobals = ASTFunctionDeclaration(
+                name: "__release_globals",
+                parameters: [],
+                returnType: .void,
+                kind: .global,
+                annotations: [.static_cleanup],
+                body: globals.isEmpty
+                    ? [ASTNoop()] as ASTComposite
+                    : ASTComposite(statements:
+                        semanticAnalysis.globals.filter{ $0.type.supportsReferenceCounting }.map { global in
+                            ASTFunctionCall(functionName: SymbolMangling.release, arguments: [global.identifier], unusedReturnValue: true)
+                            } + [
+                                ASTFunctionCall(functionName: SymbolMangling.free, arguments: [ASTNumberLiteral(value: 2)], unusedReturnValue: true)
+                        ]
                 )
-            ]
-        )
-        functions[initializeGlobals.mangledName] = (0, [], .void, [.static_initializer])
-        ast.insert(initializeGlobals, at: 0)
+            )
+            functions[releaseGlobals.mangledName] = (0, [], .void, [.static_cleanup])
+            ast.insert(releaseGlobals, at: 1)
+        }
         
-        let releaseGlobals = ASTFunctionDeclaration(
-            name: "__release_globals",
-            parameters: [],
-            returnType: .void,
-            kind: .global,
-            annotations: [.static_cleanup],
-            body: globals.isEmpty
-                ? [ASTNoop()] as ASTComposite
-                : ASTComposite(statements:
-                    semanticAnalysis.globals.filter{ $0.type.supportsReferenceCounting }.map { global in
-                        ASTFunctionCall(functionName: SymbolMangling.release, arguments: [global.identifier], unusedReturnValue: true)
-                    } + [
-                        ASTFunctionCall(functionName: SymbolMangling.free, arguments: [ASTNumberLiteral(value: 2)], unusedReturnValue: true)
-                    ]
-                  )
-        )
-        functions[releaseGlobals.mangledName] = (0, [], .void, [.static_cleanup])
-        ast.insert(releaseGlobals, at: 1)
         
         let callAllFunctionsWithAnnotationGivingPriorityTo: (ASTAnnotation.Element, String) throws -> Void = { annotation, priorityName in
             let allFunctionsWithAnnotation = ast.compactMap { $0 as? ASTFunctionDeclaration }.filter { $0.hasAnnotation(annotation) }
