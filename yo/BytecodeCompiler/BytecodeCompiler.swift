@@ -339,7 +339,7 @@ private extension BytecodeCompiler {
         
         // self.instructions now contains the instructions inserted in the block
         // we insert these
-        guard let insertionPoint = previousInstructions.lastIndex(where: { $0.isLabel })?.advanced(by: 0) else {
+        guard let insertionPoint = previousInstructions.lastIndex(where: { $0.isLabel && !$0.labelValue!.hasPrefix(".") })?.advanced(by: 0) else {
             fatalError("unable to find insertion point")
             
         }
