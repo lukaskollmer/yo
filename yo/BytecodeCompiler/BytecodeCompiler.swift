@@ -1037,6 +1037,15 @@ private extension BytecodeCompiler {
                 arg = try resolve(lambda: lambda, expectedSignature: expectedType)
             }
             
+            // This is a terrible hack
+            // Basically, the issue is that, if the implicit self argument is accessed via chained access (ie as an array getter)
+            // `argType` is an int, instead of the actual expected type
+            // We work around this by trying to detect implicit self arguments and casting them to the expected type
+            // This should be solved by rewriting the parsing code to properly handle chained access
+            if index == 0, functionCall.functionName.contains("_I"), arg is ASTArrayGetter {
+                arg = arg.as(expectedType)
+            }
+            
             let argType = try guessType(ofExpression: arg)
             guard argType.isCompatible(with: expectedType) else {
                 fatalError("cannot pass '\(argType)' to function expecting '\(expectedType)'")
