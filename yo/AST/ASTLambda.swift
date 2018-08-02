@@ -106,6 +106,9 @@ extension ASTNode {
         
         } else if let typecast = self as? ASTTypecast {
             return typecast.expression.getAccessedIdentifiers()
+        
+        } else if let boxedExpression = self as? ASTBoxedExpression {
+            return boxedExpression.expression.getAccessedIdentifiers()
         }
         
         fatalError("unhandled node \(self)")
