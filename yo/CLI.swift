@@ -12,8 +12,10 @@ import Foundation
 class CLI {
     static let arguments = ProcessInfo.processInfo.arguments
     
-    static let isVerbose = hasArgument("--verbose")
-    static let checkHeapEmpty = hasArgument("--check-heap-empty")
+    static let isVerbose         = hasArgument("--verbose")
+    static let checkHeapEmpty    = hasArgument("--check-heap-empty")
+    static let printInstructions = hasArgument("--print-instructions")
+    static let printHeap         = hasArgument("--print-heap")
     
     static func hasArgument(_ argument: String) -> Bool {
         return arguments.contains(argument)

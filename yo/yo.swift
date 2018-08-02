@@ -41,6 +41,7 @@ enum yo {
         let code = try read(file: path)
         let tokens = try Lexer(source: code).tokenize()
         let ast = try Parser(tokens: tokens).parse()
+        
         var (instructions, stats) = try BytecodeCompiler().compile(ast: ast)
         
         instructions = instructions.withArrayLiteralsResolved()
@@ -52,7 +53,7 @@ enum yo {
         
         instructions = instructions.withLabelsPadded()
         
-        if CLI.isVerbose {
+        if CLI.printInstructions || CLI.isVerbose {
             Log.info("\n\(instructions.fancyDescription)")
         }
         
@@ -60,14 +61,20 @@ enum yo {
         
         let retval = try interpreter.run()
         
-        if CLI.isVerbose {
+        if CLI.printHeap || CLI.isVerbose {
             print("heap after: \(interpreter.heap.backing)")
             Log.info("main returned with exit code \(retval)")
         }
         
         if CLI.checkHeapEmpty {
-            let heapEmpty = interpreter.heap.backing.all { $0 == 0 }
+            // the second part (checking that all allocations have been freed is arguably a bad idea since there's no actual reason to free everything before the program exits
+            // also, there's always going to be at least one allocation, since we have to make sure no object can get address 0
+            let heapEmpty = interpreter.heap.backing.all { $0 == 0 } && interpreter.heap.allocations.isEmpty
             Log.info("Heap empty: \(heapEmpty)")
+            
+            if !heapEmpty {
+                Log.info("allocations: \(interpreter.heap.allocations)")
+            }
         }
         
         return retval
