@@ -1,0 +1,26 @@
+use "std/string";
+
+type StringBuilder(_string: String);
+
+impl StringBuilder {
+    static fn new(): StringBuilder {
+        ret StringBuilder::init(0 as String);
+    }
+
+    fn append(self: StringBuilder, otherString: String): void {
+        if self._string == 0 {
+            self._setString(otherString.copy());
+            ret;
+        }
+        self._setString(self._string.appending(otherString));
+    }
+
+    fn append_format(self: StringBuilder, format: String, args: Array): void {
+        val formatted = String::format(format, args);
+        self.append(formatted);
+    }
+
+    fn stringValue(self: StringBuilder): String {
+        ret self._string.copy();
+    }
+}
