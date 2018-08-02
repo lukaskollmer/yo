@@ -22,6 +22,7 @@ struct SourceCodeLocation {
 protocol ASTNode: _AssociatedObjectImp {
     /// position in the original source code
     //var sourceCodeLocation: SourceCodeLocation { get } // TODO
+    func print(to printer: ASTPrinter)
 }
 
 protocol ASTStatement: ASTNode {}
