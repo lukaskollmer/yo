@@ -1067,7 +1067,7 @@ private extension BytecodeCompiler {
             try handle(identifier: identifier)
         
         } else {
-            fatalError("unable to resolve function call")
+            fatalError("unable to resolve function call to \(functionCall.functionName)")
         }
         
         add(.call, functionCall.arguments.count)
