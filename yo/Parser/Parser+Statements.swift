@@ -758,7 +758,13 @@ extension Parser {
             fatalError()
         }
         
-        next()
+        if case .semicolon = next().type {
+            // A return statement that doesn't return any particular expression
+            // TODO somehow make sure this type of return statement is only allowed in functions/lambdas returning void
+            next()
+            return ASTReturnStatement(expression: ASTNumberLiteral(value: 0))
+        }
+        
         let expression = try parseExpression()
         guard case .semicolon = currentToken.type else {
             throw ParserError.unexpectedToken(currentToken)
