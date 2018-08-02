@@ -35,6 +35,7 @@ class ASTLambda: ASTExpression {
         
         var accessed = body.getAccessedIdentifiers()
         accessed.remove { localVariables.contains($0) }
+        accessed.removeDuplicates()
         
         return accessed
     }
@@ -83,7 +84,12 @@ extension ASTNode {
             return retval
         
         } else if let functionCall = self as? ASTFunctionCall {
-            return functionCall.arguments.reduce(into: [ASTIdentifier(name: functionCall.functionName)], { $0.append(contentsOf: $1.getAccessedIdentifiers()) })
+            // TODO(too_many_potential_lambdas_retained)
+            // What if the function being called isn't a lambda, but some "normal" global function instead?
+            // We still generate retain/release calls for these functions, even though these calls will always fail
+            // This isn't really a giant issue, since all pure lambdas become global functions anyway, but there's room for improvement
+            // As long as functions are guaranteed to have odd addresses, this isn't a breaking issue // TODO are they still?
+            return functionCall.arguments.reduce(into: [ASTIdentifier(value: functionCall.functionName)], { $0.append(contentsOf: $1.getAccessedIdentifiers()) })
         
         } else if let memberAccess = self as? ASTMemberAccess {
             // we only look at the very first one // TODO support captured functions!

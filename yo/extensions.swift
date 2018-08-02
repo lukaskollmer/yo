@@ -135,6 +135,21 @@ extension Array where Element: Equatable {
     }
 }
 
+extension Array where Element: Hashable {
+    func withDuplicatesRemoved() -> [Element] {
+        var retval = [Element]()
+        for element in self where !retval.contains(element) {
+            retval.append(element)
+        }
+        
+        return retval
+    }
+    
+    mutating func removeDuplicates() {
+        self = self.withDuplicatesRemoved()
+    }
+}
+
 
 extension Dictionary {
     mutating func insert(contentsOf other: Dictionary<Key, Value>) {
