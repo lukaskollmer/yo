@@ -47,3 +47,4 @@
 - [ ] throw descriptive error when accessing a nonexistent attribute
 - [x] allow `ret;` instead of `ret 0;` in void functions
 - [ ] if a function doesn't specify a return type, use `void` as default
+- [ ] type inference for static variables
