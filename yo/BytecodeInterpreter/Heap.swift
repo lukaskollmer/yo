@@ -30,7 +30,7 @@ class Heap {
     
     var backing = [Int]()
     let initialValue: Int = 0
-    private var allocations = [(address: Int, size: Int)]()
+    private(set) var allocations = [(address: Int, size: Int)]()
     
     init(size: Int) {
         self.size = size
