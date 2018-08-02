@@ -43,3 +43,6 @@
 - [ ] allow disabling getters/setters for individual attributes
 - [ ] don't evaluate function arguments right to left
 - [ ] simple heap array literal. ie `val x = {1, 3, 4};` would call `runtime::alloc(3)` and fill that w/ 1, 3 and 4
+- [ ] always zero out the newly allocated backing range on `runtime::alloc`
+- [ ] throw descriptive error when accessing a nonexistent attribute
+- [x] allow `ret;` instead of `ret 0;` in void functions
