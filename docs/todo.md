@@ -48,3 +48,6 @@
 - [x] allow `ret;` instead of `ret 0;` in void functions
 - [ ] if a function doesn't specify a return type, use `void` as default
 - [ ] type inference for static variables
+- [ ] make `namespace`s a thing
+      (collection of static functions, basically the same that can already be achieved by using an `impl` for a nonexistent type)
+      The difference would be that a) you can't declare a `type` or `struct` w/ that name and b) all functions are implicitly static
