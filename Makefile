@@ -40,7 +40,7 @@ build:
 	$(XCODEBUILD) -target $(TARGET_NAME) SYMROOT=$(SYMROOT) -configuration Debug build | $(XCPRETTY)
 
 cloc:
-	$(CLOC) . --force-lang="Rust",yo --exclude-dir=bin
+	$(CLOC) . --force-lang="Rust",yo --exclude-dir=bin,deps
 
 clean:
 	rm -rf $(OUTPUT_DIR)
