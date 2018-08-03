@@ -171,7 +171,8 @@ impl HashMap {
             } else {
                 value_description = value.description();
             }
-            desc.append_format("  [ ] (%s, %s)\n", [key_description, value_description]);
+
+            desc.append_format("  [%n] (%s, %s)\n", [@i, key_description, value_description]);
         }
         desc.append("}");
 
