@@ -96,33 +96,7 @@ class BytecodeCompiler {
         }
         
         var ast = try resolveImports(in: ast)
-        
-        
-        // TODO do we really need this?
-        /*ast
-            .compactMap { $0 as? ASTTypeImplementation }
-            .lk_flatMap { $0.functions }
-            .forEach { function in
-                let self_type: ASTType
-                switch function.kind {
-                case .impl(let typename):
-                    self_type = .complex(name: typename)
-                    
-                case .staticImpl(let typename):
-                    self_type = .complex(name: typename)
-                    
-                default: fatalError("only member functions of some type can use the `Self` type")
-                }
-                
-                function.parameters
-                    .filter { $0.type == .Self }
-                    .forEach { $0.type = self_type }
-                
-                if function.returnType == .Self {
-                    function.returnType = self_type
-                }
-        }*/
-        
+    
         
         // perform semantic analysis
         let semanticAnalysis = SemanticAnalyzer().analyze(ast: ast)
@@ -337,17 +311,6 @@ class BytecodeCompiler {
     }
 }
 
-
-private extension BytecodeCompiler {
-    // TODO
-    //func generateInitializers(forTypesIn ast: inout [ASTNode]) {
-    //    ast = ast.lk_flatMap { node in
-    //        guard let typeDecl = node as? ASTTypeDeclaration else {
-    //            return [node]
-    //        }
-    //    }
-    //}
-}
 
 // MARK: Codegen
 private extension BytecodeCompiler {
@@ -888,7 +851,7 @@ private extension BytecodeCompiler {
                 // fallthrough to the member access handling code below
             
             } else if let globalAddress = _actualAddressOfGlobal(withIdentifier: targetIdentifier) {
-                
+                // TODO should we put code here?
             }
         }
         
@@ -1065,7 +1028,7 @@ private extension BytecodeCompiler {
             fatalError("wrong argc in call to \(identifier.value): expected \(functionInfo.argc), got \(functionCall.arguments.count)")
         }
         
-        if functionCall.functionName == SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "typeof") {
+        if functionCall.functionName == SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "typeof_s") {
             let type = try guessType(ofExpression: functionCall.arguments[0])
             try handle(node: ASTStringLiteral(value: type.typename))
             return
