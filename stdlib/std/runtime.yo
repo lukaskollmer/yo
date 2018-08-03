@@ -183,3 +183,14 @@ impl runtime {
         ret retainCount >> 20;
     }
 }
+
+
+impl runtime {
+
+    // Basically java's `Syatem.arraycopy`
+    static fn copy_array(source: int, sourceIndex: int, destination: int, destinationIndex: int, length: int): void {
+        for i in 0..<length {
+            destination[destinationIndex + i] = source[sourceIndex + i];
+        }
+    }
+}

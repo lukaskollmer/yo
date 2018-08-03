@@ -23,6 +23,7 @@ impl Array {
         val length: int = address[0];
         val backing: int = runtime::alloc(length);
 
+        // TODO runtime::copy_array
         for i in 0..<length {
             backing[i] = address[i + 1];
         }
@@ -111,7 +112,7 @@ impl Array {
 
         self._count = self._count - 1;
 
-        Array::_copy(self._backing, index + 1, self._backing, index, self._count - index);
+        runtime::copy_array(self._backing, index + 1, self._backing, index, self._count - index);
 
         if (self._allocatedLength - self._count) >= 5 {
             self._resizeBacking(self._allocatedLength - 5);
@@ -232,18 +233,10 @@ impl Array {
     fn _resizeBacking(self: Array, newSize: int): void {
         val newBacking: int = runtime::alloc(newSize);
 
-        Array::_copy(self._backing, 0, newBacking, 0, self._count);
+        runtime::copy_array(self._backing, 0, newBacking, 0, self._count);
 
         runtime::free(self._backing);
         self._backing = newBacking;
         self._allocatedLength = newSize;
-    }
-
-
-    // Basically java's `Syatem.arraycopy`
-    static fn _copy(source: int, sourceIndex: int, destination: int, destinationIndex: int, length: int): void {
-        for i in 0..<length {
-            destination[destinationIndex + i] = source[sourceIndex + i];
-        }
     }
 }

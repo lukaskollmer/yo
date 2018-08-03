@@ -17,8 +17,8 @@ impl String {
         val newBacking: int = runtime::alloc(newLength + 1);
         newBacking[0] = newLength;
 
-        Array::_copy(self._backing, 1, newBacking, 1, self_length);
-        Array::_copy(other._backing, 1, newBacking, self_length + 1, other_length);
+        runtime::copy_array(self._backing, 1, newBacking, 1, self_length);
+        runtime::copy_array(other._backing, 1, newBacking, self_length + 1, other_length);
 
         ret String::init(newBacking);
 
@@ -28,7 +28,7 @@ impl String {
         val length = self.length() + 1;
 
         val newBacking = runtime::alloc(length);
-        Array::_copy(self._backing, 0, newBacking, 0, length);
+        runtime::copy_array(self._backing, 0, newBacking, 0, length);
 
         ret String::init(newBacking);
     }
