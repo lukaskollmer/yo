@@ -1448,7 +1448,7 @@ private extension BytecodeCompiler {
             
             let specializedArrayInitializer = ASTFunctionDeclaration(
                 name: ASTIdentifier(value: arrayInitializerMemberName),
-                parameters: (0..<elements.count).map { ASTVariableDeclaration(identifier: ASTIdentifier(value: "_\($0)"), type: .any) },
+                parameters: (0..<elements.count).map { ASTVariableDeclaration(identifier: ASTIdentifier(value: "_\($0)"), type: .id) },
                 returnType: .Array,
                 kind: .staticImpl("Array"),
                 body: [
