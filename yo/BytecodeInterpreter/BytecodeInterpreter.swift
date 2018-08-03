@@ -325,12 +325,12 @@ class BytecodeInterpreter {
                 var entry = ""
                 entry += "\(index)".padding(.left, toLength: 4, withPad: " ").padding(.right, toLength: 7, withPad: " ")
                 entry += "\(address)".padding(.left, toLength: 5, withPad: "0")
-                entry += " " + String(procedureEntryAddresses[address]!)
+                entry += " " + String(procedureEntryAddresses[address] ?? "(unknown)")
                 print(entry)
             }
             
             
-            fatalError()
+            print()
         }
         
         if BytecodeInterpreter.verboseLogging {
