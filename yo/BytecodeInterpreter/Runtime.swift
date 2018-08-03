@@ -43,7 +43,7 @@ class Runtime: NativeFunctions {
             builtins.append((
                 name: SymbolMangling.mangleStaticMember(ofType: ns, memberName: name),
                 address: addressCounter.get(),
-                info: (parameterTypes.count, parameterTypes, returnType, []),
+                info: SemanticAnalyzer.FunctionInfo(parameterTypes: parameterTypes, returnType: returnType, annotations: []),
                 imp: newValue)
             )
         }
@@ -68,7 +68,7 @@ class Runtime: NativeFunctions {
             fatalError(Runtime.getString(atAddress: interpreter.stack.peek(), heap: interpreter.stack.heap))
         }
         
-        self["runtime", "typeof", .String, [.any]] = {_ in return 0 }   // manually implemented in the compiler
+        self["runtime", "typeof_s", .String, [.any]] = {_ in return 0 }   // manually implemented in the compiler
         
         // Sorting
         

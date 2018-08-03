@@ -12,6 +12,7 @@ import Foundation
 typealias GlobalFunctions = [String: SemanticAnalyzer.FunctionInfo]
 
 
+
 // MARK: Errors
 enum BytecodeCompilerError: Error {
     // Function calls
@@ -60,10 +61,11 @@ class BytecodeCompiler {
     
     // Scope info
     private var scope = Scope(type: .global)
-    private var typeCache = TypeCache()
-    private var functions = GlobalFunctions()
-    private var globals = [ASTVariableDeclaration]()
+    var typeCache = TypeCache()
+    var functions = GlobalFunctions()
+    var globals = [ASTVariableDeclaration]()
     
+    // TODO properly implement these
     private var breakDestination: String?
     private var continueDestination: String?
     
@@ -148,12 +150,7 @@ class BytecodeCompiler {
                     }
                     
                     protocolImplementation.functions.append(implementation)
-                    functions[implementation.mangledName] = (
-                        implementation.parameters.count,
-                        implementation.parameters.map { $0.type },
-                        implementation.returnType,
-                        implementation.annotations
-                    )
+                    functions.insert(functionDeclaration: implementation)
                 }
                 
             }
@@ -163,7 +160,7 @@ class BytecodeCompiler {
         
         
         // Generate initializers, getters/setters and dealloc functions
-        ast.insert(contentsOf: AutoSynthesizedCodeGen.synthesize(for: ast, globalFunctions: &functions, typeCache: typeCache), at: ast.count - 2) // TODO what if theres less elements in the ast?
+        ast.insert(contentsOf: AutoSynthesizedCodeGen.synthesize(for: ast, compiler: self), at: ast.count - 2) // TODO what if theres less elements in the ast?
         
         globals.append(contentsOf: semanticAnalysis.globals.map { ASTVariableDeclaration(identifier: $0.identifier, type: $0.type) })
         
@@ -219,7 +216,7 @@ class BytecodeCompiler {
                     )
                 ]
             )
-            functions[initializeGlobals.mangledName] = (0, [], .void, [.static_initializer])
+            functions.insert(functionDeclaration: initializeGlobals)
             ast.insert(initializeGlobals, at: 0)
             
             let releaseGlobals = ASTFunctionDeclaration(
@@ -241,7 +238,7 @@ class BytecodeCompiler {
                         }
                 )
             )
-            functions[releaseGlobals.mangledName] = (0, [], .void, [.static_cleanup])
+            functions.insert(functionDeclaration: releaseGlobals)
             ast.insert(releaseGlobals, at: 1)
             
             
@@ -257,7 +254,7 @@ class BytecodeCompiler {
                     ] as ASTComposite
                 
             )
-            functions[freeGlobalVariableRegistry.mangledName] = (0, [], .void, [])
+            functions.insert(functionDeclaration: freeGlobalVariableRegistry)
             ast.insert(freeGlobalVariableRegistry, at: 2)
         }
         
@@ -920,7 +917,6 @@ private extension BytecodeCompiler {
             if accessedIdentifiersFromOutsideScope.isEmpty {
                 // "pure" lambda
                 let lambdaFunctionName = ASTIdentifier(value: "__\(functionName)_lambda_invoke_\(lambdaCounter.get())") // TODO prefix w/ __
-                functions[lambdaFunctionName.value] = (parameterTypes.count, parameterTypes, returnType, [])
                 
                 let fn = ASTFunctionDeclaration(
                     name: lambdaFunctionName,
@@ -929,6 +925,7 @@ private extension BytecodeCompiler {
                     kind: .global,
                     body: lambda.body
                 )
+                functions.insert(functionDeclaration: fn)
                 
                 try withScope(Scope(type: .global)) {
                     try handle(node: fn)
@@ -957,7 +954,7 @@ private extension BytecodeCompiler {
                 )
                 typeCache.register(type: type)
                 
-                let lambdaAST = AutoSynthesizedCodeGen.synthesize(for: [type], globalFunctions: &functions, typeCache: typeCache)
+                let lambdaAST = AutoSynthesizedCodeGen.synthesize(for: [type], compiler: self)
                 
                 try withScope(Scope(type: .global)) {
                     try lambdaAST.forEach(handle)
@@ -974,17 +971,11 @@ private extension BytecodeCompiler {
                     body: lambda.body
                 )
                 
-                functions[invoke_functionPtr.value] = (
-                    argc: imp.parameters.count,
-                    parameterTypes: imp.parameters.map { $0.type },
-                    returnType: returnType,
-                    annotations: []
-                )
+                functions.insert(functionDeclaration: imp)
+                
                 try withScope(Scope(type: .global)) {
                     try handle(node: imp)
                 }
-                
-                
                 
                 return ASTFunctionCall(
                     functionName: SymbolMangling.mangleInitializer(forType: typename),
@@ -1010,7 +1001,7 @@ private extension BytecodeCompiler {
         if !isGlobalFunction, case .function(let returnType, let parameterTypes) = try scope.type(of: identifier.value) {
             // calling a function from the local scope
             // TODO what about supporting implicit function calls on self (ie `foo()` instead of `self.foo()` if `self` has a function `foo`
-            functionInfo = (parameterTypes.count, parameterTypes, returnType, [])
+            functionInfo = SemanticAnalyzer.FunctionInfo(parameterTypes: parameterTypes, returnType: returnType, annotations: [])
         
         } else if let globalFunctionInfo = functions[identifier.value] {
             // calling a global function
@@ -1018,7 +1009,7 @@ private extension BytecodeCompiler {
             
         } else if let implicitSelfAccess = processPotentialImplicitSelfAccess(identifier: identifier), case .function(let returnType, let parameterTypes) = implicitSelfAccess.attributeType {
             isGlobalFunction = false
-            functionInfo = (parameterTypes.count, parameterTypes, returnType, [])
+            functionInfo = SemanticAnalyzer.FunctionInfo(parameterTypes: parameterTypes, returnType: returnType, annotations: [])
         
         } else {
             fatalError("cannot resolve call to '\(identifier.value)'")
@@ -1444,7 +1435,7 @@ private extension BytecodeCompiler {
             )
             
             try handleFunctionInsertion {
-                functions[arrayInitializerMangled] = (elements.count, Array(repeating: .any, count: elements.count), .Array, specializedArrayInitializer.annotations)
+                functions.insert(functionDeclaration: specializedArrayInitializer)
                 try withScope(Scope(type: .global)) {
                     try handle(node: specializedArrayInitializer)
                 }

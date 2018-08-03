@@ -15,15 +15,15 @@ private let _self = ASTIdentifier(value: "self")
 /// - Attribute Getters and Setters
 /// - Dealloc function
 class AutoSynthesizedCodeGen {
-    static func synthesize(for ast: [ASTNode], globalFunctions: inout GlobalFunctions, typeCache: TypeCache) -> [ASTNode] {
+    static func synthesize(for ast: [ASTNode], compiler: BytecodeCompiler) -> [ASTNode] {
         var retval = [ASTNode]()
         
         for typeDeclaration in ast.compactMap({ $0 as? ASTTypeDeclaration }) {
-            retval.append(generateInitializer(forType: typeDeclaration, globalFunctions: &globalFunctions, typeCache: typeCache))
+            retval.append(generateInitializer(forType: typeDeclaration, globalFunctions: &compiler.functions, typeCache: compiler.typeCache))
             
             if !typeDeclaration.isStruct {
-                retval.append(generateDeallocFunction(forType: typeDeclaration, globalFunctions: &globalFunctions))
-                retval.append(contentsOf: generateGettersAndSetters(forType: typeDeclaration, globalFunctions: &globalFunctions, typeCache: typeCache))
+                retval.append(generateDeallocFunction(forType: typeDeclaration, globalFunctions: &compiler.functions))
+                retval.append(contentsOf: generateGettersAndSetters(forType: typeDeclaration, globalFunctions: &compiler.functions, typeCache: compiler.typeCache))
             }
         }
         
@@ -70,6 +70,7 @@ class AutoSynthesizedCodeGen {
                         
                         // push the type's id onto the stack
                         ASTRawWIPInstruction(instruction: .operation(.push, typeCache.index(ofType: typename))),
+                        //ASTRawWIPInstruction(instruction: .unresolved(.push, "")),
                         
                         // combine dealloc address and type id
                         ASTRawWIPInstruction(instruction: .operation(.or, 0)),
@@ -102,14 +103,7 @@ class AutoSynthesizedCodeGen {
             ]
         )
         
-        
-        globalFunctions[SymbolMangling.mangleInitializer(forType: typename)] = (
-            argc: initializer.parameters.count,
-            parameterTypes: initializer.parameters.map { $0.type },
-            returnType: initializer.returnType,
-            annotations: initializer.annotations
-        )
-        
+        globalFunctions.insert(functionDeclaration: initializer)
         
         return initializer
     }
@@ -146,12 +140,7 @@ class AutoSynthesizedCodeGen {
             ]
         )
         
-        globalFunctions[deallocFunction.mangledName] = (
-            argc: 1,
-            parameterTypes: [_selfType],
-            returnType: .void,
-            annotations: [.disable_arc]
-        )
+        globalFunctions.insert(functionDeclaration: deallocFunction)
         
         return deallocFunction
     }
@@ -225,12 +214,7 @@ class AutoSynthesizedCodeGen {
             for fn in [getter, setter] {
                 if !globalFunctions.keys.contains(fn.mangledName) {
                     retval.append(fn)
-                    globalFunctions[fn.mangledName] = (
-                        argc: fn.parameters.count,
-                        parameterTypes: fn.parameters.map { $0.type },
-                        returnType: fn.returnType,
-                        annotations: fn.annotations
-                    )
+                    globalFunctions.insert(functionDeclaration: fn)
                 }
             }
         }
