@@ -1379,6 +1379,10 @@ private extension BytecodeCompiler {
         // otherwise, just generate a bunch of Array.add calls? (that wouldn't work inline)
         
         if arrayLiteral.elements.isEmpty {
+            guard arrayLiteral.kind != .primitive else {
+                fatalError("can't allocate an empty primitive array")
+            }
+            
             let newCall = ASTFunctionCall(
                 functionName: SymbolMangling.mangleStaticMember(ofType: "Array", memberName: "new"),
                 arguments: [],
@@ -1397,12 +1401,31 @@ private extension BytecodeCompiler {
             
             add(.loadc, unresolvedLabel: label)
             
-            let initCall = ASTFunctionCall(
-                functionName: SymbolMangling.mangleStaticMember(ofType: "Array", memberName: "_fromConstantLiteral"),
-                arguments: [ASTNoop()], // the parameter is already on the stack, from the `loadc` instruction above
-                unusedReturnValue: false
-            )
-            try handle(functionCall: initCall)
+            switch arrayLiteral.kind {
+            case .complex:
+                let initCall = ASTFunctionCall(
+                    functionName: SymbolMangling.mangleStaticMember(ofType: "Array", memberName: "_fromConstantLiteral"),
+                    arguments: [ASTNoop()], // the parameter is already on the stack, from the `loadc` instruction above
+                    unusedReturnValue: false
+                )
+                try handle(functionCall: initCall)
+                
+            case .primitive:
+                // Problem: the array we got from the `loadc` instruction above (or, to be precise, the pointer to the array)
+                // has its length as its first element.
+                // We don't care about that, which is why we need to copy all elements following the first to a new array and free the old one.
+                // Basically, we're implementing the exact same thing as in `Array::_fromConstantLiteral`, with the difference that we don't
+                // initialize an Array instance at the end
+                
+                // Because we can't really implement this here (the address is already on the stack!), we use a helper function
+                let call = ASTFunctionCall(
+                    functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "_primitiveArrayFromConstant"),
+                    arguments: [ASTNoop()], // the parameter is already on the stack, from the `loadc` instruction above
+                    unusedReturnValue: false
+                )
+                try handle(functionCall: call)
+            }
+            
             return
         }
         
@@ -1411,6 +1434,11 @@ private extension BytecodeCompiler {
         // TODO if we create a new array initializer for each #elements, we have a ton of duplicate code. maybe we can avoid that somehow?
         
         let elements = arrayLiteral.elements
+        
+        if arrayLiteral.kind == .primitive {
+            // TODO implement
+            fatalError("primitive array literals cannot ?yet? contain non-constant elements")
+        }
         
         let arrayInitializerMemberName = "_arrayLiteralInit\(arrayLiteral.elements.count)"
         let arrayInitializerMangled = SymbolMangling.mangleStaticMember(ofType: "Array", memberName: arrayInitializerMemberName)
@@ -1633,8 +1661,8 @@ private extension BytecodeCompiler {
             } else if expression is ASTNoop {
                 return .any // TODO is this the right choice?
                 
-            } else if expression is ASTArrayLiteral {
-                return .Array
+            } else if let arrayLiteral = expression as? ASTArrayLiteral {
+                return arrayLiteral.kind == .complex ? .Array : .int
                 
             } else if expression is ASTBooleanLiteral {
                 return .bool

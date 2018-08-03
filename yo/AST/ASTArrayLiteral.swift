@@ -10,9 +10,16 @@ import Foundation
 
 
 class ASTArrayLiteral: ASTExpression {
-    let elements: [ASTExpression]
+    enum Kind {
+        case primitive
+        case complex
+    }
     
-    init(elements: [ASTExpression]) {
+    let elements: [ASTExpression]
+    let kind: Kind
+    
+    init(elements: [ASTExpression], kind: Kind = .complex) {
         self.elements = elements
+        self.kind = kind
     }
 }

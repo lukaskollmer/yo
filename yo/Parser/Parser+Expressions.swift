@@ -40,17 +40,22 @@ extension Parser {
             return try parseLambda()
         }
         
-        if case .openingSquareBrackets = currentToken.type {
+        // Array literal
+        // Either primitive or complex
+        if [TokenType.openingSquareBrackets, .openingCurlyBrackets].contains(currentToken.type) {
+            let isComplexArray = currentToken.type == .openingSquareBrackets
+            let expectedClosingToken: TokenType = currentToken.type == .openingSquareBrackets ? .closingSquareBrackets : .closingCurlyBrackets
             next()
             
             let elements = try parseExpressionList()
             
-            guard case .closingSquareBrackets = currentToken.type else {
+            
+            guard currentToken.type == expectedClosingToken else {
                 throw ParserError.unexpectedToken(currentToken)
             }
             next()
             
-            return ASTArrayLiteral(elements: elements)
+            return ASTArrayLiteral(elements: elements, kind: isComplexArray ? .complex : .primitive)
         }
         
         

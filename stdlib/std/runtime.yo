@@ -186,6 +186,20 @@ impl runtime {
 
 
 impl runtime {
+    // Runtime helper to create a primitive array from an array constant containing only numbers
+    // (ie `{1, 2, 3, 4}`)
+    // Because primitive array literals consisting only of numbers are stored the same way
+    // as complex array literals consisting only of numbers, we have to drop the first element (the size)
+    // More information in `BytecodeCompiler.handle(arrayLiteral:)`
+    static fn _primitiveArrayFromConstant(input: int): int {
+        val size = input[0];
+        val array = runtime::alloc(size);
+
+        runtime::copy_array(input, 1, array, 0, size);
+        runtime::free(input);
+
+        ret array;
+    }
 
     // Basically java's `Syatem.arraycopy`
     static fn copy_array(source: int, sourceIndex: int, destination: int, destinationIndex: int, length: int): void {
