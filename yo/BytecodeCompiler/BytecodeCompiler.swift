@@ -1709,7 +1709,7 @@ extension BytecodeCompiler {
     }
     
     func call(_ functionName: String, arguments: [ASTExpression], unusedReturnValue: Bool = true) throws {
-        add(comment: "\(functionName) \((arguments.first as? ASTIdentifier)?.value ?? String(describing: arguments.first))")
+        add(comment: "\(functionName) \((arguments.first as? ASTIdentifier)?.value ?? String(describing: arguments.first)) (\(try guessType(ofExpression: arguments.first!))")
         let call = ASTFunctionCall(
             functionName: functionName,
             arguments: arguments,
