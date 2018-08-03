@@ -251,14 +251,10 @@ class BytecodeInterpreter {
             let value   = try stack.pop()
             heap[address + offset] = value
             
-            // TODO get the old value, release it if it's a pointer pointing to somewhere on the heap
-            // TODO retain the new value, if it's a pointer pointing to somewhere on the heap
-            
             
         case .loadc: // load constant
             let size = instructions[immediate + 1].immediate + 1 // +1 bx we include the size in the heap array
             let address = heap.alloc(size: size)
-            // TODO retain address? (prob only once since we load constants new every time)
             
             for i in 0..<size {
                 let value = instructions[immediate + 1 + i].immediate
@@ -308,11 +304,9 @@ class BytecodeInterpreter {
             
         case .ret:
             let returnValue = try stack.pop()
-            // TODO if returnValue is an address pointing to somewhere on the heap, retain it
             
             for _ in 0..<immediate {
                 _ = try stack.pop()
-                // TODO if _ is an address pointing to somewhere on the heap, retain it
             }
             
             instructionPointer = try stack.pop()
