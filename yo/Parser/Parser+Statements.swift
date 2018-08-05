@@ -428,7 +428,7 @@ extension Parser {
         
         let functionBody = try parseComposite()
         
-        let annotations = self.annotations.reduce(into: []) { $0.append(contentsOf: $1.elements) }
+        let annotations = self.annotations.allElements
         self.annotations = []
         
         return ASTFunctionDeclaration(
@@ -564,6 +564,9 @@ extension Parser {
         }
         next()
         
+        // we have to capture them here, because `parseFunctionList` invokes `parseFunction`, which resets `self.annotations` to []
+        let annotations = self.annotations.allElements
+        
         let functions = try parseFunctionList()
         for function in functions {
             function.kind = {
@@ -583,7 +586,7 @@ extension Parser {
         }
         next()
         
-        return ASTProtocolDeclaration(name: ASTIdentifier(value: protocolName), functions: functions)
+        return ASTProtocolDeclaration(name: ASTIdentifier(value: protocolName), functions: functions, annotations: annotations)
     }
     
     

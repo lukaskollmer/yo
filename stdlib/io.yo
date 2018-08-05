@@ -20,11 +20,11 @@ impl File {
 }
 
 impl io {
-    static fn open(path: String, mode: String): File {
-        val _handle: int = io::_open(path, mode);
-        io::printf("_handle: %n", [@_handle]);
-        ret File::init(_handle);
-    }
+    //static fn open(path: String, mode: String): File {
+    //    val _handle: int = io::_open(path, mode);
+    //    io::printf("_handle: %n", [@_handle]);
+    //    //ret File::init(_handle); // TODO re-enable initializer generation for structs
+    //}
 }
 
 impl io {

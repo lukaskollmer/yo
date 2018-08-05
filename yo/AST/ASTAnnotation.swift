@@ -8,6 +8,9 @@
 
 import Foundation
 
+// TODO The whole annotation thing needs a rewrite
+// the differentiation between ASTAnnotation and ASTAnnotation.Element is a bit reductive
+// since we work w/ Array<ASTAnnotation.Element> most of the time and the ASTAnnotation objects are basically only present during parsing
 
 class ASTAnnotation {
     struct Element: Equatable {
@@ -17,9 +20,11 @@ class ASTAnnotation {
             case number(Int)
         }
         
-        static let disable_arc = Element(key: "disable_arc", value: .bool(true))
-        static let static_initializer = Element(key: "static_initializer", value: .bool(true))
-        static let static_cleanup = Element(key: "static_cleanup", value: .bool(true))
+        static let disable_arc: Element = "disable_arc"
+        static let static_initializer: Element = "static_initializer"
+        static let static_cleanup: Element = "static_cleanup"
+        static let base_protocol: Element = "base_protocol"
+        static let disable_attribute_accessors: Element = "disable_attribute_accessors"
         
         let key: String
         let value: Value
@@ -48,6 +53,12 @@ protocol ASTTypeThatCanBeAnnotated {
 extension ASTTypeThatCanBeAnnotated {
     func hasAnnotation(_ annotation: ASTAnnotation.Element) -> Bool {
         return annotations.contains(annotation)
+    }
+}
+
+extension Array where Element == ASTAnnotation {
+    var allElements: [ASTAnnotation.Element] {
+        return self.reduce(into: []) { $0.append(contentsOf: $1.elements) }
     }
 }
 

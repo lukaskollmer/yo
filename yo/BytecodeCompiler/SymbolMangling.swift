@@ -40,4 +40,17 @@ enum SymbolMangling {
         return mangleInstanceMember(ofType: typename, memberName: "set" + attributeName.capitalized)
     }
     
+    static func mangleMetatypeSetupFunction(forType typename: String) -> String {
+        return "__\(typename)_metatype_init"
+    }
+    
+    static func mangleMetatypeCleanupFunction(forType typename: String) -> String {
+        return "__\(typename)_metatype_free"
+    }
+
+    
+    static func mangleMetatypeTableName(forType typename: String) -> String {
+        return "__\(typename)_metatype"
+    }
+    
 }

@@ -23,4 +23,12 @@ enum Constants {
         static let `true`  = 1
     }
     
+    // NOTE keep this in sync w/ the attributes of the `vtable` struct in the standard library
+    static let vtable = [
+        "__dealloc",
+        "description",
+        "isEqualTo",
+        "hashValue"
+    ]
+    
 }

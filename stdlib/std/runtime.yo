@@ -7,15 +7,31 @@ fn NotYetImplemented(): void {
     runtime::fatalError("not yet implemented");
 }
 
-static _is_deallocating_bit: int = 38;
-static _is_marked_for_release_bit: int = 38;
+static _is_deallocating_bit: int = 30;
+static _is_marked_for_release_bit: int = 29;
+
+struct Type (
+    id: int,
+    name: String,
+    vtable: vtable
+);
+
+struct vtable (
+    dealloc: int,
+    description: int,
+    isEqualTo: int,
+    hashValue: int
+);
+
 
 impl runtime {
 
-    // Note: type ids are not guaranteed to be the same across different compilations of the same program
     #[disable_arc]
-    static fn getTypeId(obj: any): int {
-        ret obj[0] & 0xfffff;
+    static fn typeof(obj: any): Type {
+        // the upper 32 bit of an object's first field are a pointer to a pointer to the actual metatype
+        // see the source code for more information TODO link to source code
+        val metatype_ptr = obj[0] >> 32;
+        ret metatype_ptr[0];
     }
 
 
@@ -53,7 +69,7 @@ impl runtime {
             ret obj;
         }
 
-        ret runtime::_setRetainCount(obj, runtime::getRetainCount(obj) + 1);
+        obj[0] = obj[0] + 1;
     }
 
 
@@ -76,22 +92,17 @@ impl runtime {
             if runtime::is_deallocating(obj) {
                 ret obj;
             }
-
             runtime::set_is_deallocating(obj);
+
             val dealloc_fn: fn<(any): void> = runtime::_getDeallocAddress(obj) as any;
+            //runtime::_printi(dealloc_fn as int);
             dealloc_fn(obj);
             runtime::free(obj);
         } else {
-            runtime::_setRetainCount(obj, runtime::getRetainCount(obj) - 1);
+            obj[0] = obj[0] - 1;
         }
         ret obj;
     }
-
-    // 0000|00000000000000000000|00000000000000000000|00000000000000000000
-    // 0000|dddddddddddddddddddd|rrrrrrrrrrrrrrrrrrrr|tttttttttttttttttttt
-    // ----|--------------------|--------------------|--------------------
-    // 6666|55555555554444444444|33333333332222222222|11111111110000000000
-    // 3210|98765432109876543210|98765432109876543210|98765432109876543210
 
 
     #[disable_arc]
@@ -138,7 +149,7 @@ impl runtime {
         if !runtime::isObject(obj) {
             ret false;
         }
-        val bit: int = obj[0] & (1 << 38);
+        val bit: int = obj[0] & (1 << _is_deallocating_bit);
         if bit == 0 {
             ret false;
         }
@@ -151,36 +162,20 @@ impl runtime {
             ret obj;
         }
 
-        obj[0] = obj[0] & ~(1 << 38);
+        obj[0] = obj[0] & ~(1 << _is_deallocating_bit);
         ret obj;
     }
 
 
     #[disable_arc]
     static fn _getDeallocAddress(obj: any): int {
-        ret obj[0] >> 40;
+        val metatype = runtime::typeof(obj);
+        ret metatype.vtable.dealloc as int;
     }
-
-
-    #[disable_arc]
-    static fn _setRetainCount(obj: any, newValue: int): any {
-        val typeId = runtime::getTypeId(obj);
-        val deallocAddress = runtime::_getDeallocAddress(obj);
-
-        obj[0] = (deallocAddress << 40);
-        obj[0] = obj[0] | (newValue << 20);
-        obj[0] = obj[0] | typeId;
-
-        //obj[0] = (deallocAddress << 40) | (newValue << 20) | typeId;
-
-        ret obj;
-    }
-
 
     #[disable_arc]
     static fn getRetainCount(obj: any): int {
-        val retainCount: int = obj[0] & 0xfffff00000;
-        ret retainCount >> 20;
+        ret obj[0] & 0x3fffffff;
     }
 }
 

@@ -63,7 +63,16 @@ class BytecodeCompiler {
     private var scope = Scope(type: .global)
     var typeCache = TypeCache()
     var functions = GlobalFunctions()
-    var globals = [ASTVariableDeclaration]()
+    var globals = [ASTStaticVariableDeclaration]()
+    
+    private var codegen: AutoSynthesizedCodeGen!
+    
+    // Protocols that all types implicitly conform to
+    // we have to keep them around as a list here, because lambda ASTs are generated at a later point
+    // during the compilation process (when we encounter a lambda), which means that we call the other codegen thing
+    // (the one generating initializers, dealloc functions, getters and setters) with only the lambda's ast, as opposed to
+    // the beginning of the compilation process where we just shove the entire ast we got to the codegen thing
+    private(set) var baseProtocols: [ASTProtocolDeclaration]!
     
     // TODO properly implement these
     private var breakDestination: String?
@@ -98,6 +107,10 @@ class BytecodeCompiler {
         }
         
         var ast = try resolveImports(in: ast)
+        
+        baseProtocols = ast
+            .compactMap { $0 as? ASTProtocolDeclaration }
+            .filter { $0.annotations.contains(.base_protocol) }
     
         
         // perform semantic analysis
@@ -108,209 +121,54 @@ class BytecodeCompiler {
         semanticAnalysis.types.forEach(self.typeCache.register)
         
         
-        let _allProtocols = ast.compactMap { $0 as? ASTProtocolDeclaration }
-        let getProtocolWithName: (ASTIdentifier) -> ASTProtocolDeclaration? = { identifier in
-            _allProtocols
-                .first { $0.name == identifier }
-        }
-        
-        // Every type implicitly comforms to `Object`
-        ast
-            .compactMap { $0 as? ASTTypeDeclaration }
-            .filter { !$0.isStruct }
-            .forEach { $0.protocols.append("Object") }
-        
-        for typeDeclaration in ast.compactMap({ $0 as? ASTTypeDeclaration }) {
-            let typename = typeDeclaration.name.value
-            let allTypeFunctions = ast.compactMap { $0 as? ASTTypeImplementation }.lk_flatMap { $0.functions }.map { $0.mangledName }
-            
-            let protocolImplementation = ASTTypeImplementation(typename: typeDeclaration.name, functions: [])
-            
-            for protocolName in typeDeclaration.protocols {
-                guard let _protocol = getProtocolWithName(protocolName) else {
-                    fatalError("Cannot implement nonexistent protocol \(protocolName)")
-                }
-                
-                for fn in _protocol.functions {
-                    let implementation = ASTFunctionDeclaration(
-                        name: fn.name,
-                        parameters: fn.parameters.map { parameter in
-                            return ASTVariableDeclaration(identifier: parameter.identifier, type: parameter.type == .Self ? .complex(name: typename) : parameter.type)
-                        },
-                        returnType: fn.returnType,
-                        kind: fn.kind.withTypename(typename),
-                        annotations: fn.annotations,
-                        body: fn.body)
-                    
-                    if allTypeFunctions.contains(implementation.mangledName) {
-                        // Q: Why can't we check this before creating the function object?
-                        // A: We don't (yet) have the mangled name at that point in time
-                        // TODO fix?
-                        continue
-                    }
-                    
-                    protocolImplementation.functions.append(implementation)
-                    functions.insert(functionDeclaration: implementation)
-                }
-                
-            }
-            
-            ast.append(protocolImplementation)
-        }
-        
-        
         // Generate initializers, getters/setters and dealloc functions
-        ast.insert(contentsOf: AutoSynthesizedCodeGen.synthesize(for: ast, compiler: self), at: ast.count - 2) // TODO what if theres less elements in the ast?
         
-        globals.append(contentsOf: semanticAnalysis.globals.map { ASTVariableDeclaration(identifier: $0.identifier, type: $0.type) })
+        codegen = AutoSynthesizedCodeGen(compiler: self)
+        codegen.fetchProtocols(fromAST: ast)
+        codegen.synthesize(intoAST: &ast)
+        
+        globals.append(contentsOf: semanticAnalysis.globals)
         
         
-        // Global variables
-        if !globals.isEmpty {
-            // How do global variables work?
-            // At startup time (before calling main), we call all functions w/ the `static_initializer` attribute
-            // The synthesized `__initialize_globals` function is always called first
-            // `__initialize_globals` allocates an array at the beginning of the heap (address: 2)
-            // This array is used as the "registry" of all global variables and stores the pointers to each global variable
-            // (or, if they are primitives, their values)
-            // We then (still in __initialize_globals) fill that array with the initial values provided for all global variables.
-            // If a variable does not have an initial value, we simply leave that slot in the register empty (aka 0)
-            // After filling all initial values, we call all other functions with the `static_initializer` attribute
-            
-            // At shutdown (ie after `main` returns), we call all functions w/ the `static_cleanup` attribute
-            // We first call `__release_globals`, which frees/releases all globals that have an initial value
-            // After that, we call all other functions w/ the `static_cleanup` attribute
-            // At the end, we call `__free_global_variable_registry`, which frees the array allocated at the beginning of `__initialize_globals`
-            
-            
-            // Generate a static initializer to initialize all globals that have an initial value
-            
-            let initializeGlobals = ASTFunctionDeclaration(
-                name: "__initialize_globals",
-                parameters: [],
-                returnType: .void,
-                kind: .global,
-                annotations: [.static_initializer],
-                body: [
-                    globals.isEmpty ? ASTNoop() :
-                        // First, we allocate space for the pointers to each global variable (or their values, if they are primitives)
-                        ASTFunctionCall(functionName: SymbolMangling.alloc, arguments: [ASTNumberLiteral(value: semanticAnalysis.globals.count * 2)], unusedReturnValue: true),
-                    ASTComposite(statements:
-                        semanticAnalysis.globals.map { global in
-                            let value: ASTExpression = {
-                                if let initialValue = global.initialValue {
-                                    return !global.type.supportsReferenceCounting
-                                        ? initialValue
-                                        : ASTFunctionCall(functionName: SymbolMangling.retain, arguments: [initialValue], unusedReturnValue: false)
-                                }
-                                
-                                return ASTNumberLiteral(value: 0)
-                            }()
-                            
-                            return ASTArraySetter(
-                                target: ASTNumberLiteral(value: 0),
-                                offset: ASTNumberLiteral(value: _actualAddressOfGlobal(withIdentifier: global.identifier)!),
-                                value: value
-                            )
-                        }
-                    )
-                ]
-            )
-            functions.insert(functionDeclaration: initializeGlobals)
-            ast.insert(initializeGlobals, at: 0)
-            
-            let releaseGlobals = ASTFunctionDeclaration(
-                name: "__release_globals",
-                parameters: [],
-                returnType: .void,
-                kind: .global,
-                annotations: [.static_cleanup],
-                body: globals.isEmpty
-                    ? [ASTNoop()] as ASTComposite
-                    : ASTComposite(statements:
-                        // TODO reqrite this
-                        // a) only release/free globals w/ an initial value
-                        // b) for globals that are "primitive arrays" w/ an initial value, free them
-                        semanticAnalysis.globals.filter { $0.type.supportsReferenceCounting }.map { global -> ASTStatement in
-                            global.initialValue == nil
-                                ? ASTNoop()
-                                : ASTFunctionCall(functionName: SymbolMangling.release, arguments: [global.identifier], unusedReturnValue: true)
-                        }
-                )
-            )
-            functions.insert(functionDeclaration: releaseGlobals)
-            ast.insert(releaseGlobals, at: 1)
-            
-            
-            let freeGlobalVariableRegistry = ASTFunctionDeclaration(
-                name: "__free_global_variable_registry",
-                parameters: [],
-                returnType: .void,
-                kind: .global,
-                body: globals.isEmpty
-                    ? [] as ASTComposite
-                    : [
-                        ASTFunctionCall(functionName: SymbolMangling.free, arguments: [ASTNumberLiteral(value: 2)], unusedReturnValue: true)
-                    ] as ASTComposite
-                
-            )
-            functions.insert(functionDeclaration: freeGlobalVariableRegistry)
-            ast.insert(freeGlobalVariableRegistry, at: 2)
+        // Inserts the instructions to call a function w/ 0 arguments and a discarded return value
+        let invoke_noChecks_noArgs_unusedRetval: (String) -> Void = { functionName in
+            self.add(.push, unresolvedLabel: functionName)
+            self.add(.call, 0)
+            self.add(.pop)
         }
         
         
-        let callAllFunctionsWithAnnotationGivingPriorityTo: (ASTAnnotation.Element, String) throws -> Void = { annotation, priorityName in
-            let allFunctionsWithAnnotation = ast.compactMap { $0 as? ASTFunctionDeclaration }.filter { $0.hasAnnotation(annotation) }
-            if let priorityFunction = allFunctionsWithAnnotation.first(where: { $0.mangledName == priorityName }) {
-                try self.handle(node: ASTFunctionCall(functionName: priorityFunction.mangledName, arguments: [], unusedReturnValue: true))
-            }
-            
-            try allFunctionsWithAnnotation
-                .filter { $0.mangledName != priorityName }
-                .forEach {
-                    try self.handle(node: ASTFunctionCall(functionName: $0.mangledName, arguments: [], unusedReturnValue: true))
-                }
-        }
+        // generate the bootstrapping instructions
         
-        let callIfPossible: (String) throws -> Void = { functionName in
-            if self.functions.keys.contains(functionName) {
-                try self.handle(node: ASTFunctionCall(functionName: functionName, arguments: [], unusedReturnValue: true))
-            }
-        }
+        // call all static initializers
+        invoke_noChecks_noArgs_unusedRetval("__INVOKING_ALL_STATIC_INITIALIZERS__")
         
-        
-        
-        // Generate the bootstrapping instructions
-        // 1. Call all static initializers
-        // TODO guarantee that the builtin static initializer is called first
-        try callAllFunctionsWithAnnotationGivingPriorityTo(.static_initializer, "__initialize_globals")
-        
-        // 2. Call `main`
+        // call `main`
         try handle(node: ASTFunctionCall(functionName: "main", arguments: [], unusedReturnValue: false))
         
-        // 3. Call cleanup functions
-        try callAllFunctionsWithAnnotationGivingPriorityTo(.static_cleanup, "__release_globals")
+        // call cleanup functions
+        invoke_noChecks_noArgs_unusedRetval("__INVOKING_ALL_STATIC_CLEANUP_FUNCTIONS__")
         
-        // 4. Call the function freeing the global variable registry
-        try callIfPossible("__free_global_variable_registry")
-        
-        
-        // 3. Jump to `end`
+        // jump to `end`
         add(.push, Constants.BooleanValues.true)
         add(.jump, unresolvedLabel: "end")
         
         // run codegen
         try ast.forEach(handle)
         
+        // We have to delay handling globals until after all other codegen finished
+        // because there might be additional types (and therefore additional mataypes) registered when handling lambdas
+        try codegen.handleGlobals().forEach(handle)
+
         add(label: "end")
-        return (instructions, stats)
         
+        return (instructions, stats)
     }
 }
 
 
 // MARK: Codegen
-private extension BytecodeCompiler {
+extension BytecodeCompiler {
     
     func add(_ operation: Operation, _ immediate: Int = 0) {
         instructions.append(.operation(operation, immediate))
@@ -475,7 +333,7 @@ private extension BytecodeCompiler {
         } else if let booleanLiteral = node as? ASTBooleanLiteral {
             try handle(booleanLiteral: booleanLiteral)
         
-        } else if let staticVariableDeclaration = node as? ASTStaticVariableDeclaration {
+        } else if node is ASTStaticVariableDeclaration {
             // TODO?
             
         } else if let _ = node as? ASTNoop {
@@ -950,11 +808,14 @@ private extension BytecodeCompiler {
                 let type = ASTTypeDeclaration(
                     name: ASTIdentifier(value: typename),
                     attributes: [ASTVariableDeclaration(identifier: invoke_functionPtr, type: lambda_impType)] + importedVariables,
-                    annotations: ["disable_getters_setters"]
+                    annotations: [.disable_attribute_accessors]
                 )
                 typeCache.register(type: type)
                 
-                let lambdaAST = AutoSynthesizedCodeGen.synthesize(for: [type], compiler: self)
+                var lambdaAST: [ASTNode] = [type]
+                self.codegen.synthesize(intoAST: &lambdaAST)
+                
+                //let lambdaAST = AutoSynthesizedCodeGen.synthesize(for: [type], compiler: self)
                 
                 try withScope(Scope(type: .global)) {
                     try lambdaAST.forEach(handle)
@@ -1122,6 +983,7 @@ private extension BytecodeCompiler {
             add(.push, unresolvedLabel: identifier.value)
             
         } else if let globalAddress = _actualAddressOfGlobal(withIdentifier: identifier) {
+            print("GLOBAL - \(globalAddress) - \(identifier.value)")
             add(.readh, globalAddress)
     
         } else {
@@ -1316,11 +1178,14 @@ private extension BytecodeCompiler {
         let label = UUID().uuidString // TODO detect duplicate string literals
         add(.arrayLiteral(label, codepoints))
         
-        add(.loadc, unresolvedLabel: label)
+        //add(.loadc, unresolvedLabel: label)
         
         let stringInitCall = ASTFunctionCall(
             functionName: SymbolMangling.mangleInitializer(forType: "String"),
-            arguments: [ASTNoop()], // the parameter is already on the stack, from the `loadc` instruction above
+            //arguments: [ASTNoop()], // the parameter is already on the stack, from the `loadc` instruction above
+            arguments: [
+                ASTRawWIPInstruction(instruction: .unresolved(.loadc, label))
+            ],
             unusedReturnValue: false
         )
         
@@ -1632,6 +1497,9 @@ private extension BytecodeCompiler {
             
             } else if let boxedExpression = expression as? ASTBoxedExpression {
                 return try boxedType(ofExpression: boxedExpression.expression)
+            
+            } else if expression is ASTRawWIPInstruction {
+                return .any
             }
             
             // We seem to hit this error pretty often (/always?) when encountering an undefined identifier
@@ -1663,7 +1531,7 @@ extension BytecodeCompiler {
     }
     
     func call(_ functionName: String, arguments: [ASTExpression], unusedReturnValue: Bool = true) throws {
-        add(comment: "\(functionName) \((arguments.first as? ASTIdentifier)?.value ?? String(describing: arguments.first)) (\(try guessType(ofExpression: arguments.first!))")
+        add(comment: "\(functionName) \((arguments.first as? ASTIdentifier)?.value ?? String(describing: arguments.first)) (\(try guessType(ofExpression: arguments.first!)))")
         let call = ASTFunctionCall(
             functionName: functionName,
             arguments: arguments,

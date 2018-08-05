@@ -1,7 +1,11 @@
 use "std/string";
 use "std/runtime";
 
-type Array(_count: int, _allocatedLength: int, _backing: int);
+type Array (
+    _count: int,
+    _allocatedLength: int,
+    _backing: int
+);
 
 // TODO write tests for all of this!
 
@@ -226,6 +230,11 @@ impl Array {
 
         ret index;
     }
+
+// TODO
+//    fn hashValue(self: Array): int {
+//        ret 12;
+//    }
 
 
     // Move to a smaller/larger backing

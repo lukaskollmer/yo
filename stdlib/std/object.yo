@@ -5,16 +5,23 @@ use "std/number";
 
 // every custom type you declare implicitly conforms to the `Object` protocol
 
+#[base_protocol]
 protocol Object {
     fn hashValue(self: Self): int {
         ret self as int;
     }
 
     fn description(self: Self): String {
-        ret String::format("<%s %nh>", [runtime::typeof(self), @(self as int)]);
+        // TODO use the proper runtime::typeof instead
+        val metatype = runtime::typeof(self);
+        //ret metatype.name;
+        ret String::format("<%s %nh>", [metatype.name, @(self as int)]);
     }
 
-    //fn isEqual(self: Self, other: Self) {
-    //    if self == other
-    //}
+    fn isEqualTo(self: Self, other: Self): bool {
+        if self == other {
+            ret true;
+        }
+        ret false;
+    }
 }

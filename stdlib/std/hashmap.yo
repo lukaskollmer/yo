@@ -1,5 +1,7 @@
 use "std/runtime";
 use "std/string";
+use "std/number";
+use "std/string_builder";
 
 static _maxSizeIndex: int = 5;
 static _primes: int = {13, 23, 41, 71, 127, 421};
