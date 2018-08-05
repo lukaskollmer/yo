@@ -76,7 +76,7 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-print-heap"
-            isEnabled = "NO">
+            isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-check-heap-empty"
@@ -87,7 +87,7 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-heap-size 4000"
+            argument = "-heap-size 2000"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
