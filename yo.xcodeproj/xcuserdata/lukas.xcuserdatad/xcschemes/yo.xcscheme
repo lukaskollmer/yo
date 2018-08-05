@@ -63,31 +63,35 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "/Users/lukas/Developer/yo/temp/main_hashmap.yo"
-            isEnabled = "YES">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "-stdlib-path /Users/lukas/Developer/yo/stdlib"
-            isEnabled = "YES">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "--print-instructions"
-            isEnabled = "YES">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "--print-heap"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "--check-heap-empty"
+            argument = "-help"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "-print-instructions"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "--verbose"
+            argument = "-print-heap"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "-check-heap-empty"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "-v"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-heap-size 4000"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "/Users/lukas/Developer/yo/temp/main_hashmap.yo"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>

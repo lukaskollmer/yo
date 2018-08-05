@@ -54,8 +54,16 @@ extension Sequence {
         return self.first(where: block) != nil
     }
     
+    func firstIndex(where block: (Element) -> Bool) -> Int? {
+        return self.lazy.enumerated().first(where: { block($0.element) })?.offset
+    }
+    
     func lastIndex(where block: (Element) -> Bool) -> Int? {
-        return self.enumerated().reversed().first { block($0.element) }?.offset
+        return self.lazy.enumerated().reversed().first(where: { block($0.element) })?.offset
+    }
+    
+    func firstIndex(after index: Int, where block: (Element) -> Bool) -> Int? {
+        return self.lazy.enumerated().first(where: { $0.offset > index && block($0.1) })?.offset
     }
 }
 

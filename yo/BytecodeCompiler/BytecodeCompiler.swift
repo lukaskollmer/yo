@@ -968,7 +968,6 @@ private extension BytecodeCompiler {
             add(.push, unresolvedLabel: identifier.value)
             
         } else if let globalAddress = _actualAddressOfGlobal(withIdentifier: identifier) {
-            print("GLOBAL - \(globalAddress) - \(identifier.value)")
             add(.readh, globalAddress)
     
         } else {
@@ -1017,7 +1016,7 @@ private extension BytecodeCompiler {
                 
                 if scope.contains(identifier: functionCall.functionName) {
                     // TODO calling some local function / lambda?
-                    print()
+                    fatalError() // TODO
                 
                 } else if let functionInfo = functions[functionCall.functionName] {
                     currentType = functionInfo.returnType

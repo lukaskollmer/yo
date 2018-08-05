@@ -38,6 +38,7 @@ class Optimizer {
     
     
     private func _unusedSymbols() {
+        /*
         let unusedFunctions = ast.functions
             .filter { !$0.annotations.contains("unused") && !stats.calledFunctions.contains($0.mangledName) }
             .map { $0.mangledName }
@@ -47,6 +48,6 @@ class Optimizer {
             let nextFunctionEntryPoint = instructions.firstIndex(after: entryPoint) { $0.isLabel && !$0.labelValue!.hasPrefix(".") }
             
             instructions.removeSubrange(entryPoint..<nextFunctionEntryPoint)
-        }
+        }*/
     }
 }

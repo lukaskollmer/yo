@@ -8,31 +8,101 @@
 
 import Foundation
 
-func printHelpAndExit() -> Never {
-    let message =
-    """
-yo
+let VERSION = "0.0.1"
 
-    Options:
-    --verbose
+
+extension CLIOptions {
+    static let help = CLIOption<Void>(
+        flag: "-help",
+        description: "Print this message"
+    )
     
-    Flags:
-    -heap-size (Default: 1024)
-"""
+    static let verbose = CLIOption<Void>(
+        flag: "-v",
+        description: "Verbose output"
+    )
+    
+    static let checkHeapEmpty = CLIOption<Void>(
+        flag: "-check-heap-empty",
+        description: "After running the program, checks whether the heap is empty and - if not - prints all relaining allocations"
+    )
+    
+    static let printInstructions = CLIOption<Void>(
+        flag: "-print-instructions",
+        description: "Print pre-finalized instructions to stdout before passing them to the interpreter"
+    )
+    
+    static let printHeap = CLIOption<Void>(
+        flag: "-print-heap",
+        description: "Print the contents of the heap after running the program"
+    )
+    
+    static let heapSize = CLIOption<Int>(
+        flag: "-heap-size",
+        defaultValue: Int(1 << 10),
+        description: "Specify the size of the heap"
+    )
+    
+    static let stdlibPath = CLIOption<String>(
+        flag: "-stdlib-path",
+        defaultValue: "/Users/lukas/Developer/yo/stdlib",
+        description: "Path of the standard library"
+    )
+    
+    static let all: [CLIOptions] = [.help, .verbose, .checkHeapEmpty, .printInstructions, .printHeap, .heapSize, .stdlibPath]
+}
+
+
+func printHelpAndExit() -> Never {
+    var message = "OVERVIEW: yo programming language v\(VERSION)"
+    message += "\n\n"
+    message += "USAGE: yo [options] <input>"
+    message += "\n\n"
+    message += "OPTIONS:"
+    message += "\n"
+    
+    let optionsSorted = CLIOptions.all.sorted { $0.flag < $1.flag }
+    
+    for option in optionsSorted {
+        
+        let maxColumnWidth = 24
+        var entry = "  "
+        entry += option.flag
+        
+        if option.hasDefaultValue {
+            entry += " <value>"
+        }
+        
+        if option.flag.count < maxColumnWidth {
+            entry = entry.padding(.right, toLength: maxColumnWidth, withPad: " ")
+        } else {
+            entry += "\n" + String.init(repeating: " ", count: maxColumnWidth + 2)
+        }
+        
+        entry += option.description
+        
+        if option.hasDefaultValue {
+            entry += " (default: \(option._defaultValue_description!))"
+        }
+        entry += "\n"
+        message += entry
+    }
     
     print(message)
     exit(EXIT_SUCCESS)
 
 }
 
-if CLI.hasArgument("--help") {
+// This is the only exception where we allow a flag w/ 2 dashes
+if CLI.arguments.contains("--help") || CLI.hasFlag(.help) {
     printHelpAndExit()
 }
 
 
-guard let filename = CLI.arguments[safe: 1] else {
-    printHelpAndExit()
-}
+//guard let filename = CLI.arguments[safe: 1] else {
+//    printHelpAndExit()
+//}
+let filename = CLI.arguments.last!
 
 
 let filepath: String = {
@@ -49,6 +119,6 @@ guard FileManager.default.fileExists(atPath: filepath) else {
     fatalError("input file does not exist")
 }
 
-let heapSize = CLI.value(ofFlag: "-heap-size", type: Int.self) ?? 1 << 10
+let heapSize = CLI.value(of: .heapSize)
 exit(try Int32(yo.run(atPath: filepath, heapSize: heapSize)))
 

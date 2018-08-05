@@ -110,12 +110,6 @@ extension Array where Element == WIPInstruction {
     }
     
     
-    
-    func firstIndex(after index: Index, where block: (Element) -> Bool) -> Index {
-        return self.enumerated().first { $0.offset > index && block($0.1) }!.offset
-    }
-    
-    
     var fancyDescription: String {
         var desc = [String]()
         

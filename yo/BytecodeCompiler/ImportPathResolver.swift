@@ -10,7 +10,7 @@ import Foundation
 
 enum ImportPathResolver {
     
-    static let stdlibPath = CLI.value(ofFlag: "-stdlib-path", type: String.self) ?? "/Users/lukas/Developer/yo/stdlib"
+    static let stdlibPath = CLI.value(of: .stdlibPath)
     
     static func _resolve(moduleName: String, baseDirectory: String) -> String? {
         // Module resolving:
@@ -34,8 +34,6 @@ enum ImportPathResolver {
             }
         }
         
-        
-        print(moduleName, path, baseDirectory)
         return nil
     }
     

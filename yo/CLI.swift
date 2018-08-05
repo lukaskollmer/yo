@@ -9,30 +9,74 @@
 import Foundation
 
 
-class CLI {
-    static let arguments = ProcessInfo.processInfo.arguments
+protocol CLIOptionExpressible {
+    static func convert(stringValue: String) -> Self
+}
+
+extension String: CLIOptionExpressible {
+    static func convert(stringValue: String) -> String {
+        return stringValue
+    }
+}
+
+extension Int: CLIOptionExpressible {
+    static func convert(stringValue: String) -> Int {
+        return Int(stringValue)!
+    }
+}
+
+
+// Why such a weird setup (names, description in superclass, _defaultValue_description which is nil by default, etc)?
+// We generate the `--help` message from an `Array<CLIFlags>`, meaning that we have to somehow work around the generic specializations
+
+class CLIOptions {
+    let flag: String
+    let description: String
     
-    static let isVerbose         = hasArgument("--verbose")
-    static let checkHeapEmpty    = hasArgument("--check-heap-empty")
-    static let printInstructions = hasArgument("--print-instructions")
-    static let printHeap         = hasArgument("--print-heap")
-    
-    static func hasArgument(_ argument: String) -> Bool {
-        return arguments.contains(argument)
+    fileprivate init(flag: String, description: String) {
+        self.flag = flag
+        self.description = description
     }
     
-    static func value<T>(ofFlag flag: String, type: T.Type) -> T? {
-        guard let index = arguments.index(of: flag)?.advanced(by: 1) else {
-            return nil
+    var _defaultValue_description: String? {
+        return nil
+    }
+    
+    var hasDefaultValue: Bool {
+        return _defaultValue_description != nil
+    }
+}
+
+// Void argument: the presence of the argument is significant
+// Other type: the next argument should be a value of the specified type
+class CLIOption<T>: CLIOptions {
+    let defaultValue: T!
+    
+    init(flag: String, defaultValue: T! = nil, description: String) {
+        self.defaultValue = defaultValue
+        super.init(flag: flag, description: description)
+    }
+    
+    override var _defaultValue_description: String? {
+        return defaultValue == nil ? nil : String(describing: defaultValue!)
+    }
+}
+
+
+class CLI {
+    
+    static let arguments = ProcessInfo.processInfo.arguments
+    
+    static func hasFlag<T>(_ option: CLIOption<T>) -> Bool {
+        return arguments.contains(option.flag)
+    }
+    
+    static func value<T: CLIOptionExpressible>(of option: CLIOption<T>) -> T {
+        guard let index = arguments.index(of: option.flag)?.advanced(by: 1) else {
+            return option.defaultValue
         }
         let value = arguments[index]
         
-        if type == Int.self {
-            return Int(value) as? T
-        } else if type == String.self {
-            return value as? T
-        }
-        
-        return nil
+        return T.convert(stringValue: value)
     }
 }

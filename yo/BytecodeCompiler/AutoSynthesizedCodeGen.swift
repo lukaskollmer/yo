@@ -422,8 +422,6 @@ class AutoSynthesizedCodeGen {
         let typename = typeDecl.name
         
         for protocolName in typeDecl.protocols {
-            print(protocolName, typename)
-            print()
             guard let _protocol = getProtocolWithName(protocolName) else {
                 fatalError("Unable to get protocol named '\(protocolName)'")
             }
