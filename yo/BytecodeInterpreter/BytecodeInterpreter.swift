@@ -318,23 +318,24 @@ class BytecodeInterpreter {
             
             
         case .debug:
-            
-            // print current call stack
             print("Current Call Stack:")
-            for (index, address) in callStack.reversed().enumerated() {
-                var entry = ""
-                entry += "\(index)".padding(.left, toLength: 4, withPad: " ").padding(.right, toLength: 7, withPad: " ")
-                entry += "\(address)".padding(.left, toLength: 5, withPad: "0")
-                entry += " " + String(procedureEntryAddresses[address] ?? "(unknown)")
-                print(entry)
-            }
-            
+            print(callStackSymbols().joined(separator: "\n"))
             
             print()
         }
         
         if BytecodeInterpreter.verboseLogging {
             Log.info("[eval] ip=\(instructionPointer) stack after: \(heap)")
+        }
+    }
+    
+    func callStackSymbols() -> [String] {
+        return callStack.reversed().enumerated().map { index, address in
+            var entry = ""
+            entry += "\(index)".padding(.left, toLength: 4, withPad: " ").padding(.right, toLength: 7, withPad: " ")
+            entry += "\(address)".padding(.left, toLength: 5, withPad: "0")
+            entry += " " + String(procedureEntryAddresses[address] ?? "(unknown)")
+            return entry
         }
     }
 }

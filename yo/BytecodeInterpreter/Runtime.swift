@@ -65,7 +65,14 @@ class Runtime: NativeFunctions {
         }
         
         self["runtime", "fatalError", .void, [.String]] = { interpreter in
-            fatalError(Runtime.getString(atAddress: interpreter.stack.peek(), heap: interpreter.stack.heap))
+            let errorMessagePtr = interpreter.stack.peek()
+            let errorMessage = errorMessagePtr == 0 ? "(null)" : Runtime.getString(atAddress: errorMessagePtr, heap: interpreter.heap)
+            
+            print("Aborting due to fatal error: \(errorMessage)")
+            print("Call Stack:")
+            print(interpreter.callStackSymbols().joined(separator: "\n"))
+            
+            fatalError()
         }
         
         self["runtime", "typeof_s", .String, [.any]] = {_ in return 0 }   // manually implemented in the compiler
