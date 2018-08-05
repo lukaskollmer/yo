@@ -602,7 +602,7 @@ private extension BytecodeCompiler {
         // 5. if this is an if statement w/ an else branch, handle the else branch
         if case .if(let elseBranch) = conditionalStatement.kind, let elseBranch_ = elseBranch {
             add(label: generateLabel("else"))
-            try handle(composite: elseBranch_)
+            try handle(node: elseBranch_)
         }
         
         // 6. handle the end label

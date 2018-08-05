@@ -13,7 +13,7 @@ import Foundation
 class ASTConditionalStatement: ASTStatement {
     enum Kind {
         case `while`
-        case `if`(ASTComposite?)
+        case `if`(elseBranch: ASTStatement?)
     }
     
     let condition: ASTCondition

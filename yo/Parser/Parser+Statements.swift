@@ -673,13 +673,18 @@ extension Parser {
         }
         
         // if statement, which means we also need to check for a potential else branch
-        var elseBody: ASTComposite?
+        var elseBranch: ASTStatement?
         
         if case .else = currentToken.type {
             next()
-            elseBody = try parseComposite()
+            
+            if case .if = currentToken.type {
+                elseBranch = try parseConditionalStatement()
+            } else {
+                elseBranch = try parseComposite()
+            }
         }
-        return ASTConditionalStatement(condition: condition, body: body, kind: .if(elseBody))
+        return ASTConditionalStatement(condition: condition, body: body, kind: .if(elseBranch: elseBranch))
     }
     
     

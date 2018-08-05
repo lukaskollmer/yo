@@ -41,7 +41,8 @@ extension Array where Element == ASTStatement {
             }
         }
         
-        return self.lk_flatMap { (statement: ASTStatement) in
+        // func bc closures can't be recursive
+        func fn(statement: ASTStatement) -> [ASTVariableDeclaration] {
             if let decl = statement as? ASTVariableDeclaration {
                 return [decl]
                 
@@ -52,7 +53,7 @@ extension Array where Element == ASTStatement {
                 var conditionalVariableDecls = conditional.body.statements.getLocalVariables(recursive: true)
                 
                 if case .if(let elseBranch) = conditional.kind, elseBranch != nil {
-                    conditionalVariableDecls.append(contentsOf: elseBranch!.statements.getLocalVariables(recursive: true))
+                    conditionalVariableDecls.append(contentsOf: fn(statement: elseBranch!))
                 }
                 
                 return conditionalVariableDecls
@@ -60,5 +61,7 @@ extension Array where Element == ASTStatement {
             
             return []
         }
+        
+        return self.lk_flatMap(fn)
     }
 }
