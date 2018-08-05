@@ -9,7 +9,7 @@
 import Foundation
 
 
-class ASTNumberLiteral: ASTExpression {
+class ASTNumberLiteral: ASTExpression, ExpressibleByIntegerLiteral {
     let value: Int
     let type: ASTType
     
@@ -25,5 +25,9 @@ class ASTNumberLiteral: ASTExpression {
     convenience init(value: Double) {
         var _value = value
         self.init(value: cast(&_value), type: .double)
+    }
+    
+    convenience required init(integerLiteral value: Int) {
+        self.init(value: value)
     }
 }
