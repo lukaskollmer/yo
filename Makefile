@@ -42,5 +42,8 @@ build:
 cloc:
 	$(CLOC) . --force-lang="Rust",yo --exclude-dir=bin,deps
 
+todo:
+	grep -ri --exclude-dir=.git 'todo' .
+
 clean:
 	rm -rf $(OUTPUT_DIR)
