@@ -34,6 +34,31 @@ enum yo {
     }
     
     
+    
+    static func resolveImports(in ast: AST, currentWorkingDirectory: String) throws -> AST {
+        // TODO This is terrible code
+        
+        var importedPaths = [String]()
+        
+        // why is this a local function, insetad of a closure?
+        // closured can't be recursive, but functions can
+        func resolveImports(in ast: AST) throws -> AST {
+            return try ast.lk_flatMap { node -> AST in
+                if let importStatement = node as? ASTImportStatement {
+                    let path = ImportPathResolver.resolve(moduleName: importStatement.moduleName, currentWorkingDirectory: currentWorkingDirectory)
+                    guard !importedPaths.contains(path) else { return [] }
+                    
+                    importedPaths.append(path)
+                    return try resolveImports(in: try yo.tokenize(atPath: path))
+                }
+                return [node]
+            }
+        }
+        
+        return try resolveImports(in: ast)
+    }
+    
+    
     static func run(atPath path: String, heapSize: Int) throws -> Int {
         if CLI.isVerbose {
             Log.info("Input file: \(filepath)")
@@ -41,7 +66,8 @@ enum yo {
         
         let code = try read(file: path)
         let tokens = try Lexer(source: code).tokenize()
-        let ast = try Parser(tokens: tokens).parse()
+        var ast = try Parser(tokens: tokens).parse()
+        ast = try resolveImports(in: ast, currentWorkingDirectory: path.directory)
         
         var (instructions, stats) = try BytecodeCompiler().compile(ast: ast)
         

@@ -88,25 +88,10 @@ class BytecodeCompiler {
     }
     
     
-    func compile(ast: AST) throws -> (instructions: [WIPInstruction], stats: CompilationStats) {
-        var importedPaths = [String]()
+    func compile(ast _ast: AST) throws -> (instructions: [WIPInstruction], stats: CompilationStats) {
+        var ast = _ast
         
-        // why is this a local function, insetad of a closure?
-        // closured can't be recursive, but functions can
-        func resolveImports(in ast: AST) throws -> AST {
-            return try ast.lk_flatMap { node -> AST in
-                if let importStatement = node as? ASTImportStatement {
-                    let path = ImportPathResolver.resolve(moduleName: importStatement.moduleName)
-                    guard !importedPaths.contains(path) else { return [] }
-                    
-                    importedPaths.append(path)
-                    return try resolveImports(in: try yo.tokenize(atPath: path))
-                }
-                return [node]
-            }
-        }
-        
-        var ast = try resolveImports(in: ast)
+        //var ast = try resolveImports(in: ast)
         
         baseProtocols = ast
             .compactMap { $0 as? ASTProtocolDeclaration }

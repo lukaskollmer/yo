@@ -11,10 +11,8 @@ import Foundation
 
 class ASTImportStatement: ASTStatement {
     let moduleName: String
-    let isInternal: Bool // as of right now, only internal modules are supported
     
-    init(moduleName: String, isInternal: Bool) {
+    init(moduleName: String) {
         self.moduleName = moduleName
-        self.isInternal = isInternal
     }
 }

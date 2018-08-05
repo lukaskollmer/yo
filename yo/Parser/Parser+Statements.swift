@@ -265,7 +265,7 @@ extension Parser {
         }
         next()
         
-        return ASTImportStatement(moduleName: moduleName, isInternal: true) // TODO somwhow decide whether the module is internal or not
+        return ASTImportStatement(moduleName: moduleName)
     }
     
     

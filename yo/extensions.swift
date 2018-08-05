@@ -115,6 +115,10 @@ extension String {
     var lastPathComponent: String {
         return ns.lastPathComponent
     }
+    
+    var directory: String {
+        return self.ns.deletingLastPathComponent
+    }
 }
 
 // CharacterSet
@@ -164,5 +168,13 @@ extension Dictionary {
         retval.insert(contentsOf: other)
         
         return retval
+    }
+}
+
+
+extension FileManager {
+    func directoryExists(atPath path: String) -> Bool {
+        var isDirectory: ObjCBool = false
+        return self.fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
     }
 }

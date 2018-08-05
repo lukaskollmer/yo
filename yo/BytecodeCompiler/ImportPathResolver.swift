@@ -8,19 +8,45 @@
 
 import Foundation
 
-
-private let internalModules = ["std", "io", "runtime"]
-
-
 enum ImportPathResolver {
     
-    static func resolve(moduleName: String) -> String {
-        let split = moduleName.split(separator: "/").map(String.init)
+    static let stdlibPath = CLI.value(ofFlag: "-stdlib-path", type: String.self) ?? "/Users/lukas/Developer/yo/stdlib"
+    
+    static func _resolve(moduleName: String, baseDirectory: String) -> String? {
+        // Module resolving:
+        // 1. is there a file w/ that name in the cwd?
+        //    -> import that
+        // 2. is there a directory w/ that name in the cwd?
+        //    -> import that directory/main.yo
+        // TODO update above description!
         
-        if internalModules.contains(split[0]) {
-            return "/Users/lukas/Developer/yo".appending(pathComponent: "stdlib/\(moduleName).yo") // TODO don't hardcode the stdlib path
+        let path = baseDirectory.appending(pathComponent: moduleName)
+        
+        let fm = FileManager.default
+        
+        if fm.fileExists(atPath: path + ".yo") {
+            return path + ".yo"
+            
+        } else if fm.directoryExists(atPath: path) {
+            let moduleMainPath = path.appending(pathComponent: "main.yo")
+            if fm.fileExists(atPath: moduleMainPath) {
+                return moduleMainPath
+            }
         }
         
-        fatalError("external modules not yet implemented")
+        
+        print(moduleName, path, baseDirectory)
+        return nil
+    }
+    
+    static func resolve(moduleName: String, currentWorkingDirectory: String) -> String {
+        // TODO take `CLI.value(ofFlag: "-stdlib-path", type: String.self)` into account!!!
+        
+        if let path = _resolve(moduleName: moduleName, baseDirectory: currentWorkingDirectory)
+                ?? _resolve(moduleName: moduleName, baseDirectory: stdlibPath) {
+            return path
+        }
+        
+        fatalError("unable to resolve module '\(moduleName)'")
     }
 }

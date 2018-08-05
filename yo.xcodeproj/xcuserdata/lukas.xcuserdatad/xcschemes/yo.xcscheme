@@ -67,6 +67,10 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "-stdlib-path /Users/lukas/Developer/yo/stdlib"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "--print-instructions"
             isEnabled = "YES">
          </CommandLineArgument>
