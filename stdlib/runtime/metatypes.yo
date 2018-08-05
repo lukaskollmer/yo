@@ -1,0 +1,27 @@
+// runtime/metatypes
+
+use "std/string";
+
+struct Type (
+    id: int,
+    name: String,
+    vtable: vtable
+);
+
+struct vtable (
+    dealloc: int,
+    description: int,
+    isEqualTo: int,
+    hashValue: int
+);
+
+
+impl runtime {
+    #[disable_arc]
+    static fn typeof(obj: any): Type {
+        // the upper 32 bit of an object's first field are a pointer to a pointer to the actual metatype
+        // see the source code for more information TODO link to source code
+        val metatype_ptr = obj[0] >> 32;
+        ret metatype_ptr[0];
+    }
+}

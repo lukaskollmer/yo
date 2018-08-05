@@ -1,40 +1,14 @@
-// runtime.yo
+// runtime/refcounting
 
-use "std/object";
 use "std/string";
-
-fn NotYetImplemented(): void {
-    runtime::fatalError("not yet implemented");
-}
 
 static _is_deallocating_bit: int = 30;
 static _is_marked_for_release_bit: int = 29;
 
-struct Type (
-    id: int,
-    name: String,
-    vtable: vtable
-);
-
-struct vtable (
-    dealloc: int,
-    description: int,
-    isEqualTo: int,
-    hashValue: int
-);
-
 
 impl runtime {
 
-    #[disable_arc]
-    static fn typeof(obj: any): Type {
-        // the upper 32 bit of an object's first field are a pointer to a pointer to the actual metatype
-        // see the source code for more information TODO link to source code
-        val metatype_ptr = obj[0] >> 32;
-        ret metatype_ptr[0];
-    }
-
-
+    // NOTE: this function returning true does *not* mean that `obj` is 100% definitely an object!
     #[disable_arc]
     static fn isObject(obj: any): bool {
         if obj == 0 {
@@ -47,15 +21,8 @@ impl runtime {
             }
             ret true;
         }
-
         ret false;
     }
-
-
-
-    //
-    // Reference Counting
-    //
 
     // Increment an object's retain count by 1
     #[disable_arc]
@@ -176,30 +143,5 @@ impl runtime {
     #[disable_arc]
     static fn getRetainCount(obj: any): int {
         ret obj[0] & 0x3fffffff;
-    }
-}
-
-
-impl runtime {
-    // Runtime helper to create a primitive array from an array constant containing only numbers
-    // (ie `{1, 2, 3, 4}`)
-    // Because primitive array literals consisting only of numbers are stored the same way
-    // as complex array literals consisting only of numbers, we have to drop the first element (the size)
-    // More information in `BytecodeCompiler.handle(arrayLiteral:)`
-    static fn _primitiveArrayFromConstant(input: int): int {
-        val size = input[0];
-        val array = runtime::alloc(size);
-
-        runtime::copy_array(input, 1, array, 0, size);
-        runtime::free(input);
-
-        ret array;
-    }
-
-    // Basically java's `Syatem.arraycopy`
-    static fn copy_array(source: int, sourceIndex: int, destination: int, destinationIndex: int, length: int): void {
-        for i in 0..<length {
-            destination[destinationIndex + i] = source[sourceIndex + i];
-        }
     }
 }

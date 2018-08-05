@@ -19,6 +19,7 @@ enum yo {
             let data = FileManager.default.contents(atPath: path),
             let rawSource = String(data: data, encoding: .utf8)
             else {
+                Log.error("Unable to read file '\(path)'")
                 throw NSError(domain: "yo", code: 0) // TODO
         }
         
