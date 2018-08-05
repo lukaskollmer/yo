@@ -10,6 +10,7 @@
 		8001BC8220B6CF8500B55D00 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8001BC8120B6CF8500B55D00 /* main.swift */; };
 		80049ABD20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80049ABC20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift */; };
 		80149F3D20E397200068CE03 /* AssociatedObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80149F3C20E3971F0068CE03 /* AssociatedObject.swift */; };
+		803BEDCB211753D5009DC37A /* Buffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDCA211753D5009DC37A /* Buffer.swift */; };
 		803ECFD6211320FC001B9975 /* BuiltinIdentifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803ECFD5211320FC001B9975 /* BuiltinIdentifiers.swift */; };
 		803ECFEB21148D2A001B9975 /* CodeGen+Globals.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803ECFEA21148D2A001B9975 /* CodeGen+Globals.swift */; };
 		804834DC20B6D699009E59FC /* extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834DB20B6D699009E59FC /* extensions.swift */; };
@@ -150,6 +151,7 @@
 		8001BC8120B6CF8500B55D00 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		80049ABC20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTStaticVariableDeclaration.swift; sourceTree = "<group>"; };
 		80149F3C20E3971F0068CE03 /* AssociatedObject.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AssociatedObject.swift; sourceTree = "<group>"; };
+		803BEDCA211753D5009DC37A /* Buffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Buffer.swift; sourceTree = "<group>"; };
 		803ECFD5211320FC001B9975 /* BuiltinIdentifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltinIdentifiers.swift; sourceTree = "<group>"; };
 		803ECFEA21148D2A001B9975 /* CodeGen+Globals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CodeGen+Globals.swift"; sourceTree = "<group>"; };
 		804834DB20B6D699009E59FC /* extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = extensions.swift; sourceTree = "<group>"; };
@@ -418,6 +420,7 @@
 				80EAA49B20B97DE60043A6F6 /* Heap.swift */,
 				80EAA49D20B9C0470043A6F6 /* Stack.swift */,
 				80CF5AA220EA3612000A969A /* Constants.swift */,
+				803BEDCA211753D5009DC37A /* Buffer.swift */,
 			);
 			path = BytecodeInterpreter;
 			sourceTree = "<group>";
@@ -614,6 +617,7 @@
 				80EAA49420B95A9A0043A6F6 /* Runtime.swift in Sources */,
 				8072C76720E931D600FA9F62 /* ASTProtocolDeclaration.swift in Sources */,
 				804834DC20B6D699009E59FC /* extensions.swift in Sources */,
+				803BEDCB211753D5009DC37A /* Buffer.swift in Sources */,
 				80EAA48A20B85BA00043A6F6 /* ASTUnaryExpression.swift in Sources */,
 				805E370A20D3E42500F5BB63 /* ASTMemberAccess.swift in Sources */,
 				8072C75A20E90DA100FA9F62 /* ASTBoxedExpression.swift in Sources */,
