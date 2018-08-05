@@ -5,7 +5,7 @@
 - [ ] tests
 - [x] bitwise operators (NOT, AND, OR, XOR)
 - [x] bitshift operators
-- [ ] implement bools
+- [x] implement bools
 - [ ] add support for floating point numbers (custom instructions `addf`, `subf`, `mulf` `divf`, what about `mod`, `not`, etc?)
 - [x] array literals (TODO improve)
 - [ ] nested binops (`((1 << 4) << 7)`) (TODO check, this might already work)
@@ -20,7 +20,7 @@
 - [x] `Array.get`: negative index to access elements from back
 - [ ] ternary expressions (only for assignment at first)
 - [ ] elvis operator (`a ?? b`)
-- [ ] `else if`
+- [x] `else if`
 - [x] add type checks when assigning the return value of a function?
 - [ ] macros
 - [ ] make `nil` a macro for `0 as id`
