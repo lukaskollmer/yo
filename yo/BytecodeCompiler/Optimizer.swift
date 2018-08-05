@@ -19,10 +19,10 @@ struct Optimizations: OptionSet {
 
 class Optimizer {
     private var instructions: [WIPInstruction]
-    let ast: [ASTNode]
+    let ast: AST
     private let stats: BytecodeCompiler.CompilationStats
     
-    init(instructions: [WIPInstruction], ast: [ASTNode], stats: BytecodeCompiler.CompilationStats) {
+    init(instructions: [WIPInstruction], ast: AST, stats: BytecodeCompiler.CompilationStats) {
         self.instructions = instructions
         self.ast = ast
         self.stats = stats

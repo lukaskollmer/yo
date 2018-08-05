@@ -46,7 +46,7 @@ class SemanticAnalyzer {
     
     
     
-    func analyze(ast: [ASTNode]) -> SemanticAnalyzer.Result {
+    func analyze(ast: AST) -> SemanticAnalyzer.Result {
         var types = [ASTTypeDeclaration]()
         var functions = [String: FunctionInfo]()
         let globals = ast.compactMap { $0 as? ASTStaticVariableDeclaration }

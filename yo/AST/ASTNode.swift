@@ -18,6 +18,9 @@ struct SourceCodeLocation {
     }
 }
 
+// TODO use this instead of `AST` throughout the entire codebase!
+typealias AST = [ASTNode]
+
 
 protocol ASTNode: _AssociatedObjectImp {
     /// position in the original source code

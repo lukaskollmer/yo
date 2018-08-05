@@ -26,9 +26,9 @@ import Foundation
 extension AutoSynthesizedCodeGen {
     
     
-    func handleGlobals() -> [ASTNode] {
+    func handleGlobals() -> AST {
         let globals = compiler.globals
-        var retval = [ASTNode]()
+        var retval = AST()
         
         if globals.isEmpty {
             // No globals

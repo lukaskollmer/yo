@@ -88,13 +88,13 @@ class BytecodeCompiler {
     }
     
     
-    func compile(ast: [ASTNode]) throws -> (instructions: [WIPInstruction], stats: CompilationStats) {
+    func compile(ast: AST) throws -> (instructions: [WIPInstruction], stats: CompilationStats) {
         var importedPaths = [String]()
         
         // why is this a local function, insetad of a closure?
         // closured can't be recursive, but functions can
-        func resolveImports(in ast: [ASTNode]) throws -> [ASTNode] {
-            return try ast.lk_flatMap { node -> [ASTNode] in
+        func resolveImports(in ast: AST) throws -> AST {
+            return try ast.lk_flatMap { node -> AST in
                 if let importStatement = node as? ASTImportStatement {
                     let path = ImportPathResolver.resolve(moduleName: importStatement.moduleName)
                     guard !importedPaths.contains(path) else { return [] }
@@ -812,7 +812,7 @@ private extension BytecodeCompiler {
                 )
                 typeCache.register(type: type)
                 
-                var lambdaAST: [ASTNode] = [type]
+                var lambdaAST: AST = [type]
                 self.codegen.synthesize(intoAST: &lambdaAST)
                 
                 //let lambdaAST = AutoSynthesizedCodeGen.synthesize(for: [type], compiler: self)

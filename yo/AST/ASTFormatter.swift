@@ -69,10 +69,10 @@ class ASTPrinter {
 }
 
 class ASTFormatter {
-    private let ast: [ASTNode]
+    private let ast: AST
     
     
-    init(ast: [ASTNode]) {
+    init(ast: AST) {
         self.ast = ast
     }
     

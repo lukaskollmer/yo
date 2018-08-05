@@ -27,7 +27,7 @@ enum yo {
     
     
     
-    static func tokenize(atPath path: String) throws -> [ASTNode] {
+    static func tokenize(atPath path: String) throws -> AST {
         let tokens = try Lexer(source: try read(file: path)).tokenize()
         return try Parser(tokens: tokens).parse()
     }

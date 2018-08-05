@@ -35,24 +35,24 @@ class AutoSynthesizedCodeGen {
         self.compiler = compiler
     }
     
-    func fetchProtocols(fromAST ast: [ASTNode]) {
+    func fetchProtocols(fromAST ast: AST) {
         if _allProtocols == nil {
             _allProtocols = (compiler.baseProtocols + ast.compactMap { $0 as? ASTProtocolDeclaration }).withDuplicatesRemoved()
         }
     }
     
-    func synthesize(intoAST ast: inout [ASTNode], options: CodegenOptions = .all) {
-        var retval = [ASTNode]()
+    func synthesize(intoAST ast: inout AST, options: CodegenOptions = .all) {
+        var retval = AST()
         ast
             .compactMap { $0 as? ASTTypeDeclaration }
             .filter { !$0.isStruct }
             .forEach { typeDecl in
-                // Q: Why the `as [ASTNode]` casts?
+                // Q: Why the `as AST` casts?
                 // A: https://forums.swift.org/t/weird-protocol-behaviour/14963
                 
                 if options.contains(.initializer) {
-                    retval += generateMetatypeInitializerAndCleanupFunctions(forType: typeDecl) as [ASTNode]
-                    retval += generateInitializer(forType: typeDecl) as [ASTNode]
+                    retval += generateMetatypeInitializerAndCleanupFunctions(forType: typeDecl) as AST
+                    retval += generateInitializer(forType: typeDecl) as AST
                 }
                 
                 if options.contains(.dealloc) {
@@ -60,7 +60,7 @@ class AutoSynthesizedCodeGen {
                 }
                 
                 if options.contains(.attributeAccessors) {
-                    retval += generateAttributeAccessors(forType: typeDecl) as [ASTNode]
+                    retval += generateAttributeAccessors(forType: typeDecl) as AST
                 }
                 
                 if options.contains(.baseProtocolConformances) {
@@ -406,8 +406,8 @@ class AutoSynthesizedCodeGen {
     
     // MARK: Protocol Conformance
     
-    private func generateProtocolConformance(forType typeDecl: ASTTypeDeclaration) -> [ASTNode] {
-        var retval = [ASTNode]()
+    private func generateProtocolConformance(forType typeDecl: ASTTypeDeclaration) -> AST {
+        var retval = AST()
         
         let getProtocolWithName: (ASTIdentifier) -> ASTProtocolDeclaration? = { identifier in
             self._allProtocols

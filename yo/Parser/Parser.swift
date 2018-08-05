@@ -38,8 +38,8 @@ class Parser {
         self.tokens = tokens
     }
     
-    func parse() throws -> [ASTNode] {
-        var topLevelExpressions = [ASTNode]()
+    func parse() throws -> AST {
+        var topLevelExpressions = AST()
         
         while currentPosition < tokens.count {
             topLevelExpressions.append(try parseStatement(isTopLevel: true))
