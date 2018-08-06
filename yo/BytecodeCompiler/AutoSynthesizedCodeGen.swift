@@ -310,7 +310,7 @@ class AutoSynthesizedCodeGen {
                 !hasCustomDeallocFunction
                     ? ASTNoop()
                     : ASTFunctionCall(functionName: customDeallocFunctionName, arguments: [_self], unusedReturnValue: true),
-                ASTComposite(statements: typeDeclaration.attributes.enumerated().filter({ $0.element.type.isComplex }).map { arg0 in
+                ASTComposite(statements: typeDeclaration.attributes.enumerated().filter({ $0.element.type.supportsReferenceCounting }).map { arg0 in
                     return ASTFunctionCall(
                         functionName: SymbolMangling.release,
                         arguments: [ASTArrayGetter(target: _self, offset: ASTNumberLiteral(value: arg0.offset + 1))],
