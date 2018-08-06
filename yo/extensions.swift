@@ -40,9 +40,9 @@ extension Int {
 
 
 extension Sequence {
-    func all(_ block: (Element) -> Bool) -> Bool {
+    func all(_ block: (Element) throws -> Bool) rethrows -> Bool {
         for element in self {
-            if !block(element) {
+            if try !block(element) {
                 return false
             }
         }
@@ -50,8 +50,8 @@ extension Sequence {
     }
     
     
-    func any(_ block:(Element) -> Bool) -> Bool {
-        return self.first(where: block) != nil
+    func any(_ block:(Element) throws -> Bool) rethrows -> Bool {
+        return try self.first(where: block) != nil
     }
     
     func firstIndex(where block: (Element) -> Bool) -> Int? {
