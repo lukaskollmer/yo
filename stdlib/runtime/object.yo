@@ -25,3 +25,12 @@ protocol Object {
         ret false;
     }
 }
+
+
+impl Object {
+    static fn description(obj: id): String {
+        val metatype = runtime::typeof(obj);
+        val description_fn_ptr = metatype.vtable.description as fn<(id): String>;
+        ret description_fn_ptr(obj);
+    }
+}
