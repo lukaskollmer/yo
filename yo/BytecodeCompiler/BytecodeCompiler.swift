@@ -1261,8 +1261,56 @@ private extension BytecodeCompiler {
         let elements = arrayLiteral.elements
         
         if arrayLiteral.kind == .primitive {
-            // TODO implement
-            fatalError("primitive array literals cannot ?yet? contain non-constant elements")
+            guard try elements.all({ try guessType(ofExpression: $0).isCompatible(with: .int) }) else {
+                fatalError("primitive array literal contains complex elements")
+            }
+            
+            let initializerName = "_specializedPrimitiveArrayInitializerName\(elements.count)"
+            let mangledInitializerName = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: initializerName)
+            
+            if !functions.keys.contains(mangledInitializerName) {
+                let array: ASTIdentifier = "array"
+                
+                let specializedInitializer = ASTFunctionDeclaration(
+                    name: ASTIdentifier(value: initializerName),
+                    parameters: (0..<elements.count).map { ASTVariableDeclaration(identifier: ASTIdentifier(value: "_\($0)"), type: .int) },
+                    returnType: .int,
+                    kind: .staticImpl("runtime"),
+                    body: [
+                        ASTVariableDeclaration(identifier: array, type: .int),
+                        ASTAssignment(
+                            target: array,
+                            value: ASTFunctionCall(
+                                functionName: SymbolMangling.alloc,
+                                arguments: [ASTNumberLiteral(value: elements.count)],
+                                unusedReturnValue: false
+                            )
+                        ),
+                        
+                        ASTComposite(statements: (0..<elements.count).map { index in
+                            ASTArraySetter(
+                                target: array,
+                                offset: ASTNumberLiteral(value: index),
+                                value: ASTIdentifier(value: "_\(index)")
+                            )
+                        }),
+                        
+                        ASTReturnStatement(expression: array)
+                    ]
+                )
+                
+                
+                try handleFunctionInsertion {
+                    functions.insert(functionDeclaration: specializedInitializer)
+                    try withScope(Scope(type: .global)) {
+                        try handle(function: specializedInitializer)
+                    }
+                }
+            }
+            
+            let initializerCall = ASTFunctionCall(functionName: mangledInitializerName, arguments: elements, unusedReturnValue: false)
+            try handle(node: initializerCall)
+            return
         }
         
         let arrayInitializerMemberName = "_arrayLiteralInit\(arrayLiteral.elements.count)"
