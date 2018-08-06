@@ -321,6 +321,12 @@ private extension BytecodeCompiler {
         } else if node is ASTStaticVariableDeclaration {
             // TODO?
             
+        } else if let enumDecl = node as? ASTEnumDeclaration {
+            try handle(enumDeclaration: enumDecl)
+            
+        } else if let staticMemberGetter = node as? ASTStaticMemberGetter {
+            try handle(staticMemberGetter: staticMemberGetter)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -332,6 +338,10 @@ private extension BytecodeCompiler {
     
     
     // MARK: Handle Statements
+    
+    func handle(enumDeclaration: ASTEnumDeclaration) throws {
+        typeCache.register(enum: enumDeclaration)
+    }
     
     func handle(function: ASTFunctionDeclaration) throws {
         if function.mangledName == "main" {
@@ -976,6 +986,18 @@ private extension BytecodeCompiler {
     }
     
     
+    func handle(staticMemberGetter: ASTStaticMemberGetter) throws {
+        guard typeCache.enumExists(withName: staticMemberGetter.typename.value) else {
+            fatalError("only enums supported for the time being") // todo add supports for types as well!!! (see comment in the guessType function)
+        }
+        
+        let enumCaseRawValue = ASTNumberLiteral(value: typeCache.index(ofCase: staticMemberGetter.memberName.value, inEnum: staticMemberGetter.typename.value)!)
+        try handle(numberLiteral: enumCaseRawValue)
+    }
+    
+    
+    
+    
     
     func processMemberAccess(memberAccess: ASTMemberAccess) throws -> (expr: ASTExpression, types: [ASTType]) {
         guard memberAccess.members.count > 1 else {
@@ -1484,6 +1506,15 @@ private extension BytecodeCompiler {
             
             } else if expression is ASTRawWIPInstruction {
                 return .any
+            
+            } else if let staticMemberGetter = expression as? ASTStaticMemberGetter {
+                if typeCache.enumExists(withName: staticMemberGetter.typename.value) {
+                    return .int // enums are ints
+                    // TODO what about introducing an `ASTType.enum` case?
+                }
+                fatalError("static member getter for unregistered type?!")
+                // TOOD what about using static member getters to refer to functions in an impl?
+                
             }
             
             // We seem to hit this error pretty often (/always?) when encountering an undefined identifier

@@ -62,6 +62,7 @@ private let tokenMapping: [String: TokenType] = [
     "type"  : .type,
     "struct": .struct,
     "impl"  : .impl,
+    "enum"  : .enum,
     "static": .static,
     "fn"    : .fn,
     "ret"   : .ret,

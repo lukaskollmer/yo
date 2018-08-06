@@ -8,12 +8,44 @@
 
 import Foundation
 
+enum LKError: Error {
+    case other(String)
+}
 
 class TypeCache {
     private(set) var types = [ASTTypeDeclaration]()
+    private(set) var enums = [ASTEnumDeclaration]()
+    
+    private func nameIsRegistered(_ name: String) -> Bool {
+        return typeExists(withName: name) || enumExists(withName: name)
+    }
+    
+    private func guardNameStillAvailable(_ name: String) throws {
+        guard !nameIsRegistered(name) else {
+            throw LKError.other("typename '\(name)' already registered")
+        }
+    }
     
     func register(type: ASTTypeDeclaration) {
+        try! guardNameStillAvailable(type.name.value)
         types.append(type)
+    }
+    
+    func register(enum enumDecl: ASTEnumDeclaration) {
+        try! guardNameStillAvailable(enumDecl.name.value)
+        enums.append(enumDecl)
+    }
+    
+    func enumExists(withName name: String) -> Bool {
+        return enumDecl(withName: name) != nil
+    }
+    
+    func enum_hasCase(_ enumname: String, _ casename: String) -> Bool {
+        return index(ofCase: casename, inEnum: enumname) != nil
+    }
+    
+    func index(ofCase casename: String, inEnum typename: String) -> Int? {
+        return enumDecl(withName: typename)!.cases.index { $0.value == casename }
     }
     
     
@@ -51,5 +83,9 @@ class TypeCache {
     
     private func type(withName typename: String) -> ASTTypeDeclaration? {
         return types.first { $0.name.value == typename }
+    }
+    
+    private func enumDecl(withName typename: String) -> ASTEnumDeclaration? {
+        return enums.first { $0.name.value == typename }
     }
 }

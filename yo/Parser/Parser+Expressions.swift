@@ -129,8 +129,10 @@ extension Parser {
                 next()
                 next()
                 let memberName = try parseIdentifier()
+                
                 guard case .openingParentheses = currentToken.type else {
-                    throw ParserError.unexpectedToken(currentToken)
+                    // `SomeType::SomeMember` (ie enum cases!)
+                    return ASTStaticMemberGetter(typename: identifier, memberName: memberName)
                 }
                 next()
                 

@@ -63,6 +63,7 @@ enum TokenType: Equatable, Hashable {
     case type
     case `struct`
     case impl
+    case `enum`
     case `static`
     case fn
     case ret

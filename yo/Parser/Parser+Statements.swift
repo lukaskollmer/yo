@@ -33,6 +33,8 @@ extension Parser {
             case .hashtag:
                 annotations.append(try parseAnnotation())
                 return ASTNoop()
+            case .enum:
+                return try parseEnumDeclaration()
             case .EOF:
                 currentPosition += 1 // stop parsing
                 return ASTNoop()
@@ -817,5 +819,28 @@ extension Parser {
         fatalError("TODO seems like there's a return statement missing here")
     }
     
+    
+    
+    func parseEnumDeclaration() throws -> ASTEnumDeclaration {
+        guard
+            case .enum = currentToken.type,
+            case _ = next(),
+            let enumName = try? parseIdentifier(),
+            case .openingCurlyBrackets = currentToken.type
+        else {
+            fatalError()
+        }
+        next()
+        
+        guard
+            let cases = try parseExpressionList() as? [ASTIdentifier],
+            case .closingCurlyBrackets = currentToken.type
+        else {
+            fatalError()
+        }
+        next()
+        
+        return ASTEnumDeclaration(name: enumName, cases: cases)
+    }
     
 }

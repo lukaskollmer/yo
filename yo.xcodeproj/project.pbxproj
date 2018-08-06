@@ -11,6 +11,8 @@
 		80049ABD20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80049ABC20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift */; };
 		80149F3D20E397200068CE03 /* AssociatedObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80149F3C20E3971F0068CE03 /* AssociatedObject.swift */; };
 		803BEDCB211753D5009DC37A /* Buffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDCA211753D5009DC37A /* Buffer.swift */; };
+		803BEDCF211764FA009DC37A /* ASTStaticMemberGetter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDCE211764FA009DC37A /* ASTStaticMemberGetter.swift */; };
+		803BEDD1211765D3009DC37A /* ASTEnumDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDD0211765D3009DC37A /* ASTEnumDeclaration.swift */; };
 		803ECFD6211320FC001B9975 /* BuiltinIdentifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803ECFD5211320FC001B9975 /* BuiltinIdentifiers.swift */; };
 		803ECFEB21148D2A001B9975 /* CodeGen+Globals.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803ECFEA21148D2A001B9975 /* CodeGen+Globals.swift */; };
 		804834DC20B6D699009E59FC /* extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834DB20B6D699009E59FC /* extensions.swift */; };
@@ -152,6 +154,8 @@
 		80049ABC20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTStaticVariableDeclaration.swift; sourceTree = "<group>"; };
 		80149F3C20E3971F0068CE03 /* AssociatedObject.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AssociatedObject.swift; sourceTree = "<group>"; };
 		803BEDCA211753D5009DC37A /* Buffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Buffer.swift; sourceTree = "<group>"; };
+		803BEDCE211764FA009DC37A /* ASTStaticMemberGetter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTStaticMemberGetter.swift; sourceTree = "<group>"; };
+		803BEDD0211765D3009DC37A /* ASTEnumDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTEnumDeclaration.swift; sourceTree = "<group>"; };
 		803ECFD5211320FC001B9975 /* BuiltinIdentifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltinIdentifiers.swift; sourceTree = "<group>"; };
 		803ECFEA21148D2A001B9975 /* CodeGen+Globals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CodeGen+Globals.swift"; sourceTree = "<group>"; };
 		804834DB20B6D699009E59FC /* extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = extensions.swift; sourceTree = "<group>"; };
@@ -463,6 +467,8 @@
 				8072C76820EA1C2600FA9F62 /* ASTBooleanLiteral.swift */,
 				80049ABC20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift */,
 				80F85CBC2111C7E30040A49D /* ASTFormatter.swift */,
+				803BEDCE211764FA009DC37A /* ASTStaticMemberGetter.swift */,
+				803BEDD0211765D3009DC37A /* ASTEnumDeclaration.swift */,
 			);
 			path = AST;
 			sourceTree = "<group>";
@@ -577,6 +583,7 @@
 				80EAA48420B83C670043A6F6 /* Scope.swift in Sources */,
 				804E4EB420BBE92800736FCC /* ASTStringLiteral.swift in Sources */,
 				80EAA48220B82D990043A6F6 /* ASTIdentifier.swift in Sources */,
+				803BEDCF211764FA009DC37A /* ASTStaticMemberGetter.swift in Sources */,
 				80AE212C20BB0E43004900DC /* WIPInstruction.swift in Sources */,
 				80EAA4A520B9CB230043A6F6 /* Instruction+Debug.swift in Sources */,
 				80EAA4A920B9D49B0043A6F6 /* ASTArraySetter.swift in Sources */,
@@ -602,6 +609,7 @@
 				80EAA46A20B7468B0043A6F6 /* ASTFunctionDeclaration.swift in Sources */,
 				80BEEE8620D7C99D002456D1 /* ASTTypecast.swift in Sources */,
 				807936F720D24D0700DCCE1F /* ASTBreakStatement.swift in Sources */,
+				803BEDD1211765D3009DC37A /* ASTEnumDeclaration.swift in Sources */,
 				804834E320B6EABD009E59FC /* Parser.swift in Sources */,
 				8001BC8220B6CF8500B55D00 /* main.swift in Sources */,
 				807936F920D252AB00DCCE1F /* ASTContinueStatement.swift in Sources */,
