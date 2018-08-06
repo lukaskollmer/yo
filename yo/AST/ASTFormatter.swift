@@ -191,12 +191,12 @@ extension ASTConditionalStatement {
 extension ASTComparison {
     func print(to printer: ASTPrinter) {
         self.lhs.print(to: printer)
-        printer.append(" ").append(self.operator).append(" ")
+        printer.append(" ").append(self.operation).append(" ")
         self.rhs.print(to: printer)
     }
 }
 
-extension ASTComparison.Operator: ASTPrinterAppendable {
+extension ASTComparison.Operation: ASTPrinterAppendable {
     var stringValue: String {
         switch self {
         case .equal:

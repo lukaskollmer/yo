@@ -43,7 +43,7 @@ class ASTBinaryCondition: ASTCondition {
 
 
 class ASTComparison: ASTCondition {
-    enum Operator {
+    enum Operation {
         case equal
         case notEqual
         case less
@@ -53,12 +53,12 @@ class ASTComparison: ASTCondition {
     }
     
     let lhs: ASTExpression
-    let `operator`: ASTComparison.Operator
+    let operation: ASTComparison.Operation
     let rhs: ASTExpression
     
-    init(lhs: ASTExpression, operator: ASTComparison.Operator, rhs: ASTExpression) {
+    init(lhs: ASTExpression, operation: ASTComparison.Operation, rhs: ASTExpression) {
         self.lhs = lhs
-        self.operator = `operator`
+        self.operation = operation
         self.rhs = rhs
     }
 }

@@ -719,7 +719,7 @@ extension Parser {
         next()
         
         
-        let rangeType: ASTComparison.Operator
+        let rangeType: ASTComparison.Operation
         
         switch currentToken.type {
         case .period:
@@ -745,7 +745,7 @@ extension Parser {
             ASTConditionalStatement(
                 condition: ASTComparison(
                     lhs: indexIdentifier,
-                    operator: rangeType,
+                    operation: rangeType,
                     rhs: end
                 ),
                 body: body.appending(statements: [

@@ -327,6 +327,9 @@ private extension BytecodeCompiler {
         } else if let staticMemberGetter = node as? ASTStaticMemberGetter {
             try handle(staticMemberGetter: staticMemberGetter)
             
+        } else if let inlineBooleanExpression = node as? ASTInlineBooleanExpression {
+            try handle(condition: inlineBooleanExpression.condition)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -1414,7 +1417,7 @@ private extension BytecodeCompiler {
         try handle(node: comparison.rhs)
         try handle(node: comparison.lhs)
         
-        switch comparison.operator {
+        switch comparison.operation {
         case .equal:
             add(.eq)
         case .notEqual:
@@ -1554,6 +1557,9 @@ private extension BytecodeCompiler {
             
             } else if expression is ASTRawWIPInstruction {
                 return .any
+                
+            } else if expression is ASTInlineBooleanExpression {
+                return .bool
             
             } else if let staticMemberGetter = expression as? ASTStaticMemberGetter {
                 if typeCache.enumExists(withName: staticMemberGetter.typename.value) {

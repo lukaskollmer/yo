@@ -214,6 +214,25 @@ extension Parser {
             expression = ASTBinaryOperation(lhs: expression, operation: binaryOperation, rhs: try parseExpression())
         }
         
+        if let comparisonOperation = try parseComparisonOperation() {
+            // inline comparison (ie `val x = y % 2 == 0;`)
+            // expression (what we've already parsed so far) is lhs
+            let rhs = try parseExpression()
+            
+            // if the next (current) token is a question mark, we're dealing w/ a ternary expression
+            // if not, it's a simple boolean expression
+            // TODO rewrite comparison parsing to allow multiple chained comparisons
+            // for example, the current version of this code can detect `foo` as an inline condition, but it can't handle `foo && bar`
+            
+            if case .questionmark = currentToken.type {
+                // TODO implement
+                fatalError()
+            }
+            
+            let comparison = ASTComparison(lhs: expression, operation: comparisonOperation, rhs: rhs)
+            expression = ASTInlineBooleanExpression(condition: comparison)
+        }
+        
         if case .as = currentToken.type {
             next()
             expression = ASTTypecast(expression: expression, type: try parseType())
@@ -462,41 +481,52 @@ extension Parser {
         
         let lhs = try parseExpression()
         
-        // the comparison operator can be `<`, `>`, `<=`, `>=`, `==` or `!=`
+        guard let comparisonOperation = try parseComparisonOperation() else {
+            // lhs not followed by a comparison operator -> simple boolean check
+            return ASTComparison(lhs: lhs, operation: .equal, rhs: ASTBooleanLiteral(value: true))
+        }
         
-        let comparisonOperator: ASTComparison.Operator
+        let rhs = try parseExpression()
+        return ASTComparison(lhs: lhs, operation: comparisonOperation, rhs: rhs)
+        
+    }
+    
+    
+    
+    func parseComparisonOperation() throws -> ASTComparison.Operation? {
+        // the comparison operation can be `<`, `>`, `<=`, `>=`, `==` or `!=`
+        
+        let comparisonOperation: ASTComparison.Operation?
         
         switch (currentToken.type, peek().type) {
         case (TokenType.less, TokenType.equalsSign):
-            comparisonOperator = .lessEqual
+            comparisonOperation = .lessEqual
             next()
             
         case (TokenType.greater, TokenType.equalsSign):
-            comparisonOperator = .greaterEqual
+            comparisonOperation = .greaterEqual
             next()
             
         case (TokenType.less, _):
-            comparisonOperator = .less
+            comparisonOperation = .less
             
         case (TokenType.greater, _):
-            comparisonOperator = .greater
+            comparisonOperation = .greater
             
         case (TokenType.equalsSign, TokenType.equalsSign):
-            comparisonOperator = .equal
+            comparisonOperation = .equal
             next()
             
         case (TokenType.exclamationMark, TokenType.equalsSign):
-            comparisonOperator = .notEqual
+            comparisonOperation = .notEqual
             next()
             
         default:
-            // lhs not followed by a comparison operator -> simple boolean check
-            return ASTComparison(lhs: lhs, operator: .equal, rhs: ASTBooleanLiteral(value: true))
+            // return here to avoid the `next()` call after the switch
+            return nil
         }
         next()
         
-        let rhs = try parseExpression()
-        return ASTComparison(lhs: lhs, operator: comparisonOperator, rhs: rhs)
-        
+        return comparisonOperation
     }
 }
