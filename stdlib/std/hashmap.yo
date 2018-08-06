@@ -1,5 +1,4 @@
 use "std/string";
-use "std/number";
 use "std/string_builder";
 
 static _maxSizeIndex: int = 5;
@@ -156,7 +155,7 @@ impl HashMap {
         desc.append("HashMap {\n");
         for i in 0..<self._allocatedSize {
             val key = self._backing[2 * i] as String;
-            val value = self._backing[(2 * i) + 1] as Number;
+            val value = self._backing[(2 * i) + 1] as id;
 
             val key_description: String;
             val value_description: String;
@@ -170,7 +169,7 @@ impl HashMap {
             if value == 0 {
                 value_description = "0";
             } else {
-                value_description = value.description();
+                value_description = Object::description(value);
             }
 
             desc.append_format("  [%n] (%s, %s)\n", [@i, key_description, value_description]);
