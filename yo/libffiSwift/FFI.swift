@@ -9,7 +9,7 @@
 import Foundation
 
 
-// TODO all the pointer stuff is most likely wrong
+// TODO all the pointer stuff is probably wrong
 
 
 class FFIFunctionInvocation {
@@ -33,7 +33,11 @@ class FFIFunctionInvocation {
         self.parameterTypes = parameterTypes
         
         arguments = .allocate(capacity: parameterTypes.count)
+        arguments.initialize(repeating: nil, count: parameterTypes.count)
+        
         argTypes = .allocate(capacity: parameterTypes.count)
+        argTypes.initialize(repeating: nil, count: parameterTypes.count)
+
         
         for (offset, type) in parameterTypes.enumerated() {
             argTypes.advanced(by: offset).pointee = .allocate(capacity: 1)
@@ -44,24 +48,23 @@ class FFIFunctionInvocation {
         guard status == FFI_OK else { fatalError() }
     }
     
+    
     func setArgument(_ argument: UnsafeMutableRawPointer, atIndex index: Int) {
         arguments.advanced(by: index).pointee = argument
     }
     
-    // TODO make this generic?
-    func invoke<T>(/*returnValue: UnsafeMutableRawPointer*/) -> T {
     
+    func invoke<T>(/*returnValue: UnsafeMutableRawPointer*/) -> T {
         var retval = ffi_sarg() // TODO switch between ffi_arg and ffi_sarg based on which return type was defined?
         ffi_call(&cif, functionPointer, &retval, arguments)
         
-        return retval as! T
+        return cast(&retval)
     }
     
     
     deinit {
-        // TODO is deallocating this correct here?
-        arguments.deallocate()
-        argTypes.deallocate()
+        arguments.deinitialize(count: parameterTypes.count)
+        argTypes.deinitialize(count: parameterTypes.count)
     }
 }
 

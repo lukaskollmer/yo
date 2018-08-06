@@ -11,6 +11,7 @@
 		80049ABD20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80049ABC20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift */; };
 		80149F3D20E397200068CE03 /* AssociatedObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80149F3C20E3971F0068CE03 /* AssociatedObject.swift */; };
 		803BEDCB211753D5009DC37A /* Buffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDCA211753D5009DC37A /* Buffer.swift */; };
+		803BEDCD21175F4B009DC37A /* NativeFunctions+FFI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDCC21175F4B009DC37A /* NativeFunctions+FFI.swift */; };
 		803BEDCF211764FA009DC37A /* ASTStaticMemberGetter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDCE211764FA009DC37A /* ASTStaticMemberGetter.swift */; };
 		803BEDD1211765D3009DC37A /* ASTEnumDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDD0211765D3009DC37A /* ASTEnumDeclaration.swift */; };
 		803ECFD6211320FC001B9975 /* BuiltinIdentifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803ECFD5211320FC001B9975 /* BuiltinIdentifiers.swift */; };
@@ -154,6 +155,7 @@
 		80049ABC20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTStaticVariableDeclaration.swift; sourceTree = "<group>"; };
 		80149F3C20E3971F0068CE03 /* AssociatedObject.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AssociatedObject.swift; sourceTree = "<group>"; };
 		803BEDCA211753D5009DC37A /* Buffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Buffer.swift; sourceTree = "<group>"; };
+		803BEDCC21175F4B009DC37A /* NativeFunctions+FFI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NativeFunctions+FFI.swift"; sourceTree = "<group>"; };
 		803BEDCE211764FA009DC37A /* ASTStaticMemberGetter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTStaticMemberGetter.swift; sourceTree = "<group>"; };
 		803BEDD0211765D3009DC37A /* ASTEnumDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTEnumDeclaration.swift; sourceTree = "<group>"; };
 		803ECFD5211320FC001B9975 /* BuiltinIdentifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltinIdentifiers.swift; sourceTree = "<group>"; };
@@ -421,6 +423,7 @@
 				80EAA49320B95A9A0043A6F6 /* Runtime.swift */,
 				80EA785E20EE57F600882378 /* NativeFunctions.swift */,
 				80EA785C20EE57C900882378 /* NativeFunctions+IO.swift */,
+				803BEDCC21175F4B009DC37A /* NativeFunctions+FFI.swift */,
 				80EAA49B20B97DE60043A6F6 /* Heap.swift */,
 				80EAA49D20B9C0470043A6F6 /* Stack.swift */,
 				80CF5AA220EA3612000A969A /* Constants.swift */,
@@ -600,6 +603,7 @@
 				80AE212120BABB6E004900DC /* ASTTypeMemberFunctionCall.swift in Sources */,
 				80CF5AA320EA3612000A969A /* Constants.swift in Sources */,
 				804834DE20B6D962009E59FC /* Log.swift in Sources */,
+				803BEDCD21175F4B009DC37A /* NativeFunctions+FFI.swift in Sources */,
 				80AE212E20BB13EA004900DC /* ImportPathResolver.swift in Sources */,
 				80AE211920BA06D1004900DC /* TypeCache.swift in Sources */,
 				80EAA49A20B965CE0043A6F6 /* ASTConditionalStatement.swift in Sources */,

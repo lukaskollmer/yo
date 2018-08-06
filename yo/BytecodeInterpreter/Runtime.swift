@@ -53,6 +53,7 @@ class Runtime: NativeFunctions {
     private init() {
         
         NativeFunctions_IO.register(self)
+        NativeFunctions_FFI.register(self)
         
         self["runtime", "alloc", .int, [.int]] = { interpreter in
             let size = interpreter.stack.peek()

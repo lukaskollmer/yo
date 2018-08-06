@@ -15,6 +15,21 @@ protocol NativeFunctions {
 
 
 extension NativeFunctions {
+    
+    static func number_getIntValue(address: Int, heap: Heap) -> Int {
+        let value = heap[address + 1]
+        let type = heap[address + 2]
+        guard type == Constants.NumberTypeMapping.integer else {
+            fatalError("TODO add support for non-int types")
+        }
+        return value
+    }
+    
+    
+    static func getString(_ offset: Int, _ interpreter: BytecodeInterpreter) -> String {
+        return getString(atAddress: interpreter.stack.peek(offset: offset), heap: interpreter.heap)
+    }
+    
     static func getString(atAddress _address: Int, heap: Heap) -> String {
         let address = heap[_address + 1]
         let size = heap[address]
