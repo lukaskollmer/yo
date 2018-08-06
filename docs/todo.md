@@ -42,7 +42,7 @@
 - [ ] allow disabling arc for an entire type/impl block
 - [ ] allow disabling getters/setters for individual attributes
 - [ ] don't evaluate function arguments right to left
-- [ ] simple heap array literal. ie `val x = {1, 3, 4};` would call `runtime::alloc(3)` and fill that w/ 1, 3 and 4
+- [x] simple heap array literal. ie `val x = {1, 3, 4};` would call `runtime::alloc(3)` and fill that w/ 1, 3 and 4
 - [ ] always zero out the newly allocated backing range on `runtime::alloc`
 - [ ] throw descriptive error when accessing a nonexistent attribute
 - [x] allow `ret;` instead of `ret 0;` in void functions
@@ -53,3 +53,5 @@
       The difference would be that a) you can't declare a `type` or `struct` w/ that name and b) all functions are implicitly static
 - [ ] `defer`
 - [ ] don't allow creating attributes w/ nonexistent types (seems to work fine so far which it shouldnt)
+- [ ] comment at end of file crashes lexer?
+- [ ] can't call native function in lambda?
