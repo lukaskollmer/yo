@@ -55,3 +55,4 @@
 - [ ] don't allow creating attributes w/ nonexistent types (seems to work fine so far which it shouldnt)
 - [ ] comment at end of file crashes lexer?
 - [ ] can't call native function in lambda?
+- [ ] operator precedence
