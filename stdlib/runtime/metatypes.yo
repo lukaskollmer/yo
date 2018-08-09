@@ -22,6 +22,6 @@ impl runtime {
         // the upper 32 bit of an object's first field are a pointer to a pointer to the actual metatype
         // see the source code for more information TODO link to source code
         val metatype_ptr = obj[0] >> 32;
-        ret metatype_ptr[0];
+        ret metatype_ptr[0] as Type;
     }
 }

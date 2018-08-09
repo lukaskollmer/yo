@@ -15,7 +15,7 @@ impl runtime {
             ret false;
         }
 
-        if obj % 2 == 0 {
+        if (obj % 2) == 0 {
             if obj[0] == 0 {
                 ret false;
             }

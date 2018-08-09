@@ -5,7 +5,7 @@
 use "std/string";
 
 struct File (
-    _handle: int,
+    _handle: int
 );
 
 impl File {
