@@ -12,10 +12,7 @@ protocol Object {
     }
 
     fn description(self: Self): String {
-        // TODO use the proper runtime::typeof instead
-        val metatype = runtime::typeof(self);
-        //ret metatype.name;
-        ret String::format("<%s %nh>", [metatype.name, @(self as int)]);
+        ret Object::_description(self);
     }
 
     fn isEqualTo(self: Self, other: Self): bool {
@@ -28,9 +25,16 @@ protocol Object {
 
 
 impl Object {
+    // Call some object's `description` method
     static fn description(obj: id): String {
         val metatype = runtime::typeof(obj);
         val description_fn_ptr = metatype.vtable.description as fn<(id): String>;
         ret description_fn_ptr(obj);
+    }
+
+    // The default implementation of -[id description]
+    static fn _description(obj: id): String {
+        val metatype = runtime::typeof(obj);
+        ret String::format("<%s %nh>", [metatype.name, @(obj as int)]);
     }
 }
