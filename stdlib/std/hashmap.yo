@@ -172,7 +172,7 @@ impl HashMap {
                 value_description = Object::description(value);
             }
 
-            desc.append_format("  [%n] (%s, %s)\n", [@i, key_description, value_description]);
+            desc.append_format("    [%n] (%s, %s)\n", [@i, key_description, value_description]);
         }
         desc.append("}");
 
