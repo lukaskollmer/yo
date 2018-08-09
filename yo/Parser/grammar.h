@@ -83,7 +83,8 @@ const char *YO_GRAMMAR =
 "               | <fn_call>                       "
 "               | <subscript>                       "
 "               | <lambda>                       "
-"               | <var_access>    ;                   "
+"               | <static_target>                       " // static_target in a <lexpr> is an enum case
+"               | <var_access>    ;                     "
 
 
 " expr          : <binop_add>                                                          "
@@ -155,10 +156,12 @@ const char *YO_GRAMMAR =
 
 " protocol      : <annotation>? \"protocol\" <ident> '{' <function>* '}' ; "
 
+" enum_decl     : \"enum\" <ident> '{' <ident> ( ',' <ident> )* '}' ; "
+
 " annotation    : \"#[\" <ident> ( ',' <ident> )* ']' ; "
 
 " function      : <annotation>* \"static\"? \"fn\" <ident> '(' <paramList>? ')' ':' <type> <composite> ;      "
 
-" topLevelStatement : ( <import> | <global_var> | <protocol> | <function> | <type_decl> | <impl> ) ; "
+" topLevelStatement : ( <import> | <global_var> | <protocol> | <enum_decl> | <function> | <type_decl> | <impl> ) ; "
 
 " program       : /^/  <topLevelStatement>* /$/;               ";

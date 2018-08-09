@@ -167,9 +167,28 @@ class FancyParser {
         case "topLevelStatement|global_var|>":
             return try parseGlobalVariableDeclaration(ast)
             
+        case "topLevelStatement|enum_decl|>":
+            return try parseEnumDeclaration(ast)
+            
         default:
             fatalError("unexpected top level statement '\(ast)'")
         }
+    }
+    
+    
+    func parseEnumDeclaration(_ ast: mpc_ast_t) throws -> ASTEnumDeclaration {
+        let name = try parseIdentifier(ast[1])
+        
+        guard ast[3] != _closingCurlyBraces else {
+            fatalError("enum decl needs at least one case")
+        }
+        
+        let cases = try ast.lk_children[3...]
+            .filter { $0.lk_tag == "ident|regex" }
+            .map { try parseIdentifier($0) }
+        
+        
+        return ASTEnumDeclaration(name: name, cases: cases)
     }
     
     
@@ -903,6 +922,9 @@ class FancyParser {
         case "lambda|>":
             return try parseLambda(ast)
             
+        case "lexpr|static_target|>":
+            return try parseStaticMemberGetter(ast)
+            
         default:
             fatalError("unexpected expression \(ast)")
         }
@@ -910,6 +932,12 @@ class FancyParser {
         fatalError()
     }
     
+    
+    func parseStaticMemberGetter(_ ast: mpc_ast_t) throws -> ASTStaticMemberGetter {
+        let typename = try parseIdentifier(ast[0])
+        let memberName = try parseIdentifier(ast[2])
+        return ASTStaticMemberGetter(typename: typename, memberName: memberName)
+    }
     
     
     
