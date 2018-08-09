@@ -1,4 +1,5 @@
 use "std/string";
+use "std/string_builder";
 
 type Array (
     _count: int,
@@ -51,7 +52,8 @@ impl Array {
 
         self._backing[self._count] = object;
         runtime::retain(object);
-        self._count = self._count + 1; // TODO make this `self._count += 1;`
+        // TODO make this `self._count += 1;`
+        self._count = self._count + 1;
         ret self._count;
     }
 
@@ -100,7 +102,8 @@ impl Array {
         NotYetImplemented();
         // TODO take a reduced length due to mutations into account!!!
         for i in 0..<self._count {
-            if self.get(i) == object { // TODO we probably should also check the object's hash values or call isEqual or something like that
+            // TODO we probably should also check the object's hash values or call isEqual or something like that
+            if self.get(i) == object {
                 self.removeAtIndex(i);
             }
         }
@@ -138,6 +141,13 @@ impl Array {
     fn forEach(self: Array, f: fn<(id): void>): void {
         for i in 0..<self._count {
             f(self.get(i));
+        }
+    }
+
+
+    fn enumerate(self: Array, f: fn<(int, id): void>): void {
+        for i in 0..<self._count {
+            f(i, self.get(i));
         }
     }
 
@@ -198,20 +208,18 @@ impl Array {
     }
 
 
-//    fn description(self: Array): String {
-//        val desc = "Array [\n";
-//
-//        val count = self._count;
-//
-//        for i in 0..<count {
-//            desc = desc.appending(String::format("  %n\n", [self.get(i) as Number]));
-//        }
-//
-//
-//        desc = desc.appending("]");
-//
-//        ret desc;
-//    }
+    fn description(self: Array): String {
+        val desc = StringBuilder::new();
+        desc.append("Array {\n");
+
+        // TODO append commas to all elements except the last
+        self.forEach(|x| -> {
+            desc.append_format("    %s\n", [Object::description(x)]);
+        });
+
+        desc.append("}");
+        ret desc.stringValue();
+    }
 
 
     //
