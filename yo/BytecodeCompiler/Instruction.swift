@@ -87,6 +87,8 @@ enum Operation: Int {
     case call
     case ret
     
+    case label  // a noop. used for manually specifying labels in the source code
+    
     // debugging
     case debug
     

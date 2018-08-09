@@ -98,11 +98,19 @@ extension Array {
     
     subscript(safe index: Index) -> Element? {
         get {
+            var index = index
+            if index < 0 {
+                index = self.count + index
+            }
             guard self.isValidIndex(index) else {
                 return nil
             }
             return self[index]
         }
+    }
+    
+    var excludingFirstAndLast: [Element] {
+        return Array(self.dropFirst().dropLast())
     }
 }
 

@@ -28,9 +28,14 @@ enum yo {
     
     
     
-    static func tokenize(atPath path: String) throws -> AST {
-        let tokens = try Lexer(source: try read(file: path)).tokenize()
-        return try Parser(tokens: tokens).parse()
+    static func parse(atPath path: String) throws -> AST {
+        if CLI.hasFlag(.legacyParser) {
+            let code = try read(file: path)
+            let tokens = try Lexer(source: code).tokenize()
+            return try Parser(tokens: tokens).parse()
+        } else {
+            return try FancyParser().parse(atPath: path)
+        }
     }
     
     
@@ -49,7 +54,7 @@ enum yo {
                     guard !importedPaths.contains(path) else { return [] }
                     
                     importedPaths.append(path)
-                    return try resolveImports(in: try yo.tokenize(atPath: path))
+                    return try resolveImports(in: try yo.parse(atPath: path))
                 }
                 return [node]
             }
@@ -64,9 +69,8 @@ enum yo {
             Log.info("Input file: \(filepath)")
         }
         
-        let code = try read(file: path)
-        let tokens = try Lexer(source: code).tokenize()
-        var ast = try Parser(tokens: tokens).parse()
+        
+        var ast = try parse(atPath: path)
         ast = try resolveImports(in: ast, currentWorkingDirectory: path.directory)
         
         var (instructions, stats) = try BytecodeCompiler().compile(ast: ast)

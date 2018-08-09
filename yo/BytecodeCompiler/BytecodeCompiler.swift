@@ -57,6 +57,7 @@ class BytecodeCompiler {
     private var instructions = [WIPInstruction]()
     private var conditionalStatementCounter = Counter()
     private var lambdaCounter = Counter()
+    private var stringLiteralCounter = Counter()
     
     
     // Scope info
@@ -661,7 +662,7 @@ private extension BytecodeCompiler {
             fatalError("cannot assign value of type `\(rhsType)` to `\(lhsType)`")
         }
         
-        let shouldArcLhs = assignment.shouldRetainAssignedValueIfItIsAnObject && arcEnabledInCurrentScope && lhsType.supportsReferenceCounting && !typeCache.isStruct(lhsType.typename)
+        let shouldArcLhs = assignment.shouldRetainAssignedValueIfItIsAnObject && arcEnabledInCurrentScope && lhsType.supportsReferenceCounting && !typeCache.isStruct(lhsType.typename) // TODO the last 2 seem a bit redunant
         
         var target: ASTExpression = assignment.target
         
@@ -1180,11 +1181,12 @@ private extension BytecodeCompiler {
     }
     
     func handle(stringLiteral: ASTStringLiteral) throws {
-        let value = stringLiteral.value
+        // TODO detect duplicate string literals
         
+        let value = stringLiteral.value
         let codepoints: [Int] = value.unicodeScalars.map { Int($0.value) }
         
-        let label = UUID().uuidString // TODO detect duplicate string literals
+        let label = UUID().uuidString
         add(.arrayLiteral(label, codepoints))
         
         //add(.loadc, unresolvedLabel: label)

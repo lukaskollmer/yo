@@ -67,6 +67,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "-print-ast"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "-help"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -83,6 +87,10 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "-legacy-parser"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "-v"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -91,7 +99,7 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "/Users/lukas/Developer/yo/temp/main_ffi.yo"
+            argument = "/Users/lukas/Developer/yo/temp/main_parser.yo"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>

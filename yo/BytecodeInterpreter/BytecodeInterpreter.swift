@@ -141,7 +141,7 @@ class BytecodeInterpreter {
         
         
         switch instruction.operation {
-        case .noop:
+        case .noop, .label:
             break
             
         // Arithmetic Operations
@@ -321,8 +321,9 @@ class BytecodeInterpreter {
             print("Current Call Stack:")
             print(callStackSymbols().joined(separator: "\n"))
             
-            print()
+            noop()
         }
+        
         
         if BytecodeInterpreter.verboseLogging {
             Log.info("[eval] ip=\(instructionPointer) stack after: \(heap)")
