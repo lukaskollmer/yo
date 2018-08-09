@@ -9,11 +9,13 @@
 import Foundation
 
 
+// TODO is the conformance to ASTExpression really necessary?
 protocol ASTCondition: ASTExpression {}
 
 
 
 class ASTBinaryCondition: ASTCondition {
+    // TODO rename to Operation?
     enum Operator {
         case and
         case or

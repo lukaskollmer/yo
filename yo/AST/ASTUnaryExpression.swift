@@ -10,6 +10,7 @@ import Foundation
 
 
 class ASTUnaryExpression: ASTExpression {
+    // TODO rename to operation?
     enum Operator {
         case negate
         case bitwiseNot
