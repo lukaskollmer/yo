@@ -879,7 +879,8 @@ private extension BytecodeCompiler {
             fatalError("wrong argc in call to '\(identifier.value)': expected \(functionInfo.argc), got \(functionCall.arguments.count)")
         }
         
-        if functionCall.functionName == SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "typeof_s") {
+        // Special handling for `runtime::decltype`
+        if functionCall.functionName == SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "decltype") {
             let type = try guessType(ofExpression: functionCall.arguments[0])
             try handle(node: ASTStringLiteral(value: type.typename))
             return

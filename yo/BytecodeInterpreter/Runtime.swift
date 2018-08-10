@@ -76,7 +76,7 @@ class Runtime: NativeFunctions {
             fatalError()
         }
         
-        self["runtime", "typeof_s", .String, [.any]] = {_ in return 0 }   // manually implemented in the compiler
+        self["runtime", "decltype", .String, [.any]] = {_ in return 0 }   // manually implemented in the compiler
         
         // Sorting
         
