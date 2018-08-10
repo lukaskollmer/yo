@@ -876,7 +876,7 @@ private extension BytecodeCompiler {
         }
         
         guard functionInfo.argc == functionCall.arguments.count else {
-            fatalError("wrong argc in call to \(identifier.value): expected \(functionInfo.argc), got \(functionCall.arguments.count)")
+            fatalError("wrong argc in call to '\(identifier.value)': expected \(functionInfo.argc), got \(functionCall.arguments.count)")
         }
         
         if functionCall.functionName == SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "typeof_s") {
