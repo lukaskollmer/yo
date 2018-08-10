@@ -18,7 +18,14 @@ extension Dictionary where Key == String, Value == SemanticAnalyzer.FunctionInfo
 class SemanticAnalyzer {
     
     struct FunctionInfo {
-        var argc: Int { return parameterTypes.count }
+        var argc: Int {
+            return parameterTypes.count
+        }
+        
+        var isVariadic: Bool {
+            return annotations.contains(.variadic)
+        }
+        
         let parameterTypes: [ASTType]
         let returnType: ASTType
         let annotations: [ASTAnnotation.Element]

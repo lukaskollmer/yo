@@ -42,6 +42,10 @@ class ASTFunctionDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated {
         self.annotations = annotations
     }
     
+    var isVariadic: Bool {
+        return self.hasAnnotation(.variadic)
+    }
+    
     
     var mangledName: String {
         switch kind {

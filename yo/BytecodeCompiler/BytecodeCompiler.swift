@@ -356,6 +356,12 @@ private extension BytecodeCompiler {
             fatalError("local variable cannot (yet?) shadow parameter")
         }
         
+        if function.isVariadic {
+            guard [ASTType.int, .Array].contains(function.parameters.last!.type) else {
+                fatalError("\(function.mangledName) declared as variadic, but the last parameter is neither `int` nor `Array`")
+            }
+        }
+        
         // TODO wouldn't it make much more sense to create a new scope for each function?
         try withScope(Scope(type: .function(name: function.mangledName, returnType: function.returnType), parameters: function.parameters)) {
             // function entry point
@@ -875,7 +881,14 @@ private extension BytecodeCompiler {
             fatalError("cannot resolve call to '\(identifier.value)'")
         }
         
-        guard functionInfo.argc == functionCall.arguments.count else {
+        
+        
+        let isVariadic = functionInfo.isVariadic
+        
+        guard
+            (!isVariadic && functionInfo.argc == functionCall.arguments.count)
+            || (isVariadic && functionCall.arguments.count >= functionInfo.argc - 1) // -1 bc we don't count the last argument (the variadic one)
+        else {
             fatalError("wrong argc in call to '\(identifier.value)': expected \(functionInfo.argc), got \(functionCall.arguments.count)")
         }
         
@@ -886,9 +899,13 @@ private extension BytecodeCompiler {
             return
         }
         
+        let numberOfFixedArguments = !isVariadic
+            ? functionCall.arguments.count
+            : functionInfo.argc - 1
         
-        // push arguments on the stack
-        for (index, var arg) in functionCall.arguments.enumerated() {
+        
+        // push fixed arguments on the stack
+        for (index, var arg) in functionCall.arguments.prefix(upTo: numberOfFixedArguments).enumerated() {
             let expectedType = functionInfo.parameterTypes[index]
             
             if let lambda = arg as? ASTLambda {
@@ -901,6 +918,9 @@ private extension BytecodeCompiler {
             // We work around this by trying to detect implicit self arguments and casting them to the expected type
             // This should be solved by rewriting the parsing code to properly handle chained access
             if index == 0, functionCall.functionName.contains("_I"), arg is ASTArrayGetter {
+                // TODO
+                // a) is this still necessary?
+                // b) under which circumstances do we end up here?
                 arg = arg.as(expectedType)
             }
             
@@ -911,8 +931,23 @@ private extension BytecodeCompiler {
             try handle(node: arg)
         }
         
+        // handle variadic arguments
+        if isVariadic {
+            // we can safely assume that `expectedType` is either `int` or `Array`
+            let expectedType = functionInfo.parameterTypes.last!
+            let numberOfVariadicArguments = functionCall.arguments.count - numberOfFixedArguments
+            
+            let arrayLiteral = ASTArrayLiteral(
+                elements: Array(functionCall.arguments.suffix(numberOfVariadicArguments)),
+                kind: expectedType == .int ? .primitive : .complex
+            )
+            
+            try handle(node: arrayLiteral)
+        }
         
-        // push the address onto the stack
+        //
+        // Push the address onto the stack
+        
         if let builtin = Runtime.shared[mangledName: identifier.value] {
             add(.push, builtin.address)
             
@@ -928,7 +963,7 @@ private extension BytecodeCompiler {
             fatalError("unable to resolve function call to \(functionCall.functionName)")
         }
         
-        add(.call, functionCall.arguments.count)
+        add(.call, !isVariadic ? numberOfFixedArguments : numberOfFixedArguments + 1)
         
         if functionCall.unusedReturnValue {
             if functionInfo.returnType.supportsReferenceCounting {
