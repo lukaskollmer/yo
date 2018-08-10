@@ -94,8 +94,9 @@ enum yo {
         
         if CLI.hasFlag(.printHeap) {
             print("heap after: \(interpreter.heap.backing)")
-            Log.info("main returned with exit code \(retval)")
         }
+        
+        Log.info("main returned with exit code \(retval)")
         
         if CLI.hasFlag(.checkHeapEmpty) {
             // the second part (checking that all allocations have been freed is arguably a bad idea since there's no actual reason to free everything before the program exits

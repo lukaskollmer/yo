@@ -24,7 +24,7 @@ extension CLIOptions {
     
     static let checkHeapEmpty = CLIOption<Void>(
         flag: "-check-heap-empty",
-        description: "After running the program, checks whether the heap is empty and - if not - prints all relaining allocations"
+        description: "After running the program, checks whether the heap is empty and - if not - prints all remaining allocations"
     )
     
     static let printInstructions = CLIOption<Void>(
@@ -39,7 +39,7 @@ extension CLIOptions {
     
     static let heapSize = CLIOption<Int>(
         flag: "-heap-size",
-        defaultValue: Int(1 << 10),
+        defaultValue: Int(1 << 12),
         description: "Specify the size of the heap"
     )
     
@@ -51,7 +51,7 @@ extension CLIOptions {
     
     static let legacyParser = CLIOption<Void>(
         flag: "-legacy-parser",
-        description: "Use the legacy parser"
+        description: "Use the legacy parser (not recommended)"
     )
     
     static let printAST = CLIOption<Void>(
@@ -59,7 +59,7 @@ extension CLIOptions {
         description: "Print the parsed AST"
     )
     
-    static let all: [CLIOptions] = [.help, .verbose, .checkHeapEmpty, .printInstructions, .printHeap, .heapSize, .stdlibPath]
+    static let all: [CLIOptions] = [.help, .verbose, .checkHeapEmpty, .printInstructions, .printHeap, .heapSize, .stdlibPath, .legacyParser, .printAST]
 }
 
 
