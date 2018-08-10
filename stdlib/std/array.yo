@@ -215,7 +215,7 @@ impl Array {
 
         // TODO append commas to all elements except the last
         self.forEach(|x| -> {
-            desc.append_format("    %s\n", [Object::description(x)]);
+            desc.append_format("    %s\n", Object::description(x));
         });
 
         desc.append("}");

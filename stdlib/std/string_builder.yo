@@ -15,8 +15,9 @@ impl StringBuilder {
         self._setString(self._string.appending(otherString));
     }
 
+    #[variadic]
     fn append_format(self: StringBuilder, format: String, args: Array): void {
-        val formatted = String::format(format, args);
+        val formatted = String::format_v(format, args);
         self.append(formatted);
     }
 

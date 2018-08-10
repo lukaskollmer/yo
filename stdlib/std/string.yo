@@ -50,7 +50,7 @@ impl String {
 
 
     fn description(self: String): String {
-        ret String::format("\"%s\"", [self]);
+        ret String::format("\"%s\"", self);
     }
 
 
@@ -58,7 +58,14 @@ impl String {
         runtime::free(self._backing);
     }
 
-    static fn format(fmt: String, args: Array): String {
-        ret String::init(runtime::__format(fmt, args));
+
+    #[variadic]
+    static fn format(format: String, args: Array): String {
+        ret String::format_v(format, args);
+    }
+
+
+    static fn format_v(format: String, args: Array): String {
+        ret String::init(runtime::__format(format, args));
     }
 }

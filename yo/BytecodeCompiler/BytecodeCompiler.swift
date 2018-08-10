@@ -1551,7 +1551,7 @@ private extension BytecodeCompiler {
                         return returnType
                     
                     } else {
-                        fatalError("[\(#function)] unable to resolve function call to \(functionCall.functionName)")
+                        fatalError("[\(#function)] unable to resolve function call to `\(functionCall.functionName)`")
                     }
                 }
                 

@@ -35,6 +35,6 @@ impl Object {
     // The default implementation of -[id description]
     static fn _description(obj: id): String {
         val metatype = runtime::typeof(obj);
-        ret String::format("<%s %nh>", [metatype.name, @(obj as int)]);
+        ret String::format("<%s %nh>", metatype.name, @(obj as int));
     }
 }

@@ -41,6 +41,6 @@ impl Number {
 
 
     fn description(self: Number): String {
-        ret String::format("%n", [self]);
+        ret String::format("%n", self);
     }
 }
