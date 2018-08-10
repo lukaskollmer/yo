@@ -87,14 +87,14 @@ class Runtime: NativeFunctions {
             return 0
         }
         
-        self["runtime", "sortf", .void, [.int, .int, .function(returnType: .int, parameterTypes: [.int, .int])]] = { interpreter in // todo have the sorting function take any?
+        self["runtime", "sortf", .void, [.int, .int, .function(returnType: .bool, parameterTypes: [.int, .int])]] = { interpreter in // todo have the sorting function take any?
             let address = interpreter.stack.peek()
             let count = interpreter.stack.peek(offset: -1)
             let fn_address = interpreter.stack.peek(offset: -2)
             
             interpreter.heap.sort(address: address, count: count) { a, b in
                 let areInIncreasingOrder = try! interpreter.call(address: fn_address, arguments: [a, b])
-                return Bool(areInIncreasingOrder == 1)
+                return areInIncreasingOrder == Constants.BooleanValues.true
             }
             
             return 0

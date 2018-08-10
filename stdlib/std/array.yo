@@ -133,8 +133,9 @@ impl Array {
 
 
     // Sort the array using a custom sorting function
-    fn sortf(self: Array, f: fn<(any, any): int>): void {
-        runtime::sortf(self._backing, self._count, f);
+    fn sortf(self: Array, f: fn<(id, id): bool>): void {
+        // cast to any bc runtime::sortf expects fn<(int, int): bool>
+        runtime::sortf(self._backing, self._count, f as any);
     }
 
 
