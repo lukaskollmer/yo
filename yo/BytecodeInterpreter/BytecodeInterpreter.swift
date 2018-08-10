@@ -84,7 +84,11 @@ class BytecodeInterpreter {
         try stack.push(stack.framePointer)
         try stack.push(instructionPointer + 0)  // return address. since this is a native call, we return to the same address?
         
-        //try arguments/*.reversed()*/.forEach(stack.push)
+        
+        // We have to push the arguments onto the stack *in reverse order*
+        // Why? When handling a normal function call, we go through the arguments in order (ie left-to-right)
+        // and call the `handle` function for each argument. That means that they will end up on the stack in reverse order
+        // (the last argument is evaluated last and therefore pushed onto the stack last and therefore the top argument on the stack)
         try arguments.reversed().forEach(stack.push)
         
         stack.framePointer = stack.stackPointer
@@ -287,15 +291,19 @@ class BytecodeInterpreter {
             }
             
             if destinationInstructionPointer > 0 && destinationInstructionPointer.isEven {
-                args.insert(destinationInstructionPointer, at: 0)
+                // Calling a lambda -> set the lambda itself as the first parameter
+                
+                // appending to the end means that the argument will pushed last and therefore is the first argument
+                args.append(destinationInstructionPointer)
+                
+                // fetch the address of the lambda's invoke function pointer
                 destinationInstructionPointer = heap[destinationInstructionPointer + 1]
             }
             
             try stack.push(stack.framePointer)
             try stack.push(instructionPointer + 1)
             
-            //try args/*.reversed()*/.forEach(stack.push)
-            try args.reversed().forEach(stack.push)
+            try args.forEach(stack.push)
             
             stack.framePointer = stack.stackPointer
             instructionPointer = destinationInstructionPointer
