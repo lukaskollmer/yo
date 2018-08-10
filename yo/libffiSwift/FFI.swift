@@ -26,7 +26,7 @@ class FFIFunctionInvocation {
     private var argTypes:  UnsafeMutablePointer<UnsafeMutablePointer<ffi_type>?>
     private var arguments: UnsafeMutablePointer<UnsafeMutableRawPointer?>
     
-    init(symbol: String, handle: UnsafeMutableRawPointer? = nil, returnType: FFIType, parameterTypes: [FFIType]) {
+    init(symbol: String, handle: UnsafeMutableRawPointer? = nil, returnType: FFIType, parameterTypes: [FFIType], isVariadic: Bool = false) {
         self.functionPointer = unsafeBitCast(dlsym(handle ?? FFIFunctionInvocation._defaultHandle, symbol), to: FunctionPointerType.self)
         
         self.returnType = returnType
@@ -44,7 +44,15 @@ class FFIFunctionInvocation {
             argTypes.advanced(by: offset).pointee?.assign(from: type._pointer, count: 1)
         }
         
-        let status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, UInt32(parameterTypes.count), returnType._pointer, argTypes)
+        let status: ffi_status
+        
+        if isVariadic {
+            status = ffi_prep_cif_var(&cif, FFI_DEFAULT_ABI, 2, 2, returnType._pointer, argTypes)
+        } else {
+            status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, UInt32(parameterTypes.count), returnType._pointer, argTypes)
+        }
+        
+        //let status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, UInt32(parameterTypes.count), returnType._pointer, argTypes)
         guard status == FFI_OK else { fatalError() }
     }
     
@@ -61,6 +69,7 @@ class FFIFunctionInvocation {
         return cast(&retval)
     }
     
+    // TODO add a `reset` function to allow reusing the same function proxy thing?
     
     deinit {
         arguments.deinitialize(count: parameterTypes.count)
