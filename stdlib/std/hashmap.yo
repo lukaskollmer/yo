@@ -1,5 +1,6 @@
 use "std/string";
 use "std/string_builder";
+use "math";
 
 static _maxSizeIndex: int = 5;
 static _primes: int = {13, 23, 41, 71, 127, 421};
@@ -114,17 +115,19 @@ impl HashMap {
 
 
     fn _bucketIndexForKey(self: HashMap, key: String): int {
+        // TODO make sure the hash value is > 0?
         ret key.hashValue() % self._allocatedSize;
     }
 
     fn findBucketForKey(self: HashMap, key: String): int {
-        val hashValue = key.hashValue();
+        val hashValue = abs(key.hashValue());
 
         // index of the bucket in which the key would be stored under perfect coditions (no collisions)
         val bucketIndex = hashValue % self._allocatedSize;
 
         for i in 0..<self._allocatedSize {
             val fetchedKey = self._backing[2 * bucketIndex];
+            //runtime::_printi(fetchedKey);
             if fetchedKey == 0 {
                 ret bucketIndex;
             } else {

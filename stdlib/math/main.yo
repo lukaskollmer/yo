@@ -1,0 +1,9 @@
+// stdlib/math
+
+fn abs(x: int): int {
+    if x > 0 {
+        ret x;
+    } else {
+        ret -x;
+    }
+}
