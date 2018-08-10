@@ -60,6 +60,9 @@ extension ASTNode {
         } else if self is ASTBooleanLiteral {
             return []
             
+        } else if self is ASTRawWIPInstruction {
+            return []
+            
         } else if let arrayLiteral = self as? ASTArrayLiteral {
             return arrayLiteral.elements.lk_flatMap { $0.getAccessedIdentifiers() }
         
