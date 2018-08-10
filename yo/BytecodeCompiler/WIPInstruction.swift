@@ -37,10 +37,12 @@ extension Array where Element == WIPInstruction {
     
     
     func withArrayLiteralsResolved() -> [WIPInstruction] {
-        
         var _self = self
+        
+        // Insert all array literals after the bootstrapping code
+        // 10 = number of raw instructions in the bootstrapping block
         let arrayliterals = _self.remove { $0.isArrayLiteral }
-        _self.insert(contentsOf: arrayliterals, at: 4)
+        _self.insert(contentsOf: arrayliterals, at: 10)
         
         return _self.lk_flatMap { instruction in
             if case WIPInstruction.arrayLiteral(let label, let array) = instruction {

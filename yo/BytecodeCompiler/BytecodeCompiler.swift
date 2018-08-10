@@ -126,6 +126,9 @@ class BytecodeCompiler {
         
         // generate the bootstrapping instructions
         
+        // NOTE: if the bootstrapping instructions before `jump end` are updated,
+        // also update the magic number in `Array<WIPInstruction>.withArrayLiteralsResolved`
+        
         // call all static initializers
         invoke_noChecks_noArgs_unusedRetval("__INVOKING_ALL_STATIC_INITIALIZERS__")
         
