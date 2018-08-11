@@ -372,6 +372,7 @@ class Parser {
         let protocolName = try parseIdentifier(ast[protocolNameIndex])
         
         // assuming there are only functions in a protocol
+        // TODO add support for function signatures!!!
         let functions = try ast.lk_children
             .filter { $0.lk_tag == "function|>" }
             .map    { try parseFunctionDecl($0, implTypenameContext: protocolName.value)}
@@ -450,15 +451,17 @@ class Parser {
         let kind: ASTFunctionDeclaration.Kind
         var annotations = [ASTAnnotation]()
         
+        let signature = ast[0]
+        
         do {
-            while ast[functionNameIndex].lk_tag == "annotation|>" {
-                annotations.append(try parseAnnotation(ast[functionNameIndex]))
+            while signature[functionNameIndex].lk_tag == "annotation|>" {
+                annotations.append(try parseAnnotation(signature[functionNameIndex]))
                 functionNameIndex += 1
             }
             
         }
         
-        if ast[functionNameIndex] == _static {
+        if signature[functionNameIndex] == _static {
             functionNameIndex += 2
             kind = .staticImpl(implTypenameContext)
         } else {
@@ -466,24 +469,24 @@ class Parser {
             kind = implTypenameContext == "" ? .global : .impl(implTypenameContext)
         }
         
-        let functionName = try parseIdentifier(ast[functionNameIndex])
+        let functionName = try parseIdentifier(signature[functionNameIndex])
         
         
         let parameters: [ASTVariableDeclaration]
         let closingParenthesesIndex: Int
         
-        if ast[functionNameIndex + 2] == _closingParentheses {
+        if signature[functionNameIndex + 2] == _closingParentheses {
             // no parameters
             parameters = []
             closingParenthesesIndex = functionNameIndex + 2
         } else {
-            parameters = try parseParameterList(ast[functionNameIndex + 2])
+            parameters = try parseParameterList(signature[functionNameIndex + 2])
             closingParenthesesIndex = functionNameIndex + 3
         }
         
         // TODO missing return type implies void
-        let returnType = try parseType(ast[closingParenthesesIndex + 2])
-        let body = try parseComposite(ast[closingParenthesesIndex + 3])
+        let returnType = try parseType(signature[closingParenthesesIndex + 2])
+        let body = try parseComposite(ast[1])
         
         return ASTFunctionDeclaration(
             name: functionName,

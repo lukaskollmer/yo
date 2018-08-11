@@ -157,13 +157,15 @@ const char *YO_GRAMMAR =
 
 " import        : \"use\" <string> ';'  ;  "
 
-" protocol      : <annotation>? \"protocol\" <ident> '{' <function>* '}' ; "
+" protocol      : <annotation>? \"protocol\" <ident> '{' ((<function_signature> ';') | <function>)* '}' ; "
 
 " enum_decl     : \"enum\" <ident> '{' <ident> ( ',' <ident> )* '}' ; "
 
 " annotation    : \"#[\" <ident> ( ',' <ident> )* ']' ; "
 
-" function      : <annotation>* \"static\"? \"fn\" <ident> '(' <paramList>? ')' ':' <type> <composite> ;      "
+" function_signature :  <annotation>* \"static\"? \"fn\" <ident> '(' <paramList>? ')' ':' <type>  ; "
+
+" function      : <function_signature> <composite> ;      "
 
 " topLevelStatement : ( <import> | <global_var> | <protocol> | <enum_decl> | <function> | <type_decl> | <impl> ) ; "
 

@@ -102,6 +102,7 @@
     rule(asm_stmt);
     rule(enum_decl);
     rule(defer_block);
+    rule(function_signature);
     
     
     // TODO make sure these arguments are in the exact same order as the tag declarations in grammar.h !!!
@@ -114,7 +115,7 @@
               ret, var_decl, in_place_binop, assignment, stmt_fn_call,
               comp_op, bin_cond_op, bin_cond, comp, lcond, cond, if_stmt, else_stmt, while_stmt, cond_stmt, for_loop_target, for_loop,
               asm_stmt, defer_block, stmt, composite, paramList,
-              import, protocol, enum_decl, annotation, function, topLevelStatement, program, NULL);
+              import, protocol, enum_decl, function_signature, annotation, function, topLevelStatement, program, NULL);
     
     if (err) {
         mpc_err_print(err);
