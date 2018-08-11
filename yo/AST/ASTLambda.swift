@@ -113,6 +113,14 @@ extension ASTNode {
         
         } else if let unaryExpression = self as? ASTUnaryExpression {
             return unaryExpression.expression.getAccessedIdentifiers()
+            
+        } else if let arrayGetter = self as? ASTArrayGetter {
+            return arrayGetter.target.getAccessedIdentifiers() + arrayGetter.offset.getAccessedIdentifiers()
+        
+        } else if let arraySetter = self as? ASTArraySetter {
+            return arraySetter.target.getAccessedIdentifiers()
+                + arraySetter.offset.getAccessedIdentifiers()
+                + arraySetter.value.getAccessedIdentifiers()
         }
         
         fatalError("unhandled node \(self)")
