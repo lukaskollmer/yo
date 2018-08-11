@@ -232,11 +232,19 @@ class FancyParser {
         case "stmt|asm_stmt|>":
             return try parseAsmStatement(ast)
             
+        case "stmt|defer_block|>":
+            return try parseDeferBlock(ast)
+            
         default:
             fatalError("unexpected statement \(ast)")
         }
     }
     
+    
+    func parseDeferBlock(_ ast: mpc_ast_t) throws -> ASTDeferStatement {
+        let body = try parseComposite(ast[1])
+        return ASTDeferStatement(body: body)
+    }
     
     
     func parseAsmStatement(_ ast: mpc_ast_t) throws -> ASTRawWIPInstruction {

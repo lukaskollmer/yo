@@ -334,6 +334,9 @@ private extension BytecodeCompiler {
         } else if let inlineBooleanExpression = node as? ASTInlineBooleanExpression {
             try handle(condition: inlineBooleanExpression.condition)
             
+        } else if let deferStatement = node as? ASTDeferStatement {
+            try handle(composite: deferStatement.body)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -458,6 +461,20 @@ private extension BytecodeCompiler {
             localVariables[index] = ASTVariableDeclaration(identifier: variable.identifier, type: try self.guessType(ofExpression: f, additionalIdentifiers: localVariables))
         }
         
+        
+        var statements = composite.statements
+        
+        if statements.any({ $0 is ASTDeferStatement }) {
+            let allDeferStatements = statements.remove { $0 is ASTDeferStatement }
+            
+            let insertionPoint = !hasReturnStatement
+                ? statements.count
+                : statements.firstIndex { $0 is ASTReturnStatement }!
+            
+            statements.insert(contentsOf: allDeferStatements, at: insertionPoint)
+        }
+        
+        
         // TODO maybe include a check to make sure that we managed to infer all types?
         //localVariables.forEach { print($0.type, $0.identifier.name) }
         
@@ -475,8 +492,8 @@ private extension BytecodeCompiler {
             add(.alloc, localVariables.count)
             
             if !hasReturnStatement {
-                try composite.statements.forEach(handle)
-                let localVariables = composite.statements.getLocalVariables(recursive: false)
+                try statements.forEach(handle)
+                let localVariables = statements.getLocalVariables(recursive: false)
                 
                 try localVariables
                     .filter { variable in
@@ -489,7 +506,7 @@ private extension BytecodeCompiler {
                 // the composite contains a return statement
                 // this means that we need to insert release calls for all objects in the local scope before handling the return statement
                 
-                for statement in composite.statements {
+                for statement in statements {
                     if arcEnabledInCurrentScope, let returnStatement = statement as? ASTReturnStatement {
                         
                         let returnedLocalIdentifier: ASTIdentifier?
@@ -757,6 +774,13 @@ private extension BytecodeCompiler {
             fatalError("the fuck you doing?")
         }
         
+    }
+    
+    
+    
+    
+    func handle(deferStatement: ASTDeferStatement) throws {
+        fatalError()
     }
 
     

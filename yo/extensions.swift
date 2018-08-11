@@ -86,7 +86,8 @@ extension Array {
         
         for (idx, elememt) in self.reversed().enumerated() {
             if block(elememt) {
-                retval.append(self.remove(at: initialSize - idx - 1))
+                //retval.append(self.remove(at: initialSize - idx - 1))
+                retval.insert(self.remove(at: initialSize - idx - 1), at: 0)
             }
         }
         return retval

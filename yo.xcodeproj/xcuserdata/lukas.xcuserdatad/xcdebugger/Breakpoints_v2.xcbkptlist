@@ -90,7 +90,7 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "yo/BytecodeInterpreter/BytecodeInterpreter.swift"
-            timestampString = "555680074.452927"
+            timestampString = "555682760.638214"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "343"
@@ -102,32 +102,16 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "yo/BytecodeInterpreter/Heap.swift"
-            timestampString = "555680074.4538"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1"
-            endingLineNumber = "1"
-            landmarkName = "unknown"
-            landmarkType = "0">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
             shouldBeEnabled = "No"
             ignoreCount = "0"
             condition = "typename == &quot;__main_lambda_literal_4&quot;"
             continueAfterRunningActions = "No"
             filePath = "yo/BytecodeCompiler/BytecodeCompiler.swift"
-            timestampString = "555680074.453873"
+            timestampString = "555684885.3065881"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "861"
-            endingLineNumber = "861"
+            startingLineNumber = "885"
+            endingLineNumber = "885"
             landmarkName = "resolve(lambda:expectedSignature:)"
             landmarkType = "7">
          </BreakpointContent>

@@ -138,8 +138,11 @@ const char *YO_GRAMMAR =
 
 " asm_stmt      : \"__asm\" '(' <ident> ',' (<number> | <string>) ')' ';'  ;   "
 
+" defer_block   : \"defer\" <composite>   ; "
+
 " stmt          : <ret>             "
-"               | <asm_stmt>             "
+"               | <asm_stmt>        "
+"               | <defer_block>     "
 "               | <stmt_fn_call>    "
 "               | <cond_stmt>       "
 "               | <for_loop>        "
