@@ -1032,7 +1032,7 @@ class FancyParser {
     func parseNumberLiteral(_ ast: mpc_ast_t) throws -> ASTNumberLiteral {
         
         let base: Int
-        var rawStringValue = ast.lk_content
+        var rawStringValue = ast.lk_content.replacingOccurrences(of: "_", with: "")
         
         switch ast.lk_tag.hasSuffix {
         case "number|number_b02|regex":

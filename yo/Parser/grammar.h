@@ -22,10 +22,10 @@ const char *YO_GRAMMAR =
 
 
 // Number literals
-" number_b02    : /0b[01]+/ ; "
-" number_b08    : /0[0-7]+/ ; "
-" number_b10    : /[0-9]+/ ; "
-" number_b16    : /0x[0-9a-f]+/ ; " // TODO also allow uppercase letters? (either everything upper- or everything lowercased!)
+" number_b02    : /0b[01][01_]*/ ; "
+" number_b08    : /0[0-7][0-7_]*/ ; "
+" number_b10    : /[0-9][0-9_]*/ ; "
+" number_b16    : /0x[0-9a-f][0-9a-f_]*/ ; " // TODO also allow uppercase letters? (either everything upper- or everything lowercased!)
 
 " fn_ptr        : \"fn\" '<' '(' (<type> (',' <type>)* )? ')' ':' <type> '>' ; "
 
