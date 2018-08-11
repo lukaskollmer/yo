@@ -16,7 +16,7 @@
 		803BEDD1211765D3009DC37A /* ASTEnumDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDD0211765D3009DC37A /* ASTEnumDeclaration.swift */; };
 		803BEDD6211895F7009DC37A /* ASTInlineBooleanExpression.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDD5211895F7009DC37A /* ASTInlineBooleanExpression.swift */; };
 		803BEDD921189862009DC37A /* LKYOParser.m in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDD821189862009DC37A /* LKYOParser.m */; };
-		803BEDDC211898A7009DC37A /* mpc.c in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDDA211898A6009DC37A /* mpc.c */; };
+		803BEDDC211898A7009DC37A /* mpc.c in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDDA211898A6009DC37A /* mpc.c */; settings = {COMPILER_FLAGS = "-w"; }; };
 		803BEDE02118ADA3009DC37A /* Parser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDDF2118ADA3009DC37A /* Parser.swift */; };
 		803BEDE3211AF7D0009DC37A /* LKUtilities.m in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDE2211AF7D0009DC37A /* LKUtilities.m */; };
 		803ECFD6211320FC001B9975 /* BuiltinIdentifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803ECFD5211320FC001B9975 /* BuiltinIdentifiers.swift */; };
