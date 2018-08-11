@@ -59,7 +59,12 @@ extension CLIOptions {
         description: "Print the parsed AST"
     )
     
-    static let all: [CLIOptions] = [.help, .verbose, .checkHeapEmpty, .printInstructions, .printHeap, .heapSize, .stdlibPath, .legacyParser, .printAST]
+    static let logAllCalls = CLIOption<Void>(
+        flag: "-log-calls",
+        description: "Log all method calls"
+    )
+    
+    static let all: [CLIOptions] = [.help, .verbose, .checkHeapEmpty, .printInstructions, .printHeap, .heapSize, .stdlibPath, .legacyParser, .printAST, .logAllCalls]
 }
 
 

@@ -19,6 +19,8 @@ class BytecodeInterpreter {
     private var instructionPointer = 0  // plz don't use this directly
     private var callStack = [Int]()     // function entry points
     
+    private let logAllCalls = CLI.hasFlag(.logAllCalls)
+    
     
     var stack: Stack {
         return heap.stack
@@ -54,7 +56,7 @@ class BytecodeInterpreter {
     private func performAtCurrentInstructionPointer() throws {
         // check whether we're calling a native function (native functions have a negative "virtual" address)
         if instructionPointer < 0 {
-            let nativeFunction = Runtime.shared[address: instructionPointer]
+            let nativeFunction = Runtime.shared[address: instructionPointer]! // TODO the subscript returns an IOU, no idea why the force unwrap is still necessary tbh
             try stack.push(nativeFunction.imp(self))
             // return from the native function
             try eval(InstructionDescriptor(instruction: Operation.ret.encode(withImmediate: nativeFunction.info.argc)))
@@ -96,7 +98,11 @@ class BytecodeInterpreter {
         
         var depth = 1
         
+        recordCallEvent(.entry(address))
+        
         while true {
+            noop()
+            
             if (0..<instructions.count).contains(instructionPointer) {
                 let prevImmediate = instructions[instructionPointer - 1].immediate
                 let next = instructions[instructionPointer]
@@ -104,6 +110,7 @@ class BytecodeInterpreter {
                 if next.operation == .call && prevImmediate > 0 {
                     depth += 1
                 }
+                
                 if next.operation == .ret {
                     depth -= 1
                 }
@@ -118,9 +125,13 @@ class BytecodeInterpreter {
                     instructionPointer = try stack.pop()
                     stack.framePointer = try stack.pop()
                     
+                    recordCallEvent(.exit)
+                    
                     // TODO run some assertion to make sure the stack is unchanged?
                     return returnValue
                 }
+                
+                noop()
             }
             
             let previousIP = instructionPointer
@@ -145,7 +156,7 @@ class BytecodeInterpreter {
         
         
         switch instruction.operation {
-        case .noop, .label:
+        case .noop, .label, .comment:
             break
             
         // Arithmetic Operations
@@ -308,7 +319,7 @@ class BytecodeInterpreter {
             stack.framePointer = stack.stackPointer
             instructionPointer = destinationInstructionPointer
             
-            callStack.append(destinationInstructionPointer)
+            recordCallEvent(.entry(destinationInstructionPointer))
             
         case .ret:
             let returnValue = try stack.pop()
@@ -322,11 +333,11 @@ class BytecodeInterpreter {
             
             try stack.push(returnValue)
             
-            callStack.removeLast()
+            recordCallEvent(.exit)
             
             
         case .debug:
-            print("Current Call Stack:")
+            print("Call Stack:")
             print(callStackSymbols().joined(separator: "\n"))
             
             noop()
@@ -338,13 +349,60 @@ class BytecodeInterpreter {
         }
     }
     
+    
+    // MARK: Debugging
+    
     func callStackSymbols() -> [String] {
         return callStack.reversed().enumerated().map { index, address in
             var entry = ""
             entry += "\(index)".padding(.left, toLength: 4, withPad: " ").padding(.right, toLength: 7, withPad: " ")
-            entry += "\(address)".padding(.left, toLength: 5, withPad: "0")
-            entry += " " + String(procedureEntryAddresses[address] ?? "(unknown)")
+            entry += "\(address)".padding(.left, toLength: 5, withPad: address > 0 ? "0" : " ")
+            //entry += " " + String(procedureEntryAddresses[address] ?? "(unknown)")
+            entry += " " + nameOfProcedure(atAddress: address)
+            
             return entry
         }
+    }
+    
+    
+    private func nameOfProcedure(atAddress address: Int) -> String {
+        if let entryPointName = procedureEntryAddresses[address] {
+            return entryPointName
+        }
+        if let nativeFunction = Runtime.shared[address: address] {
+            return nativeFunction.name
+        }
+        return "(unknown)"
+    }
+    
+    
+    enum CallEvent {
+        case entry(Int)
+        case exit
+    }
+    
+    private func recordCallEvent(_ event: CallEvent) {
+        switch event {
+        case .entry(let address):
+            callStack.append(address)
+            if logAllCalls {
+                print(indent, "CALL", nameOfProcedure(atAddress: address))
+                level += 1
+            }
+            
+        case .exit:
+            let address = callStack.removeLast()
+            if logAllCalls {
+                level -= 1
+                print(indent, "RET ", nameOfProcedure(atAddress: address))
+            }
+        }
+    }
+    
+    
+    var level = 0
+    
+    var indent: String {
+        return String.init(repeating: "    ", count: level)
     }
 }
