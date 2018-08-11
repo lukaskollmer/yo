@@ -1,17 +1,17 @@
-- [ ] reference counting
+- [x] reference counting
 - [ ] `self.foo += x;` assignments (currently kinda works as a side effect of implicit seld access, ie `foo += 1` if self has a foo attribute)
-- [ ] chained property access
-- [ ] chained method calls
+- [x] chained property access
+- [x] chained method calls
 - [ ] tests
 - [x] bitwise operators (NOT, AND, OR, XOR)
 - [x] bitshift operators
 - [x] implement bools
 - [ ] add support for floating point numbers (custom instructions `addf`, `subf`, `mulf` `divf`, what about `mod`, `not`, etc?)
 - [x] array literals (TODO improve)
-- [ ] nested binops (`((1 << 4) << 7)`) (TODO check, this might already work)
+- [x] nested binops (`((1 << 4) << 7)`) (TODO check, this might already work)
 - [x] binary number literals
 - [x] `ret obj[0] & 1048575;`
-- [ ] underscores in number literals
+- [x] underscores in number literals
 - [ ] implicitly import stdlib modules (ie import "std/string" if the code contains a string literal, same for numbers, arrays)
 - [ ] test that the examples in the documentation actually work
 - [x] auto-synthesize `dealloc` functions (only if not otherwise defined)
@@ -51,11 +51,13 @@
 - [ ] make `namespace`s a thing
       (collection of static functions, basically the same that can already be achieved by using an `impl` for a nonexistent type)
       The difference would be that a) you can't declare a `type` or `struct` w/ that name and b) all functions are implicitly static
-- [ ] `defer`
+- [x] `defer`
 - [ ] don't allow creating attributes w/ nonexistent types (seems to work fine so far which it shouldnt)
 - [ ] comment at end of file crashes lexer?
 - [ ] can't call native function in lambda?
-- [ ] operator precedence
+- [x] operator precedence
+- [ ] top level `defer` statements?
+- [ ] move `defer` blocks to after the temp retval assignment, but before the `ret` instruction?
 
 **lambdas**
 - [ ] what if a lambda declares `x`, but there's alao an `x` in the outer scope? (it should obviously NOT capture the outer `x`)
