@@ -717,7 +717,6 @@ private extension BytecodeCompiler {
                 if !shouldArcLhs {
                     try handle(node: rhs)
                     try store()
-                    //add(.store, try scope.index(of: targetIdentifier.name))
                     return
                 }
                 
@@ -1260,11 +1259,8 @@ private extension BytecodeCompiler {
         let label = UUID().uuidString
         add(.arrayLiteral(label, codepoints))
         
-        //add(.loadc, unresolvedLabel: label)
-        
         let stringInitCall = ASTFunctionCall(
             functionName: SymbolMangling.mangleInitializer(forType: "String"),
-            //arguments: [ASTNoop()], // the parameter is already on the stack, from the `loadc` instruction above
             arguments: [
                 ASTRawWIPInstruction(instruction: .unresolved(.loadc, label))
             ],
@@ -1600,9 +1596,8 @@ private extension BytecodeCompiler {
             } else if let binop = expression as? ASTBinaryOperation {
                 return try self.guessType(ofExpression: binop.lhs)
                 
-            } else if expression is ASTUnaryExpression {
-                // TODO is that an ok assumption? what if we're negating a float?
-                return .int
+            } else if let unaryExpression = expression as? ASTUnaryExpression {
+                return try guessType(ofExpression: unaryExpression.expression)
                 
             } else if expression is ASTStringLiteral {
                 return .String
