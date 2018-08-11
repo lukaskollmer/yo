@@ -712,7 +712,7 @@ class FancyParser {
         let rhs = try parseExpression(ast[2])
         
         // TODO make this a global constant?
-        let operationMpping: [String: ASTComparison.Operation] = [
+        let operationMapping: [String: ASTComparison.Operation] = [
             "==": .equal,
             "!=": .notEqual,
             "<" : .less,
@@ -723,7 +723,7 @@ class FancyParser {
         
         return ASTComparison(
             lhs: lhs,
-            operation: operationMpping[ast[1].lk_content]!,
+            operation: operationMapping[ast[1].lk_content]!,
             rhs: rhs
         )
     }
