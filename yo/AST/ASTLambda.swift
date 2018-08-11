@@ -17,11 +17,6 @@ class ASTLambda: ASTExpression {
     let body: ASTComposite
     
     init(signature: ASTType, parameters: [ASTVariableDeclaration], body: ASTComposite) {
-        
-        // TODO
-        //guard case .function(_) = signature else {
-        //    fatalError() // TODO throw instead
-        //}
         self.signature = signature
         self.parameters = parameters
         self.body = body
@@ -112,6 +107,12 @@ extension ASTNode {
         
         } else if let boxedExpression = self as? ASTBoxedExpression {
             return boxedExpression.expression.getAccessedIdentifiers()
+        
+        } else if let lambda = self as? ASTLambda {
+            return lambda.accessedIdentifiersFromOutsideScope
+        
+        } else if let unaryExpression = self as? ASTUnaryExpression {
+            return unaryExpression.expression.getAccessedIdentifiers()
         }
         
         fatalError("unhandled node \(self)")

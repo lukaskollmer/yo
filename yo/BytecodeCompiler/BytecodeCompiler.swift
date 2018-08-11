@@ -776,19 +776,26 @@ private extension BytecodeCompiler {
                 fatalError("using lambda outside a function")
             }
             
+            // TODO make sure that a lambda can't be used w/in itself
+            
             lambda.signature = type
             
-            let accessedIdentifiersFromOutsideScope = lambda.accessedIdentifiersFromOutsideScope
+            //let accessedIdentifiersFromOutsideScope = lambda.accessedIdentifiersFromOutsideScope
+            let accessedIdentifiersFromOutsideScope =
+                (scope.parameters + scope.localVariables)
+                    .map { $0.identifier }
+                    .intersection(with: lambda.accessedIdentifiersFromOutsideScope)
             
             if accessedIdentifiersFromOutsideScope.isEmpty {
                 // "pure" lambda
-                let lambdaFunctionName = ASTIdentifier(value: "__\(functionName)_lambda_invoke_\(lambdaCounter.get())") // TODO prefix w/ __
+                let lambdaFunctionName = ASTIdentifier(value: "__\(functionName)_lambda_invoke_\(lambdaCounter.get())")
                 
                 let fn = ASTFunctionDeclaration(
                     name: lambdaFunctionName,
                     parameters: resolveLambdaParameterList(lambda.parameters, parameterTypes),
                     returnType: returnType,
                     kind: .global,
+                    annotations: !arcEnabledInCurrentScope ? [.disable_arc] : [], // pure lambda literals inherit the `disable_arc` annotation from the function in which they were declared
                     body: lambda.body
                 )
                 functions.insert(functionDeclaration: fn)
@@ -804,11 +811,14 @@ private extension BytecodeCompiler {
                 
                 let importedVariables: [ASTVariableDeclaration] = try accessedIdentifiersFromOutsideScope.map { .init(identifier: $0, type: try guessType(ofExpression: $0)) }
                 
-                // TODO unify typename/invokeptr naming w/ above // TODO is this still relevant?
                 let typename = "__\(functionName)_lambda_literal_\(lambdaCounter.get())"
                 let invoke_functionPtr = ASTIdentifier(value: SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "invoke"))
                 
-                let lambda_impType: ASTType = .function(returnType: returnType, parameterTypes: [.complex(name: typename)] + parameterTypes)
+                // the lambda type, as a function pointer that includes the lambda itself as first parameter
+                let lambda_impType: ASTType     = .function(returnType: returnType, parameterTypes: [.complex(name: typename)] + parameterTypes)
+                
+                // the lambda type, how it would appear to the outside (ie w/out the lambda itself as first parameter)
+                let lambda_impType_ext: ASTType = .function(returnType: returnType, parameterTypes: parameterTypes)
                 
                 
                 // Lambda type
@@ -822,8 +832,6 @@ private extension BytecodeCompiler {
                 
                 var lambdaAST: AST = [type]
                 self.codegen.synthesize(intoAST: &lambdaAST)
-                
-                //let lambdaAST = AutoSynthesizedCodeGen.synthesize(for: [type], compiler: self)
                 
                 try withScope(Scope(type: .global)) {
                     try lambdaAST.forEach(handle)
@@ -846,13 +854,17 @@ private extension BytecodeCompiler {
                     try handle(node: imp)
                 }
                 
+                
+                // NOTE:
+                // The cast to `lambda_impType_ext` below is important because the function call returns `__FN_NAME_lambda_literal_x`.
+                // Most likely, the lambda literal (aka the function call below) is being assigned to a local variable
+                // or passed to some function. In either case, the other type is `fn<(...): ...>`, which would be incompatible w/ the return type of the lambda initializer
+                
                 return ASTFunctionCall(
                     functionName: SymbolMangling.mangleInitializer(forType: typename),
                     arguments: [invoke_functionPtr.as(.any)] + accessedIdentifiersFromOutsideScope,
                     unusedReturnValue: false
-                    ).as(.any)
-                // the cast to any is important bc we're trying to assign __fn_lambda_literal_x to fn<(...): ...> // TODO update comment, not specific to assignments anymore
-                // also: we already guarded above that lhs is some function
+                ).as(lambda_impType_ext)
             }
         }
     }
