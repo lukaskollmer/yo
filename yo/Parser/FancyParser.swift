@@ -273,6 +273,8 @@ class FancyParser {
             let immediate = try parseStringLiteral(ast[4]).value
             if operation == .label {
                 instruction = .label(immediate)
+            } else if operation == .comment {
+                instruction = .comment(immediate)
             } else {
                 instruction = .unresolved(operation, immediate)
             }
