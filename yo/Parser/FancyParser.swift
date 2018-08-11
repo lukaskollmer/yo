@@ -831,32 +831,24 @@ class FancyParser {
         // function pointer
         // ie `fn<(int, String): String>`
         case "type|fn_ptr|>":
-//            guard
-//                ast[0] == _fn,
-//                ast[1] == _lessThan,
-//                ast[2] == _openingParentheses
-//            else { fatalError() }
             
             // TODO this could be extracted into a `parseTypeList` function (not sure where that would be needed/useful though)
             var parameterTypes = [ASTType]()
+            
             var index = 3
-            while let type = try? parseType(ast[index]) {
-                parameterTypes.append(type)
+            while ast[index] != _closingParentheses {
+                parameterTypes.append(try parseType(ast[index]))
                 
                 if ast[index + 1] == _comma {
                     index += 2
                 } else {
-                    break
+                    // next char will be the closing paren
+                    index += 1
                 }
             }
             
-            // `index` is now the index of the last parameter type
-            guard
-//                ast[index + 1] == _closingParentheses,
-//                ast[index + 2] == _colon,
-                let returnType = try? parseType(ast[index + 3])//,
-//                ast[index + 4] == _greaterThan
-            else {
+            // `index` is now the index of the parameter list's closing parentheses
+            guard let returnType = try? parseType(ast[index + 2]) else {
                 fatalError()
             }
             return ASTType.function(returnType: returnType, parameterTypes: parameterTypes)
@@ -962,6 +954,10 @@ class FancyParser {
             }
             
             parameters.append(ASTVariableDeclaration(identifier: parameterName, type: type))
+        }
+        
+        if parameters.isEmpty {
+            index += 1 // make index point at the arrow
         }
         
         // `index` should now point at the arrow right before the lambda body

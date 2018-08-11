@@ -68,7 +68,7 @@ const char *YO_GRAMMAR =
 
 
 // todo allow lambda param types (ie `|x: int| -> {}`)
-" lambda        : '|' <ident> (':' <type>)? (',' <ident> (':' <type>)?)* '|' \"->\"  <composite>      ;           "
+" lambda        : '|' (<ident> (':' <type>)? (',' <ident> (':' <type>)?)*)? '|' \"->\"  <composite>      ;           "
 
 " typecast      : <lexpr> \"as\" <type>   ;  "
 
