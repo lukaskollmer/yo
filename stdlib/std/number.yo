@@ -1,6 +1,9 @@
 // std/number
 
-type Number(_value: any, _type: int);
+type Number {
+    _value: any,
+    _type: int
+};
 
 impl Number {
 

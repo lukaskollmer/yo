@@ -1,11 +1,11 @@
 use "std/string";
 use "std/string_builder";
 
-type Array (
+type Array {
     _count: int,
     _allocatedLength: int,
     _backing: int
-);
+};
 
 // TODO write tests for all of this!
 

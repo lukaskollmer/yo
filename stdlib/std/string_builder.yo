@@ -1,6 +1,8 @@
 use "std/string";
 
-type StringBuilder(_string: String);
+type StringBuilder {
+    _string: String
+};
 
 impl StringBuilder {
     static fn new(): StringBuilder {

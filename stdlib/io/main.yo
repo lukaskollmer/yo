@@ -4,9 +4,9 @@
 
 use "std/string";
 
-struct File (
+struct File {
     _handle: int
-);
+};
 
 impl File {
     fn read(self: File, length: int): int {

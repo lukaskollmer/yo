@@ -1,6 +1,8 @@
 use "std/array";
 
-type String(_backing: int);
+type String {
+    _backing: int
+};
 
 impl String {
     fn length(self: String): int {

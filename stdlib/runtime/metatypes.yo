@@ -2,18 +2,18 @@
 
 use "std/string";
 
-struct Type (
+struct Type {
     id: int,
     name: String,
     vtable: vtable
-);
+};
 
-struct vtable (
+struct vtable {
     dealloc: int,
     description: int,
     isEqualTo: int,
     hashValue: int
-);
+};
 
 
 impl runtime {
