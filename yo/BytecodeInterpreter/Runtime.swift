@@ -29,11 +29,8 @@ class Runtime: NativeFunctions {
     }
     
     // TODO return optional?
-    subscript(address address: Int) -> NativeFunction {
-        if let builtin = builtins.first(where: { $0.address == address }) {
-            return builtin
-        }
-        fatalError("no native func at address \(address)")
+    subscript(address address: Int) -> NativeFunction! {
+        return builtins.first { $0.address == address }
     }
     
     subscript(ns: String, name: String, returnType: ASTType, parameterTypes: [ASTType]) -> NativeFunctionImp {
