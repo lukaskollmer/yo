@@ -327,7 +327,7 @@ class AutoSynthesizedCodeGen {
     
     
     private func generateAttributeAccessors(forType typeDeclaration: ASTTypeDeclaration) -> [ASTFunctionDeclaration] {
-        guard !typeDeclaration.hasAnnotation(.disable_attribute_accessors) else {
+        guard typeDeclaration.hasAnnotation(.attribute_accessors) else {
             return []
         }
         

@@ -9,10 +9,10 @@ impl StringBuilder {
 
     fn append(self: StringBuilder, otherString: String): void {
         if self._string == 0 {
-            self._setString(otherString.copy());
+            self._string = otherString.copy();
             ret;
         }
-        self._setString(self._string.appending(otherString));
+        self._string = self._string.appending(otherString);
     }
 
     #[variadic]

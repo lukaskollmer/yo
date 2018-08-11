@@ -846,7 +846,7 @@ private extension BytecodeCompiler {
                 let type = ASTTypeDeclaration(
                     name: ASTIdentifier(value: typename),
                     attributes: [ASTVariableDeclaration(identifier: invoke_functionPtr, type: lambda_impType)] + importedVariables,
-                    annotations: [.disable_attribute_accessors]
+                    annotations: []
                 )
                 typeCache.register(type: type)
                 

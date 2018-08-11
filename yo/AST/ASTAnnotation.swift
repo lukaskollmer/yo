@@ -24,7 +24,7 @@ class ASTAnnotation {
         static let static_initializer: Element = "static_initializer"
         static let static_cleanup: Element = "static_cleanup"
         static let base_protocol: Element = "base_protocol"
-        static let disable_attribute_accessors: Element = "disable_attribute_accessors"
+        static let attribute_accessors: Element = "attribute_accessors"
         static let variadic: Element = "variadic"
         
         let key: String
