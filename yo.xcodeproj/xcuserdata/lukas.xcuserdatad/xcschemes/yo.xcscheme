@@ -91,10 +91,6 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-legacy-parser"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "-v"
             isEnabled = "NO">
          </CommandLineArgument>

@@ -29,13 +29,7 @@ enum yo {
     
     
     static func parse(atPath path: String) throws -> AST {
-        if CLI.hasFlag(.legacyParser) {
-            let code = try read(file: path)
-            let tokens = try Lexer(source: code).tokenize()
-            return try Parser(tokens: tokens).parse()
-        } else {
-            return try FancyParser().parse(atPath: path)
-        }
+        return try Parser().parse(atPath: path)
     }
     
     

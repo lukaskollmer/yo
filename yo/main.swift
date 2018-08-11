@@ -49,11 +49,6 @@ extension CLIOptions {
         description: "Path of the standard library"
     )
     
-    static let legacyParser = CLIOption<Void>(
-        flag: "-legacy-parser",
-        description: "Use the legacy parser (not recommended)"
-    )
-    
     static let printAST = CLIOption<Void>(
         flag: "-print-ast",
         description: "Print the parsed AST"
@@ -64,7 +59,7 @@ extension CLIOptions {
         description: "Log all method calls"
     )
     
-    static let all: [CLIOptions] = [.help, .verbose, .checkHeapEmpty, .printInstructions, .printHeap, .heapSize, .stdlibPath, .legacyParser, .printAST, .logAllCalls]
+    static let all: [CLIOptions] = [.help, .verbose, .checkHeapEmpty, .printInstructions, .printHeap, .heapSize, .stdlibPath, .printAST, .logAllCalls]
 }
 
 

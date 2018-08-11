@@ -1,5 +1,5 @@
 //
-//  LKYOFancyParser.h
+//  LKYOParser.h
 //  yo
 //
 //  Created by Lukas Kollmer on 06.08.18.
@@ -11,7 +11,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface LKYOFancyParser : NSObject
+@interface LKYOParser : NSObject
 
 + (instancetype)sharedInstance;
 

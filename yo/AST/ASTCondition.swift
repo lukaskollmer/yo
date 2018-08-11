@@ -19,17 +19,6 @@ class ASTBinaryCondition: ASTCondition {
     enum Operator {
         case and
         case or
-        
-        init?(tokenTypes tokenA: TokenType, _ tokenB: TokenType) {
-            switch (tokenA, tokenB) {
-            case (.ampersand, .ampersand):
-                self = .and
-            case (.pipe, .pipe):
-                self = .or
-            default:
-                return nil
-            }
-        }
     }
     
     let lhs: ASTCondition

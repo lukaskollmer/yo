@@ -1,12 +1,12 @@
 //
-//  LKYOFancyParser.m
+//  LKYOParser.m
 //  yo
 //
 //  Created by Lukas Kollmer on 06.08.18.
 //  Copyright © 2018 Lukas Kollmer. All rights reserved.
 //
 
-#import "LKYOFancyParser.h"
+#import "LKYOParser.h"
 #import "LKUtilities.h"
 
 #include "grammar.h"
@@ -14,7 +14,7 @@
 
 #define rule(name) mpc_parser_t *name = mpc_new(#name)
 
-@implementation LKYOFancyParser {
+@implementation LKYOParser {
     mpc_parser_t *_program;
 }
 
