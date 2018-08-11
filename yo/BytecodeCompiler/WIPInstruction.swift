@@ -117,7 +117,7 @@ extension Array where Element == WIPInstruction {
         
         let line: (Int, String, String) -> () = { idx, operation, immediate in
             
-            let lineNumber = String(describing: idx).padding(.left, toLength: 4, withPad: "0")
+            let lineNumber = String(describing: idx).padding(.left, toLength: 5, withPad: "0")
             let op = immediate.isEmpty ? operation : operation.padding(.right, toLength: 8, withPad: " ")
             desc.append("  [\(lineNumber)] \(op) \(immediate)")
         }
