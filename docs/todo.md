@@ -56,3 +56,7 @@
 - [ ] comment at end of file crashes lexer?
 - [ ] can't call native function in lambda?
 - [ ] operator precedence
+
+**lambdas**
+- [ ] what if a lambda declares `x`, but there's alao an `x` in the outer scope? (it should obviously NOT capture the outer `x`)
+- [ ] can't call captured lambda in lambda w/out having to assign it to a local variable first?
