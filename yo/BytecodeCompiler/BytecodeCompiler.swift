@@ -365,6 +365,8 @@ private extension BytecodeCompiler {
             }
         }
         
+        guardNoDuplicates(function.parameters)
+        
         // TODO wouldn't it make much more sense to create a new scope for each function?
         try withScope(Scope(type: .function(name: function.mangledName, returnType: function.returnType), parameters: function.parameters)) {
             // function entry point
@@ -394,6 +396,23 @@ private extension BytecodeCompiler {
     }
     
     
+    
+    func guardNoDuplicates(_ declarations: [ASTVariableDeclaration]) {
+        var alreadyProcessed = [ASTVariableDeclaration]()
+        
+        declarations.forEach { decl in
+            if alreadyProcessed.contains(decl) {
+                fatalError("Invalid redeclaration of `\(decl.identifier)`")
+            }
+            alreadyProcessed.append(decl)
+        }
+    }
+    
+    
+    
+    
+    
+    
     func handle(composite: ASTComposite) throws {
         guard case .function(let functionName, let returnType) = scope.type else {
             fatalError("top level composite outside a function?")
@@ -411,6 +430,8 @@ private extension BytecodeCompiler {
         // 3. insert `runtime::release` calls for all non-primitive variables declared in the composite
         let hasReturnStatement = composite.statements.any { $0 is ASTReturnStatement }
         var localVariables = composite.statements.getLocalVariables(recursive: false)
+        
+        guardNoDuplicates(localVariables)
         
         // Automatic type inference 😎
         // Why is this an indexed for loop, instead of a map call?

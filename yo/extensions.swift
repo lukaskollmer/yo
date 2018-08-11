@@ -168,6 +168,10 @@ extension Array where Element: Hashable {
     mutating func removeDuplicates() {
         self = self.withDuplicatesRemoved()
     }
+    
+    var containsDuplicates: Bool {
+        return self.withDuplicatesRemoved().count == self.count
+    }
 }
 
 
@@ -194,3 +198,4 @@ extension FileManager {
         return self.fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
     }
 }
+
