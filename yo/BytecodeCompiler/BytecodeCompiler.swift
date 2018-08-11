@@ -779,18 +779,6 @@ private extension BytecodeCompiler {
     
     
     
-    func handle(deferStatement: ASTDeferStatement) throws {
-        fatalError()
-    }
-
-    
-    
-    
-    
-    
-    
-    
-    
     
     
     func resolve(lambda: ASTLambda, expectedSignature type: ASTType) throws -> ASTExpression {
