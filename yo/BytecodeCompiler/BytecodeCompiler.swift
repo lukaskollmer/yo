@@ -1646,7 +1646,7 @@ private extension BytecodeCompiler {
                 return .String
                 
             } else if expression is ASTNoop {
-                return .any // TODO is this the right choice?
+                return .any // TODO is this the right choice? // UPDATE does it even matter? do we ever reach here?
                 
             } else if let arrayLiteral = expression as? ASTArrayLiteral {
                 return arrayLiteral.kind == .complex ? .Array : .int
