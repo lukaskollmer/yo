@@ -394,7 +394,7 @@ class Parser {
         
         let attributes: [ASTVariableDeclaration]
         
-        if ast[3] == _closingParentheses {
+        if ast[3] == _closingCurlyBraces {
             attributes = []
         } else {
             attributes = try parseParameterList(ast[3])
