@@ -86,7 +86,6 @@ extension mpc_ast_t {
         mpc_ast_print(&_self)
     }
     
-    // TODO is this actually used?
     subscript(index: Int) -> mpc_ast_t {
         set { fatalError() }
         get {
