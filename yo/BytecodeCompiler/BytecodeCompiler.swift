@@ -1206,30 +1206,44 @@ private extension BytecodeCompiler {
     func handle(binop: ASTBinaryOperation) throws {
         let lhsType = try guessType(ofExpression: binop.lhs)
         let rhsType = try guessType(ofExpression: binop.rhs)
-        guard lhsType.isCompatible(with: rhsType) else {
-            fatalError("cannot perform binary operation '\(binop.operation)' with '\(lhsType)' and '\(rhsType)'")
+        
+        guard [lhsType, rhsType].all([ASTType.int, .double, .any].contains) else {
+            fatalError("Cannot perform binary operation \(binop.operation) with non-number types '\(lhsType)' and '\(rhsType)'")
         }
         
-        try handle(node: binop.rhs)
-        try handle(node: binop.lhs)
+        // TODO add a check that only +-*/ can be used w/ doubles?
+        
+        let handleLhs = { try self.handle(node: binop.lhs) }
+        let handleRhs = { try self.handle(node: binop.rhs) }
         
         switch (lhsType, rhsType) {
-        case (.any, _), (_, .any), (.int, .int): // we interpret `any` (most likely some object/pointer) as `int`
+        case (.int, .int), (.any, .int), (.int, .any):
+            try handleLhs()
+            try handleRhs()
             add(binop.operation.operation)
-        case (.int, .double):
-            fatalError("int/double binops not yet implemented")
-            break
+            
         case (.double, .int):
-            fatalError("double/int binops not yet implemented")
-            break
-        case (.double, .double):
+            try handleLhs()
+            try handleRhs()
+            add(.cvti2d)
             add(binop.operation.operation.doubleVariant)
+            
+        case (.int, .double):
+            try handleLhs()
+            add(.cvti2d)
+            try handleRhs()
+            add(binop.operation.operation.doubleVariant)
+            
+        case (.double, .double):
+            try handleLhs()
+            try handleRhs()
+            add(binop.operation.operation.doubleVariant)
+            
         default:
-            fatalError("cannot perform binary operation \(binop.operation) with types \(lhsType) and \(rhsType)")
+            fatalError("unhandled binop w/ types \(lhsType) and \(rhsType)")
         }
-        
-        
     }
+    
     
     func handle(unary: ASTUnaryExpression) throws {
         // TODO if `unary.expression` is a literal, perform at compile time?
@@ -1263,12 +1277,13 @@ private extension BytecodeCompiler {
         let upperHalf = binaryRepresentation.ns.substring(with: NSRange(location: 00, length: 32))
         let lowerHalf = binaryRepresentation.ns.substring(with: NSRange(location: 32, length: 32))
         
-        add(.push, 32)
         add(.push, Int(upperHalf, radix: 2)!)
+        add(.push, 32)
         add(.shl)
         
         add(.push, Int(lowerHalf, radix: 2)!)
         add(.or)
+        
     }
     
     func handle(stringLiteral: ASTStringLiteral) throws {

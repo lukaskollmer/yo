@@ -144,6 +144,32 @@ class BytecodeInterpreter {
     }
     
     
+    
+    
+    private func eval_binop<T>(type: T.Type, fn: (T, T) -> T) throws {
+        // rhs first because lhs is evaluated first, meaning that rhs lies before lhs on the stack
+        let rhs = try stack.pop()
+        let lhs = try stack.pop()
+        
+        func call<T, U>(fn: (T, T) -> T, arg0: U, arg1: U) -> U {
+            return withoutActuallyEscaping(fn) {
+                let fn = unsafeBitCast($0, to: ((U, U) -> U).self)
+                return fn(arg0, arg1)
+            }
+        }
+        
+        if type == Int.self {
+            try stack.push(call(fn: fn, arg0: lhs, arg1: rhs))
+            
+        } else if type == Double.self {
+            try stack.push(call(fn: fn, arg0: lhs.unsafe_loadAsDouble, arg1: rhs.unsafe_loadAsDouble).unsafe_loadAsInt)
+            
+        } else {
+            fatalError("Only Int and Double are supported types!")
+        }
+    }
+    
+    
     func eval(_ instruction: InstructionDescriptor) throws {
         let immediate = instruction.immediate
         
@@ -161,52 +187,50 @@ class BytecodeInterpreter {
             
         // Arithmetic Operations
         case .add:
-            try stack.push(try stack.pop() + stack.pop())
+            try eval_binop(type: Int.self, fn: +)
             
         case .d_add:
-            try stack.push((try stack.pop().unsafe_loadAsDouble + stack.pop().unsafe_loadAsDouble).unsafe_loadAsInt)
+            try eval_binop(type: Double.self, fn: +)
             
             
         case .sub:
-            try stack.push(try stack.pop() - stack.pop())
-            
+            try eval_binop(type: Int.self, fn: -)
+        
         case .d_sub:
-            try stack.push((try stack.pop().unsafe_loadAsDouble - stack.pop().unsafe_loadAsDouble).unsafe_loadAsInt)
+            try eval_binop(type: Double.self, fn: -)
             
         
         case .mul:
-            try stack.push(try stack.pop() * stack.pop())
+            try eval_binop(type: Int.self, fn: *)
             
         case .d_mul:
-            try stack.push((try stack.pop().unsafe_loadAsDouble * stack.pop().unsafe_loadAsDouble).unsafe_loadAsInt)
-            
+            try eval_binop(type: Double.self, fn: *)
         
         case .div:
-            try stack.push(try stack.pop() / stack.pop())
+            try eval_binop(type: Int.self, fn: /)
             
         case .d_div:
-            try stack.push((try stack.pop().unsafe_loadAsDouble / stack.pop().unsafe_loadAsDouble).unsafe_loadAsInt)
-            
+            try eval_binop(type: Double.self, fn: /)
         
         case .mod:
-            try stack.push(try stack.pop() % stack.pop())
+            try eval_binop(type: Int.self, fn: %)
             
             
         // Bitwise Operations
         case .and:
-            try stack.push(try stack.pop() & stack.pop())
+            try eval_binop(type: Int.self, fn: &)
             
         case .or:
-            try stack.push(try stack.pop() | stack.pop())
+            try eval_binop(type: Int.self, fn: |)
         
         case .xor:
-            try stack.push(try stack.pop() ^ stack.pop())
+            try eval_binop(type: Int.self, fn: ^)
         
         case .shl:
-            try stack.push(try stack.pop() << stack.pop())
+            try eval_binop(type: Int.self, fn: <<)
             
         case .shr:
-            try stack.push(try stack.pop() >> stack.pop())
+            try eval_binop(type: Int.self, fn: >>)
             
             
         case .not:
