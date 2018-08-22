@@ -37,4 +37,10 @@ impl Object {
         val metatype = runtime::typeof(obj);
         ret String::format("<%s %nh>", metatype.name, @(obj as int));
     }
+
+    static fn _isEqualTo(obj1: id, obj2: id): bool {
+        val metatype = runtime::typeof(obj1);
+        val isEqualTo_fn = metatype.vtable.isEqualTo as fn<(id, id): bool>;
+        ret isEqualTo_fn(obj1, obj2);
+    }
 }
