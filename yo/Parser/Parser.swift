@@ -1089,6 +1089,12 @@ class Parser {
     
     func parseArrayLiteral(_ ast: mpc_ast_t) throws -> ASTArrayLiteral {
         let kind: ASTArrayLiteral.Kind = ast[0] == _openingSquareBrackets ? .complex : .primitive
+        
+        if ast.count == 2 {
+            // empty array literal
+            return ASTArrayLiteral(elements: [], kind: kind)
+        }
+        
         let elements = try parseExpressionList(ast[1])
         
         return ASTArrayLiteral(elements: elements, kind: kind)
