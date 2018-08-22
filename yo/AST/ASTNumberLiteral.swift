@@ -23,8 +23,7 @@ class ASTNumberLiteral: ASTExpression, ExpressibleByIntegerLiteral {
     }
     
     convenience init(value: Double) {
-        var _value = value
-        self.init(value: cast(&_value), type: .double)
+        self.init(value: value.unsafe_loadAsInt, type: .double)
     }
     
     convenience required init(integerLiteral value: Int) {
