@@ -1692,7 +1692,7 @@ private extension BytecodeCompiler {
     func boxedType(ofExpression expression: ASTExpression) throws -> ASTType {
         let type = try guessType(ofExpression: expression)
         switch type {
-        case .int, .double:
+        case .int, .double, .bool:
             return .complex(name: "Number")
         default:
             return .unresolved
