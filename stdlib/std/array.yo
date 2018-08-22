@@ -180,7 +180,7 @@ impl Array {
     }
 
 
-    fn reduce(self: Array, initial: any, f: fn<(any, any): any>): any {
+    fn reduce(self: Array, initial: any, f: fn<(any, id): any>): any {
         for i in 0..<self._count {
             initial = f(initial, self.get(i));
         }
@@ -189,7 +189,7 @@ impl Array {
     }
 
 
-    fn reduceInto(self: Array, obj: any, f: fn<(any, any): void>): any {
+    fn reduceInto(self: Array, obj: any, f: fn<(any, id): void>): any {
         self.forEach(|x| -> {
             f(obj, x);
         });
