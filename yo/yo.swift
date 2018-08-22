@@ -33,11 +33,9 @@ enum yo {
     }
     
     
-    
+    static private var _importedPaths = [String]()
     static func resolveImports(in ast: AST, currentWorkingDirectory: String) throws -> AST {
         // TODO This is terrible code
-        
-        var importedPaths = [String]()
         
         // why is this a local function, insetad of a closure?
         // closured can't be recursive, but functions can
@@ -45,9 +43,9 @@ enum yo {
             return try ast.lk_flatMap { node -> AST in
                 if let importStatement = node as? ASTImportStatement {
                     let path = ImportPathResolver.resolve(moduleName: importStatement.moduleName, currentWorkingDirectory: currentWorkingDirectory)
-                    guard !importedPaths.contains(path) else { return [] }
+                    guard !_importedPaths.contains(path) else { return [] }
                     
-                    importedPaths.append(path)
+                    _importedPaths.append(path)
                     return try resolveImports(in: try yo.parse(atPath: path))
                 }
                 return [node]
