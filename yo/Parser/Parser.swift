@@ -699,6 +699,9 @@ class Parser {
         case "cond|bin_cond|>":
             return try parseBinaryCondition(ast)
             
+        case "cond|>" where ast.count == 3 && ast[0] == _openingParentheses && ast[2] == _closingParentheses:
+            return try parseCondition(ast[1])
+            
         default:
             fatalError()
         }

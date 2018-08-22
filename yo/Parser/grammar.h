@@ -112,15 +112,16 @@ const char *YO_GRAMMAR =
 " comp_op       : \"==\" | \"!=\" | \"<=\" | \">=\" | '<' | '>'  ; "
 " bin_cond_op   : \"&&\" | \"||\" ;  "
 
-" bin_cond      : <lcond> <bin_cond_op> <lcond>  ; "
+" bin_cond      : <lcond> <bin_cond_op> <cond>  ; "
 
 " comp          : <expr> <comp_op> <expr>   ; " // TODO expr or lexpr?
 
 // a part of a condition that can evaluate to true
-" lcond         : <comp>   "
+//" lcond         : '(' <cond> ')'  " // TODO this breaks expressions wrapped in parentheses (`if (7-1) >= 5 ...`)
+" lcond         : <comp>  "
 "               | <expr>  ; "
 
-" cond          : <bin_cond>+     "
+" cond          : <bin_cond>    "
 "               | <lcond> ; "
 
 
