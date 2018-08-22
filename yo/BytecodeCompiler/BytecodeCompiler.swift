@@ -332,6 +332,7 @@ private extension BytecodeCompiler {
             try handle(staticMemberGetter: staticMemberGetter)
             
         } else if let inlineBooleanExpression = node as? ASTInlineBooleanExpression {
+            fatalError("TODO reimplement")
             try handle(condition: inlineBooleanExpression.condition)
             
         } else if let deferStatement = node as? ASTDeferStatement {
