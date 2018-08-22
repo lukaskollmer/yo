@@ -50,6 +50,14 @@ impl String {
         ret true;
     }
 
+    fn isEqualTo(self: String, other: id): bool {
+        // Make sure borh are strings
+        if runtime::typeof(self) != runtime::typeof(other) {
+            ret false;
+        }
+        ret self.isEqualToString(other);
+    }
+
 
     fn description(self: String): String {
         ret String::format("\"%s\"", self);
