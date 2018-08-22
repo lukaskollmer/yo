@@ -1630,7 +1630,14 @@ private extension BytecodeCompiler {
                 return numberLiteral.type
                 
             } else if let binop = expression as? ASTBinaryOperation {
-                return try self.guessType(ofExpression: binop.lhs)
+                let lhsType = try guessType(ofExpression: binop.lhs)
+                let rhsType = try guessType(ofExpression: binop.rhs)
+                
+                // TODO document this?!!!
+                if [lhsType, rhsType].contains(.double) {
+                    return .double
+                }
+                return .int
                 
             } else if let unaryExpression = expression as? ASTUnaryExpression {
                 return try guessType(ofExpression: unaryExpression.expression)
