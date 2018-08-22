@@ -58,7 +58,12 @@
 - [x] operator precedence
 - [ ] top level `defer` statements?
 - [ ] move `defer` blocks to after the temp retval assignment, but before the `ret` instruction?
+- [ ] redeclare primitive types as structs? that'd allow int/etc to have member functions
+- [ ] `use` paths case insensitive? (currently they are not and `use "std/Array";` will cause many issues)
 
 **lambdas**
 - [ ] what if a lambda declares `x`, but there's alao an `x` in the outer scope? (it should obviously NOT capture the outer `x`)
 - [ ] can't call captured lambda in lambda w/out having to assign it to a local variable first?
+
+**conditions**
+- [ ] OR comp where both sides are true fail (ie `true == true || false == false`)
