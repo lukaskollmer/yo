@@ -92,6 +92,9 @@ impl Array {
             if self.get(i) == obj {
                 ret i;
             }
+            if Object::_isEqualTo(self.get(i), obj) {
+                ret i;
+            }
         }
         ret -1;
     }
