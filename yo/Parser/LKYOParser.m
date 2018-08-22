@@ -92,6 +92,7 @@
     rule(unary);
     rule(global_var);
     
+    rule(number_double);
     rule(number_b02);
     rule(number_b08);
     rule(number_b10);
@@ -108,7 +109,7 @@
     // TODO make sure these arguments are in the exact same order as the tag declarations in grammar.h !!!
     mpc_err_t *err =
     mpca_lang(MPCA_LANG_DEFAULT, YO_GRAMMAR,
-              ident, boolean, number, string, number_b02, number_b08, number_b10, number_b16,
+              ident, boolean, number, string, number_double, number_b02, number_b08, number_b10, number_b16,
               fn_ptr, global_var, type_decl, impl, type,
               expr_list, subscript, var_access, static_target, call_target, fn_call, array_literal,
               boxed_expr, range, binop_mul, binop_add, unary, lambda, typecast, lexpr, expr,

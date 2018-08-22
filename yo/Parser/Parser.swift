@@ -890,7 +890,7 @@ class Parser {
             return try parseFunctionCall(ast)
             
         //case "lexpr|number|regex":
-        case "number|number_b10|regex", "number|number_b02|regex", "number|number_b08|regex", "number|number_b16|regex":
+        case "number|number_b10|regex", "number|number_b02|regex", "number|number_b08|regex", "number|number_b16|regex", "number|number_double|regex":
             return try parseNumberLiteral(ast)
             
         case "binop_add|>", "binop_mul|>": // TODO test that binop_mul works properly
@@ -1049,6 +1049,12 @@ class Parser {
         
         case "number|number_b16|regex":
             base = 16
+            
+        case "number|number_double|regex":
+            guard let value = Double(rawStringValue) else {
+                fatalError("Unable to process double literal '\(rawStringValue)'")
+            }
+            return ASTNumberLiteral(value: value)
         
         default:
             fatalError()

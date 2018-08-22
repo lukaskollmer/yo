@@ -16,12 +16,13 @@ const char *YO_GRAMMAR =
 " ident         : /[a-zA-Z_][a-zA-Z0-9_]*/;  "
 " boolean       : (\"true\" | \"false\") ;"
 //" number      : /[0-9]+/ ; "
-" number        : <number_b02> | <number_b08> | <number_b16> | <number_b10> ; " // <number_b10> has to be last bc otherwise, it'd parse the other bases' leading 0 as a single base 10 literal
+" number        : <number_double> | <number_b02> | <number_b08> | <number_b16> | <number_b10> ; " // <number_b10> has to be last bc otherwise, it'd parse the other bases' leading 0 as a single base 10 literal
 " string        : /\"[^\"\\\\]*(\\\\.[^\"\\\\]*)*\"/ ;                   "
 // [string] we have to include the quotes as part of the regex to peoperly capture whitespace at the beginning/end of the string literal
 
 
 // Number literals
+" number_double : /[0-9]*\\.[0-9+]/ ; "
 " number_b02    : /0b[01][01_]*/ ; "
 " number_b08    : /0[0-7][0-7_]*/ ; "
 " number_b10    : /[0-9][0-9_]*/ ; "
