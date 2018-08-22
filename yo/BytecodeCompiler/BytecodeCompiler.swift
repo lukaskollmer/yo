@@ -604,6 +604,14 @@ private extension BytecodeCompiler {
             fatalError("global if statement")
         }
         
+        // TODO implement
+        //if CodeGenOptimizer.canOptimizeToUseShortCircuitEvaluation(conditionalStatement.condition) {
+        //    let optimized = CodeGenOptimizer.transformToUseShortCircuitEvaluation(conditionalStatement)
+        //    try handle(conditionalStatement: optimized)
+        //    return
+        //}
+        
+        
         let counter = conditionalStatementCounter.get()
         let generateLabel: (String) -> String = { ".\(functionName)_ifwhile_\(counter)_\($0)" } // TOOD replace `ifwhile` w/ just if or while?
         
