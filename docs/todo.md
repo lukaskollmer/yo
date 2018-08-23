@@ -64,6 +64,7 @@
 **lambdas**
 - [ ] what if a lambda declares `x`, but there's alao an `x` in the outer scope? (it should obviously NOT capture the outer `x`)
 - [ ] can't call captured lambda in lambda w/out having to assign it to a local variable first?
+- [ ] allow overriding a lambda's return type
 
 **conditions**
 - [ ] OR comp where both sides are true fail (ie `true == true || false == false`)
