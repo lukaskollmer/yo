@@ -10,7 +10,6 @@ import Foundation
 
 
 // An anonymous function
-// Doesn't (yet) support captured variables // TODO
 class ASTLambda: ASTExpression {
     var signature: ASTType // is always .function
     let parameters: [ASTVariableDeclaration]
@@ -90,11 +89,18 @@ extension ASTNode {
             return functionCall.arguments.reduce(into: [ASTIdentifier(value: functionCall.functionName)], { $0.append(contentsOf: $1.getAccessedIdentifiers()) })
         
         } else if let memberAccess = self as? ASTMemberAccess {
-            // we only look at the very first one // TODO support captured functions!
-            if case .initial_identifier(let identifier)? = memberAccess.members.first {
-                return [identifier]
+            return memberAccess.members.lk_flatMap { member in
+                switch member {
+                case .initial_identifier(let identifier):
+                    return [identifier]
+                case .functionCall(name: _, let arguments, unusedReturnValue: _):
+                    return arguments.lk_flatMap { $0.getAccessedIdentifiers() }
+                case .attribute(name: _):
+                    return []
+                case .initial_functionCall(_):
+                    return []
+                }
             }
-            return []
         
         } else if let comparison = self as? ASTComparison {
             return comparison.lhs.getAccessedIdentifiers() + comparison.rhs.getAccessedIdentifiers()
