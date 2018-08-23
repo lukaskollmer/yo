@@ -25,14 +25,12 @@ static BOOL shouldEmitSignposts;
 }
 
 + (instancetype)sharedInstance {
-    kdebug_signpost_start(12, 0, 0, 0, 0);
     static dispatch_once_t once;
     static id sharedInstance;
     dispatch_once(&once, ^{
         sharedInstance = [[self alloc] init];
         shouldEmitSignposts = [LKYOCLI hasFlag:@"-emit-signposts"];
     });
-    kdebug_signpost_end(12, 0, 0, 0, 0);
     return sharedInstance;
 }
 
@@ -140,8 +138,6 @@ static BOOL shouldEmitSignposts;
 
 
 - (mpc_ast_t *)parseFileAtPath:(NSString *)filePath {
-    NSLog(@"%s %@", __PRETTY_FUNCTION__, filePath);
-    
     if (shouldEmitSignposts) kdebug_signpost_start(101, self->_filepaths.count, 0, 0, 0);
     
     [_filepaths addObject:filePath];
