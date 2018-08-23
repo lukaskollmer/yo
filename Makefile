@@ -16,7 +16,7 @@ build:
 	$(XCODEBUILD) -target $(TARGET_NAME) SYMROOT=$(OUTPUT_DIR) -configuration $(CONFIG) build | $(XCPRETTY)
 
 cloc:
-	$(CLOC) . --force-lang="Rust",yo --exclude-dir=bin,deps
+	$(CLOC) $(ROOT_DIR) --force-lang="Rust",yo --exclude-dir=build,deps
 
 todo:
 	grep -ri --exclude-dir=.git 'todo' .
