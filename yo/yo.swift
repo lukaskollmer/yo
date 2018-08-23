@@ -61,11 +61,15 @@ enum yo {
             Log.info("Input file: \(filepath)")
         }
         
-        
+        Profiling.recordStart(event: .parseAST)
         var ast = try parse(atPath: path)
         ast = try resolveImports(in: ast, currentWorkingDirectory: path.directory)
+        LKYOParser.sharedInstance()._printFilePathIndexes()
+        Profiling.recordEnd(event: .parseAST)
         
+        Profiling.recordStart(event: .compile)
         var (instructions, stats) = try BytecodeCompiler().compile(ast: ast)
+        Profiling.recordEnd(event: .compile)
         
         instructions = instructions.withArrayLiteralsResolved()
         
@@ -82,7 +86,9 @@ enum yo {
         
         let interpreter = BytecodeInterpreter(wipInstructions: instructions, heapSize: heapSize)
         
+        Profiling.recordStart(event: .interpret)
         let retval = try interpreter.run()
+        Profiling.recordEnd(event: .interpret)
         
         if CLI.hasFlag(.printHeap) {
             print("heap after: \(interpreter.heap.backing)")
