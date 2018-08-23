@@ -4,40 +4,20 @@
 #
 # usage: make [CONFIG=debug|release]
 
-MODULE_NAME = yo
-SDK         = macosx
-ARCH        = x86_64
+.PHONY: build
 
-CONFIG     ?= debug
+CONFIG     ?= Debug
 
 ROOT_DIR    = $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-OUTPUT_DIR  = $(ROOT_DIR)/bin
-TARGET_DIR  = $(OUTPUT_DIR)/swiftc/$(SDK)/$(CONFIG)
-SRC_DIR     = $(ROOT_DIR)/yo
-
-ifeq ($(CONFIG), debug)
-	CFLAGS=-Onone -g
-else
-	CFLAGS=-O3
-endif
-
-SWIFTC      = $(shell xcrun -f swiftc)
-CLANG       = $(shell xcrun -f clang)
-SDK_PATH    = $(shell xcrun --show-sdk-path --sdk $(SDK))
-SWIFT_FILES = $(shell find `pwd`/yo -type f -name '*.swift')
+OUTPUT_DIR  = $(ROOT_DIR)/build
 
 XCODEBUILD  = $(shell xcrun -f xcodebuild)
 XCPRETTY    = $(shell which xcpretty)
 TARGET_NAME = yo
-SYMROOT     = $(OUTPUT_DIR)/xcodebuild
 CLOC        = $(shell which cloc)
 
-swiftc:
-	mkdir -p $(TARGET_DIR)
-	$(SWIFTC) $(SWIFT_FILES) -emit-executable -sdk $(SDK_PATH) -o $(TARGET_DIR)/$(MODULE_NAME)
-
 build:
-	$(XCODEBUILD) -target $(TARGET_NAME) SYMROOT=$(SYMROOT) -configuration Debug build | $(XCPRETTY)
+	$(XCODEBUILD) -target $(TARGET_NAME) SYMROOT=$(OUTPUT_DIR) -configuration $(CONFIG) build | $(XCPRETTY)
 
 cloc:
 	$(CLOC) . --force-lang="Rust",yo --exclude-dir=bin,deps
