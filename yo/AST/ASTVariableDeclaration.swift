@@ -18,6 +18,7 @@ class ASTVariableDeclaration: ASTStatement, Equatable {
         self.type = type
     }
     
+    // TODO there's a case to be made that this should look only at the identifier and ignore the type
     static func == (lhs: ASTVariableDeclaration, rhs: ASTVariableDeclaration) -> Bool {
         return lhs.identifier == rhs.identifier && lhs.type == rhs.type
     }
