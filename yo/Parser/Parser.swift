@@ -681,7 +681,7 @@ class Parser {
     
     
     func parseCondition(_ ast: mpc_ast_t) throws -> ASTCondition {
-        if ast.count == 0 || ast.lk_tag.hasPrefix("cond|lcond|expr") {
+        if ast.count == 0 || ["lcond|expr", "cond|lcond|expr"].any(ast.lk_tag.hasPrefix) {
             // a) no children -> single expression that is implicitly compared to true
             // b) if the entire condition ast is an expression, we're also dealing w/ some expression being implicitly compared to true
             // TODO introduce a `ASTImplicitTrueComparison` class, instead of creating the comparison object here in the parser
@@ -692,21 +692,19 @@ class Parser {
             )
         }
         
+        
         switch ast.lk_tag.hasSuffix {
-        case "lcond|comp|>":
-            return try parseComparison(ast)
-            
-        case "cond|bin_cond|>":
+        case "cond|>" where ast[1].lk_tag.hasPrefix("bin_cond_op"):
+            // lcond, followed by potential binary condition(s)
+            // since we already have a couple of checks above, there's a chance that we're always dealing w/ a binary condition when we reach here !?
             return try parseBinaryCondition(ast)
             
-        case "cond|>" where ast.count == 3 && ast[0] == _openingParentheses && ast[2] == _closingParentheses:
-            return try parseCondition(ast[1])
+        case "comp|>":
+            return try parseComparison(ast)
             
         default:
             fatalError()
         }
-        
-        fatalError()
     }
     
     
@@ -931,6 +929,25 @@ class Parser {
             
         case "lexpr|static_target|>":
             return try parseStaticMemberGetter(ast)
+            
+        case "binop_add|lexpr|>":
+            // this matches `<var_access> (subscript | function_call)`
+            
+            guard ast[1] == _openingCurlyBraces || ast[1] == _openingParentheses else {
+                fatalError()
+            }
+            
+            if ast[1] == _openingCurlyBraces {
+                // subscript access
+                let target = try parseVariableAccess(ast[0])
+                let offset = try parseExpression(ast[2])
+                return ASTArrayGetter(target: target, offset: offset)
+            
+            } else if ast[1] == _openingParentheses {
+                // function call
+                return try parseFunctionCall(ast, unusedReturnValue: false)
+            }
+            
             
         default:
             fatalError("unexpected expression \(ast)")

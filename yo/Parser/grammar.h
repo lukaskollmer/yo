@@ -32,7 +32,7 @@ const char *YO_GRAMMAR =
 
 " global_var    : \"static\" <ident> ':' <type>  ('=' <expr>)?   ';'   ; "  // TODO remove the type requirement?
 
-" type_decl     : (\"type\" | \"struct\" ) <ident> '{' <paramList>? '}' ';'   ;        "
+" type_decl     : (\"type\" | \"struct\" ) <ident> (':' (<ident> (',' <ident>)* ) )? '{' <paramList>? '}' ';'   ;        "
 
 
 " impl          : \"impl\" <ident> '{' <function>* '}' ;             "
@@ -54,46 +54,51 @@ const char *YO_GRAMMAR =
 // TODO allow `Foo::bar().x` et al (`Foo::bar().x().y.z.a()`, etc)
 " fn_call       : <call_target> '(' <expr_list>? ')'    ;    "
 
-" array_literal : ('[' | '{') <expr_list>? (']' | '}') ; "
+" array_literal : ('[' ']') | ('{' '}') "
+"               | '[' <expr_list> ']' "
+"               | '{' <expr_list> '}' ; "
 
-" boxed_expr    : '@' <expr> ;"
+" boxed_expr    : '@' <expr> ;" // TODO use lexpr instead to have "stronger" binding? everything else would require parentheses
 
 " range         : <expr> (\"...\" | \"..<\") <expr> ; "
 
 
 " binop_mul     : <lexpr> (( '*' | '/' | '%' ) (<binop_mul> | <lexpr>))+  ;   "
 
-" binop_add     : (<binop_mul> | <lexpr>) (( '+' | '-' | '&' | '|' | \"<<\" | \">>\" | '^') (<binop_add> | <binop_mul> | <lexpr>))+ ; "
+" binop_add     : (<binop_mul> | <lexpr>) (( '+' | '-' | '&' | '|' | \"<<\" | \">>\" | '^') (<binop_add> | <binop_mul> | <lexpr>))* ; "
 
 " unary         : ('-' | '~' | '!') <expr>  ;  "
 
 
-// todo allow lambda param types (ie `|x: int| -> {}`)
+// TODO is the second one faster?
 " lambda        : '|' (<ident> (':' <type>)? (',' <ident> (':' <type>)?)*)? '|' \"->\"  <composite>      ;           "
+//" lambda        : (('|' '|') | ('|' <ident> (':' <type>)? (',' <ident> (':' <type>)?)*) '|') \"->\" <composite> ;  "
 
 " typecast      : <lexpr> \"as\" <type>   ;  "
 
 
 " lexpr         : <boolean>                             "
-"               | <unary>                       "
+"               | <lambda>  "
 "               | '(' <expr>  ')'                       "
+"               | <unary>                       "
 "               | <number>                       "
 "               | <string>                       "
 "               | <array_literal>                       "
-// TODO can <fn_call> be moved to <expr> ?
+// TODO can/should <fn_call> be moved to <expr> ?
 "               | <fn_call>                       "
 "               | <subscript>                       "
-"               | <lambda>                       "
-"               | <static_target>                       " // static_target in a <lexpr> is an enum case
-"               | <var_access>    ;                     "
+"               | <var_access>                       "
+"               | <static_target>               " // static_target in a <lexpr> is an enum case
+// TODO: potential improvement: parse <var_access> once, then optionally subscript access or a function call
+// This would break static function calls, which could be fixed by replacing the currently freestanding <static_target> option w/ `<static_target> ('(' <expr_list> ')' )?` TODO!!! this really shouldn't be too difficult
+//"               | <var_access> ( ('[' <expr> ']') | ('('<expr_list>?')') )?    "
+"                       ;"
 
 
-" expr          : <binop_add>                                                          "
+" expr          : <typecast>                    "
+"               | <binop_add>               "
 "               | <binop_mul>                                                           "
-"               | <typecast>                                                           "
 "               | <boxed_expr>                                                           "
-//"             | <cond>   " // TODO is this a good idea? TEST
-"               | <lexpr>                                                           "
 "               | \"nil\" ;                                                         "
 
 " ret           : \"ret\" <expr>? ';' ; "
@@ -121,8 +126,11 @@ const char *YO_GRAMMAR =
 " lcond         : <comp>  "
 "               | <expr>  ; "
 
-" cond          : <bin_cond>    "
-"               | <lcond> ; "
+//" cond          : <bin_cond>    "
+//"               | <lcond> ; "
+
+// TODO seems like there's no difference between `*` and `?` bc rhs is <cond> which will match a new binop
+" cond          : <lcond> (<bin_cond_op> <cond>)? ; "
 
 
 " if_stmt       : \"if\" <cond> <composite>  <else_stmt>?   ;         "
@@ -143,14 +151,14 @@ const char *YO_GRAMMAR =
 " defer_block   : \"defer\" <composite>   ; "
 
 " stmt          : <ret>             "
-"               | <asm_stmt>        "
-"               | <defer_block>     "
+"               | <assignment>        "
+"               | <var_decl>     "
 "               | <stmt_fn_call>    "
 "               | <cond_stmt>       "
 "               | <for_loop>        "
-"               | <assignment>      "
-"               | <var_decl> ;      "
-// var_decl at the end because it can interfer w/ other statements
+"               | <defer_block>      "
+"               | <asm_stmt> ;      "
+// var_decl after assignment because it can interfer w/ other statements
 // example: `value = 12;` would be parsed as `val ue = 12;`
 
 " composite     : '{' <stmt>* '}' ;   "

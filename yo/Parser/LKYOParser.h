@@ -18,6 +18,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable mpc_ast_t *)parseFileAtPath:(NSString *)filePath;
 - (void)freeAST:(mpc_ast_t *)ast;
 
+- (void)_printFilePathIndexes;
+
 @end
 
 NS_ASSUME_NONNULL_END
