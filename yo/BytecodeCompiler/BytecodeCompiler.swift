@@ -1421,6 +1421,13 @@ private extension BytecodeCompiler {
             return
         }
         
+        
+        // Complex array literal
+        
+        guard try elements.all({ try guessType(ofExpression: $0).isComplex }) else {
+            fatalError("A complex array literal cannot contain non-complex elements")
+        }
+        
         let arrayInitializerMemberName = "_arrayLiteralInit\(arrayLiteral.elements.count)"
         let arrayInitializerMangled = SymbolMangling.mangleStaticMember(ofType: "Array", memberName: arrayInitializerMemberName)
         
