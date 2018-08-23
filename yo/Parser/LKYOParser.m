@@ -8,28 +8,38 @@
 
 #import "LKYOParser.h"
 #import "LKUtilities.h"
+#import "yo-Swift.h"
 
 #include "grammar.h"
+
+#include <sys/kdebug_signpost.h>
+
+static BOOL shouldEmitSignposts;
 
 
 #define rule(name) mpc_parser_t *name = mpc_new(#name)
 
 @implementation LKYOParser {
     mpc_parser_t *_program;
+    NSMutableArray<NSString *> *_filepaths;
 }
 
 + (instancetype)sharedInstance {
+    kdebug_signpost_start(12, 0, 0, 0, 0);
     static dispatch_once_t once;
     static id sharedInstance;
     dispatch_once(&once, ^{
         sharedInstance = [[self alloc] init];
+        shouldEmitSignposts = [LKYOCLI hasFlag:@"-emit-signposts"];
     });
+    kdebug_signpost_end(12, 0, 0, 0, 0);
     return sharedInstance;
 }
 
 
 - (instancetype)init {
     self = [super init];
+    self->_filepaths = [NSMutableArray array];
     
     [self parseGrammar];
     
@@ -123,17 +133,26 @@
         mpc_err_delete(err);
         [NSException raise:@"ugh" format:@"fuck"];
     }
+    mpc_optimise(program);
     
     self->_program = program;
 }
 
 
 - (mpc_ast_t *)parseFileAtPath:(NSString *)filePath {
+    NSLog(@"%s %@", __PRETTY_FUNCTION__, filePath);
+    
+    if (shouldEmitSignposts) kdebug_signpost_start(101, self->_filepaths.count, 0, 0, 0);
+    
+    [_filepaths addObject:filePath];
+    
     NSString *input = [NSString stringWithContentsOfFile:filePath encoding:NSUTF8StringEncoding error:nil];
     input = [self preprocessInput:input];
     
     mpc_result_t r;
     if (mpc_parse("input", input.UTF8String, self->_program, &r)) {
+        if (shouldEmitSignposts) kdebug_signpost_end(101, 0, 0, 0, 0);
+        
         return (mpc_ast_t *)r.output;
     }
     
@@ -146,6 +165,13 @@
 
 - (void)freeAST:(mpc_ast_t *)ast {
     mpc_ast_delete(ast);
+}
+
+- (void)_printFilePathIndexes {
+    if (!shouldEmitSignposts) return;
+    [_filepaths enumerateObjectsUsingBlock:^(NSString * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        NSLog(@"%lu - %@", (unsigned long)idx, obj);
+    }];
 }
 
 

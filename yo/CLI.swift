@@ -80,3 +80,10 @@ class CLI {
         return T.convert(stringValue: value)
     }
 }
+
+
+class LKYOCLI: NSObject {
+    @objc class func hasFlag(_ name: String) -> Bool {
+        return CLI.arguments.contains(name)
+    }
+}

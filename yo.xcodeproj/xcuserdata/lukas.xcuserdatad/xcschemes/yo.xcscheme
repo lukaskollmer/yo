@@ -67,6 +67,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "-emit-signposts"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "-log-calls"
             isEnabled = "NO">
          </CommandLineArgument>

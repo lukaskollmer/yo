@@ -59,6 +59,11 @@ extension CLIOptions {
         description: "Log all method calls"
     )
     
+    static let emitSignposts = CLIOption<Void>(
+        flag: "-emit-signposts",
+        description: "(internal) Call `kdebug_signpost` et al to mark points of interest"
+    )
+    
     static let all: [CLIOptions] = [.help, .verbose, .checkHeapEmpty, .printInstructions, .printHeap, .heapSize, .stdlibPath, .printAST, .logAllCalls]
 }
 
