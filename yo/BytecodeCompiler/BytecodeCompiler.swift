@@ -402,13 +402,13 @@ private extension BytecodeCompiler {
     
     
     func guardNoDuplicates(_ declarations: [ASTVariableDeclaration]) {
-        var alreadyProcessed = [ASTVariableDeclaration]()
+        var identifiers = [ASTIdentifier]()
         
-        declarations.forEach { decl in
-            if alreadyProcessed.contains(decl) {
-                fatalError("Invalid redeclaration of `\(decl.identifier)`")
+        for identifier in declarations.map({ $0.identifier }) {
+            guard !identifiers.contains(identifier) else {
+                fatalError("Invalid redeclaration of `\(identifier)`")
             }
-            alreadyProcessed.append(decl)
+            identifiers.append(identifier)
         }
     }
     
