@@ -1249,9 +1249,11 @@ private extension BytecodeCompiler {
         let lhsType = try guessType(ofExpression: binop.lhs)
         let rhsType = try guessType(ofExpression: binop.rhs)
         
-        guard [lhsType, rhsType].all([ASTType.int, .double, .any].contains) else {
-            fatalError("Cannot perform binary operation \(binop.operation) with non-number types '\(lhsType)' and '\(rhsType)'")
-        }
+        guard_allNumericBinaryOperationCompatibleTypes(
+            types: [lhsType, rhsType],
+            errorMessage: "Cannot perform binary operation \(binop.operation) with non-number types '\(lhsType)' and '\(rhsType)'"
+        )
+        
         
         // TODO add a check that only +-*/ can be used w/ doubles?
         
@@ -1370,6 +1372,9 @@ private extension BytecodeCompiler {
         let isConstant = arrayLiteral.elements.all { $0 is ASTNumberLiteral }
         
         if isConstant {
+            // TODO we should probably get rid of the switch below,
+            // array literals w/ constant number literals can't be complex arrays
+            // since complex arrays can't primitives
             let values = arrayLiteral.elements.map { ($0 as! ASTNumberLiteral).value }
             let label = UUID().uuidString
             add(.arrayLiteral(label, values))
@@ -1411,9 +1416,9 @@ private extension BytecodeCompiler {
         let elements = arrayLiteral.elements
         
         if arrayLiteral.kind == .primitive {
-            guard try elements.all({ try guessType(ofExpression: $0).isCompatible(with: .int) }) else {
-                fatalError("primitive array literal contains complex elements")
-            }
+            //guard try elements.all({ try guessType(ofExpression: $0).isCompatible(with: .int) }) else {
+            //    fatalError("primitive array literal contains complex elements")
+            //}
             
             let initializerName = "_specializedPrimitiveArrayInitializerName\(elements.count)"
             let mangledInitializerName = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: initializerName)
@@ -1423,7 +1428,7 @@ private extension BytecodeCompiler {
                 
                 let specializedInitializer = ASTFunctionDeclaration(
                     name: ASTIdentifier(value: initializerName),
-                    parameters: (0..<elements.count).map { ASTVariableDeclaration(identifier: ASTIdentifier(value: "_\($0)"), type: .int) },
+                    parameters: (0..<elements.count).map { ASTVariableDeclaration(identifier: ASTIdentifier(value: "_\($0)"), type: .any) },
                     returnType: .int,
                     kind: .staticImpl("runtime"),
                     body: [
@@ -1561,6 +1566,10 @@ private extension BytecodeCompiler {
             
         } else if let binaryCondition = condition as? ASTBinaryCondition {
             try handle(binaryCondition: binaryCondition)
+            
+        } else if let implicitNonZeroComparison = condition as? ASTImplicitNonZeroComparison {
+            try handle(implicitNonZeroComparison: implicitNonZeroComparison)
+            
         } else {
             fatalError("unhandled condition \(condition)")
         }
@@ -1568,31 +1577,46 @@ private extension BytecodeCompiler {
     
     
     func handle(comparison: ASTComparison) throws {
-        try handle(node: comparison.rhs)
+        let lhsType = try guessType(ofExpression: comparison.lhs)
+        let rhsType = try guessType(ofExpression: comparison.rhs)
+        
+        // TODO enable type checks for comparisons
+        
+        //guard_allNumericBinaryOperationCompatibleTypes(
+        //    types: [lhsType, rhsType],
+        //    errorMessage: "Cannot perform binary comparison \(comparison.operation) with non-number types '\(lhsType)' and '\(rhsType)'"
+        //)
+        
+        //guard lhsType.isCompatible(with: rhsType) else {
+        //    fatalError("Cannot perform binary comparison with incompaible types '\(lhsType)' and '\(rhsType)'")
+        //}
+        
         try handle(node: comparison.lhs)
+        try handle(node: comparison.rhs)
+        
+        let shouldUseDoubleVariant = [lhsType, rhsType].all { $0 == .double }
         
         switch comparison.operation {
         case .equal:
-            add(.eq)
+            add(shouldUseDoubleVariant ? .d_eq : .eq)
         case .notEqual:
-            add(.eq)
+            add(shouldUseDoubleVariant ? .d_eq : .eq)
             add(.lnot)
         case .less:
-            add(.lt)
+            add(shouldUseDoubleVariant ? .d_lt : .lt)
         case .greater:
-            add(.le)
+            add(shouldUseDoubleVariant ? .d_le : .le)
             add(.lnot)
         case .lessEqual:
-            add(.le)
+            add(shouldUseDoubleVariant ? .d_le : .le)
         case .greaterEqual:
-            add(.lt)
+            add(shouldUseDoubleVariant ? .d_lt : .lt)
             add(.lnot)
         }
     }
     
     
     func handle(binaryCondition: ASTBinaryCondition) throws {
-        // evaluate both conditions (lhs and rhs), order doesn't matter
         try handle(node: binaryCondition.lhs)
         try handle(node: binaryCondition.rhs)
         
@@ -1625,6 +1649,16 @@ private extension BytecodeCompiler {
         try handle(comparison: comparison)
     }
 }
+
+
+private extension BytecodeCompiler {
+    func guard_allNumericBinaryOperationCompatibleTypes(types: [ASTType], errorMessage: String) {
+        guard types.all([ASTType.int, .double, .any].contains) else {
+            fatalError(errorMessage)
+        }
+    }
+}
+
 
 private extension BytecodeCompiler {
     func processPotentialImplicitSelfAccess(identifier: ASTIdentifier) -> (memberAccess: ASTMemberAccess, selfType: ASTType, attributeType: ASTType)? {

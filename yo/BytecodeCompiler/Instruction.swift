@@ -72,6 +72,10 @@ enum Operation: Int {
     case lt
     case le
     
+    case d_eq
+    case d_lt
+    case d_le
+    
     // stack operations
     case alloc  // reserve stack space for local variables
     case push   // push the immediate onto the stack
