@@ -56,7 +56,11 @@ private let binopMapping: [String: ASTBinaryOperation.BinopOperation] = [
     ">>": .shr
 ]
 
-
+private let unaryOperatorMapping: [String: ASTUnaryExpression.Operator] = [
+    "-": .negate,
+    "~": .bitwiseNot,
+    "!": .logicalNegation
+]
 
 
 
@@ -1013,13 +1017,6 @@ class Parser {
     
     
     func parseUnaryExpression(_ ast: mpc_ast_t) throws -> ASTUnaryExpression {
-        // TODO make this a global constant?
-        let unaryOperatorMapping: [String: ASTUnaryExpression.Operator] = [
-            "-": .negate,
-            "~": .bitwiseNot,
-            "!": .logicalNegation
-        ]
-        
         return ASTUnaryExpression(
             expression: try parseExpression(ast[1]),
             operator: unaryOperatorMapping[ast[0].lk_content]!
