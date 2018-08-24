@@ -237,7 +237,7 @@ class BytecodeInterpreter {
             try stack.push(~(try stack.pop()))
             
         case .lnot:
-            try stack.push(try stack.pop() == Constants.BooleanValues.true ? Constants.BooleanValues.false : Constants.BooleanValues.true)
+            try stack.push(try stack.pop() != 0 ? 0 : 1)
             
             
         // Int <-> Double conversion
