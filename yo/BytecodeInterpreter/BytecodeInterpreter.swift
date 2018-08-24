@@ -145,29 +145,54 @@ class BytecodeInterpreter {
     
     
     
+    private func call<T, R, U>(_ fn: (T, T) -> R, arg0: U, arg1: U) -> R {
+        return withoutActuallyEscaping(fn) {
+            let fn = unsafeBitCast($0, to: ((U, U) -> R).self)
+            return fn(arg0, arg1)
+        }
+    }
+    
+    
     
     private func eval_binop<T>(type: T.Type, fn: (T, T) -> T) throws {
         // rhs first because lhs is evaluated first, meaning that rhs lies before lhs on the stack
         let rhs = try stack.pop()
         let lhs = try stack.pop()
         
-        func call<T, U>(fn: (T, T) -> T, arg0: U, arg1: U) -> U {
-            return withoutActuallyEscaping(fn) {
-                let fn = unsafeBitCast($0, to: ((U, U) -> U).self)
-                return fn(arg0, arg1)
-            }
-        }
-        
         if type == Int.self {
-            try stack.push(call(fn: fn, arg0: lhs, arg1: rhs))
+            let result = call(fn, arg0: lhs, arg1: rhs) as! Int
+            try stack.push(result)
             
         } else if type == Double.self {
-            try stack.push(call(fn: fn, arg0: lhs.unsafe_loadAsDouble, arg1: rhs.unsafe_loadAsDouble).unsafe_loadAsInt)
+            let result = call(fn, arg0: lhs.unsafe_loadAsDouble, arg1: rhs.unsafe_loadAsDouble) as! Double
+            try stack.push(result.unsafe_loadAsInt)
             
         } else {
             fatalError("Only Int and Double are supported types!")
         }
     }
+    
+    
+    private func eval_comp<T>(type: T.Type, fn: (T, T) -> Bool) throws {
+        let rhs = try stack.pop()
+        let lhs = try stack.pop()
+        
+        let result: Bool
+        
+        if type == Int.self {
+            result = call(fn, arg0: lhs, arg1: rhs)
+            
+        } else if type == Double.self {
+            result = call(fn, arg0: lhs.unsafe_loadAsDouble, arg1: rhs.unsafe_loadAsDouble)
+        
+        } else {
+            fatalError("Unsupported type!")
+        }
+        
+        try stack.push(result == true ? Constants.BooleanValues.true : Constants.BooleanValues.false)
+    }
+    
+    
     
     
     func eval(_ instruction: InstructionDescriptor) throws {
@@ -250,13 +275,24 @@ class BytecodeInterpreter {
             
         // Comparisons
         case .eq:
-            try stack.push((try stack.pop() == stack.pop()) ? Constants.BooleanValues.true : Constants.BooleanValues.false)
+            try eval_comp(type: Int.self, fn: ==)
             
         case .lt:
-            try stack.push((try stack.pop() < stack.pop()) ? Constants.BooleanValues.true : Constants.BooleanValues.false)
+            try eval_comp(type: Int.self, fn: <)
             
         case .le:
-            try stack.push((try stack.pop() <= stack.pop()) ? Constants.BooleanValues.true : Constants.BooleanValues.false)
+            try eval_comp(type: Int.self, fn: <=)
+            
+            
+        case .d_eq:
+            try eval_comp(type: Double.self, fn: ==)
+            
+        case .d_lt:
+            try eval_comp(type: Double.self, fn: <)
+            
+        case .d_le:
+            try eval_comp(type: Double.self, fn: <=)
+            
         
         
         // Stack operations
