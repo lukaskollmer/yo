@@ -691,13 +691,9 @@ class Parser {
     func parseCondition(_ ast: mpc_ast_t) throws -> ASTCondition {
         if ast.count == 0 || ["lcond|expr", "cond|lcond|expr"].any(ast.lk_tag.hasPrefix) {
             // a) no children -> single expression that is implicitly compared to true
-            // b) if the entire condition ast is an expression, we're also dealing w/ some expression being implicitly compared to true
-            // TODO introduce a `ASTImplicitTrueComparison` class, instead of creating the comparison object here in the parser
-            return ASTComparison(
-                lhs: try parseExpression(ast),
-                operation: .equal,
-                rhs: ASTBooleanLiteral(value: true)
-            )
+            // b) if the entire condition ast is an expression, we're also dealing w/ some expression implicitly being used as a condition
+            let expression = try parseExpression(ast)
+            return ASTImplicitNonZeroComparison(expression: expression)
         }
         
         

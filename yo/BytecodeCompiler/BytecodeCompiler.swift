@@ -1613,6 +1613,17 @@ private extension BytecodeCompiler {
         add(.push, expectedResult)
         add(.eq)
     }
+    
+    
+    func handle(implicitNonZeroComparison: ASTImplicitNonZeroComparison) throws {
+        let comparison = ASTComparison(
+            lhs: implicitNonZeroComparison.expression,
+            operation: .notEqual,
+            rhs: 0 as ASTNumberLiteral
+        )
+        
+        try handle(comparison: comparison)
+    }
 }
 
 private extension BytecodeCompiler {

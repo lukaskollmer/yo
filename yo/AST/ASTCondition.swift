@@ -54,4 +54,17 @@ class ASTComparison: ASTCondition {
     }
 }
 
-// TODO ASTUnaryCondition?
+
+// A condition where some expression is implicitly compared against 0
+// ie:
+// ```
+// if foo { }
+// if !bar { }
+// ```
+class ASTImplicitNonZeroComparison: ASTCondition {
+    let expression: ASTExpression
+    
+    init(expression: ASTExpression) {
+        self.expression = expression
+    }
+}
