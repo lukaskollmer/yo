@@ -17,7 +17,7 @@ let ImmediateSize = InstructionSize - 8 // It's probably best to avoid using the
 
 // Wrapper struct that extracts data from an instruction
 // TODO maybe find a better name?
-struct InstructionDescriptor {
+struct InstructionDescriptor: CustomStringConvertible {
     let instruction: Instruction
     
     var opcode: Int {
@@ -30,6 +30,10 @@ struct InstructionDescriptor {
     
     var immediate: Int {
         return instruction >> 7
+    }
+    
+    var description: String {
+        return "<InstructionDescriptor op=\(operation) immediate=\(immediate)>"
     }
 }
 
