@@ -61,10 +61,22 @@
 - [ ] redeclare primitive types as structs? that'd allow int/etc to have member functions
 - [ ] `use` paths case insensitive? (currently they are not and `use "std/Array";` will cause many issues)
 
+- [ ]  `io::print(a.get(3).description());` chained method calls
+
 **lambdas**
 - [ ] what if a lambda declares `x`, but there's alao an `x` in the outer scope? (it should obviously NOT capture the outer `x`)
 - [ ] can't call captured lambda in lambda w/out having to assign it to a local variable first?
-- [ ] allow overriding a lambda's return type
+- [ ] allow overriding a lambda's return type? (TODO is there a use case for this?)
+- [ ] allow lambdas w/out the parens and a single expression?
 
 **conditions**
 - [ ] OR comp where both sides are true fail (ie `true == true || false == false`)
+
+**native function naming**
+- [ ] use underscore to indicate that a function is implemented as a native function and therefore doesn't retain/release its arguments?
+
+**variadic functions**
+ - [ ] if a check that all non-fixed arguments to a variadic function expecting `Array` are complex
+ - [ ] add a `...` spread operator for passing an array to a variadic function
+       basically, what this should do is pass the array as is, w/out creating a new array containing the non-fixed elements
+       would only work if there is only 1 non-fixed element, which is an array (primitive or complex)

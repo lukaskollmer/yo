@@ -153,3 +153,15 @@ val greeting = String::format("Hello, TODO")
 func labelForFunctionInvocation(mangledFunctionName: String, parameterTypes: [ASTType]) -> String
 ```
 if a function is defined w/ multiple overloads, the generated versions get a counter appended and we call the right one depending on the arguments we're passing there
+
+
+
+## unsafe blocks
+```rust
+val x: id;
+x.foo(); // compile time error
+
+unsafe {
+  x.foo; // compiles fine uses runtime::_lookupAddress to dispatch the call
+}
+```
