@@ -890,7 +890,7 @@ class Parser {
             return try parseFunctionCall(ast)
             
         //case "lexpr|number|regex":
-        case "number|number_b10|regex", "number|number_b02|regex", "number|number_b08|regex", "number|number_b16|regex", "number|number_double|regex":
+        case "lexpr|number|>", "number|number_b10|regex", "number|number_b02|regex", "number|number_b08|regex", "number|number_b16|regex", "number|number_double|regex":
             return try parseNumberLiteral(ast)
             
         case "binop_add|>", "binop_mul|>": // TODO test that binop_mul works properly
@@ -1053,23 +1053,27 @@ class Parser {
     
     func parseNumberLiteral(_ ast: mpc_ast_t) throws -> ASTNumberLiteral {
         
-        let base: Int
-        var rawStringValue = ast.lk_content.replacingOccurrences(of: "_", with: "")
+        // number literals w/ an unary prefix are split up into two sub-asts (prefix + value)
+        let hasUnaryPrefix = ast.count == 2
+        let value_ast = !hasUnaryPrefix ? ast : ast[1]
         
-        switch ast.lk_tag.hasSuffix {
-        case "number|number_b02|regex":
+        let base: Int
+        var rawStringValue = value_ast.lk_content.replacingOccurrences(of: "_", with: "")
+        
+        switch value_ast.lk_tag.hasSuffix {
+        case "number_b02|regex":
             base = 2
         
-        case "number|number_b08|regex":
+        case "number_b08|regex":
             base = 8
         
-        case "number|number_b10|regex":
+        case "number_b10|regex":
             base = 10
         
-        case "number|number_b16|regex":
+        case "number_b16|regex":
             base = 16
             
-        case "number|number_double|regex":
+        case "number_double|regex":
             guard let value = Double(rawStringValue) else {
                 fatalError("Unable to process double literal '\(rawStringValue)'")
             }
@@ -1089,7 +1093,8 @@ class Parser {
             fatalError("Unable to parse number literal \(ast.lk_content)")
         }
         
-        return ASTNumberLiteral(value: value)
+        // `-` is the only unary prefix allowed for integer literals
+        return ASTNumberLiteral(value: hasUnaryPrefix ? -value : value)
     }
     
     
