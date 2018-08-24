@@ -175,7 +175,7 @@ impl HashMap {
             if value == 0 {
                 value_description = "0";
             } else {
-                value_description = Object::description(value);
+                unsafe { value_description = value.description(); }
             }
 
             desc.append_format("    [%n] (%s, %s)\n", @i, key_description, value_description);

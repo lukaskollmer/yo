@@ -217,6 +217,18 @@ extension BytecodeCompiler {
     }
     
     
+    func withUnsafeBlock<T>(block: () throws -> T) rethrows -> T {
+        let oldValue = scope.isUnsafe
+        
+        scope.isUnsafe = true
+        let retval = try block()
+        
+        scope.isUnsafe = oldValue
+        
+        return retval
+    }
+    
+    
     var arcEnabledInCurrentScope: Bool {
         guard case .function(let functionName, _) = scope.type else {
             return false
@@ -337,6 +349,11 @@ private extension BytecodeCompiler {
             
         } else if let deferStatement = node as? ASTDeferStatement {
             try handle(composite: deferStatement.body)
+            
+        } else if let unsafeBlock = node as? ASTUnsafeBlock {
+            try withUnsafeBlock {
+                try self.handle(composite: unsafeBlock.body)
+            }
             
         } else if let _ = node as? ASTNoop {
             
@@ -1160,20 +1177,45 @@ private extension BytecodeCompiler {
             case .functionCall(let functionName, let arguments, let unusedReturnValue):
                 guard case .complex(let currentTypename) = currentType else { fatalError("ugh") } // TODO redundant code!!! (see above)
                 
-                let mangledName = SymbolMangling.mangleInstanceMember(ofType: currentTypename, memberName: functionName.value)
-                
-                guard let functionInfo = functions[mangledName] else {
-                    fatalError("unable to resolve member function call to '\(mangledName)'")
+                if !typeCache.typeExists(withName: currentTypename) {
+                    if currentTypename == "id" && scope.isUnsafe {
+                        expr = ASTFunctionCall(
+                            functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "msgSend"),
+                            arguments: [
+                                expr,   // The target of the method call
+                                ASTStringLiteral(value: functionName.value),    // selector
+                                ASTNumberLiteral(value: arguments.count)        // argc
+                            ]
+                            + arguments                     // the actual arguments
+                            + [0 as ASTNumberLiteral],      // 0 (unused, see below)
+                            // Q: why do we append the unused 0?
+                            // A: `runtime::msgSend` is variadic, with a primitive array, meaning that there has to be at least one non-fixed argument\
+                            //    However, we have to handle the case where this is a method call that doesn't take any parameters
+                            
+                            unusedReturnValue: unusedReturnValue
+                        ).as(.id) // TODO is .id the right choice? does that work w/ the existing arc implementation?
+                        currentType = .id
+                        
+                    } else {
+                        fatalError("unable to resolve type of call target. wrap in an `unsafe` block to use dynamic dispatch instead")
+                    }
+                } else {
+                    let mangledName = SymbolMangling.mangleInstanceMember(ofType: currentTypename, memberName: functionName.value)
+                    
+                    guard let functionInfo = functions[mangledName] else {
+                        // TODO if `currentTypename` is `id` and we're in a `unsafe` block, turn this into an address lookup and call that instead
+                        fatalError("unable to resolve member function call to '\(mangledName)'")
+                    }
+                    
+                    expr = ASTTypeMemberFunctionCall(
+                        mangledName: mangledName,
+                        target: expr,
+                        arguments: arguments,
+                        unusedReturnValue: unusedReturnValue
+                    )
+                    
+                    currentType = functionInfo.returnType
                 }
-                
-                expr = ASTTypeMemberFunctionCall(
-                    mangledName: mangledName,
-                    target: expr,
-                    arguments: arguments,
-                    unusedReturnValue: unusedReturnValue
-                )
-                
-                currentType = functionInfo.returnType
             }
         }
         

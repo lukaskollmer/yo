@@ -75,6 +75,35 @@ class Runtime: NativeFunctions {
         
         self["runtime", "decltype", .String, [.any]] = {_ in return 0 }   // manually implemented in the compiler
         
+        
+        self["runtime", "_lookupAddress", .int, [.String]] = { interpreter in
+            let symbolName = Runtime.getString(0, interpreter)
+            return interpreter.procedureEntryAddresses[reverse: symbolName] ?? 0
+        }
+        
+        
+        // arguments:
+        // 1. function address
+        // 2. argc
+        // 3. argv (pointer to primitive array)
+        self["runtime", "_invoke", .any, [.int, .int, .int]] = { interpreter in
+            let address = interpreter.stack.peek()
+            let argc = interpreter.stack.peek(offset: -1)
+            let argv = interpreter.stack.peek(offset: -2)
+            
+            let args: [Int] = argc == 0
+                ? []
+                : Array(interpreter.heap[argv..<(argv + argc)])
+            
+            guard let _ = interpreter.procedureEntryAddresses[address] else {
+                fatalError("Trying to invoke an address which is not a function entry point")
+            }
+            
+            return try! interpreter.call(address: address, arguments: args) // TODO handle error?
+        }
+        
+        
+        
         // Sorting
         
         self["runtime", "sort", .void, [.int, .int]] = { interpreter in

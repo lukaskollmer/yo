@@ -19,6 +19,7 @@
 		803BEDDC211898A7009DC37A /* mpc.c in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDDA211898A6009DC37A /* mpc.c */; settings = {COMPILER_FLAGS = "-w"; }; };
 		803BEDE02118ADA3009DC37A /* Parser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDDF2118ADA3009DC37A /* Parser.swift */; };
 		803BEDE3211AF7D0009DC37A /* LKUtilities.m in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDE2211AF7D0009DC37A /* LKUtilities.m */; };
+		803C522B212EE0B50000C8D6 /* ASTUnsafeBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803C522A212EE0B50000C8D6 /* ASTUnsafeBlock.swift */; };
 		803ECFD6211320FC001B9975 /* BuiltinIdentifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803ECFD5211320FC001B9975 /* BuiltinIdentifiers.swift */; };
 		803ECFEB21148D2A001B9975 /* CodeGen+Globals.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803ECFEA21148D2A001B9975 /* CodeGen+Globals.swift */; };
 		804834DC20B6D699009E59FC /* extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804834DB20B6D699009E59FC /* extensions.swift */; };
@@ -167,6 +168,7 @@
 		803BEDE1211AF7CF009DC37A /* LKUtilities.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LKUtilities.h; sourceTree = "<group>"; };
 		803BEDE2211AF7D0009DC37A /* LKUtilities.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LKUtilities.m; sourceTree = "<group>"; };
 		803BEDFA211C8845009DC37A /* grammar.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = grammar.h; sourceTree = "<group>"; };
+		803C522A212EE0B50000C8D6 /* ASTUnsafeBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTUnsafeBlock.swift; sourceTree = "<group>"; };
 		803ECFD5211320FC001B9975 /* BuiltinIdentifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltinIdentifiers.swift; sourceTree = "<group>"; };
 		803ECFEA21148D2A001B9975 /* CodeGen+Globals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CodeGen+Globals.swift"; sourceTree = "<group>"; };
 		804834DB20B6D699009E59FC /* extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = extensions.swift; sourceTree = "<group>"; };
@@ -486,6 +488,7 @@
 				803BEDD0211765D3009DC37A /* ASTEnumDeclaration.swift */,
 				803BEDD5211895F7009DC37A /* ASTInlineBooleanExpression.swift */,
 				806F7648211F0FE500DD67F3 /* ASTDeferStatement.swift */,
+				803C522A212EE0B50000C8D6 /* ASTUnsafeBlock.swift */,
 			);
 			path = AST;
 			sourceTree = "<group>";
@@ -666,6 +669,7 @@
 				806F7649211F0FE500DD67F3 /* ASTDeferStatement.swift in Sources */,
 				80EAA47220B75BE20043A6F6 /* ASTNoop.swift in Sources */,
 				80EA785D20EE57C900882378 /* NativeFunctions+IO.swift in Sources */,
+				803C522B212EE0B50000C8D6 /* ASTUnsafeBlock.swift in Sources */,
 				8072C76920EA1C2600FA9F62 /* ASTBooleanLiteral.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

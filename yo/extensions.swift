@@ -192,6 +192,12 @@ extension Dictionary {
     }
 }
 
+extension Dictionary where Value: Equatable {
+    subscript(reverse value: Value) -> Key? {
+        return self.first { $0.value == value }?.key
+    }
+}
+
 
 extension FileManager {
     func directoryExists(atPath path: String) -> Bool {

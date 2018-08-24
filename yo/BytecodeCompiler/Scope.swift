@@ -24,6 +24,8 @@ struct Scope {
     private var numberOfParameters = 0
     private var types = [String: ASTType]()
     
+    var isUnsafe: Bool = false
+    
     let parameters: [ASTVariableDeclaration]
     let localVariables: [ASTVariableDeclaration]
     
@@ -34,10 +36,11 @@ struct Scope {
         self.localVariables = []
     }
     
-    init(type: ScopeType, parameters: [ASTVariableDeclaration], localVariables: [ASTVariableDeclaration] = []) {
+    init(type: ScopeType, parameters: [ASTVariableDeclaration], localVariables: [ASTVariableDeclaration] = [], isUnsafe: Bool = false) {
         self.type = type
         self.parameters = parameters
         self.localVariables = localVariables
+        self.isUnsafe = isUnsafe
         
         numberOfParameters = parameters.count
         
@@ -79,7 +82,8 @@ struct Scope {
         return Scope(
             type: self.type,
             parameters: self.parameters,
-            localVariables: self.localVariables + newLocals
+            localVariables: self.localVariables + newLocals,
+            isUnsafe: self.isUnsafe
         )
     }
     

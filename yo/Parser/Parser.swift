@@ -234,6 +234,9 @@ class Parser {
         case "stmt|defer_block|>":
             return try parseDeferBlock(ast)
             
+        case "stmt|unsafe_block|>":
+            return try parseUnsafeBlock(ast)
+            
         default:
             fatalError("unexpected statement \(ast)")
         }
@@ -243,6 +246,11 @@ class Parser {
     func parseDeferBlock(_ ast: mpc_ast_t) throws -> ASTDeferStatement {
         let body = try parseComposite(ast[1])
         return ASTDeferStatement(body: body)
+    }
+    
+    func parseUnsafeBlock(_ ast: mpc_ast_t) throws -> ASTUnsafeBlock {
+        let body = try parseComposite(ast[1])
+        return ASTUnsafeBlock(body: body)
     }
     
     

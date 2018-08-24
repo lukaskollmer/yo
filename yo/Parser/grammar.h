@@ -153,9 +153,12 @@ const char *YO_GRAMMAR =
 
 " defer_block   : \"defer\" <composite>   ; "
 
+" unsafe_block  : \"unsafe\" <composite> ; "
+
 " stmt          : <ret>             "
 "               | <assignment>        "
 "               | <var_decl>     "
+"               | <unsafe_block>    "
 "               | <stmt_fn_call>    "
 "               | <cond_stmt>       "
 "               | <for_loop>        "

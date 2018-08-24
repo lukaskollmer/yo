@@ -24,4 +24,30 @@ impl runtime {
         val metatype_ptr = obj[0] >> 32;
         ret metatype_ptr[0] as Type;
     }
+
+
+    // unsafely invoke a method
+    #[variadic]
+    static fn msgSend(target: id, selector: String, argc: int, argv: int): any {
+        if target == 0 {
+            ret 0;
+        }
+
+        val type = runtime::typeof(target);
+        selector = String::format("%s_I%s", type.name, selector);
+
+        val addr = runtime::_lookupAddress(selector);
+
+        val argv_with_self = runtime::alloc(argc + 1);
+        argv_with_self[0] = target;
+        if argc > 0 {
+            runtime::copy_array(argv, 0, argv_with_self, 1, argc);
+        }
+        runtime::free(argv);
+
+        val retval = runtime::_invoke(addr, argc + 1, argv_with_self);
+        runtime::free(argv_with_self);
+
+        ret retval;
+    }
 }
