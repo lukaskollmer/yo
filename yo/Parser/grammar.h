@@ -83,8 +83,8 @@ const char *YO_GRAMMAR =
 " lexpr         : <boolean>                             "
 "               | <lambda>  "
 "               | '(' <expr>  ')'                       "
-"               | <unary>                       "
 "               | <number>                       "
+"               | <unary>                       "
 "               | <string>                       "
 "               | <array_literal>                       "
 // TODO can/should <fn_call> be moved to <expr> ?
@@ -159,11 +159,11 @@ const char *YO_GRAMMAR =
 "               | <assignment>        "
 "               | <var_decl>     "
 "               | <unsafe_block>    "
+"               | <asm_stmt>       "
 "               | <stmt_fn_call>    "
 "               | <cond_stmt>       "
 "               | <for_loop>        "
-"               | <defer_block>      "
-"               | <asm_stmt> ;      "
+"               | <defer_block> ;     "
 // var_decl after assignment because it can interfer w/ other statements
 // example: `value = 12;` would be parsed as `val ue = 12;`
 
