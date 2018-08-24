@@ -10,7 +10,7 @@ import Foundation
 
 
 // A wrapper around a `Heap` that implements a stack growing from the end of the heap
-class Stack {
+class Stack: CustomStringConvertible {
     unowned let heap: Heap // TODO does unowned make sense here?
     let size: Int
     
@@ -52,5 +52,15 @@ class Stack {
     
     func peek(offset: Int = 0) -> Int {
         return heap[actualIndex(for: stackPointer + offset)]
+    }
+    
+    
+    private var elements: ArraySlice<Int> {
+        return heap[actualIndex(for: stackPointer)..<actualIndex(for: 0)]
+    }
+    
+    
+    var description: String {
+        return "<Stack sp=\(stackPointer) fp=\(framePointer) elements=\(elements)>"
     }
 }
