@@ -381,7 +381,7 @@ private extension BytecodeCompiler {
             }
         }
         
-        guardNoDuplicates(function.parameters)
+        guard_noDuplicates(function.parameters)
         
         // TODO wouldn't it make much more sense to create a new scope for each function?
         try withScope(Scope(type: .function(name: function.mangledName, returnType: function.returnType), parameters: function.parameters)) {
@@ -413,23 +413,6 @@ private extension BytecodeCompiler {
     }
     
     
-    
-    func guardNoDuplicates(_ declarations: [ASTVariableDeclaration]) {
-        var identifiers = [ASTIdentifier]()
-        
-        for identifier in declarations.map({ $0.identifier }) {
-            guard !identifiers.contains(identifier) else {
-                fatalError("Invalid redeclaration of `\(identifier)`")
-            }
-            identifiers.append(identifier)
-        }
-    }
-    
-    
-    
-    
-    
-    
     func handle(composite: ASTComposite) throws {
         guard case .function(let functionName, let returnType) = scope.type else {
             fatalError("top level composite outside a function?")
@@ -456,7 +439,7 @@ private extension BytecodeCompiler {
         let hasReturnStatement = composite.statements.any { $0 is ASTReturnStatement }
         var localVariables = composite.statements.getLocalVariables(recursive: false)
         
-        guardNoDuplicates(localVariables)
+        guard_noDuplicates(localVariables)
         
         // Automatic type inference 😎
         // Why is this an indexed for loop, instead of a map call?
@@ -1659,6 +1642,17 @@ private extension BytecodeCompiler {
     func guard_allNumericBinaryOperationCompatibleTypes(types: [ASTType], errorMessage: String) {
         guard types.all([ASTType.int, .double, .any].contains) else {
             fatalError(errorMessage)
+        }
+    }
+    
+    func guard_noDuplicates(_ declarations: [ASTVariableDeclaration]) {
+        var identifiers = [ASTIdentifier]()
+        
+        for identifier in declarations.map({ $0.identifier }) {
+            guard !identifiers.contains(identifier) else {
+                fatalError("Invalid redeclaration of `\(identifier)`")
+            }
+            identifiers.append(identifier)
         }
     }
 }
