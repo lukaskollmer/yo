@@ -70,6 +70,10 @@ class BytecodeInterpreter {
     
     
     func call(address: Int, arguments: [Int]) throws -> Int {
+        //print("INIT", stack)
+        if address == 0 {
+            fatalError("fuckin hell")
+        }
         // simulating a function call
         // this is problematic for several reasons:
         // - after the function call, the stack has to be in the *exact* same state as before
@@ -84,8 +88,9 @@ class BytecodeInterpreter {
         }
         
         try stack.push(stack.framePointer)
-        try stack.push(instructionPointer + 0)  // return address. since this is a native call, we return to the same address?
-        
+        let designatedReturnAddress = instructionPointer + 0 // return address. since this is a native call, we return to the same address?
+        try stack.push(designatedReturnAddress)
+
         
         // We have to push the arguments onto the stack *in reverse order*
         // Why? When handling a normal function call, we go through the arguments in order (ie left-to-right)
@@ -96,26 +101,28 @@ class BytecodeInterpreter {
         stack.framePointer = stack.stackPointer
         instructionPointer = address
         
-        var depth = 1
+        let previousFramePointer = stack.framePointer
         
         recordCallEvent(.entry(address))
         
+        // NOTE: there are 2 obvious options for detecting when the function we're simulating a call to returns:
+        // 1. keep track of the current "depth": all function calls from w/in the called function increment the depth, all returns decrement it
+        //      Problem: it's difficult to get this right (there's a more or less working version somewhere in the git history)
+        // 2. remember the return address and check whether we're about to return to that address
+        //      Problem: what if one of the "nested" function calls is to out callee, in which case the return address would be the same?
+        //      We solve this by also keeping track of the frame pointer, to make sure we're returning from the same function invocation
+        
         while true {
-            noop()
             
             if (0..<instructions.count).contains(instructionPointer) {
-                let prevImmediate = instructions[instructionPointer - 1].immediate
                 let next = instructions[instructionPointer]
                 
-                if next.operation == .call && prevImmediate > 0 {
-                    depth += 1
-                }
+                let isReturningFromInitialFunctionCall = next.operation == .ret
+                        && stack.peek(offset: -(next.immediate + 1)) == designatedReturnAddress
+                        && previousFramePointer == stack.framePointer
                 
-                if next.operation == .ret {
-                    depth -= 1
-                }
-                
-                if depth == 0 {
+                if
+                    isReturningFromInitialFunctionCall {
                     let returnValue = try stack.pop()
                     
                     for _ in 0..<next.immediate {
@@ -130,8 +137,6 @@ class BytecodeInterpreter {
                     // TODO run some assertion to make sure the stack is unchanged?
                     return returnValue
                 }
-                
-                noop()
             }
             
             let previousIP = instructionPointer
@@ -369,6 +374,8 @@ class BytecodeInterpreter {
                 
                 // fetch the address of the lambda's invoke function pointer
                 destinationInstructionPointer = heap[destinationInstructionPointer + 1]
+            } else if destinationInstructionPointer == 0 {
+                fatalError("the fuck")
             }
             
             try stack.push(stack.framePointer)
