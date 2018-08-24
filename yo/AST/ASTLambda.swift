@@ -127,6 +127,9 @@ extension ASTNode {
             return arraySetter.target.getAccessedIdentifiers()
                 + arraySetter.offset.getAccessedIdentifiers()
                 + arraySetter.value.getAccessedIdentifiers()
+            
+        } else if let implicitNonZeroComparison = self as? ASTImplicitNonZeroComparison {
+            return implicitNonZeroComparison.expression.getAccessedIdentifiers()
         }
         
         fatalError("unhandled node \(self)")
