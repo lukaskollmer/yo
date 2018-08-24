@@ -350,11 +350,6 @@ private extension BytecodeCompiler {
         } else if let deferStatement = node as? ASTDeferStatement {
             try handle(composite: deferStatement.body)
             
-        } else if let unsafeBlock = node as? ASTUnsafeBlock {
-            try withUnsafeBlock {
-                try self.handle(composite: unsafeBlock.body)
-            }
-            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -406,7 +401,8 @@ private extension BytecodeCompiler {
             if !(function.body.statements.last is ASTReturnStatement) {
                 functionBody = ASTComposite(
                     statements: function.body.statements + [ASTReturnStatement(expression: ASTNumberLiteral(value: 0))],
-                    introducesNewScope: true
+                    introducesNewScope: true,
+                    isUnsafe: function.body.isUnsafe
                 )
             } else {
                 functionBody = function.body
@@ -438,6 +434,14 @@ private extension BytecodeCompiler {
         guard case .function(let functionName, let returnType) = scope.type else {
             fatalError("top level composite outside a function?")
         }
+        
+        
+        let isUnsafe_oldValue = scope.isUnsafe
+        scope.isUnsafe = isUnsafe_oldValue || composite.isUnsafe
+        defer {
+            scope.isUnsafe = isUnsafe_oldValue
+        }
+        
         
         // if the composite doesn't introduce a new scope, we simply handle all statements
         if !composite.introducesNewScope {

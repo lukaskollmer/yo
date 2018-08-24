@@ -179,7 +179,7 @@ const char *YO_GRAMMAR =
 
 " annotation    : \"#[\" <ident> ( ',' <ident> )* ']' ; "
 
-" function_signature :  <annotation>* \"static\"? \"fn\" <ident> '(' <paramList>? ')' ':' <type>  ; "
+" function_signature :  <annotation>* \"static\"? \"unsafe\"? \"fn\" <ident> '(' <paramList>? ')' ':' <type>  ; "
 
 " function      : <function_signature> <composite> ;      "
 

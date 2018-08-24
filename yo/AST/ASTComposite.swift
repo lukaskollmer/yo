@@ -11,11 +11,13 @@ import Foundation
 
 class ASTComposite: ASTStatement, ExpressibleByArrayLiteral {
     let statements: [ASTStatement]
-    let introducesNewScope: Bool
+    let introducesNewScope: Bool // TODO get rid of this
+    var isUnsafe: Bool
     
-    init(statements: [ASTStatement], introducesNewScope: Bool = true) { // TODO remove the default value?
+    init(statements: [ASTStatement], introducesNewScope: Bool = true, isUnsafe: Bool = false) { // TODO remove the default value?
         self.statements = statements
         self.introducesNewScope = introducesNewScope
+        self.isUnsafe = isUnsafe
     }
     
     convenience required init(arrayLiteral elements: ASTStatement...) {

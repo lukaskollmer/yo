@@ -39,6 +39,7 @@ private let _greaterThan: _Token = ("char", ">")
 // Strings (mostly keywords)
 private let _fn: _Token = ("string", "fn")
 private let _static: _Token = ("string", "static")
+private let _unsafe: _Token = ("string", "unsafe")
 
 
 // MARK: constants
@@ -252,9 +253,10 @@ class Parser {
         return ASTDeferStatement(body: body)
     }
     
-    func parseUnsafeBlock(_ ast: mpc_ast_t) throws -> ASTUnsafeBlock {
+    func parseUnsafeBlock(_ ast: mpc_ast_t) throws -> ASTComposite {
         let body = try parseComposite(ast[1])
-        return ASTUnsafeBlock(body: body)
+        body.isUnsafe = true
+        return body
     }
     
     
@@ -472,13 +474,24 @@ class Parser {
             
         }
         
+        var isUnsafeFunction = false
+        
         if signature[functionNameIndex] == _static {
-            functionNameIndex += 2
             kind = .staticImpl(implTypenameContext)
-        } else {
             functionNameIndex += 1
+        } else {
             kind = implTypenameContext == "" ? .global : .impl(implTypenameContext)
         }
+        
+        if signature[functionNameIndex] == _unsafe {
+            isUnsafeFunction = true
+            functionNameIndex += 1
+        }
+        
+        if signature[functionNameIndex] == _fn {
+            functionNameIndex += 1
+        }
+        
         
         let functionName = try parseIdentifier(signature[functionNameIndex])
         
@@ -498,6 +511,7 @@ class Parser {
         // TODO missing return type implies void
         let returnType = try parseType(signature[closingParenthesesIndex + 2])
         let body = try parseComposite(ast[1])
+        body.isUnsafe = isUnsafeFunction
         
         return ASTFunctionDeclaration(
             name: functionName,
