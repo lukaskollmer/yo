@@ -26,6 +26,7 @@
 		804E4EB420BBE92800736FCC /* ASTStringLiteral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804E4EB320BBE92800736FCC /* ASTStringLiteral.swift */; };
 		805509EF20F0C5B5001B4867 /* FFI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 805509EE20F0C5B5001B4867 /* FFI.swift */; };
 		805E370A20D3E42500F5BB63 /* ASTMemberAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 805E370920D3E42500F5BB63 /* ASTMemberAccess.swift */; };
+		806D73682131B78D003D3902 /* CountedSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806D73672131B78D003D3902 /* CountedSet.swift */; };
 		806F7649211F0FE500DD67F3 /* ASTDeferStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806F7648211F0FE500DD67F3 /* ASTDeferStatement.swift */; };
 		806FEE0B212C75DC00E2EF11 /* ShortCircuitEvaluation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806FEE0A212C75DC00E2EF11 /* ShortCircuitEvaluation.swift */; };
 		8072C75A20E90DA100FA9F62 /* ASTBoxedExpression.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8072C75920E90DA100FA9F62 /* ASTBoxedExpression.swift */; };
@@ -172,6 +173,7 @@
 		804E4EB320BBE92800736FCC /* ASTStringLiteral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTStringLiteral.swift; sourceTree = "<group>"; };
 		805509EE20F0C5B5001B4867 /* FFI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFI.swift; sourceTree = "<group>"; };
 		805E370920D3E42500F5BB63 /* ASTMemberAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTMemberAccess.swift; sourceTree = "<group>"; };
+		806D73672131B78D003D3902 /* CountedSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountedSet.swift; sourceTree = "<group>"; };
 		806F7648211F0FE500DD67F3 /* ASTDeferStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTDeferStatement.swift; sourceTree = "<group>"; };
 		806FEE0A212C75DC00E2EF11 /* ShortCircuitEvaluation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortCircuitEvaluation.swift; sourceTree = "<group>"; };
 		8072C75920E90DA100FA9F62 /* ASTBoxedExpression.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTBoxedExpression.swift; sourceTree = "<group>"; };
@@ -435,6 +437,7 @@
 				80EAA49D20B9C0470043A6F6 /* Stack.swift */,
 				80CF5AA220EA3612000A969A /* Constants.swift */,
 				803BEDCA211753D5009DC37A /* Buffer.swift */,
+				806D73672131B78D003D3902 /* CountedSet.swift */,
 			);
 			path = BytecodeInterpreter;
 			sourceTree = "<group>";
@@ -650,6 +653,7 @@
 				803BEDE3211AF7D0009DC37A /* LKUtilities.m in Sources */,
 				80EAA49020B899980043A6F6 /* ASTAssignment.swift in Sources */,
 				80E106AA20DE93AB0021F453 /* ASTAnnotation.swift in Sources */,
+				806D73682131B78D003D3902 /* CountedSet.swift in Sources */,
 				80EAA49C20B97DE60043A6F6 /* Heap.swift in Sources */,
 				803ECFEB21148D2A001B9975 /* CodeGen+Globals.swift in Sources */,
 				80F1E9B620BD658100336F4C /* ASTRawOperation.swift in Sources */,
