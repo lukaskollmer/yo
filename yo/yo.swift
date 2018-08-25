@@ -84,7 +84,21 @@ enum yo {
             Log.info("\n\(instructions.fancyDescription)")
         }
         
-        let interpreter = BytecodeInterpreter(wipInstructions: instructions, heapSize: heapSize)
+        let interpreterDebugOptions: BytecodeInterpreter.DebugOptions = {
+            var options = BytecodeInterpreter.DebugOptions()
+            
+            if CLI.hasFlag(.logAllCalls) {
+                options.insert(.logCallEvents)
+            }
+            
+            if CLI.hasFlag(.recordCallStats) {
+                options.insert(.recordCallStats)
+            }
+            
+            return options
+        }()
+        
+        let interpreter = BytecodeInterpreter(wipInstructions: instructions, heapSize: heapSize, debugOptions: interpreterDebugOptions)
         
         Profiling.recordStart(event: .interpret)
         let retval = try interpreter.run()

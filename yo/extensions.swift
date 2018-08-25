@@ -36,6 +36,10 @@ extension Int {
     var isOdd: Bool {
         return !isEven
     }
+    
+    var numberOfDigitsInBase10: Int {
+        return Int(log10(Double(self))) + 1
+    }
 }
 
 
@@ -203,6 +207,15 @@ extension FileManager {
     func directoryExists(atPath path: String) -> Bool {
         var isDirectory: ObjCBool = false
         return self.fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
+    }
+}
+
+
+extension DateFormatter {
+    static func string(from date: Date, format: String) -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = format
+        return dateFormatter.string(from: date)
     }
 }
 

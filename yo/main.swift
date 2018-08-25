@@ -59,12 +59,17 @@ extension CLIOptions {
         description: "Log all method calls"
     )
     
+    static let recordCallStats = CLIOption<Void>(
+        flag: "-record-call-stats",
+        description: "Records all method invocations as a text file (similar to NSObjCMessageLoggingEnabled in Objective-C)"
+    )
+    
     static let emitSignposts = CLIOption<Void>(
         flag: "-emit-signposts",
         description: "(internal) Call `kdebug_signpost` et al to mark points of interest"
     )
     
-    static let all: [CLIOptions] = [.help, .verbose, .checkHeapEmpty, .printInstructions, .printHeap, .heapSize, .stdlibPath, .printAST, .logAllCalls]
+    static let all: [CLIOptions] = [.help, .verbose, .checkHeapEmpty, .printInstructions, .printHeap, .heapSize, .stdlibPath, .printAST, .logAllCalls, .recordCallStats, .emitSignposts]
 }
 
 

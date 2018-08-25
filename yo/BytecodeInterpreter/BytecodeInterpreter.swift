@@ -10,25 +10,45 @@ import Foundation
 
 
 class BytecodeInterpreter {
-    static let verboseLogging = false
-    
-    let heap: Heap
-    let instructions: [InstructionDescriptor]
-    let procedureEntryAddresses: [Int: String]
-    
-    private var instructionPointer = 0  // plz don't use this directly
-    private var callStack = [Int]()     // function entry points
-    
-    private let logAllCalls = CLI.hasFlag(.logAllCalls)
-    
-    
-    var stack: Stack {
-        return heap.stack
+    struct DebugOptions: OptionSet {
+        let rawValue: Int
+        
+        static let logCallEvents = DebugOptions(rawValue: 1 << 0)
+        static let recordCallStats = DebugOptions(rawValue: 1 << 1)
+        
+        static let all: DebugOptions = [.logCallEvents, .recordCallStats]
     }
     
+    let heap: Heap
+    let stack: Stack
+    private let instructions: [InstructionDescriptor]
+    private var instructionPointer = 0  // plz don't use this directly
     
-    init(wipInstructions: [WIPInstruction], heapSize: Int) {
+    private var callStack = [Int]()
+    let procedureEntryAddresses: [Int: String]
+    
+    
+    private let debugOptions: DebugOptions
+    
+    private enum CallEvent {
+        case entry(Int)
+        case exit
+    }
+    
+    private lazy var shouldLogAllCalls     = { debugOptions.contains(.logCallEvents)   }()
+    private lazy var shouldRecordCallStats = { debugOptions.contains(.recordCallStats) }()
+    
+    private let callLogger = CallLogger()
+    private let callStatsRecorder = CallStatsRecorder()
+    
+    
+    
+    
+    init(wipInstructions: [WIPInstruction], heapSize: Int, debugOptions: DebugOptions = []) {
         self.heap = Heap(size: heapSize)
+        self.stack = heap.stack
+        self.debugOptions = debugOptions
+        
         let finalizedInstructions    = wipInstructions.finalized()
         self.instructions            = finalizedInstructions.instructions.map(InstructionDescriptor.init)
         self.procedureEntryAddresses = finalizedInstructions.procedureEntryAddresses
@@ -46,6 +66,10 @@ class BytecodeInterpreter {
             if instructionPointer == previousInstructionPointer {
                 instructionPointer += 1
             }
+        }
+        
+        if shouldRecordCallStats {
+            callStatsRecorder.writeToFile()
         }
         
         return try stack.pop()
@@ -200,15 +224,7 @@ class BytecodeInterpreter {
     
     func eval(_ instruction: InstructionDescriptor) throws {
         let immediate = instruction.immediate
-        
-        if BytecodeInterpreter.verboseLogging {
-            Log.info("")
-            Log.info("")
-            Log.info("[eval] ip=\(instructionPointer) op=\(instruction.operation) imm=\(immediate)")
-            //Log.info("[eval] ip=\(instructionPointer) stack before: \(stack)")
-        }
-        
-        
+    
         switch instruction.operation {
         case .noop, .label, .comment:
             break
@@ -407,22 +423,14 @@ class BytecodeInterpreter {
             
             noop()
         }
-        
-        
-        if BytecodeInterpreter.verboseLogging {
-            Log.info("[eval] ip=\(instructionPointer) stack after: \(heap)")
-        }
     }
     
-    
-    // MARK: Debugging
     
     func callStackSymbols() -> [String] {
         return callStack.reversed().enumerated().map { index, address in
             var entry = ""
             entry += "\(index)".padding(.left, toLength: 4, withPad: " ").padding(.right, toLength: 7, withPad: " ")
             entry += "\(address)".padding(.left, toLength: 5, withPad: address > 0 ? "0" : " ")
-            //entry += " " + String(procedureEntryAddresses[address] ?? "(unknown)")
             entry += " " + nameOfProcedure(atAddress: address)
             
             return entry
@@ -441,33 +449,28 @@ class BytecodeInterpreter {
     }
     
     
-    enum CallEvent {
-        case entry(Int)
-        case exit
-    }
-    
     private func recordCallEvent(_ event: CallEvent) {
         switch event {
         case .entry(let address):
             callStack.append(address)
-            if logAllCalls {
-                print(indent, "CALL", nameOfProcedure(atAddress: address))
-                level += 1
+            let name = nameOfProcedure(atAddress: address)
+            
+            if shouldLogAllCalls {
+                callLogger.didEnterFunction(withName: name)
+            }
+            
+            if shouldRecordCallStats {
+                callStatsRecorder.recordCallToFunction(withName: name)
             }
             
         case .exit:
             let address = callStack.removeLast()
-            if logAllCalls {
-                level -= 1
-                print(indent, "RET ", nameOfProcedure(atAddress: address))
+            let name = nameOfProcedure(atAddress: address)
+            
+            if shouldLogAllCalls {
+                callLogger.didExitFunction(withName: name)
             }
         }
     }
     
-    
-    var level = 0
-    
-    var indent: String {
-        return String.init(repeating: "    ", count: level)
-    }
 }
