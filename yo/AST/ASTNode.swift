@@ -22,10 +22,9 @@ struct SourceCodeLocation {
 typealias AST = [ASTNode]
 
 
-protocol ASTNode: _AssociatedObjectImp {
+protocol ASTNode {
     /// position in the original source code
     //var sourceCodeLocation: SourceCodeLocation { get } // TODO
-    func print(to printer: ASTPrinter)
 }
 
 protocol ASTStatement: ASTNode {}
