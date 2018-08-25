@@ -250,7 +250,6 @@
 		80F1E9B520BD658100336F4C /* ASTRawOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTRawOperation.swift; sourceTree = "<group>"; };
 		80F1E9B720BD95C200336F4C /* ASTArrayLiteral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTArrayLiteral.swift; sourceTree = "<group>"; };
 		80F1E9B920BEB1A500336F4C /* SemanticAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticAnalyzer.swift; sourceTree = "<group>"; };
-		80F85CBC2111C7E30040A49D /* ASTFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTFormatter.swift; sourceTree = "<group>"; };
 		80F85CBE2111D5C70040A49D /* WIPInstructionFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WIPInstructionFormatter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
