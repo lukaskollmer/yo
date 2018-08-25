@@ -38,6 +38,10 @@ impl runtime {
 
         val addr = runtime::_lookupAddress(selector);
 
+        if addr == -1 {
+            runtime::fatalError(String::format("Unable to invoke %s: unrecognized selector", selector));
+        }
+
         val argv_with_self = runtime::alloc(argc + 1);
         argv_with_self[0] = target;
         if argc > 0 {

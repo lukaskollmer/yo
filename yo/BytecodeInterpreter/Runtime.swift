@@ -78,7 +78,7 @@ class Runtime: NativeFunctions {
         
         self["runtime", "_lookupAddress", .int, [.String]] = { interpreter in
             let symbolName = Runtime.getString(0, interpreter)
-            return interpreter.procedureEntryAddresses[reverse: symbolName] ?? 0
+            return interpreter.procedureEntryAddresses[reverse: symbolName] ?? -1
         }
         
         
