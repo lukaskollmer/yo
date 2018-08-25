@@ -113,7 +113,6 @@ class BytecodeInterpreter {
         //      We solve this by also keeping track of the frame pointer, to make sure we're returning from the same function invocation
         
         while true {
-            
             if (0..<instructions.count).contains(instructionPointer) {
                 let next = instructions[instructionPointer]
                 
@@ -121,8 +120,7 @@ class BytecodeInterpreter {
                         && stack.peek(offset: -(next.immediate + 1)) == designatedReturnAddress
                         && previousFramePointer == stack.framePointer
                 
-                if
-                    isReturningFromInitialFunctionCall {
+                if isReturningFromInitialFunctionCall {
                     let returnValue = try stack.pop()
                     
                     for _ in 0..<next.immediate {
