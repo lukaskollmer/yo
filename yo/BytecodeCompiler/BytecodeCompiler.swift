@@ -23,6 +23,10 @@ enum BytecodeCompilerError: Error {
     case other(String, ASTNode)
 }
 
+// TODO
+// - make this thread-safe?
+// - add `increment()` and `decrement()` functions
+// - rename `_counter` to `value` and make it public
 struct Counter {
     private var _counter: Int
     private let fn: (Int) -> Int

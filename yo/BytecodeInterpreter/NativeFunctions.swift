@@ -31,6 +31,8 @@ extension NativeFunctions {
     }
     
     static func getString(atAddress _address: Int, heap: Heap) -> String {
+        guard _address != 0 else { return "(null)" }
+        
         let address = heap[_address + 1]
         let size = heap[address]
         
