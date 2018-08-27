@@ -418,7 +418,8 @@ class Parser {
             name: typename,
             attributes: attributes,
             protocols: [], // TODO
-            annotations: isStruct ? ["struct"] : []
+            annotations: [], // TODO
+            isStruct: isStruct
         )
     }
     

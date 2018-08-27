@@ -15,14 +15,13 @@ class ASTTypeDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated {
     var protocols: [ASTIdentifier]
     var annotations: [ASTAnnotation.Element]
     
-    var isStruct: Bool {
-        return annotations.contains("struct")
-    }
+    let isStruct: Bool
     
-    init(name: ASTIdentifier, attributes: [ASTVariableDeclaration], protocols: [ASTIdentifier] = [], annotations: [ASTAnnotation.Element] = []) {
+    init(name: ASTIdentifier, attributes: [ASTVariableDeclaration], protocols: [ASTIdentifier] = [], annotations: [ASTAnnotation.Element] = [], isStruct: Bool = false) {
         self.name = name
         self.attributes = attributes
         self.protocols = protocols
         self.annotations = annotations
+        self.isStruct = isStruct
     }
 }
