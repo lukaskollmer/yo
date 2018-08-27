@@ -79,11 +79,7 @@ class AutoSynthesizedCodeGen {
         let g_metatype = ASTIdentifier(value: SymbolMangling.mangleMetatypeTableName(forType: typename))
         compiler.globals.append(ASTStaticVariableDeclaration(identifier: g_metatype, type: .int, initialValue: nil))
         
-        let vtable = Constants.vtable.map { SymbolMangling.mangleInstanceMember(ofType: typename, memberName: $0) }
-        
-        let l_typename: ASTIdentifier = "l_typename"
         let l_metatype: ASTIdentifier = "l_metatype"
-        let l_vtable: ASTIdentifier   = "l_vtable"
         
         let metatype_init = ASTFunctionDeclaration(
             name: ASTIdentifier(value: SymbolMangling.mangleMetatypeSetupFunction(forType: typename)),
@@ -92,24 +88,7 @@ class AutoSynthesizedCodeGen {
             kind: .global,
             annotations: [.static_initializer, .disable_arc],
             body: [
-                ASTVariableDeclaration(identifier: l_typename, type: .any),
                 ASTVariableDeclaration(identifier: l_metatype, type: .int),
-                ASTVariableDeclaration(identifier: l_vtable,   type: .int),
-                
-                ASTAssignment(
-                    target: l_typename,
-                    value: ASTStringLiteral(value: typename)
-                ),
-                
-                // Not sure what's going on here, but extracting the retain call into a separate statement works fine,
-                // while `l_typename = retain(String::init(typename))` doesn't increment the retain count
-                ASTFunctionCall(
-                    functionName: SymbolMangling.retain,
-                    arguments: [
-                        l_typename
-                    ],
-                    unusedReturnValue: true
-                ),
                 
                 ASTAssignment(
                     target: l_metatype,
@@ -131,31 +110,17 @@ class AutoSynthesizedCodeGen {
                 ASTArraySetter(
                     target: l_metatype,
                     offset: 1 as ASTNumberLiteral,
-                    value: l_typename
-                ),
-                
-                ASTAssignment(
-                    target: l_vtable,
-                    value: ASTFunctionCall(functionName: SymbolMangling.alloc, arguments: [ASTNumberLiteral(value: vtable.count)], unusedReturnValue: false)
-                ),
-                
-                // fill the vtable
-                ASTComposite(statements:
-                    vtable.enumerated().map { offset, element -> ASTStatement in
-                        return [
-                            ASTArraySetter(
-                                target: l_vtable,
-                                offset: ASTNumberLiteral(value: offset),
-                                value: ASTRawWIPInstruction(instruction: .unresolved(.push, element))
-                            )
-                        ] as ASTComposite
-                    }
+                    value: ASTFunctionCall(
+                        functionName: SymbolMangling.retain,
+                        arguments: [ASTStringLiteral(value: typename)],
+                        unusedReturnValue: false
+                    )
                 ),
                 
                 ASTArraySetter(
                     target: l_metatype,
                     offset: 2 as ASTNumberLiteral,
-                    value: l_vtable
+                    value: ASTRawWIPInstruction(instruction: .unresolved(.push, SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "__dealloc")))
                 ),
                 
                 // assign the local metatyoe to the global variable
@@ -182,17 +147,6 @@ class AutoSynthesizedCodeGen {
                     ],
                     unusedReturnValue: true
                 ),
-                
-                
-                // free the vtable
-                ASTFunctionCall(
-                    functionName: SymbolMangling.free,
-                    arguments: [
-                        ASTArrayGetter(target: g_metatype, offset: 2 as ASTNumberLiteral)
-                    ],
-                    unusedReturnValue: true
-                ),
-                
                 
                 // free the metatype
                 ASTFunctionCall(
