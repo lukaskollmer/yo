@@ -62,9 +62,10 @@ impl runtime {
             }
             runtime::set_is_deallocating(obj);
 
-            val dealloc_fn: fn<(any): void> = runtime::_getDeallocAddress(obj) as any;
-            //runtime::_printi(dealloc_fn as int);
-            dealloc_fn(obj);
+            val type = runtime::typeof(obj);
+            val dealloc = type.dealloc_fn as fn<(any): void>;
+            dealloc(obj);
+
             runtime::free(obj);
         } else {
             obj[0] = obj[0] - 1;
@@ -134,12 +135,6 @@ impl runtime {
         ret obj;
     }
 
-
-    #[disable_arc]
-    static fn _getDeallocAddress(obj: any): int {
-        val metatype = runtime::typeof(obj);
-        ret metatype.vtable.dealloc as int;
-    }
 
     #[disable_arc]
     static fn getRetainCount(obj: any): int {
