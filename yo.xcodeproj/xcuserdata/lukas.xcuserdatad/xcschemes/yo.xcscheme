@@ -68,7 +68,7 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-record-call-stats"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-emit-signposts"
@@ -107,7 +107,7 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "/Users/lukas/Developer/yo/temp/main_7.yo"
+            argument = "/Users/lukas/Developer/yo/temp/main_8.yo"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
