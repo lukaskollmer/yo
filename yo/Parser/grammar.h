@@ -63,7 +63,7 @@ const char *YO_GRAMMAR =
 
 " boxed_expr    : '@' <expr> ;" // TODO use lexpr instead to have "stronger" binding? everything else would require parentheses
 
-" range         : <expr> (\"...\" | \"..<\") <expr> ; "
+" range         : <lexpr> (\"...\" | \"..<\") <lexpr> ; "
 
 
 " binop_mul     : <lexpr> (( '*' | '/' | '%' ) (<binop_mul> | <lexpr>))+  ;   "
@@ -97,6 +97,7 @@ const char *YO_GRAMMAR =
 
 
 " expr          : <typecast>                    "
+"               | <range> "
 "               | <binop_add>               "
 "               | <binop_mul>                                                           "
 "               | <boxed_expr>                                                           "

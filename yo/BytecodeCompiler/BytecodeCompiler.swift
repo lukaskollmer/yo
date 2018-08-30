@@ -355,6 +355,9 @@ private extension BytecodeCompiler {
         } else if let deferStatement = node as? ASTDeferStatement {
             try handle(composite: deferStatement.body)
             
+        } else if let rangeLiteral = node as? ASTRangeLiteral {
+            try handle(rangeLiteral: rangeLiteral)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -1544,6 +1547,18 @@ private extension BytecodeCompiler {
     }
     
     
+    func handle(rangeLiteral: ASTRangeLiteral) throws {
+        let factoryMethodName = String(describing: rangeLiteral.kind) // returns the name of the enum case (`inclusive` or `exclusive`)
+        let initCall = ASTFunctionCall(
+            functionName: SymbolMangling.mangleStaticMember(ofType: "Range", memberName: factoryMethodName),
+            arguments: [rangeLiteral.start, rangeLiteral.end],
+            unusedReturnValue: false
+        )
+        
+        try handle(node: initCall)
+    }
+    
+    
     
     func handle(condition: ASTCondition) throws {
         if let comparison = condition as? ASTComparison {
@@ -1761,6 +1776,9 @@ private extension BytecodeCompiler {
                 
             } else if expression is ASTInlineBooleanExpression {
                 return .bool
+                
+            } else if expression is ASTRangeLiteral {
+                return .complex(name: "Range")
             
             } else if let staticMemberGetter = expression as? ASTStaticMemberGetter {
                 if typeCache.enumExists(withName: staticMemberGetter.typename.value) {
