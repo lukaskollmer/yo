@@ -8,7 +8,7 @@
 
 import Foundation
 
-class ASTFunctionDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated {
+class ASTFunctionDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated, FunctionSignature {
     enum Kind: Equatable {
         case global              // a global function
         case impl(String)        // instance function for some type
@@ -44,6 +44,10 @@ class ASTFunctionDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated {
     
     var isVariadic: Bool {
         return self.hasAnnotation(.variadic)
+    }
+    
+    var parameterTypes: [ASTType] {
+        return parameters.map { $0.type }
     }
     
     

@@ -8,72 +8,81 @@
 
 import Foundation
 
-extension Dictionary where Key == String, Value == SemanticAnalyzer.FunctionInfo {
+extension Dictionary where Key == String, Value == FunctionSignature {
+    func contains(_ functionDeclaration: ASTFunctionDeclaration) -> Bool {
+        return self.keys.contains(functionDeclaration.mangledName)
+    }
+    
     mutating func insert(functionDeclaration: ASTFunctionDeclaration) {
-        self[functionDeclaration.mangledName] = SemanticAnalyzer.FunctionInfo(functionDeclaration: functionDeclaration)
+        self[functionDeclaration.mangledName] = functionDeclaration
     }
 }
 
 
-class SemanticAnalyzer {
-    
-    struct FunctionInfo {
-        var argc: Int {
-            return parameterTypes.count
-        }
-        
-        var isVariadic: Bool {
-            return annotations.contains(.variadic)
-        }
-        
-        let parameterTypes: [ASTType]
-        let returnType: ASTType
-        let annotations: [ASTAnnotation.Element]
-        
-        init(parameterTypes: [ASTType], returnType: ASTType, annotations: [ASTAnnotation.Element]) {
-            self.parameterTypes = parameterTypes
-            self.returnType = returnType
-            self.annotations = annotations
-        }
-        
-        init(functionDeclaration: ASTFunctionDeclaration) {
-            self.init(
-                parameterTypes: functionDeclaration.parameters.map { $0.type },
-                returnType:     functionDeclaration.returnType,
-                annotations:    functionDeclaration.annotations
-            )
-        }
+protocol FunctionSignature {
+    var parameterTypes: [ASTType] { get }
+    var returnType: ASTType { get }
+    var isVariadic: Bool { get }
+    var annotations: [ASTAnnotation.Element] { get }
+}
+
+extension FunctionSignature {
+    var argc: Int {
+        return parameterTypes.count
     }
-    
+}
+
+
+struct UnresolvedFunctionSignature: FunctionSignature {
+    let parameterTypes: [ASTType]
+    var returnType: ASTType
+    var isVariadic: Bool
+    var annotations: [ASTAnnotation.Element]
+}
+
+
+
+class SemanticAnalyzer {
     struct Result {
-        let globalFunctions: [String: FunctionInfo]
+        let globalFunctions: GlobalFunctions
         let types: [ASTTypeDeclaration]
         let globals: [ASTStaticVariableDeclaration]
+        let enums: [ASTEnumDeclaration]
     }
     
-    
-    
     func analyze(ast: AST) -> SemanticAnalyzer.Result {
-        var types = [ASTTypeDeclaration]()
-        var functions = [String: FunctionInfo]()
+        let enums   = ast.compactMap { $0 as? ASTEnumDeclaration }
+        let types   = ast.compactMap { $0 as? ASTTypeDeclaration }
         let globals = ast.compactMap { $0 as? ASTStaticVariableDeclaration }
         
-        let handleFunction: (ASTFunctionDeclaration) -> Void = {
-            functions.insert(functionDeclaration: $0)
-        }
+        // TODO check that there aren't type &/ enum decls using the same name
         
-        for node in ast {
-            if let typeDecl = node as? ASTTypeDeclaration {
-                types.append(typeDecl)
+        var functions = GlobalFunctions()
+        
+        // insert global functions
+        ast
+            .compactMap { $0 as? ASTFunctionDeclaration }
+            .forEach { functions.insert(functionDeclaration: $0) }
+        
+        
+        for implBlock in ast.compactMap({ $0 as? ASTTypeImplementation }) {
+            if !implBlock.protocols.isEmpty {
+                let type = types.first { $0.name == implBlock.typename }!
                 
-            } else if let functionDecl = node as? ASTFunctionDeclaration {
-                handleFunction(functionDecl)
-                
-            } else if let impl = node as? ASTTypeImplementation {
-                impl.functions.forEach(handleFunction)
+                // check whether the type already implements the protocol
+                for protocolName in implBlock.protocols {
+                    guard !type.protocols.contains(protocolName) else {
+                        fatalError("Type '\(type.name)' already implements protocol '\(protocolName)'")
+                    }
+                    type.protocols.append(protocolName)
+                }
+            }
+            
+            for functionDecl in implBlock.functions {
+                functions.insert(functionDeclaration: functionDecl)
             }
         }
         
-        return SemanticAnalyzer.Result(globalFunctions: functions, types: types, globals: globals)
+        return SemanticAnalyzer.Result(globalFunctions: functions, types: types, globals: globals, enums: enums)
     }
 }

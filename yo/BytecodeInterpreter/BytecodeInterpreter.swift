@@ -83,7 +83,7 @@ class BytecodeInterpreter {
             let nativeFunction = Runtime.shared[address: instructionPointer]! // TODO the subscript returns an IOU, no idea why the force unwrap is still necessary tbh
             try stack.push(nativeFunction.imp(self))
             // return from the native function
-            try eval(InstructionDescriptor(instruction: Operation.ret.encode(withImmediate: nativeFunction.info.argc)))
+            try eval(InstructionDescriptor(instruction: Operation.ret.encode(withImmediate: nativeFunction.argc)))
             
         } else {
             let instruction = instructions[instructionPointer]

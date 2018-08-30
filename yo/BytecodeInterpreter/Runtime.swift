@@ -8,13 +8,31 @@
 
 import Foundation
 
-
 // TODO don't have Runtime conform to NativeFunctions. it's just a temporary hack to get the getString function
 class Runtime: NativeFunctions {
     static func register(_ runtime: Runtime) {}
     
+    // TODO move into NativeFunction?
     typealias NativeFunctionImp = (BytecodeInterpreter) -> Int
-    typealias NativeFunction = (name: String, address: Int, info: SemanticAnalyzer.FunctionInfo, imp: NativeFunctionImp)
+    
+    class NativeFunction: FunctionSignature {
+        let name: String
+        let address: Int
+        let imp: NativeFunctionImp
+        
+        let parameterTypes: [ASTType]
+        let returnType: ASTType
+        var isVariadic: Bool { return false }
+        var annotations: [ASTAnnotation.Element] { return [] }
+        
+        init(name: String, address: Int, imp: @escaping NativeFunctionImp, parameterTypes: [ASTType], returnType: ASTType) {
+            self.name = name
+            self.address = address
+            self.imp = imp
+            self.parameterTypes = parameterTypes
+            self.returnType = returnType
+        }
+    }
     
     
     static let shared = Runtime()
@@ -37,12 +55,13 @@ class Runtime: NativeFunctions {
         get { fatalError() }
         
         set {
-            builtins.append((
+            builtins.append(Runtime.NativeFunction(
                 name: SymbolMangling.mangleStaticMember(ofType: ns, memberName: name),
                 address: addressCounter.get(),
-                info: SemanticAnalyzer.FunctionInfo(parameterTypes: parameterTypes, returnType: returnType, annotations: []),
-                imp: newValue)
-            )
+                imp: newValue,
+                parameterTypes: parameterTypes,
+                returnType: returnType
+            ))
         }
     }
     

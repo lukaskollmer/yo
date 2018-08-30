@@ -9,7 +9,7 @@
 import Foundation
 
 
-typealias GlobalFunctions = [String: SemanticAnalyzer.FunctionInfo]
+typealias GlobalFunctions = [String: FunctionSignature]
 
 
 
@@ -87,9 +87,7 @@ class BytecodeCompiler {
     
     init() {
         // fill the functions table w/ all native functions
-        for builtin in Runtime.shared.builtins {
-            functions[builtin.name] = builtin.info
-        }
+        Runtime.shared.builtins.forEach { functions[$0.name] = $0 }
     }
     
     
@@ -105,20 +103,24 @@ class BytecodeCompiler {
         
         // perform semantic analysis
         let semanticAnalysis = SemanticAnalyzer().analyze(ast: ast)
-        
-        // import semantic analysis results
         self.functions.insert(contentsOf: semanticAnalysis.globalFunctions)
         semanticAnalysis.types.forEach(self.typeCache.register)
-        
         semanticAnalysis.enums.forEach(self.typeCache.register)
         
         // Generate initializers, getters/setters and dealloc functions
-        
         codegen = AutoSynthesizedCodeGen(compiler: self)
         codegen.fetchProtocols(fromAST: ast)
         codegen.synthesize(intoAST: &ast)
         
+        // We have to append the globals found during semantic analysis later to make sure they come after the type metatables
         globals.append(contentsOf: semanticAnalysis.globals)
+        
+        // resolve enum parameters
+        functions.values
+            .compactMap { $0 as? ASTFunctionDeclaration }
+            .flatMap { $0.parameters }
+            .forEach { $0.type = typeCache.resolveAsComplexOrEnum($0.type) }
+        
         
         
         // Inserts the instructions to call a function w/ 0 arguments and a discarded return value
@@ -346,7 +348,8 @@ private extension BytecodeCompiler {
             // already handled during semantic analysis
             
         } else if let staticMemberGetter = node as? ASTStaticMemberGetter {
-            try handle(staticMemberGetter: staticMemberGetter)
+            fatalError("do we ever reach here or can we safely delete this?")
+            //try handle(staticMemberGetter: staticMemberGetter)
             
         } else if let inlineBooleanExpression = node as? ASTInlineBooleanExpression {
             fatalError("TODO reimplement")
@@ -965,22 +968,22 @@ private extension BytecodeCompiler {
     
     func handle(functionCall: ASTFunctionCall) throws {
         let identifier = ASTIdentifier(value: functionCall.functionName)
-        let functionInfo: SemanticAnalyzer.FunctionInfo
+        let functionSignature: FunctionSignature
         
         var isGlobalFunction = !scope.contains(identifier: identifier.value)
         
         if !isGlobalFunction, case .function(let returnType, let parameterTypes) = try scope.type(of: identifier.value) {
             // calling a function from the local scope
             // TODO what about supporting implicit function calls on self (ie `foo()` instead of `self.foo()` if `self` has a function `foo`
-            functionInfo = SemanticAnalyzer.FunctionInfo(parameterTypes: parameterTypes, returnType: returnType, annotations: [])
+            functionSignature = UnresolvedFunctionSignature(parameterTypes: parameterTypes, returnType: returnType, isVariadic: false, annotations: [])
         
-        } else if let globalFunctionInfo = functions[identifier.value] {
+        } else if let globalFunctionSignature = functions[identifier.value] {
             // calling a global function
-            functionInfo = globalFunctionInfo
+            functionSignature = globalFunctionSignature
             
         } else if let implicitSelfAccess = processPotentialImplicitSelfAccess(identifier: identifier), case .function(let returnType, let parameterTypes) = implicitSelfAccess.attributeType {
             isGlobalFunction = false
-            functionInfo = SemanticAnalyzer.FunctionInfo(parameterTypes: parameterTypes, returnType: returnType, annotations: [])
+            functionSignature = UnresolvedFunctionSignature(parameterTypes: parameterTypes, returnType: returnType, isVariadic: false, annotations: [])
         
         } else {
             fatalError("cannot resolve call to '\(identifier.value)'")
@@ -988,13 +991,13 @@ private extension BytecodeCompiler {
         
         
         
-        let isVariadic = functionInfo.isVariadic
+        let isVariadic = functionSignature.isVariadic
         
         guard
-            (!isVariadic && functionInfo.argc == functionCall.arguments.count)
-            || (isVariadic && functionCall.arguments.count >= functionInfo.argc - 1) // -1 bc we don't count the last argument (the variadic one)
+            (!isVariadic && functionSignature.argc == functionCall.arguments.count)
+            || (isVariadic && functionCall.arguments.count >= functionSignature.argc - 1) // -1 bc we don't count the last argument (the variadic one)
         else {
-            fatalError("wrong argc in call to '\(identifier.value)': expected \(functionInfo.argc), got \(functionCall.arguments.count)")
+            fatalError("wrong argc in call to '\(identifier.value)': expected \(functionSignature.argc), got \(functionCall.arguments.count)")
         }
         
         // Special handling for `runtime::decltype`
@@ -1006,12 +1009,12 @@ private extension BytecodeCompiler {
         
         let numberOfFixedArguments = !isVariadic
             ? functionCall.arguments.count
-            : functionInfo.argc - 1
+            : functionSignature.argc - 1
         
         
         // push fixed arguments on the stack
         for (index, var arg) in functionCall.arguments.prefix(upTo: numberOfFixedArguments).enumerated() {
-            let expectedType = functionInfo.parameterTypes[index]
+            let expectedType = functionSignature.parameterTypes[index]
             
             if let lambda = arg as? ASTLambda {
                 arg = try resolve(lambda: lambda, expectedSignature: expectedType)
@@ -1039,7 +1042,7 @@ private extension BytecodeCompiler {
         // handle variadic arguments
         if isVariadic {
             // we can safely assume that `expectedType` is either `int` or `Array`
-            let expectedType = functionInfo.parameterTypes.last!
+            let expectedType = functionSignature.parameterTypes.last!
             let numberOfVariadicArguments = functionCall.arguments.count - numberOfFixedArguments
             
             let arrayLiteral = ASTArrayLiteral(
@@ -1071,7 +1074,7 @@ private extension BytecodeCompiler {
         add(.call, !isVariadic ? numberOfFixedArguments : numberOfFixedArguments + 1)
         
         if functionCall.unusedReturnValue {
-            if functionInfo.returnType.supportsReferenceCounting {
+            if functionSignature.returnType.supportsReferenceCounting {
                 // return value is still on the stack
                 try release(expression: ASTNoop())
             } else {
@@ -1159,9 +1162,8 @@ private extension BytecodeCompiler {
             currentType = self.typeCache.type(ofMember: $0.value, ofType: currentTypename)! // TODO don't force unwrap
         }
         
+        
         for (index, member) in memberAccess.members.enumerated() {
-            
-            
             switch member {
             case .initial_identifier(let identifier):
                 expr = identifier
@@ -1803,7 +1805,6 @@ private extension BytecodeCompiler {
                 }
                 fatalError("static member getter for unregistered type?!")
                 // TOOD what about using static member getters to refer to functions in an impl?
-                
             }
             
             // We seem to hit this error pretty often (/always?) when encountering an undefined identifier

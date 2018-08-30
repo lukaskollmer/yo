@@ -45,7 +45,7 @@ class TypeCache {
     }
     
     func index(ofCase casename: String, inEnum typename: String) -> Int? {
-        return enumDecl(withName: typename)!.cases.index { $0.value == casename }
+        return enumDecl(withName: typename)?.cases.index { $0.value == casename }
     }
     
     
@@ -88,4 +88,21 @@ class TypeCache {
     private func enumDecl(withName typename: String) -> ASTEnumDeclaration? {
         return enums.first { $0.name.value == typename }
     }
+    
+    
+    // Returns the input if we can't determine whether it's complex or an enum
+    func resolveAsComplexOrEnum(_ type: ASTType) -> ASTType {
+        guard case .complex(let typeName) = type, ![ASTType.any, .id].contains(type) else {
+            return type
+        }
+        
+        if typeName == "RangeType" {
+            noop()
+        }
+        if !typeExists(withName: typeName) && enumExists(withName: typeName) {
+            return ._enum(typeName)
+        }
+        return type
+    }
+    
 }
