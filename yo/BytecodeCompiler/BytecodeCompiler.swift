@@ -1401,39 +1401,28 @@ private extension BytecodeCompiler {
         let isConstant = arrayLiteral.elements.all { $0 is ASTNumberLiteral }
         
         if isConstant {
-            // TODO we should probably get rid of the switch below,
-            // array literals w/ constant number literals can't be complex arrays
-            // since complex arrays can't primitives
+            guard arrayLiteral.kind == .primitive else {
+                fatalError("constant non-primitive (aka complex) array literals aren't a thing")
+            }
+            
             let values = arrayLiteral.elements.map { ($0 as! ASTNumberLiteral).value }
             let label = UUID().uuidString
+            
             add(.arrayLiteral(label, values))
             
             add(.loadc, unresolvedLabel: label)
             
-            switch arrayLiteral.kind {
-            case .complex:
-                let initCall = ASTFunctionCall(
-                    functionName: SymbolMangling.mangleStaticMember(ofType: "Array", memberName: "_fromConstantLiteral"),
-                    arguments: [ASTNoop()], // the parameter is already on the stack, from the `loadc` instruction above
-                    unusedReturnValue: false
-                )
-                try handle(functionCall: initCall)
-                
-            case .primitive:
-                // Problem: the array we got from the `loadc` instruction above (or, to be precise, the pointer to the array)
-                // has its length as its first element.
-                // We don't care about that, which is why we need to copy all elements following the first to a new array and free the old one.
-                // Basically, we're implementing the exact same thing as in `Array::_fromConstantLiteral`, with the difference that we don't
-                // initialize an Array instance at the end
-                
-                // Because we can't really implement this here (the address is already on the stack!), we use a helper function
-                let call = ASTFunctionCall(
-                    functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "_primitiveArrayFromConstant"),
-                    arguments: [ASTNoop()], // the parameter is already on the stack, from the `loadc` instruction above
-                    unusedReturnValue: false
-                )
-                try handle(functionCall: call)
-            }
+            // Problem: the array we got from the `loadc` instruction above (or, to be precise, the pointer to the array)
+            // has its length as its first element.
+            // We don't care about that, which is why we need to copy all elements following the first to a new array and free the old one.
+            
+            // Because we can't really implement this here (the address is already on the stack!), we use a helper function
+            let call = ASTFunctionCall(
+                functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "_primitiveArrayFromConstant"),
+                arguments: [ASTNoop()], // the parameter is already on the stack, from the `loadc` instruction above
+                unusedReturnValue: false
+            )
+            try handle(functionCall: call)
             
             return
         }
