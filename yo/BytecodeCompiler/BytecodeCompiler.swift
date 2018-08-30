@@ -1208,21 +1208,7 @@ private extension BytecodeCompiler {
                 
                 if !typeCache.typeExists(withName: currentTypename) {
                     if currentTypename == "id" && scope.isUnsafe {
-                        expr = ASTFunctionCall(
-                            functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "msgSend"),
-                            arguments: [
-                                expr,   // The target of the method call
-                                ASTStringLiteral(value: functionName.value),    // selector
-                                ASTNumberLiteral(value: arguments.count)        // argc
-                            ]
-                            + arguments                     // the actual arguments
-                            + [0 as ASTNumberLiteral],      // 0 (unused, see below)
-                            // Q: why do we append the unused 0?
-                            // A: `runtime::msgSend` is variadic, with a primitive array, meaning that there has to be at least one non-fixed argument\
-                            //    However, we have to handle the case where this is a method call that doesn't take any parameters
-                            
-                            unusedReturnValue: unusedReturnValue
-                        ).as(.id) // TODO is .id the right choice? does that work w/ the existing arc implementation?
+                        expr = msgSend(target: expr, selector: functionName.value, arguments: arguments, unusedReturnValue: unusedReturnValue)
                         currentType = .id
                         
                     } else {
@@ -1837,6 +1823,27 @@ private extension BytecodeCompiler {
         }
     }
 }
+
+
+extension BytecodeCompiler {
+    func msgSend(target: ASTExpression, selector: String, arguments: [ASTExpression], unusedReturnValue: Bool) -> ASTExpression {
+        return ASTFunctionCall(
+            functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "msgSend"),
+            arguments: [
+                target,   // The target of the method call
+                ASTStringLiteral(value: selector),          // selector
+                ASTNumberLiteral(value: arguments.count)    // argc
+                ]
+                + arguments                     // the actual arguments
+                + [0 as ASTNumberLiteral],      // 0 (unused, see below)
+            // Q: why do we append the unused 0?
+            // A: `runtime::msgSend` is variadic, with a primitive array, meaning that there has to be at least one non-fixed argument\
+            //    However, we have to handle the case where this is a method call that doesn't take any parameters
+            unusedReturnValue: unusedReturnValue
+        ).as(.id) // TODO is .id the right choice? does that work w/ the existing arc implementation?
+    }
+}
+
 
 
 extension BytecodeCompiler {
