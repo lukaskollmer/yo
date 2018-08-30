@@ -22,7 +22,6 @@ class Runtime: NativeFunctions {
         
         let parameterTypes: [ASTType]
         let returnType: ASTType
-        var isVariadic: Bool { return false }
         var annotations: [ASTAnnotation.Element] { return [] }
         
         init(name: String, address: Int, imp: @escaping NativeFunctionImp, parameterTypes: [ASTType], returnType: ASTType) {
