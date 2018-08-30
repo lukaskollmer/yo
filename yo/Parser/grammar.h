@@ -171,7 +171,7 @@ const char *YO_GRAMMAR =
 
 " protocol      : <annotation>? \"protocol\" <ident> '{' ((<function_signature> ';') | <function>)* '}' ; "
 
-" enum_decl     : \"enum\" <ident> '{' <ident> ( ',' <ident> )* '}' ; "
+" enum_decl     : \"enum\" <ident> '{' <ident> ( ',' <ident> )* '}' ';' ; "
 
 " annotation    : \"#[\" <ident> ( ',' <ident> )* ']' ; "
 
