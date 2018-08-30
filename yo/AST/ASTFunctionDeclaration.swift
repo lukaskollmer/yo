@@ -8,8 +8,8 @@
 
 import Foundation
 
-class ASTFunctionDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated, FunctionSignature {
-    enum Kind: Equatable {
+class ASTFunctionDeclaration: ASTStatement {
+    /*enum Kind: Equatable {
         case global              // a global function
         case impl(String)        // instance function for some type
         case staticImpl(String)  // static function for some type
@@ -24,41 +24,36 @@ class ASTFunctionDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated, FunctionS
                 return .staticImpl(typename)
             }
         }
-    }
+    }*/
     
-    let name: ASTIdentifier
-    let parameters: [ASTVariableDeclaration]
-    var returnType: ASTType
-    var kind: Kind
+    
+    let signature: ASTFunctionSignature
+    //var kind: Kind
     let body: ASTComposite
-    var annotations: [ASTAnnotation.Element]
     
-    init(name: ASTIdentifier, parameters: [ASTVariableDeclaration], returnType: ASTType, kind: Kind, annotations: [ASTAnnotation.Element] = [], body: ASTComposite) {
-        self.name = name
-        self.parameters = parameters
-        self.returnType = returnType
-        self.kind = kind
+    
+    init(signature: ASTFunctionSignature,/* kind: Kind,*/ body: ASTComposite) {
+        self.signature = signature
+        //self.kind = kind
         self.body = body
-        self.annotations = annotations
     }
     
-    var isVariadic: Bool {
-        return self.hasAnnotation(.variadic)
-    }
-    
-    var parameterTypes: [ASTType] {
-        return parameters.map { $0.type }
+    init(name: ASTIdentifier, parameters: [ASTVariableDeclaration], returnType: ASTType, kind: FunctionKind, annotations: [ASTAnnotation.Element] = [], body: ASTComposite) {
+        self.signature = ASTFunctionSignature(name: name, kind: kind, parameters: parameters, returnType: returnType, annotations: annotations)
+        //self.kind = kind
+        self.body = body
     }
     
     
     var mangledName: String {
-        switch kind {
+        let name = signature.name.value
+        switch signature.kind {
         case .global:
-            return name.value
+            return SymbolMangling.mangleGlobalFunction(name: name)
         case .impl(let typename):
-            return SymbolMangling.mangleInstanceMember(ofType: typename, memberName: name.value)
+            return SymbolMangling.mangleInstanceMember(ofType: typename, memberName: name)
         case .staticImpl(let typename):
-            return SymbolMangling.mangleStaticMember(ofType: typename, memberName: name.value)
+            return SymbolMangling.mangleStaticMember(ofType: typename, memberName: name)
         }
     }
 }

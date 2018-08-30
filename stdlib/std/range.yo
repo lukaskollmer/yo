@@ -52,7 +52,10 @@ impl Range {
         }
         ret String::format("<Range %n%s%n>", @self.start, rangeType, @self.end);
     }
+}
 
+
+impl Range: Iterable {
     fn iterator(self: Range): RangeIterator {
         val start = self.start;
         val end = self.end;
@@ -63,4 +66,5 @@ impl Range {
 
         ret RangeIterator::init(start, end);
     }
+
 }

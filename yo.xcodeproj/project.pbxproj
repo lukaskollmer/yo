@@ -48,6 +48,8 @@
 		80AE212A20BB0D9F004900DC /* yo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE212920BB0D9F004900DC /* yo.swift */; };
 		80AE212C20BB0E43004900DC /* WIPInstruction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE212B20BB0E43004900DC /* WIPInstruction.swift */; };
 		80AE212E20BB13EA004900DC /* ImportPathResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE212D20BB13EA004900DC /* ImportPathResolver.swift */; };
+		80BE85AB2138346A00A4D03B /* ASTFunctionSignature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80BE85AA2138346A00A4D03B /* ASTFunctionSignature.swift */; };
+		80BE85AD21383F4100A4D03B /* FunctionSignature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80BE85AC21383F4100A4D03B /* FunctionSignature.swift */; };
 		80BEEE8620D7C99D002456D1 /* ASTTypecast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80BEEE8520D7C99D002456D1 /* ASTTypecast.swift */; };
 		80C3381420E799C600E98F15 /* AutoSynthesizedCodeGen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80C3381320E799C600E98F15 /* AutoSynthesizedCodeGen.swift */; };
 		80C5C29B20CA99B500A1B3B7 /* ASTType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80C5C29A20CA99B500A1B3B7 /* ASTType.swift */; };
@@ -205,6 +207,8 @@
 		80AE212920BB0D9F004900DC /* yo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = yo.swift; sourceTree = "<group>"; };
 		80AE212B20BB0E43004900DC /* WIPInstruction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WIPInstruction.swift; sourceTree = "<group>"; };
 		80AE212D20BB13EA004900DC /* ImportPathResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportPathResolver.swift; sourceTree = "<group>"; };
+		80BE85AA2138346A00A4D03B /* ASTFunctionSignature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTFunctionSignature.swift; sourceTree = "<group>"; };
+		80BE85AC21383F4100A4D03B /* FunctionSignature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FunctionSignature.swift; sourceTree = "<group>"; };
 		80BEEE8520D7C99D002456D1 /* ASTTypecast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTTypecast.swift; sourceTree = "<group>"; };
 		80C3381320E799C600E98F15 /* AutoSynthesizedCodeGen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoSynthesizedCodeGen.swift; sourceTree = "<group>"; };
 		80C5C29A20CA99B500A1B3B7 /* ASTType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTType.swift; sourceTree = "<group>"; };
@@ -429,6 +433,7 @@
 				8073276220E2760400FF25E7 /* Optimizer.swift */,
 				80F85CBE2111D5C70040A49D /* WIPInstructionFormatter.swift */,
 				806FEE0A212C75DC00E2EF11 /* ShortCircuitEvaluation.swift */,
+				80BE85AC21383F4100A4D03B /* FunctionSignature.swift */,
 			);
 			path = BytecodeCompiler;
 			sourceTree = "<group>";
@@ -495,6 +500,7 @@
 				806F7648211F0FE500DD67F3 /* ASTDeferStatement.swift */,
 				8030A6602136DB8B00AC0596 /* ASTRangeLiteral.swift */,
 				8030A6622136E14300AC0596 /* ASTForLoop.swift */,
+				80BE85AA2138346A00A4D03B /* ASTFunctionSignature.swift */,
 			);
 			path = AST;
 			sourceTree = "<group>";
@@ -611,6 +617,7 @@
 				804E4EB420BBE92800736FCC /* ASTStringLiteral.swift in Sources */,
 				80EAA48220B82D990043A6F6 /* ASTIdentifier.swift in Sources */,
 				803BEDDC211898A7009DC37A /* mpc.c in Sources */,
+				80BE85AD21383F4100A4D03B /* FunctionSignature.swift in Sources */,
 				803BEDCF211764FA009DC37A /* ASTStaticMemberGetter.swift in Sources */,
 				80AE212C20BB0E43004900DC /* WIPInstruction.swift in Sources */,
 				806FEE0B212C75DC00E2EF11 /* ShortCircuitEvaluation.swift in Sources */,
@@ -637,6 +644,7 @@
 				809F5C21212DB3B100F96919 /* Profiling.swift in Sources */,
 				803BEDE02118ADA3009DC37A /* Parser.swift in Sources */,
 				80EAA4A720B9D1B10043A6F6 /* SymbolMangling.swift in Sources */,
+				80BE85AB2138346A00A4D03B /* ASTFunctionSignature.swift in Sources */,
 				80EA785F20EE57F600882378 /* NativeFunctions.swift in Sources */,
 				80EAA49E20B9C0470043A6F6 /* Stack.swift in Sources */,
 				80EAA46A20B7468B0043A6F6 /* ASTFunctionDeclaration.swift in Sources */,

@@ -14,32 +14,9 @@ extension Dictionary where Key == String, Value == FunctionSignature {
     }
     
     mutating func insert(functionDeclaration: ASTFunctionDeclaration) {
-        self[functionDeclaration.mangledName] = functionDeclaration
+        self[functionDeclaration.mangledName] = functionDeclaration.signature
     }
 }
-
-
-protocol FunctionSignature {
-    var parameterTypes: [ASTType] { get }
-    var returnType: ASTType { get }
-    var isVariadic: Bool { get }
-    var annotations: [ASTAnnotation.Element] { get }
-}
-
-extension FunctionSignature {
-    var argc: Int {
-        return parameterTypes.count
-    }
-}
-
-
-struct UnresolvedFunctionSignature: FunctionSignature {
-    let parameterTypes: [ASTType]
-    var returnType: ASTType
-    var isVariadic: Bool
-    var annotations: [ASTAnnotation.Element]
-}
-
 
 
 class SemanticAnalyzer {

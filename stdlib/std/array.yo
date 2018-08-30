@@ -240,10 +240,13 @@ impl Array {
         self._backing = newBacking;
         self._allocatedLength = newSize;
     }
+}
 
-    fn iterator(self: Array): ArrayIterator {
-        ret ArrayIterator::newWithArray(self);
-    }
+
+impl Array: Iterable {
+    //fn iterator(self: Array): ArrayIterator {
+    //    ret ArrayIterator::newWithArray(self);
+    //}
 }
 
 

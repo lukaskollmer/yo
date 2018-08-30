@@ -39,3 +39,7 @@ class ASTIdentifier: ASTExpression, Hashable, ExpressibleByStringLiteral, Custom
     }
 }
 
+extension ASTIdentifier {
+    static let unknown: ASTIdentifier = ""
+}
+

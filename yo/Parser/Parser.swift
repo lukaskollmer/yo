@@ -384,10 +384,14 @@ class Parser {
             .filter { $0.lk_tag == "function|>" }
             .map    { try parseFunctionDecl($0, implTypenameContext: protocolName.value)}
         
+        let functionSignaturesWithoutImplementation = try ast.lk_children
+            .filter { $0.lk_tag == "function_signature|>" }
+            .map    { try parseFunctionSignature($0, implTypenameContext: protocolName.value) }
         
         return ASTProtocolDeclaration(
             name: protocolName,
             functions: functions,
+            functionsWithoutDefaultImplementation: functionSignaturesWithoutImplementation,
             annotations: annotations
         )
     }
@@ -458,18 +462,14 @@ class Parser {
     
     
     
-    
-    
-    func parseFunctionDecl(_ ast: mpc_ast_t, implTypenameContext: String = "") throws -> ASTFunctionDeclaration {
+    func parseFunctionSignature(_ ast: mpc_ast_t, implTypenameContext: String = "") throws -> ASTFunctionSignature {
         var functionNameIndex = 0
-        let kind: ASTFunctionDeclaration.Kind
+        let kind: FunctionKind
         var annotations = [ASTAnnotation]()
         
-        let signature = ast[0]
-        
         do {
-            while signature[functionNameIndex].lk_tag == "annotation|>" {
-                annotations.append(try parseAnnotation(signature[functionNameIndex]))
+            while ast[functionNameIndex].lk_tag == "annotation|>" {
+                annotations.append(try parseAnnotation(ast[functionNameIndex]))
                 functionNameIndex += 1
             }
             
@@ -477,51 +477,59 @@ class Parser {
         
         var isUnsafeFunction = false
         
-        if signature[functionNameIndex] == _static {
+        if ast[functionNameIndex] == _static {
             kind = .staticImpl(implTypenameContext)
             functionNameIndex += 1
         } else {
             kind = implTypenameContext == "" ? .global : .impl(implTypenameContext)
         }
         
-        if signature[functionNameIndex] == _unsafe {
+        if ast[functionNameIndex] == _unsafe {
             isUnsafeFunction = true
             functionNameIndex += 1
         }
         
-        if signature[functionNameIndex] == _fn {
+        if ast[functionNameIndex] == _fn {
             functionNameIndex += 1
         }
         
         
-        let functionName = try parseIdentifier(signature[functionNameIndex])
+        let functionName = try parseIdentifier(ast[functionNameIndex])
         
         
         let parameters: [ASTVariableDeclaration]
         let closingParenthesesIndex: Int
         
-        if signature[functionNameIndex + 2] == _closingParentheses {
+        if ast[functionNameIndex + 2] == _closingParentheses {
             // no parameters
             parameters = []
             closingParenthesesIndex = functionNameIndex + 2
         } else {
-            parameters = try parseParameterList(signature[functionNameIndex + 2])
+            parameters = try parseParameterList(ast[functionNameIndex + 2])
             closingParenthesesIndex = functionNameIndex + 3
         }
         
         // TODO missing return type implies void
-        let returnType = try parseType(signature[closingParenthesesIndex + 2])
-        let body = try parseComposite(ast[1])
-        body.isUnsafe = isUnsafeFunction
+        let returnType = try parseType(ast[closingParenthesesIndex + 2])
         
-        return ASTFunctionDeclaration(
+        return ASTFunctionSignature(
             name: functionName,
+            kind: kind,
             parameters: parameters,
             returnType: returnType,
-            kind: kind,
             annotations: annotations.allElements,
-            body: body
+            isUnsafe: isUnsafeFunction
         )
+    }
+    
+    
+    
+    
+    func parseFunctionDecl(_ ast: mpc_ast_t, implTypenameContext: String = "") throws -> ASTFunctionDeclaration {
+        let signature = try parseFunctionSignature(ast[0], implTypenameContext: implTypenameContext)
+        let body = try parseComposite(ast[1])
+        
+        return ASTFunctionDeclaration(signature: signature, body: body)
     }
     
     

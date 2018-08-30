@@ -117,7 +117,7 @@ class BytecodeCompiler {
         
         // resolve enum parameters
         functions.values
-            .compactMap { $0 as? ASTFunctionDeclaration }
+            .compactMap { $0 as? ASTFunctionSignature }
             .flatMap { $0.parameters }
             .forEach { $0.type = typeCache.resolveAsComplexOrEnum($0.type) }
         
@@ -377,46 +377,45 @@ private extension BytecodeCompiler {
     // MARK: Handle Statements
     
     func handle(function: ASTFunctionDeclaration) throws {
-        if function.mangledName == "main" {
-            function.annotations.append("unused")
-        }
-        
-        guard function.body.statements.getLocalVariables(recursive: true).intersection(with: function.parameters).isEmpty else {
+        guard function.body.statements.getLocalVariables(recursive: true).intersection(with: function.signature.parameters).isEmpty else {
             fatalError("local variable cannot (yet?) shadow parameter")
         }
         
-        if function.isVariadic {
-            guard [ASTType.int, .Array].contains(function.parameters.last!.type) else {
+        if function.signature.isVariadic {
+            guard [ASTType.int, .Array].contains(function.signature.parameters.last!.type) else {
                 fatalError("\(function.mangledName) declared as variadic, but the last parameter is neither `int` nor `Array`")
             }
         }
         
-        guard_noDuplicates(function.parameters)
+        guard_noDuplicates(function.signature.parameters)
+        
+        let signature = function.signature
         
         // TODO wouldn't it make much more sense to create a new scope for each function?
-        try withScope(Scope(type: .function(name: function.mangledName, returnType: function.returnType), parameters: function.parameters)) {
+        try withScope(Scope(type: .function(name: function.mangledName, returnType: signature.returnType), parameters: signature.parameters)) {
             // function entry point
             add(label: function.mangledName)
             
             if arcEnabledInCurrentScope {
-                try function.parameters
+                try signature.parameters
                     .filter { $0.type.supportsReferenceCounting && !typeCache.isStruct($0.type.typename) }
                     .forEach { try retain(expression: $0.identifier) }
             }
             
             // Generate instructions for the function body
             // if the function doesn't have a return statement, we implicitly return 0
-            
             let functionBody: ASTComposite
+            
             if !(function.body.statements.last is ASTReturnStatement) {
                 functionBody = ASTComposite(
                     statements: function.body.statements + [ASTReturnStatement(expression: ASTNumberLiteral(value: 0))],
-                    introducesNewScope: true,
-                    isUnsafe: function.body.isUnsafe
+                    introducesNewScope: true
                 )
             } else {
                 functionBody = function.body
             }
+            
+            functionBody.isUnsafe = function.signature.isUnsafe
             
             try handle(composite: functionBody)
         }
@@ -975,7 +974,7 @@ private extension BytecodeCompiler {
         if !isGlobalFunction, case .function(let returnType, let parameterTypes) = try scope.type(of: identifier.value) {
             // calling a function from the local scope
             // TODO what about supporting implicit function calls on self (ie `foo()` instead of `self.foo()` if `self` has a function `foo`
-            functionSignature = UnresolvedFunctionSignature(parameterTypes: parameterTypes, returnType: returnType, isVariadic: false, annotations: [])
+            functionSignature = ASTFunctionSignature(parameterTypes: parameterTypes, returnType: returnType)
         
         } else if let globalFunctionSignature = functions[identifier.value] {
             // calling a global function
@@ -983,7 +982,7 @@ private extension BytecodeCompiler {
             
         } else if let implicitSelfAccess = processPotentialImplicitSelfAccess(identifier: identifier), case .function(let returnType, let parameterTypes) = implicitSelfAccess.attributeType {
             isGlobalFunction = false
-            functionSignature = UnresolvedFunctionSignature(parameterTypes: parameterTypes, returnType: returnType, isVariadic: false, annotations: [])
+            functionSignature = ASTFunctionSignature(parameterTypes: parameterTypes, returnType: returnType)
         
         } else {
             fatalError("cannot resolve call to '\(identifier.value)'")

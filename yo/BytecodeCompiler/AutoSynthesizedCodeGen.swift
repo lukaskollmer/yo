@@ -82,11 +82,13 @@ class AutoSynthesizedCodeGen {
         let l_metatype: ASTIdentifier = "l_metatype"
         
         let metatype_init = ASTFunctionDeclaration(
-            name: ASTIdentifier(value: SymbolMangling.mangleMetatypeSetupFunction(forType: typename)),
-            parameters: [],
-            returnType: .void,
-            kind: .global,
-            annotations: [.static_initializer, .disable_arc],
+            signature: ASTFunctionSignature(
+                name: ASTIdentifier(value: SymbolMangling.mangleMetatypeSetupFunction(forType: typename)),
+                kind: .global,
+                parameters: [],
+                returnType: .void,
+                annotations: [.static_initializer, .disable_arc]
+            ),
             body: [
                 ASTVariableDeclaration(identifier: l_metatype, type: .int),
                 
@@ -133,11 +135,13 @@ class AutoSynthesizedCodeGen {
         
         // TODO what about a single function that frees all metatypes?
         let metatype_free = ASTFunctionDeclaration(
-            name: ASTIdentifier(value: SymbolMangling.mangleMetatypeCleanupFunction(forType: typename)),
-            parameters: [],
-            returnType: .void,
-            kind: .global,
-            annotations: [.static_cleanup],
+            signature: ASTFunctionSignature(
+                name: ASTIdentifier(value: SymbolMangling.mangleMetatypeCleanupFunction(forType: typename)),
+                kind: .global,
+                parameters: [],
+                returnType: .void,
+                annotations: [.static_cleanup]
+            ),
             body: [
                 // release the typename
                 ASTFunctionCall(
@@ -176,10 +180,17 @@ class AutoSynthesizedCodeGen {
         //
         
         let initializer = ASTFunctionDeclaration(
-            name: ASTIdentifier(value: "init"),
-            parameters: typeDeclaration.attributes,
-            returnType: _selfType,
-            kind: .staticImpl(typename),
+            //name: ASTIdentifier(value: "init"),
+            //parameters: typeDeclaration.attributes,
+            //returnType: _selfType,
+            //kind: .staticImpl(typename),
+            signature: ASTFunctionSignature(
+                name: ASTIdentifier(value: "init"),
+                kind: .staticImpl(typename),
+                parameters: typeDeclaration.attributes,
+                returnType: _selfType,
+                annotations: []
+            ),
             body: [
                 // declare self
                 ASTVariableDeclaration(identifier: _self, type: .any), // TODO use the current type?
@@ -255,11 +266,18 @@ class AutoSynthesizedCodeGen {
         let hasCustomDeallocFunction = compiler.functions.keys.contains(customDeallocFunctionName)
         
         let deallocFunction = ASTFunctionDeclaration(
-            name: "__dealloc",
-            parameters: [ASTVariableDeclaration(identifier: _self, type: _selfType)],
-            returnType: .void,
-            kind: .impl(typename),
-            annotations: [.disable_arc],
+            //name: "__dealloc",
+            //parameters: [ASTVariableDeclaration(identifier: _self, type: _selfType)],
+            //returnType: .void,
+            //kind: .impl(typename),
+            //annotations: [.disable_arc],
+            signature: ASTFunctionSignature(
+                name: "__dealloc",
+                kind: .impl(typename),
+                parameters: [ASTVariableDeclaration(identifier: _self, type: _selfType)],
+                returnType: .void,
+                annotations: [.disable_arc]
+            ),
             body: [
                 !hasCustomDeallocFunction
                     ? ASTNoop()
@@ -295,11 +313,18 @@ class AutoSynthesizedCodeGen {
             
             // Generate a getter
             let getter = ASTFunctionDeclaration(
-                name: ASTIdentifier(value: attributeName),
-                parameters: [ASTVariableDeclaration(identifier: _self, type: _selfType)],
-                returnType: attribute.type,
-                kind: .impl(typename),
-                annotations: [.disable_arc],
+                //name: ASTIdentifier(value: attributeName),
+                //parameters: [ASTVariableDeclaration(identifier: _self, type: _selfType)],
+                //returnType: attribute.type,
+                //kind: .impl(typename),
+                //annotations: [.disable_arc],
+                signature: ASTFunctionSignature(
+                    name: ASTIdentifier(value: attributeName),
+                    kind: .impl(typename),
+                    parameters: [ASTVariableDeclaration(identifier: _self, type: _selfType)],
+                    returnType: attribute.type,
+                    annotations: [.disable_arc]
+                ),
                 body: [
                     ASTReturnStatement(expression: ASTArrayGetter(target: _self, offset: offset))
                 ]
@@ -315,11 +340,21 @@ class AutoSynthesizedCodeGen {
             }
             
             let setter = ASTFunctionDeclaration(
-                name: ASTIdentifier(value: setterName),
-                parameters: [.init(identifier: _self, type: _selfType), .init(identifier: "newValue", type: attribute.type)],
-                returnType: .void,
-                kind: .impl(typename),
-                annotations: [.disable_arc],
+                //name: ASTIdentifier(value: setterName),
+                //parameters: [.init(identifier: _self, type: _selfType), .init(identifier: "newValue", type: attribute.type)],
+                //returnType: .void,
+                //kind: .impl(typename),
+                //annotations: [.disable_arc],
+                signature: ASTFunctionSignature(
+                    name: ASTIdentifier(value: setterName),
+                    kind: .impl(typename),
+                    parameters: [
+                        ASTVariableDeclaration(identifier: _self, type: _selfType),
+                        ASTVariableDeclaration(identifier: "newValue", type: attribute.type)
+                    ],
+                    returnType: .void,
+                    annotations: [.disable_arc]
+                ),
                 body: [
                     // TODO this code is pretty bad, but it was the best i could come up with that keeps the retain/release dance within the body literal
                     
@@ -383,24 +418,38 @@ class AutoSynthesizedCodeGen {
             let protocolImplementation = ASTTypeImplementation(typename: typename, functions: [])
             
             for fn in _protocol.functions {
-                guard !compiler.functions.keys.contains(SymbolMangling.mangleInstanceMember(ofType: typename.value, memberName: fn.name.value)) else {
+                guard !compiler.functions.keys.contains(SymbolMangling.mangleInstanceMember(ofType: typename.value, memberName: fn.signature.name.value)) else {
                     continue
                 }
                 
+                // Resolve `Self` types in the signature
                 let implementation = ASTFunctionDeclaration(
-                    name: fn.name,
-                    parameters: fn.parameters.map { parameter in
-                        return ASTVariableDeclaration(identifier: parameter.identifier, type: parameter.type == .Self ? .complex(name: typename.value) : parameter.type)
-                    },
-                    returnType: fn.returnType,
-                    kind: fn.kind.withTypename(typename.value),
-                    annotations: fn.annotations,
-                    body: fn.body)
+                    signature: ASTFunctionSignature(
+                        name: fn.signature.name,
+                        kind: fn.signature.kind.withTypename(typename.value),
+                        parameters: fn.signature.parameters.map { parameter in
+                            return ASTVariableDeclaration(identifier: parameter.identifier, type: parameter.type == .Self ? .complex(name: typename.value) : parameter.type)
+                        },
+                        returnType: fn.signature.returnType,
+                        annotations: fn.signature.annotations,
+                        isUnsafe: fn.signature.isUnsafe
+                    ),
+                    body: fn.body
+                )
                 
                 
                 protocolImplementation.functions.append(implementation)
                 compiler.functions.insert(functionDeclaration: implementation)
             }
+            
+            
+            
+            for signature in _protocol.functionsWithoutDefaultImplementation {
+                // TODO throw an error if the type doesn't provide an implementation of the function
+            }
+            
+            
+            
             retval.append(protocolImplementation)
         }
         

@@ -13,11 +13,13 @@ class ASTProtocolDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated {
     
     let name: ASTIdentifier
     let functions: [ASTFunctionDeclaration]
+    let functionsWithoutDefaultImplementation: [ASTFunctionSignature]
     var annotations: [ASTAnnotation.Element]
     
-    init(name: ASTIdentifier, functions: [ASTFunctionDeclaration], annotations: [ASTAnnotation.Element]) {
+    init(name: ASTIdentifier, functions: [ASTFunctionDeclaration], functionsWithoutDefaultImplementation: [ASTFunctionSignature], annotations: [ASTAnnotation.Element]) {
         self.name = name
         self.functions = functions
+        self.functionsWithoutDefaultImplementation = functionsWithoutDefaultImplementation
         self.annotations = annotations
     }
 }
