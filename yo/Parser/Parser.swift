@@ -946,12 +946,31 @@ class Parser {
                 return try parseFunctionCall(ast, unusedReturnValue: false)
             }
             
+        case "expr|range|>":
+            return try parseRangeLiteral(ast)
+            
             
         default:
             fatalError("unexpected expression \(ast)")
         }
         
         fatalError()
+    }
+    
+    func parseRangeLiteral(_ ast: mpc_ast_t) throws -> ASTRangeLiteral {
+        let start = try parseExpression(ast[0])
+        let end   = try parseExpression(ast[2])
+        
+        let rangeLiteralKindMapping: [String: ASTRangeLiteral.Kind] = [
+            "...": .inclusive,
+            "..<": .exclusive
+        ]
+        
+        return ASTRangeLiteral(
+            start: start,
+            end: end,
+            kind: rangeLiteralKindMapping[ast[1].lk_content]!
+        )
     }
     
     
