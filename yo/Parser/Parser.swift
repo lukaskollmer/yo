@@ -752,66 +752,39 @@ class Parser {
     
     
     
-    
-    
-    
-    // TODO introduce a proper ASTForLoop type!!!
     func parseForLoop(_ ast: mpc_ast_t) throws -> ASTStatement {
-        let identifier = try parseIdentifier(ast[1])
+        let isCStyleForLoop = ast[1].lk_tag == "var_decl|>"
         
-        // TODO add support for non-rangeliteral loops!!!
-        //let target = try parseExpression(ast[3])
-        
-        guard ast[3].lk_tag == "for_loop_target|range|>" else {
-            fatalError("non range-based loops not (yet?) supported")
-        }
-        
-        let range_ast = ast[3]
-        let start = try parseExpression(range_ast[0])
-        let end = try parseExpression(range_ast[2])
-        let body = try parseComposite(ast[4])
-        
-        let kind: ASTComparison.Operation
-        
-        switch range_ast[1].lk_content {
-        case "...":
-            kind = .lessEqual
-        case "..<":
-            kind = .less
-        default:
-            fatalError("invalid range type")
-        }
-        
-        
-        
-        let forLoop: ASTComposite = [
-            ASTVariableDeclaration(identifier: identifier, type: .int), // TODO either infer type, or allow specifying a type
-            ASTAssignment(target: identifier, value: start),
+        if !isCStyleForLoop {
+            let identifier = try parseIdentifier(ast[1])
             
-            // TODO save the end index as a local variable, so that we don't have to re-evaluate it every time
-            //ASTVariableDeclaration(identifier: "", type: <#T##ASTType#>)
+            let type: ASTType?
+            if ast[2] == _colon {
+                type = try parseType(ast[3])
+            } else {
+                type = nil
+            }
             
-            ASTConditionalStatement(
-                condition: ASTComparison(
-                    lhs: identifier,
-                    operation: kind,
-                    rhs: end
-                ),
-                body: body.appending(statements: [
-                    ASTAssignment(
-                        target: identifier,
-                        value: ASTBinaryOperation(
-                            lhs: identifier,
-                            operation: .add,
-                            rhs: 1 as ASTNumberLiteral
-                        )
-                    )
-                ]),
-                kind: .while
-            )
-        ]
-        
-        return forLoop
+            let target = try parseExpression(ast[ast.count - 2])
+            let body = try parseComposite(ast[ast.count - 1])
+            
+            return ASTForLoop(identifier: identifier, type: type, target: target, body: body)
+        } else {
+            let initialization = try parseVariableDeclaration(ast[1])
+            let condition = try parseCondition(ast[2])
+            let increment = try parseStatement(ast[4])
+            
+            let body = try parseComposite(ast[5])
+            
+            return [
+                initialization,
+                ASTConditionalStatement(
+                    condition: condition,
+                    body: body.appending(statements: [increment]),
+                    kind: .while
+                )
+            ] as ASTComposite
+        }
     }
     
     

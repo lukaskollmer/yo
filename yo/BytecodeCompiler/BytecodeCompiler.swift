@@ -61,7 +61,7 @@ class BytecodeCompiler {
     private var instructions = [WIPInstruction]()
     private var conditionalStatementCounter = Counter()
     private var lambdaCounter = Counter()
-    private var stringLiteralCounter = Counter()
+    private var forLoopCounter = Counter()
     
     
     // Scope info
@@ -357,6 +357,9 @@ private extension BytecodeCompiler {
             
         } else if let rangeLiteral = node as? ASTRangeLiteral {
             try handle(rangeLiteral: rangeLiteral)
+            
+        } else if let forLoop = node as? ASTForLoop {
+            try handle(forLoop: forLoop)
             
         } else if let _ = node as? ASTNoop {
             
@@ -791,6 +794,44 @@ private extension BytecodeCompiler {
             fatalError("the fuck you doing?")
         }
         
+    }
+    
+    
+    func handle(forLoop: ASTForLoop) throws {
+        let forLoopId = forLoopCounter.get()
+        
+        let l_target   = ASTIdentifier(value: "%_target_\(forLoopId)")
+        let l_iterator = ASTIdentifier(value: "%_iterator_\(forLoopId)")
+        
+        let identifier = forLoop.identifier
+        let type = forLoop.type ?? .int
+        
+        let composite: ASTComposite = [
+            ASTVariableDeclaration(identifier: l_target, type: .id),
+            ASTVariableDeclaration(identifier: l_iterator, type: .id),
+            
+            ASTAssignment(target: l_target, value: forLoop.target),
+            ASTAssignment(
+                target: l_iterator,
+                value: msgSend(target: l_target, selector: "iterator", arguments: [], unusedReturnValue: false)
+            ),
+            
+            ASTConditionalStatement(
+                condition: ASTComparison(
+                    lhs: msgSend(target: l_iterator, selector: "hasNext", arguments: [], unusedReturnValue: false).as(.bool),
+                    operation: .equal,
+                    rhs: ASTBooleanLiteral(value: true)
+                ),
+                body: [
+                    ASTVariableDeclaration(identifier: identifier, type: type),
+                    ASTAssignment(target: identifier, value: msgSend(target: l_iterator, selector: "next", arguments: [], unusedReturnValue: false).as(type)),
+                    forLoop.body // we can't append this, but instead have include it as a sub-composite (why? what if the body is unsafe? we'd ignore that)
+                ],
+                kind: .while
+            )
+        ]
+        
+        try handle(composite: composite)
     }
     
     

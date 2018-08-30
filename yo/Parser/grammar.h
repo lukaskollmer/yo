@@ -145,7 +145,8 @@ const char *YO_GRAMMAR =
 
 " for_loop_target   : <range>  ; "
 
-" for_loop      : \"for\" <ident> \"in\" <for_loop_target> <composite> ; "
+" for_loop      : \"for\" <ident> (':' <type>)?  \"in\"  <expr>   <composite>     "
+"               | \"for\" <var_decl> <cond> ';' <stmt> <composite> ;"
 
 
 " asm_stmt      : \"__asm\" '(' <ident> ',' (<number> | <string>) ')' ';'  ;   "
