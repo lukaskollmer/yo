@@ -244,9 +244,9 @@ impl Array {
 
 
 impl Array: Iterable {
-    //fn iterator(self: Array): ArrayIterator {
-    //    ret ArrayIterator::newWithArray(self);
-    //}
+    fn iterator(self: Array): ArrayIterator {
+        ret ArrayIterator::newWithArray(self);
+    }
 }
 
 
