@@ -1,3 +1,4 @@
+use "std/range";
 use "std/string";
 use "std/string_builder";
 
@@ -185,7 +186,7 @@ impl Array {
 
 
     fn dealloc(self: Array): void {
-        for i in 0..<self._count {
+        for val i: int; i < self._count; i += 1; {
             runtime::release(self.get(i));
         }
         runtime::free(self._backing);
@@ -238,5 +239,37 @@ impl Array {
         runtime::free(self._backing);
         self._backing = newBacking;
         self._allocatedLength = newSize;
+    }
+
+    fn iterator(self: Array): ArrayIterator {
+        ret ArrayIterator::newWithArray(self);
+    }
+}
+
+
+
+
+type ArrayIterator {
+    index: int,
+    array: Array
+};
+
+impl ArrayIterator: Iterator {
+    static fn newWithArray(array: Array): ArrayIterator {
+        ret ArrayIterator::init(0, array);
+    }
+
+
+    fn hasNext(self: ArrayIterator): bool {
+        if self.index < self.array.count() {
+            ret true;
+        }
+        ret false;
+    }
+
+    fn next(self: ArrayIterator): any {
+        val element = self.array.get(self.index);
+        self.index += 1;
+        ret element;
     }
 }

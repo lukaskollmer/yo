@@ -128,7 +128,7 @@ impl HashMap {
         // index of the bucket in which the key would be stored under perfect coditions (no collisions)
         val bucketIndex = hashValue % self._allocatedSize;
 
-        for i in 0..<self._allocatedSize {
+        for val i: int; i < self._allocatedSize; i += 1; {
             val fetchedKey = self._backing[2 * bucketIndex];
             //runtime::_printi(fetchedKey);
             if fetchedKey == 0 {
@@ -159,7 +159,7 @@ impl HashMap {
     fn description(self: HashMap): String {
         val desc = StringBuilder::new();
         desc.append("HashMap {\n");
-        for i in 0..<self._allocatedSize {
+        for val i: int; i < self._allocatedSize; i += 1; {
             val key = self._backing[2 * i] as String;
             val value = self._backing[(2 * i) + 1] as id;
 
@@ -187,7 +187,7 @@ impl HashMap {
 
 
     fn enumerateKeyValuePairs(self: HashMap, block: fn<(HashMapKeyValuePair): void>): void {
-        for i in 0..<self._allocatedSize {
+        for val i: int; i < self._allocatedSize; i += 1; {
             val offset = 2 * i;
             if self._backing[offset] != 0 {
                 val pair = (self._backing + offset) as HashMapKeyValuePair;
@@ -199,6 +199,7 @@ impl HashMap {
 
     fn dealloc(self: HashMap): void {
         self.enumerateKeyValuePairs(|pair| -> {
+            io::printf("RC k(%n) v(%n)", @(runtime::getRetainCount(pair.key)), @(runtime::getRetainCount(pair.value)));
             runtime::release(pair.key);
             runtime::release(pair.value);
         });

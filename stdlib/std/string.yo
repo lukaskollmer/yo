@@ -42,7 +42,8 @@ impl String {
     fn isEqualToString(self: String, other: String): bool {
         val length = self.length();
 
-        for i in 0...length {
+        //for i in 0...length {
+        for val i: int; i < length; i += 1; {
             if self._backing[i] != other._backing[i] {
                 ret false;
             }
