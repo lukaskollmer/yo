@@ -24,9 +24,12 @@ class ASTComposite: ASTStatement, ExpressibleByArrayLiteral {
         self.init(statements: elements)
     }
     
-    
     func appending(statements otherStatements: [ASTStatement]) -> ASTComposite {
-        return ASTComposite(statements: statements + otherStatements, introducesNewScope: introducesNewScope)
+        return ASTComposite(
+            statements: statements + otherStatements,
+            introducesNewScope: self.introducesNewScope,
+            isUnsafe: self.isUnsafe
+        )
     }
 }
 
