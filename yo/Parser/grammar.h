@@ -151,12 +151,10 @@ const char *YO_GRAMMAR =
 
 " defer_block   : \"defer\" <composite>   ; "
 
-" unsafe_block  : \"unsafe\" <composite> ; "
-
 " stmt          : <ret>             "
+"               | <composite>       "
 "               | <assignment>        "
 "               | <var_decl>     "
-"               | <unsafe_block>    "
 "               | <asm_stmt>       "
 "               | <stmt_fn_call>    "
 "               | <cond_stmt>       "
@@ -165,7 +163,7 @@ const char *YO_GRAMMAR =
 // var_decl after assignment because it can interfer w/ other statements
 // example: `value = 12;` would be parsed as `val ue = 12;`
 
-" composite     : '{' <stmt>* '}' ;   "
+" composite     : \"unsafe\"? '{' <stmt>* '}' ;   "
 
 " paramList     : <ident> ':' <type> (',' <ident> ':' <type> )* ; "
 

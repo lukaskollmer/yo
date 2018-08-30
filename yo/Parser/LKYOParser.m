@@ -113,8 +113,6 @@ static BOOL shouldEmitSignposts;
     rule(defer_block);
     rule(function_signature);
     
-    rule(unsafe_block);
-    
     
     // TODO make sure these arguments are in the exact same order as the tag declarations in grammar.h !!!
     mpc_err_t *err =
@@ -125,7 +123,7 @@ static BOOL shouldEmitSignposts;
               boxed_expr, range, binop_mul, binop_add, unary, lambda, typecast, lexpr, expr,
               ret, var_decl, in_place_binop, assignment, stmt_fn_call,
               comp_op, bin_cond_op, bin_cond, comp, lcond, cond, if_stmt, else_stmt, while_stmt, cond_stmt, for_loop_target, for_loop,
-              asm_stmt, defer_block, unsafe_block, stmt, composite, paramList,
+              asm_stmt, defer_block, stmt, composite, paramList,
               import, protocol, enum_decl, function_signature, annotation, function, topLevelStatement, program, NULL);
     
     if (err) {

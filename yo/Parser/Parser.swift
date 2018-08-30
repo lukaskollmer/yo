@@ -239,8 +239,8 @@ class Parser {
         case "stmt|defer_block|>":
             return try parseDeferBlock(ast)
             
-        case "stmt|unsafe_block|>":
-            return try parseUnsafeBlock(ast)
+        case "stmt|composite|>":
+            return try parseComposite(ast)
             
         default:
             fatalError("unexpected statement \(ast)")
@@ -251,12 +251,6 @@ class Parser {
     func parseDeferBlock(_ ast: mpc_ast_t) throws -> ASTDeferStatement {
         let body = try parseComposite(ast[1])
         return ASTDeferStatement(body: body)
-    }
-    
-    func parseUnsafeBlock(_ ast: mpc_ast_t) throws -> ASTComposite {
-        let body = try parseComposite(ast[1])
-        body.isUnsafe = true
-        return body
     }
     
     
@@ -555,32 +549,13 @@ class Parser {
     
     
     func parseComposite(_ ast: mpc_ast_t) throws -> ASTComposite {
-        guard ast.lk_tag == "composite|>" else { // TODO is that guard *really* necessary?
-            fatalError()
-        }
+        let isUnsafe = ast[0].lk_tag == "string" && ast[0].lk_content == "unsafe"
         
-        return ASTComposite(
-            statements: try ast.lk_children.excludingFirstAndLast.map { try parseStatement($0) }
-        )
+        let statements = try ast.lk_children
+            .filter { $0.lk_tag.hasPrefix("stmt|") }
+            .map { try parseStatement($0) }
         
-        // or use one of the versions below?
-        
-        /*var statements = [ASTStatement]()
-        var index = 1
-        while ast[index] != _closingCurlyBraces {
-            statements.append(try parseStatement(ast[index]))
-            index += 1
-        }*/
-        
-        /*var index = 1
-        while let statement = try? parseStatement(ast[index]) {
-            statements.append(statement)
-            
-            index += 1
-            if ast[index] == _closingCurlyBraces {
-                break
-            }
-        }*/
+        return ASTComposite(statements: statements, isUnsafe: isUnsafe)
     }
     
     
