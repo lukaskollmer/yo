@@ -49,6 +49,21 @@ struct Counter {
 }
 
 
+// TODO somehow incorporate primitive arrays
+struct StringLiteralsCache {
+    private var strings = [String: String]()
+    
+    mutating func label(forStringLiteral string: String) -> (label: String, wasAlreadyIncluded: Bool) {
+        if let label = strings[string] { return (label, true) }
+        
+        let label = UUID().uuidString
+        strings[string] = label
+        
+        return (label, false)
+    }
+}
+
+
 // MARK: Codegen
 
 /// Class that compiles an AST to bytecode instructions
@@ -62,6 +77,7 @@ class BytecodeCompiler {
     private var conditionalStatementCounter = Counter()
     private var lambdaCounter = Counter()
     private var forLoopCounter = Counter()
+    private var stringLiteralsCache = StringLiteralsCache()
     
     
     // Scope info
@@ -1347,13 +1363,13 @@ private extension BytecodeCompiler {
     }
     
     func handle(stringLiteral: ASTStringLiteral) throws {
-        // TODO detect duplicate string literals
+        let text = stringLiteral.value
+        let codepoints: [Int] = text.unicodeScalars.map { Int($0.value) }
         
-        let value = stringLiteral.value
-        let codepoints: [Int] = value.unicodeScalars.map { Int($0.value) }
-        
-        let label = UUID().uuidString
-        add(.arrayLiteral(label, codepoints))
+        let (label, alreadyRegistered) = stringLiteralsCache.label(forStringLiteral: text)
+        if !alreadyRegistered {
+            add(.arrayLiteral(label, codepoints))
+        }
         
         let stringInitCall = ASTFunctionCall(
             functionName: SymbolMangling.mangleInitializer(forType: "String"),
