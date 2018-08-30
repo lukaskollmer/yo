@@ -1,6 +1,6 @@
 // std/range
 
-use "std/iterator";
+use "std/iterable";
 
 type RangeIterator {
     current: int,
