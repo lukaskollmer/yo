@@ -11,10 +11,12 @@ import Foundation
 
 class ASTTypeImplementation: ASTStatement {
     let typename: ASTIdentifier
+    let protocols: [ASTIdentifier]
     var functions: [ASTFunctionDeclaration]
     
-    init(typename: ASTIdentifier, functions: [ASTFunctionDeclaration]) {
+    init(typename: ASTIdentifier, protocols: [ASTIdentifier] = [], functions: [ASTFunctionDeclaration]) {
         self.typename = typename
+        self.protocols = protocols
         self.functions = functions
     }
 }

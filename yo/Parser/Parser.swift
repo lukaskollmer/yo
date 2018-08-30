@@ -411,7 +411,6 @@ class Parser {
         return ASTTypeDeclaration(
             name: typename,
             attributes: attributes,
-            protocols: [], // TODO
             annotations: [], // TODO
             isStruct: isStruct
         )
@@ -424,6 +423,12 @@ class Parser {
     func parseImplementation(_ ast: mpc_ast_t) throws -> ASTTypeImplementation {
         let typename = try parseIdentifier(ast[1])
         
+        let functionsStartIndex = ast.lk_children.firstIndex { $0 == _openingCurlyBraces }!
+        
+        let protocolNames = try ast.lk_children[2..<functionsStartIndex]
+            .filter { $0.lk_tag == "ident|regex" }
+            .map { try parseIdentifier($0) }
+        
         // assuming an `impl` block contains only functions
         let functions = try ast.lk_children
             .filter { $0.lk_tag == "function|>" }
@@ -431,6 +436,7 @@ class Parser {
         
         return ASTTypeImplementation(
             typename: typename,
+            protocols: protocolNames,
             functions: functions
         )
     }

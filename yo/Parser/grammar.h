@@ -38,7 +38,7 @@ const char *YO_GRAMMAR =
 " type_decl     : (\"type\" | \"struct\" ) <ident> '{' <paramList>? '}' ';'   ;        "
 
 
-" impl          : \"impl\" <ident> '{' <function>* '}' ;             "
+" impl          : \"impl\" <ident> (':' <ident> (',' <ident>)* )? '{' <function>* '}' ;             "
 
 
 " type          : <fn_ptr>                                                          "
