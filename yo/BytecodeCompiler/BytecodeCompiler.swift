@@ -110,6 +110,7 @@ class BytecodeCompiler {
         self.functions.insert(contentsOf: semanticAnalysis.globalFunctions)
         semanticAnalysis.types.forEach(self.typeCache.register)
         
+        semanticAnalysis.enums.forEach(self.typeCache.register)
         
         // Generate initializers, getters/setters and dealloc functions
         
@@ -341,8 +342,8 @@ private extension BytecodeCompiler {
         } else if node is ASTStaticVariableDeclaration {
             // TODO?
             
-        } else if let enumDecl = node as? ASTEnumDeclaration {
-            try handle(enumDeclaration: enumDecl)
+        } else if node is ASTEnumDeclaration {
+            // already handled during semantic analysis
             
         } else if let staticMemberGetter = node as? ASTStaticMemberGetter {
             try handle(staticMemberGetter: staticMemberGetter)
@@ -365,10 +366,6 @@ private extension BytecodeCompiler {
     
     
     // MARK: Handle Statements
-    
-    func handle(enumDeclaration: ASTEnumDeclaration) throws {
-        typeCache.register(enum: enumDeclaration)
-    }
     
     func handle(function: ASTFunctionDeclaration) throws {
         if function.mangledName == "main" {
@@ -1089,22 +1086,19 @@ private extension BytecodeCompiler {
     }
     
     
-    func handle(staticMemberGetter: ASTStaticMemberGetter) throws {
-        guard typeCache.enumExists(withName: staticMemberGetter.typename.value) else {
-            fatalError("only enums supported for the time being") // todo add supports for types as well!!! (see comment in the guessType function)
-        }
-        
-        let enumCaseRawValue = ASTNumberLiteral(value: typeCache.index(ofCase: staticMemberGetter.memberName.value, inEnum: staticMemberGetter.typename.value)!)
-        try handle(numberLiteral: enumCaseRawValue)
-    }
-    
-    
-    
-    
     
     func processMemberAccess(memberAccess: ASTMemberAccess) throws -> (expr: ASTExpression, types: [ASTType]) {
         guard memberAccess.members.count > 1 else {
             fatalError("wat")
+        }
+        
+        if
+            memberAccess.members.count == 2,
+            case .initial_identifier(let enumTypeName) = memberAccess.members[0],
+            case .attribute(let caseName) = memberAccess.members[1],
+            let caseIndex = typeCache.index(ofCase: caseName.value, inEnum: enumTypeName.value)
+        {
+            return (ASTNumberLiteral(value: caseIndex), [._enum(enumTypeName.value)])
         }
         
         var expr: ASTExpression!

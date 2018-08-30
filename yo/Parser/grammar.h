@@ -90,12 +90,10 @@ const char *YO_GRAMMAR =
 // TODO can/should <fn_call> be moved to <expr> ?
 "               | <fn_call>                       "
 "               | <subscript>                       "
-"               | <var_access>                       "
-"               | <static_target>               " // static_target in a <lexpr> is an enum case
+"               | <var_access>     ;                  "
 // TODO: potential improvement: parse <var_access> once, then optionally subscript access or a function call
 // This would break static function calls, which could be fixed by replacing the currently freestanding <static_target> option w/ `<static_target> ('(' <expr_list> ')' )?` TODO!!! this really shouldn't be too difficult
 //"               | <var_access> ( ('[' <expr> ']') | ('('<expr_list>?')') )?    "
-"                       ;"
 
 
 " expr          : <typecast>                    "
