@@ -16,26 +16,6 @@ impl Array {
         ret Array::init(0, 10, runtime::alloc(10));
     }
 
-    // Create a new Array from the contents of the heap, at the specified address
-    // Invoked by the compiler when using array literals consisting exclusively of integer literals
-    static fn _fromConstantLiteral(address: int): Array {
-        // since the array we get in `address` also contains its length (at index 0),
-        // we allocate a new array as our backing and free the one we got.
-        // This is important for Array.dealloc to work properly.
-        // (If we just set `_backing` to `address + 1`, we couldn't free it because there's no
-        // way of knowing whether the array was created via literal or not)
-        val length: int = address[0];
-        val backing: int = runtime::alloc(length);
-
-        // TODO runtime::copy_array
-        for i in 0..<length {
-            backing[i] = address[i + 1];
-        }
-
-        runtime::free(address);
-        ret Array::init(length, length, backing);
-    }
-
 
     // Add an object to the array
     // TODO make `object` id and require it to be a heap allocated instance
