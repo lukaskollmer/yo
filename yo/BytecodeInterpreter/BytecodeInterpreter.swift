@@ -42,6 +42,9 @@ class BytecodeInterpreter {
     private let callStatsRecorder = CallStatsRecorder()
     
     
+    private var _didStep = false
+    
+    
     
     
     init(wipInstructions: [WIPInstruction], heapSize: Int, debugOptions: DebugOptions = []) {
@@ -63,8 +66,10 @@ class BytecodeInterpreter {
             
             try performAtCurrentInstructionPointer()
             
-            if instructionPointer == previousInstructionPointer {
+            // TODO we have this code twice (see the simulated function call below). fix that
+            if _didStep || instructionPointer == previousInstructionPointer {
                 instructionPointer += 1
+                _didStep = false
             }
         }
         
@@ -75,6 +80,11 @@ class BytecodeInterpreter {
         return try stack.pop()
     }
     
+    
+    private func step() {
+        instructionPointer += 1
+        _didStep = true
+    }
     
     
     private func performAtCurrentInstructionPointer() throws {
@@ -163,8 +173,9 @@ class BytecodeInterpreter {
             
             let previousIP = instructionPointer
             try performAtCurrentInstructionPointer()
-            if previousIP == instructionPointer {
+            if _didStep ||  previousIP == instructionPointer {
                 instructionPointer += 1
+                _didStep = false
             }
         }
         fatalError("should not reach here")
