@@ -15,6 +15,7 @@ enum WIPInstruction {
     case unresolved(Operation, String)  // An instruction that takes an address as parameter, which will be resolved later (after all codegen finished)
     case arrayLiteral(String, [Int])    // TODO write desc
     case comment(String)
+    case raw(Int)                       // Just a 64 bit wide integer
     
     
     var isLabel: Bool {
@@ -94,6 +95,8 @@ extension Array where Element == WIPInstruction {
                 return 0
             case .comment(_):
                 return 0
+            case .raw(let value):
+                return value
             case .arrayLiteral(_):
                 fatalError() // should never reach here
             }
@@ -135,6 +138,8 @@ extension Array where Element == WIPInstruction {
                 line(idx, "ARRAY LITERAL", "TODO")
             case .comment(let comment):
                 line(idx, ";" + comment, "")
+            case .raw(let value):
+                line(idx, "(raw)", String(value))
             }
         }
         

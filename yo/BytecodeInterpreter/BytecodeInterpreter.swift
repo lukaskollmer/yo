@@ -334,6 +334,11 @@ class BytecodeInterpreter {
         case .push:
             try stack.push(immediate)
             
+        case .push64:
+            let value = instructions[instructionPointer + 1].instruction
+            try stack.push(value)
+            step()
+            
         case .pop:
             _ = try stack.pop()
             

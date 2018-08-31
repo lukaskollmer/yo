@@ -1322,25 +1322,14 @@ private extension BytecodeCompiler {
     
     func handle(numberLiteral: ASTNumberLiteral) throws {
         let value = numberLiteral.value
-        var binaryRepresentation = String(value, radix: 2)
         
-        if binaryRepresentation.count <= ImmediateSize {
-            add(.push, numberLiteral.value)
-            return
+        if let _ = Int32(exactly: value) {
+            add(.push, value)
+        } else {
+            // Doesn't fit in Int32 -> larger than 32 bits
+            add(.push64)
+            add(.raw(value))
         }
-        
-        binaryRepresentation = binaryRepresentation.padding(.left, toLength: 64, withPad: "0")
-        
-        let upperHalf = binaryRepresentation.ns.substring(with: NSRange(location: 00, length: 32))
-        let lowerHalf = binaryRepresentation.ns.substring(with: NSRange(location: 32, length: 32))
-        
-        add(.push, Int(upperHalf, radix: 2)!)
-        add(.push, 32)
-        add(.shl)
-        
-        add(.push, Int(lowerHalf, radix: 2)!)
-        add(.or)
-        
     }
     
     func handle(stringLiteral: ASTStringLiteral) throws {
