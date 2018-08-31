@@ -196,7 +196,7 @@ class Parser {
     }
     
     
-    func parseGlobalVariableDeclaration(_ ast: mpc_ast_t) throws -> ASTStaticVariableDeclaration {
+    func parseGlobalVariableDeclaration(_ ast: mpc_ast_t) throws -> ASTVariableDeclaration {
         let identifier = try parseIdentifier(ast[1])
         let type = try parseType(ast[3])
         let initialValue: ASTExpression?
@@ -208,7 +208,7 @@ class Parser {
             initialValue = nil
         }
         
-        return ASTStaticVariableDeclaration(identifier: identifier, type: type, initialValue: initialValue)
+        return ASTVariableDeclaration(identifier: identifier, type: type, initialValue: initialValue, isStatic: true)
     }
     
     
@@ -575,14 +575,12 @@ class Parser {
     
     
     func parseVariableDeclaration(_ ast: mpc_ast_t) throws -> ASTStatement {
-        
         let identifier = try parseIdentifier(ast[1])
         let type: ASTType
         let initialValue: ASTExpression?
         
         // index of the initial value, if the variable declaration were to have one
         let initialValueIndex: Int
-        
         
         if ast[2] == _colon {
             type = try parseType(ast[3])
@@ -598,18 +596,7 @@ class Parser {
             initialValue = nil
         }
         
-        
-        if let initialValue = initialValue {
-            return ASTComposite(
-                statements: [
-                    ASTVariableDeclaration(identifier: identifier, type: type),
-                    ASTAssignment(target: identifier, value: initialValue)
-                ],
-                introducesNewScope: false
-            )
-        }
-        
-        return ASTVariableDeclaration(identifier: identifier, type: type)
+        return ASTVariableDeclaration(identifier: identifier, type: type, initialValue: initialValue)
     }
     
     

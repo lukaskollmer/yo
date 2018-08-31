@@ -77,7 +77,7 @@ class AutoSynthesizedCodeGen {
         
         let typename = type.name.value
         let g_metatype = ASTIdentifier(value: SymbolMangling.mangleMetatypeTableName(forType: typename))
-        compiler.globals.append(ASTStaticVariableDeclaration(identifier: g_metatype, type: .int, initialValue: nil))
+        compiler.globals.append(ASTVariableDeclaration(identifier: g_metatype, type: .int, isStatic: true))
         
         let l_metatype: ASTIdentifier = "l_metatype"
         

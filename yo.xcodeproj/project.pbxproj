@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		8001BC8220B6CF8500B55D00 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8001BC8120B6CF8500B55D00 /* main.swift */; };
-		80049ABD20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80049ABC20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift */; };
 		8030A6612136DB8B00AC0596 /* ASTRangeLiteral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8030A6602136DB8B00AC0596 /* ASTRangeLiteral.swift */; };
 		8030A6632136E14300AC0596 /* ASTForLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8030A6622136E14300AC0596 /* ASTForLoop.swift */; };
 		803BEDCB211753D5009DC37A /* Buffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDCA211753D5009DC37A /* Buffer.swift */; };
@@ -157,7 +156,6 @@
 /* Begin PBXFileReference section */
 		8001BC7E20B6CF8500B55D00 /* yo */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = yo; sourceTree = BUILT_PRODUCTS_DIR; };
 		8001BC8120B6CF8500B55D00 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
-		80049ABC20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTStaticVariableDeclaration.swift; sourceTree = "<group>"; };
 		8030A6602136DB8B00AC0596 /* ASTRangeLiteral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTRangeLiteral.swift; sourceTree = "<group>"; };
 		8030A6622136E14300AC0596 /* ASTForLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTForLoop.swift; sourceTree = "<group>"; };
 		803BEDCA211753D5009DC37A /* Buffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Buffer.swift; sourceTree = "<group>"; };
@@ -493,7 +491,6 @@
 				8072C75920E90DA100FA9F62 /* ASTBoxedExpression.swift */,
 				8072C76620E931D600FA9F62 /* ASTProtocolDeclaration.swift */,
 				8072C76820EA1C2600FA9F62 /* ASTBooleanLiteral.swift */,
-				80049ABC20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift */,
 				803BEDCE211764FA009DC37A /* ASTStaticMemberGetter.swift */,
 				803BEDD0211765D3009DC37A /* ASTEnumDeclaration.swift */,
 				803BEDD5211895F7009DC37A /* ASTInlineBooleanExpression.swift */,
@@ -672,7 +669,6 @@
 				80EAA47820B75F370043A6F6 /* BytecodeInterpreter.swift in Sources */,
 				80EAA48020B826730043A6F6 /* ASTBinaryOperation.swift in Sources */,
 				80E74FF320EB751400C7DB90 /* CLI.swift in Sources */,
-				80049ABD20EBCD09006FBB80 /* ASTStaticVariableDeclaration.swift in Sources */,
 				80EAA47020B758BE0043A6F6 /* ASTNumberLiteral.swift in Sources */,
 				803BEDE3211AF7D0009DC37A /* LKUtilities.m in Sources */,
 				80EAA49020B899980043A6F6 /* ASTAssignment.swift in Sources */,

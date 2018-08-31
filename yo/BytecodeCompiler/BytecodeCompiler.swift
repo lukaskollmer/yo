@@ -84,7 +84,7 @@ class BytecodeCompiler {
     private var scope = Scope(type: .global)
     var typeCache = TypeCache()
     var functions = GlobalFunctions()
-    var globals = [ASTStaticVariableDeclaration]()
+    var globals = [ASTVariableDeclaration]()
     
     private var codegen: AutoSynthesizedCodeGen!
     
@@ -300,9 +300,10 @@ private extension BytecodeCompiler {
         } else if let assignment = node as? ASTAssignment {
             try handle(assignment: assignment)
             
-        } else if let _ = node as? ASTVariableDeclaration {
-            // we don't need to explicitly handle variable declarations since that info is also passed in the ASTFunctionDeclaration node
-            // TODO we might be able to remove all variable declarations from the a function's body statements?
+        } else if let variableDeclaration = node as? ASTVariableDeclaration {
+            if let initialValue = variableDeclaration.initialValue {
+                try handle(assignment: ASTAssignment(target: variableDeclaration.identifier, value: initialValue))
+            }
             
         } else if let conditionalStatement = node as? ASTConditionalStatement {
             try handle(conditionalStatement: conditionalStatement)
@@ -356,9 +357,6 @@ private extension BytecodeCompiler {
             
         } else if let booleanLiteral = node as? ASTBooleanLiteral {
             try handle(booleanLiteral: booleanLiteral)
-        
-        } else if node is ASTStaticVariableDeclaration {
-            // TODO?
             
         } else if node is ASTEnumDeclaration {
             // already handled during semantic analysis
@@ -423,10 +421,7 @@ private extension BytecodeCompiler {
             let functionBody: ASTComposite
             
             if !(function.body.statements.last is ASTReturnStatement) {
-                functionBody = ASTComposite(
-                    statements: function.body.statements + [ASTReturnStatement(expression: ASTNumberLiteral(value: 0))],
-                    introducesNewScope: true
-                )
+                functionBody = ASTComposite(statements: function.body.statements + [ASTReturnStatement(expression: ASTNumberLiteral(value: 0))])
             } else {
                 functionBody = function.body
             }
@@ -451,12 +446,6 @@ private extension BytecodeCompiler {
         }
         
         
-        // if the composite doesn't introduce a new scope, we simply handle all statements
-        if !composite.introducesNewScope {
-            try composite.statements.forEach(handle)
-            return
-        }
-        
         // if the composite _does_ introduce a new scope, we:
         // 1. allocate space on the stack for the new variables
         // 2. handle all statements
@@ -473,22 +462,14 @@ private extension BytecodeCompiler {
         // val x = 5;
         // val y = x;
         // When processing `y`, we need to be able to access the (already inferred) type of `x`
+        
         for (index, variable) in localVariables.enumerated() {
-            guard case .unresolved = variable.type else { continue }
+            guard
+                case .unresolved = variable.type,
+                let initialValue = variable.initialValue
+            else { continue }
             
-            // https://twitter.com/lukas_kollmer/status/1008687049040375808
-            
-            let a = composite.statements
-                .compactMap { $0 as? ASTComposite }
-                .filter     { !$0.introducesNewScope && $0.statements.count == 2 }
-            
-            let b = a.filter {  $0.statements[0] is  ASTVariableDeclaration && $0.statements[1] is  ASTAssignment  }
-            let c = b.map    { ($0.statements[0] as! ASTVariableDeclaration,   $0.statements[1] as! ASTAssignment) }
-            let d = c.filter { ($0.1.target as? ASTIdentifier) == $0.0.identifier }
-            let e = d.first  { $0.0 == variable }!
-            let f = e.1.value
-            
-            localVariables[index] = ASTVariableDeclaration(identifier: variable.identifier, type: try self.guessType(ofExpression: f, additionalIdentifiers: localVariables))
+            localVariables[index].type = try guessType(ofExpression: initialValue, additionalIdentifiers: localVariables)
         }
         
         

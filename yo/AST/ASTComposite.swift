@@ -11,12 +11,10 @@ import Foundation
 
 class ASTComposite: ASTStatement, ExpressibleByArrayLiteral {
     let statements: [ASTStatement]
-    let introducesNewScope: Bool // TODO get rid of this
     var isUnsafe: Bool
     
-    init(statements: [ASTStatement], introducesNewScope: Bool = true, isUnsafe: Bool = false) { // TODO remove the default value?
+    init(statements: [ASTStatement], isUnsafe: Bool = false) { // TODO remove the default value?
         self.statements = statements
-        self.introducesNewScope = introducesNewScope
         self.isUnsafe = isUnsafe
     }
     
@@ -25,11 +23,7 @@ class ASTComposite: ASTStatement, ExpressibleByArrayLiteral {
     }
     
     func appending(statements otherStatements: [ASTStatement]) -> ASTComposite {
-        return ASTComposite(
-            statements: statements + otherStatements,
-            introducesNewScope: self.introducesNewScope,
-            isUnsafe: self.isUnsafe
-        )
+        return ASTComposite(statements: statements + otherStatements, isUnsafe: self.isUnsafe)
     }
 }
 

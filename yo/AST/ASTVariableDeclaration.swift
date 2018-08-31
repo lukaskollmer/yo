@@ -12,10 +12,14 @@ import Foundation
 class ASTVariableDeclaration: ASTStatement, Equatable {
     let identifier: ASTIdentifier
     var type: ASTType
+    let initialValue: ASTExpression?
+    let isStatic: Bool
     
-    init(identifier: ASTIdentifier, type: ASTType) {
+    init(identifier: ASTIdentifier, type: ASTType, initialValue: ASTExpression? = nil, isStatic: Bool = false) {
         self.identifier = identifier
         self.type = type
+        self.initialValue = initialValue
+        self.isStatic = isStatic
     }
     
     // TODO there's a case to be made that this should look only at the identifier and ignore the type
@@ -34,9 +38,6 @@ extension Array where Element == ASTStatement {
             return self.lk_flatMap { stmt in
                 if let decl = stmt as? ASTVariableDeclaration {
                     return [decl]
-                
-                } else if let composite = stmt as? ASTComposite, !composite.introducesNewScope {
-                    return composite.statements.getLocalVariables(recursive: false) // no need to make this recursive since we're dealing w/ an assignment composite
                 }
                 return []
             }

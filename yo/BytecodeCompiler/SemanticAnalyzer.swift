@@ -23,14 +23,14 @@ class SemanticAnalyzer {
     struct Result {
         let globalFunctions: GlobalFunctions
         let types: [ASTTypeDeclaration]
-        let globals: [ASTStaticVariableDeclaration]
+        let globals: [ASTVariableDeclaration]
         let enums: [ASTEnumDeclaration]
     }
     
     func analyze(ast: AST) -> SemanticAnalyzer.Result {
         let enums   = ast.compactMap { $0 as? ASTEnumDeclaration }
         let types   = ast.compactMap { $0 as? ASTTypeDeclaration }
-        let globals = ast.compactMap { $0 as? ASTStaticVariableDeclaration }
+        let globals = ast.compactMap { $0 as? ASTVariableDeclaration }.filter { $0.isStatic }
         
         // TODO check that there aren't type &/ enum decls using the same name
         
