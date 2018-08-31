@@ -219,3 +219,11 @@ extension DateFormatter {
     }
 }
 
+
+extension Array: Hashable where Element: Hashable {
+    public var hashValue: Int {
+        return self.reduce(into: 0) { $0 ^= $1.hashValue }
+    }
+}
+
+

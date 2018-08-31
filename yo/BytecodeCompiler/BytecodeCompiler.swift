@@ -49,15 +49,15 @@ struct Counter {
 }
 
 
-// TODO somehow incorporate primitive arrays
-struct StringLiteralsCache {
-    private var strings = [String: String]()
+class ConstantArrayLiteralsCache {
+    private var arrays = [[Int]: String]()
     
-    mutating func label(forStringLiteral string: String) -> (label: String, wasAlreadyIncluded: Bool) {
-        if let label = strings[string] { return (label, true) }
+    
+    func label(forArray array: [Int]) -> (label: String, wasAlreadyIncluded: Bool) {
+        if let label = arrays[array] { return (label, true) }
         
         let label = UUID().uuidString
-        strings[string] = label
+        arrays[array] = label
         
         return (label, false)
     }
@@ -77,7 +77,7 @@ class BytecodeCompiler {
     private var conditionalStatementCounter = Counter()
     private var lambdaCounter = Counter()
     private var forLoopCounter = Counter()
-    private var stringLiteralsCache = StringLiteralsCache()
+    private let constantArrayLiteralsCache = ConstantArrayLiteralsCache()
     
     
     // Scope info
@@ -1366,7 +1366,8 @@ private extension BytecodeCompiler {
         let text = stringLiteral.value
         let codepoints: [Int] = text.unicodeScalars.map { Int($0.value) }
         
-        let (label, alreadyRegistered) = stringLiteralsCache.label(forStringLiteral: text)
+        //let (label, alreadyRegistered) = stringLiteralsCache.label(forStringLiteral: text)
+        let (label, alreadyRegistered) = constantArrayLiteralsCache.label(forArray: codepoints)
         if !alreadyRegistered {
             add(.arrayLiteral(label, codepoints))
         }
@@ -1409,11 +1410,11 @@ private extension BytecodeCompiler {
             }
             
             let values = arrayLiteral.elements.map { ($0 as! ASTNumberLiteral).value }
-            let label = UUID().uuidString
             
-            add(.arrayLiteral(label, values))
-            
-            add(.loadc, unresolvedLabel: label)
+            let (label, isAlreadyRegistered) = constantArrayLiteralsCache.label(forArray: values)
+            if !isAlreadyRegistered {
+                add(.arrayLiteral(label, values))
+            }
             
             // Problem: the array we got from the `loadc` instruction above (or, to be precise, the pointer to the array)
             // has its length as its first element.
@@ -1422,7 +1423,9 @@ private extension BytecodeCompiler {
             // Because we can't really implement this here (the address is already on the stack!), we use a helper function
             let call = ASTFunctionCall(
                 functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "_primitiveArrayFromConstant"),
-                arguments: [ASTNoop()], // the parameter is already on the stack, from the `loadc` instruction above
+                arguments: [
+                    ASTRawWIPInstruction(instruction: .unresolved(.loadc, label))
+                ],
                 unusedReturnValue: false
             )
             try handle(functionCall: call)
