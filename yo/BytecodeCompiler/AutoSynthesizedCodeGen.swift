@@ -199,7 +199,7 @@ class AutoSynthesizedCodeGen {
                 ASTAssignment(
                     target: _self,
                     value: ASTFunctionCall(
-                        functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "alloc"),
+                        functionName: SymbolMangling.alloc,
                         arguments: [ASTNumberLiteral(value: typeDeclaration.attributes.count + (typeDeclaration.isStruct ? 0 : 1))],
                         unusedReturnValue: false)
                 ),

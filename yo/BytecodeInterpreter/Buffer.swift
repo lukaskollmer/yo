@@ -11,26 +11,45 @@ import Foundation
 
 class Buffer {
     let size: Int
-    let baseAddress: UnsafeMutablePointer<Int>
+    let base: UnsafeMutableRawPointer
     
-    init(size: Int) {
-        self.size = size
-        baseAddress = UnsafeMutablePointer<Int>.allocate(capacity: size)
-        baseAddress.initialize(repeating: 0, count: size)
+    init(byteCount: Int, alignment: Int = 0) {
+        size = byteCount
+        base = .allocate(byteCount: byteCount, alignment: alignment)
+        base.initializeMemory(as: Int.self, repeating: 0, count: byteCount)
     }
     
-    subscript(index: Int) -> Int {
+    subscript<T>(offset: Int) -> T {
         get {
-            return baseAddress.advanced(by: index).pointee
+            return base.advanced(by: offset * 8).assumingMemoryBound(to: T.self).pointee
         }
+        
         set {
-            baseAddress.advanced(by: index).pointee = newValue
+            base.advanced(by: offset * 8).assumingMemoryBound(to: T.self).pointee = newValue
         }
     }
     
-    deinit {
-        fatalError()
-        baseAddress.deinitialize(count: size)
-        baseAddress.deallocate()
+    subscript(_8 offset: Int) -> Int8 {
+        get { return self[offset] }
+        set { self[offset] = newValue }
+    }
+    
+    subscript(_16 offset: Int) -> Int16 {
+        get { return self[offset] }
+        set { self[offset] = newValue }
+    }
+    
+    subscript(_32 offset: Int) -> Int32 {
+        get { return self[offset] }
+        set { self[offset] = newValue }
+    }
+    
+    subscript(_64 offset: Int) -> Int {
+        get { return self[offset] }
+        set { self[offset] = newValue }
+    }
+    
+    func asArray<T>(ofType type: T.Type) -> Array<T> {
+        return Array(UnsafeMutableRawBufferPointer.init(start: base, count: size).bindMemory(to: T.self))
     }
 }

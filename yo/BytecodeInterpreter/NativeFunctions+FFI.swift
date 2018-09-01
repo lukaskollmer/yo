@@ -43,9 +43,10 @@ enum NativeFunctions_FFI: NativeFunctions {
             let arguments_ptr = interpreter.stack.peek(offset: -1)
             
             for i in 0..<fn.parameterTypes.count {
-                interpreter.heap.backing.withUnsafeMutableBufferPointer { ptr in
-                    fn.setArgument(ptr.baseAddress!.advanced(by: arguments_ptr + i), atIndex: i)
-                }
+                fatalError("TODO: implement")
+                //interpreter.heap.backing.withUnsafeMutableBufferPointer { ptr in
+                //    fn.setArgument(ptr.baseAddress!.advanced(by: arguments_ptr + i), atIndex: i)
+                //}
             }
             
             return fn.invoke() as Int

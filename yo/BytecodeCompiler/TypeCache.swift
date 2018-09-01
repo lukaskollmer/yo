@@ -71,6 +71,15 @@ class TypeCache {
             .index { $0.identifier.value == member }! + (type.isStruct ? 0 : 1)
     }
     
+    func sizeof(type typeName: String, extraFields: [ASTType]) -> Int {
+        guard let type = self.type(withName: typeName) else {
+            fatalError()
+        }
+        
+        let allFields = type.attributes.map { $0.type } + extraFields
+        return allFields.count * 8
+    }
+    
     func isStruct(_ typename: String) -> Bool {
         return self.type(withName: typename)?.isStruct ?? false
     }

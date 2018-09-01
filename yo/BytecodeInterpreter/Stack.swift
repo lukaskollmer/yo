@@ -36,7 +36,7 @@ class Stack: CustomStringConvertible {
     }
     
     func pop() throws -> Int {
-        let value = heap.backing[actualIndex(for: stackPointer)]
+        let value: Int = heap.backing[actualIndex(for: stackPointer)]
         heap[actualIndex(for: stackPointer)] = heap.initialValue
         stackPointer -= 1
         return value

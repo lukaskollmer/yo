@@ -14,6 +14,15 @@ private func roundUpToNextEvenNumber(_ x: Int) -> Int {
     return Int(round(Double(x) / 2) * 2)
 }
 
+func roundUp(_ x: Int, toNextMultipleOf multiple: Int) -> Int {
+    guard multiple != 0 else { return x }
+    
+    let remainder = x % multiple
+    guard remainder != 0 else { return x }
+    
+    return x + multiple - remainder
+}
+
 
 // MARK: Heap
 enum HeapError: Error {
@@ -28,17 +37,19 @@ class Heap {
     let size: Int
     private(set) var stack: Stack! // we can't make this a stored property (let) bc the initializer takes `self`
     
-    var backing = [Int]()
+    //var backing = [Int]()
+    let backing: Buffer
     let initialValue: Int = 0
     private(set) var allocations = [(address: Int, size: Int)]()
     
     init(size: Int) {
         self.size = size
+        self.backing = Buffer(byteCount: size * 8)
         self.stack = Stack(heap: self)
         
-        for _ in 0..<size {
-            backing.append(initialValue)
-        }
+        //for _ in 0..<size {
+        //    backing.append(initialValue)
+        //}
         
         _ = alloc(size: 1) // make sure all addresses are > 0
     }
@@ -51,7 +62,8 @@ class Heap {
         
         // round up `size` to the next even number to ensure that all memory addresses are even
         // this might be useful down the line (think tagged pointers, etc)
-        let size = roundUpToNextEvenNumber(size)
+        //let size = roundUpToNextEvenNumber(size)
+        let size = roundUp(size, toNextMultipleOf: 16) // TODO extract magic number!
         
         let address = firstFreeAddress(forSize: size)
         allocations.append((address, size))
@@ -82,16 +94,18 @@ class Heap {
     
     
     subscript(index: Int) -> Int {
+        // TODO guard index
         get {
-            guard let value = backing[safe: index] else {
-                _invalidHeapAccess(atIndex: index)
-            }
-            return value
+            //guard let value = backing[safe: index] else {
+            //    _invalidHeapAccess(atIndex: index)
+            //}
+            //return value
+            return backing[index]
         }
         set {
-            guard backing.isValidIndex(index) else {
-                _invalidHeapAccess(atIndex: index)
-            }
+            //guard backing.isValidIndex(index) else {
+            //    _invalidHeapAccess(atIndex: index)
+            //}
             backing[index] = newValue
         }
     }
@@ -99,10 +113,11 @@ class Heap {
     
     subscript(range: Range<Int>) -> ArraySlice<Int> {
         get {
-            return backing[range]
+            return backing.asArray(ofType: Int.self)[range]
         }
         set {
-            backing[range] = newValue
+            var backingAsArray = backing.asArray(ofType: Int.self)
+            backingAsArray[range] = newValue
         }
     }
     
@@ -145,7 +160,8 @@ extension Heap {
         // TODO there has to be a better way than this...
         
         let range: Range<Int> = address..<(address + count)
-        backing.replaceSubrange(range, with: self[range].sorted(by: fn))
+        var backingAsArray = backing.asArray(ofType: Int.self)
+        backingAsArray.replaceSubrange(range, with: self[range].sorted(by: fn))
     }
     
 }
