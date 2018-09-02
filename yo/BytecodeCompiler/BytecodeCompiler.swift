@@ -421,7 +421,7 @@ private extension BytecodeCompiler {
             let functionBody: ASTComposite
             
             if !(function.body.statements.last is ASTReturnStatement) {
-                functionBody = ASTComposite(statements: function.body.statements + [ASTReturnStatement(expression: ASTNumberLiteral(value: 0))])
+                functionBody = ASTComposite(statements: function.body.statements + [ASTReturnStatement(expression: ASTNumberLiteral(value: 0).as(.any))])
             } else {
                 functionBody = function.body
             }
