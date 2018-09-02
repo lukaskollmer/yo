@@ -9,10 +9,9 @@ fn NotYetImplemented(): void {
 
 impl runtime {
     // Basically java's `Syatem.arraycopy`
-    // TODO make this work w/ different array sizes
-    static fn copy_array(source: int, sourceIndex: int, destination: int, destinationIndex: int, length: int): void {
+    static fn copy_array(element_size: int, source: any, sourceIndex: int, destination: any, destinationIndex: int, length: int): void {
         for val i: int; i < length; i += 1; {
-            destination[destinationIndex + i] = source[sourceIndex + i];
+            destination[destinationIndex + (i * element_size)] = source[sourceIndex + (i * element_size)];
         }
     }
 }

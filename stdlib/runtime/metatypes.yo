@@ -38,7 +38,7 @@ impl runtime {
         val argv_with_self = runtime::alloc((argc + 1) * 8);
         argv_with_self[0] = target;
         if argc > 0 {
-            runtime::copy_array(argv, 0, argv_with_self, 1, argc);
+            runtime::copy_array(8, argv, 0, argv_with_self, 1, argc);
         }
         runtime::free(argv);
 
