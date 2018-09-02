@@ -44,7 +44,8 @@ const char *YO_GRAMMAR =
 
 
 " type          : <fn_ptr>                                                          "
-"               | <ident> ;                                                         "
+"               | \"ref\" <type>                                                          "
+"               |  <ident>    ;                                                      "
 
 " expr_list     : <expr> ( ',' <expr> )*  ;          "
 

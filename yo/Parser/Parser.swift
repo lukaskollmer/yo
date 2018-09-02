@@ -811,6 +811,17 @@ class Parser {
             let typename = ast.lk_content
             return ASTType.primitiveTypenames.contains(typename) ? .primitive(name: typename) : .complex(name: typename)
             
+        case "type|>" where ast.count == 2:
+            let modifier = ast[0].lk_content
+            let type = try parseType(ast[1])
+            
+            switch modifier {
+            case "ref":
+                return ASTType.ref(type)
+            default:
+                fatalError("unexpected type modifier '\(modifier)'")
+            }
+            
         // function pointer
         // ie `fn<(int, String): String>`
         case "type|fn_ptr|>":

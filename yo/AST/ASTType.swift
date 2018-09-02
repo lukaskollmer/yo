@@ -18,6 +18,7 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
     case primitive(name: String)    // int/void
     case complex(name: String)      // something declared w/ the `type` or `struct` keyword
     case function(returnType: ASTType, parameterTypes: [ASTType])   // a function pointer
+    case ref(ASTType)
     case _enum(String)
     case unresolved
     
@@ -57,7 +58,7 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
             return 2
         case .i32:
             return 4
-        case .i64, .int, .double, .complex(_), .any, .function(_, _), ._enum(_):
+        case .i64, .int, .double, .complex(_), .any, .function(_, _), ._enum(_), .ref(_):
             return 8
         default:
             fatalError("Unable to determine size of \(self.typename)")
@@ -73,6 +74,8 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
             return "ASTType.complex(\(name))"
         case .function(let returnType, let parameterTypes):
             return "ASTType.function<(\(parameterTypes)): \(returnType)>"
+        case .ref(let type):
+            return "ref \(type)"
         case ._enum(let name):
             return "ASTType._enum(\(name))"
         case .unresolved:
@@ -86,6 +89,8 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
             return name
         case .complex(let name):
             return name
+        case .ref(let type):
+            return "ref " + type.typename
         case ._enum(let name):
             return name
         case .function(let returnType, let parameterTypes):

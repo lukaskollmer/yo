@@ -573,32 +573,45 @@ private extension BytecodeCompiler {
         add(.ret, scope.size)
     }
     
+    
     // TODO guard that only primitive types can be subscripted (get & set)!
     
-    func handle(arraySetter: ASTArraySetter) throws {
-        let targetExprType = try guessType(ofExpression: arraySetter.target)
+    func _adjustSubscriptOffset(target: ASTExpression, offset: ASTExpression) throws -> ASTExpression {
+        let elementSize: Int
         
-        let offset: ASTExpression
+        let guessedTargetType = try guessType(ofExpression: target)
         
-        if targetExprType == .any {
-            offset = arraySetter.offset
-        } else {
-            offset = ASTBinaryOperation(
-                lhs: ASTNumberLiteral(value: targetExprType.size),
-                operation: .mul,
-                rhs: arraySetter.offset
-            )
+        switch guessedTargetType {
+        case .any:
+            return offset
+            
+        case .ref(let type):
+            elementSize = type.size
+            
+        default:
+            elementSize = guessedTargetType.size
         }
         
+        return ASTBinaryOperation(
+            lhs: ASTNumberLiteral(value: elementSize),
+            operation: .mul,
+            rhs: offset
+        )
+    }
+    
+    func handle(arraySetter: ASTArraySetter) throws {
         try handle(node: arraySetter.value)
-        try handle(node: offset)
+        try handle(node: try _adjustSubscriptOffset(target: arraySetter.target, offset: arraySetter.offset))
         try handle(node: arraySetter.target)
         
         add(.storeh)
     }
     
     func handle(arrayGetter: ASTArrayGetter) throws {
-        let targetExprType = try guessType(ofExpression: arrayGetter.target)
+        try handle(node: try _adjustSubscriptOffset(target: arrayGetter.target, offset: arrayGetter.offset))
+        try handle(node: arrayGetter.target)
+        add(.loadh)
+        /*let targetExprType = try guessType(ofExpression: arrayGetter.target)
         
         let offset: ASTExpression
         
@@ -615,7 +628,7 @@ private extension BytecodeCompiler {
         try handle(node: offset)
         try handle(node: arrayGetter.target)
         
-        add(.loadh)
+        add(.loadh)*/
     }
     
     func handle(typeImplementation: ASTTypeImplementation) throws {
