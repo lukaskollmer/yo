@@ -75,6 +75,7 @@ static BOOL shouldEmitSignposts;
     rule(stmt_fn_call);
     rule(lambda);
     rule(import);
+    rule(character);
     rule(string);
     rule(protocol);
     rule(typecast);
@@ -117,7 +118,7 @@ static BOOL shouldEmitSignposts;
     // TODO make sure these arguments are in the exact same order as the tag declarations in grammar.h !!!
     mpc_err_t *err =
     mpca_lang(MPCA_LANG_DEFAULT, YO_GRAMMAR,
-              ident, boolean, number, string, number_double, number_b02, number_b08, number_b10, number_b16,
+              ident, boolean, number, character, string, number_double, number_b02, number_b08, number_b10, number_b16,
               fn_ptr, global_var, type_decl, impl, type,
               expr_list, subscript, var_access, static_target, call_target, fn_call, array_literal,
               boxed_expr, range, binop_mul, binop_add, unary, lambda, typecast, lexpr, expr,

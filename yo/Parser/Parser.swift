@@ -905,6 +905,8 @@ class Parser {
         case "binop_add|lexpr|>":
             // this matches `<var_access> (subscript | function_call)`
             
+            // TODO do we ever reach here?
+            
             guard ast[1] == _openingCurlyBraces || ast[1] == _openingParentheses else {
                 fatalError()
             }
@@ -923,12 +925,21 @@ class Parser {
         case "expr|range|>":
             return try parseRangeLiteral(ast)
             
+        case "expr|character|regex":
+            return try parseCharacterLiteral(ast)
+            
             
         default:
             fatalError("unexpected expression \(ast)")
         }
         
         fatalError()
+    }
+    
+    
+    func parseCharacterLiteral(_ ast: mpc_ast_t) throws -> ASTExpression {
+        let character = ast.lk_content.ns.character(at: 1)
+        return ASTNumberLiteral(value: Int(character)).as(.i8)
     }
     
     func parseRangeLiteral(_ ast: mpc_ast_t) throws -> ASTRangeLiteral {

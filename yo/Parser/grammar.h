@@ -20,6 +20,8 @@ const char *YO_GRAMMAR =
 "               | '-'? (<number_b02> | <number_b08> | <number_b16> | <number_b10>) ;  "
 // <number_b10> has to be last bc otherwise, it'd parse the other bases' leading 0 as a single base 10 literal
 
+" character     : /'[ -~]'/ ; "
+//" character     : \"[\x00-\x7F]\" ; "
 " string        : /\"[^\"\\\\]*(\\\\.[^\"\\\\]*)*\"/ ;                   "
 // [string] we have to include the quotes as part of the regex to peoperly capture whitespace at the beginning/end of the string literal
 
@@ -85,6 +87,7 @@ const char *YO_GRAMMAR =
 "               | '(' <expr>  ')'                       "
 "               | <number>                       "
 "               | <unary>                       "
+"               | <character>                       "
 "               | <string>                       "
 "               | <array_literal>                       "
 // TODO can/should <fn_call> be moved to <expr> ?
