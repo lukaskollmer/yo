@@ -264,7 +264,7 @@ extension BytecodeCompiler {
         guard let index = globals.index(where: { $0.identifier == identifier }) else {
             return nil
         }
-        return 2 + (2 * index)
+        return 16 + (index * 8)
     }
     
 }
@@ -573,16 +573,46 @@ private extension BytecodeCompiler {
         add(.ret, scope.size)
     }
     
+    // TODO guard that only primitive types can be subscripted (get & set)!
+    
     func handle(arraySetter: ASTArraySetter) throws {
+        let targetExprType = try guessType(ofExpression: arraySetter.target)
+        
+        let offset: ASTExpression
+        
+        if targetExprType == .any {
+            offset = arraySetter.offset
+        } else {
+            offset = ASTBinaryOperation(
+                lhs: ASTNumberLiteral(value: targetExprType.size),
+                operation: .mul,
+                rhs: arraySetter.offset
+            )
+        }
+        
         try handle(node: arraySetter.value)
-        try handle(node: arraySetter.offset)
+        try handle(node: offset)
         try handle(node: arraySetter.target)
         
         add(.storeh)
     }
     
     func handle(arrayGetter: ASTArrayGetter) throws {
-        try handle(node: arrayGetter.offset)
+        let targetExprType = try guessType(ofExpression: arrayGetter.target)
+        
+        let offset: ASTExpression
+        
+        if targetExprType == .any {
+            offset = arrayGetter.offset
+        } else {
+            offset = ASTBinaryOperation(
+                lhs: ASTNumberLiteral(value: targetExprType.size),
+                operation: .mul,
+                rhs: arrayGetter.offset
+            )
+        }
+        
+        try handle(node: offset)
         try handle(node: arrayGetter.target)
         
         add(.loadh)
@@ -781,7 +811,7 @@ private extension BytecodeCompiler {
         {
             // if we're assigning to some attribute, `memberAccessGetterExpression` is always an `ASTArrayGetter`
             let newAssignment = ASTArraySetter(
-                target: memberAccessGetterExpression.target,
+                target: memberAccessGetterExpression.target.as(.any), // any to disable offset asjustments
                 offset: memberAccessGetterExpression.offset,
                 value: rhs
             )
@@ -1193,7 +1223,7 @@ private extension BytecodeCompiler {
                 }
                 
                 expr = ASTArrayGetter(
-                    target: expr,
+                    target: expr.as(.any),
                     offset: ASTNumberLiteral(value: typeCache.offset(ofMember: identifier.value, inType: currentTypename))
                 )
                 
@@ -1334,12 +1364,13 @@ private extension BytecodeCompiler {
     
     func handle(stringLiteral: ASTStringLiteral) throws {
         let text = stringLiteral.value
-        let codepoints: [Int] = text.unicodeScalars.map { Int($0.value) }
+        let codepoints: [Int] = text.unicodeScalars.map { Int($0.value) } + [0]
+        //let codepoints: [Int] = text.unicodeScalars.reduce(into: [text.unicodeScalars.count]) { $0.append(Int($1.value)) }
         
         //let (label, alreadyRegistered) = stringLiteralsCache.label(forStringLiteral: text)
         let (label, alreadyRegistered) = constantArrayLiteralsCache.label(forArray: codepoints)
         if !alreadyRegistered {
-            add(.arrayLiteral(label, codepoints))
+            add(.arrayLiteral(label, sizeof(.i64), codepoints)) // TODO encode as array of i8
         }
         
         let stringInitCall = ASTFunctionCall(
@@ -1383,7 +1414,7 @@ private extension BytecodeCompiler {
             
             let (label, isAlreadyRegistered) = constantArrayLiteralsCache.label(forArray: values)
             if !isAlreadyRegistered {
-                add(.arrayLiteral(label, values))
+                add(.arrayLiteral(label, sizeof(.i64), values)) // TODO allow custom element size?
             }
             
             // Problem: the array we got from the `loadc` instruction above (or, to be precise, the pointer to the array)
@@ -1391,14 +1422,16 @@ private extension BytecodeCompiler {
             // We don't care about that, which is why we need to copy all elements following the first to a new array and free the old one.
             
             // Because we can't really implement this here (the address is already on the stack!), we use a helper function
-            let call = ASTFunctionCall(
+            /*let call = ASTFunctionCall(
                 functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "_primitiveArrayFromConstant"),
                 arguments: [
                     ASTRawWIPInstruction(instruction: .unresolved(.loadc, label))
                 ],
                 unusedReturnValue: false
             )
-            try handle(functionCall: call)
+            try handle(functionCall: call)*/
+            
+            add(.unresolved(.loadc, label))
             
             return
         }
@@ -1426,12 +1459,12 @@ private extension BytecodeCompiler {
                     returnType: .int,
                     kind: .staticImpl("runtime"),
                     body: [
-                        ASTVariableDeclaration(identifier: array, type: .int),
+                        ASTVariableDeclaration(identifier: array, type: .int), // TODO i64
                         ASTAssignment(
                             target: array,
                             value: ASTFunctionCall(
                                 functionName: SymbolMangling.alloc,
-                                arguments: [ASTNumberLiteral(value: elements.count)],
+                                arguments: [ASTNumberLiteral(value: elements.count)], // TODO dynamically calculate size instead!
                                 unusedReturnValue: false
                             )
                         ),
@@ -1659,7 +1692,7 @@ private extension BytecodeCompiler {
 
 private extension BytecodeCompiler {
     func guard_allNumericBinaryOperationCompatibleTypes(types: [ASTType], errorMessage: String) {
-        guard types.all([ASTType.int, .double, .any].contains) else {
+        guard types.all(([ASTType.double, .any] + ASTType.intTypes).contains) else {
             fatalError(errorMessage)
         }
     }

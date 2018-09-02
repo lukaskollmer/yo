@@ -118,7 +118,7 @@ class BytecodeInterpreter {
         
         if address > 0 && address.isEven {
             arguments.insert(address, at: 0)
-            address = heap[address + 1]
+            address = heap[address + sizeof(.i64)]
         }
         
         try stack.push(stack.framePointer)
@@ -363,12 +363,14 @@ class BytecodeInterpreter {
             
             
         case .loadc: // load constant
-            let size = instructions[immediate + 1].immediate + 1 // +1 bx we include the size in the heap array
-            let address = heap.alloc(size: size)
+            let elementSize = instructions[immediate + 1].immediate
+            let numberOfElements = instructions[immediate + 2].immediate
             
-            for i in 0..<size {
-                let value = instructions[immediate + 1 + i].immediate
-                heap[address + i] = value
+            let address = heap.alloc(size: numberOfElements * elementSize)
+            
+            for i in 0..<numberOfElements {
+                let value = instructions[immediate + 3 + i].immediate
+                heap[address + (i * elementSize)] = value
             }
             
             try! stack.push(address)
@@ -403,7 +405,7 @@ class BytecodeInterpreter {
                 args.append(destinationInstructionPointer)
                 
                 // fetch the address of the lambda's invoke function pointer
-                destinationInstructionPointer = heap[destinationInstructionPointer + 1]
+                destinationInstructionPointer = heap[destinationInstructionPointer + sizeof(.i64)]
             } else if destinationInstructionPointer == 0 {
                 fatalError("the fuck")
             }

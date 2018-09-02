@@ -6,11 +6,12 @@ type String {
 
 impl String {
     fn length(self: String): int {
-        ret self._backing[0];
+        ret runtime::_strlen(self._backing);
     }
 
 
     fn appending(self: String, other: String): String {
+        runtime::fatalError(0 as any);
         val self_length = self.length();
         val other_length = other.length();
         val newLength: int = self_length + other_length;
@@ -26,6 +27,7 @@ impl String {
     }
 
     fn copy(self: String): String {
+        runtime::fatalError(0 as any);
         val length = self.length() + 1;
 
         val newBacking = runtime::alloc(length);
@@ -40,10 +42,11 @@ impl String {
 
 
     fn isEqualToString(self: String, other: String): bool {
-        val length = self.length();
+        if self.length() != other.length() {
+            ret false;
+        }
 
-        //for i in 0...length {
-        for val i: int; i < length; i += 1; {
+        for i in 0..<self.length() {
             if self._backing[i] != other._backing[i] {
                 ret false;
             }

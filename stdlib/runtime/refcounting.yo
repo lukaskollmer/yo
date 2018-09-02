@@ -46,6 +46,9 @@ impl runtime {
     // we call the object's dealloc method and free it from the heap
     #[disable_arc]
     static fn release(obj: any): any {
+        //runtime::_printi(666);
+        //runtime::_printi(obj as int);
+        //runtime::_printi(obj[0] as int);
         if !runtime::isObject(obj) {
             ret obj;
         }

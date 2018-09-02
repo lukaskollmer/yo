@@ -27,10 +27,11 @@ class Stack: CustomStringConvertible {
     }
     
     private func actualIndex(for index: Int) -> Int {
-        return heap.size - index - 1
+        //return heap.size - ((index + 1) * 8) - 1
+        return heap.size - (index * 8) - 8
     }
     
-    func push(_ newValue: Int) throws {        
+    func push(_ newValue: Int) throws {
         stackPointer += 1
         heap[actualIndex(for: stackPointer)] = newValue
     }

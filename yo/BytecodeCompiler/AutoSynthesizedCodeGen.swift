@@ -97,7 +97,7 @@ class AutoSynthesizedCodeGen {
                     value: ASTFunctionCall(
                         functionName: SymbolMangling.alloc,
                         arguments: [
-                            ASTNumberLiteral(value: 3)
+                            ASTNumberLiteral(value: compiler.typeCache.sizeof(type: "Type"))
                         ],
                         unusedReturnValue: false
                     )
@@ -193,14 +193,17 @@ class AutoSynthesizedCodeGen {
             ),
             body: [
                 // declare self
-                ASTVariableDeclaration(identifier: _self, type: .any), // TODO use the current type?
+                ASTVariableDeclaration(identifier: _self, type: .any), // NOTE: don't use the current type. using any disables any offset adjustments the compiler might apply
                 
                 // allocate space on the heap
                 ASTAssignment(
                     target: _self,
                     value: ASTFunctionCall(
                         functionName: SymbolMangling.alloc,
-                        arguments: [ASTNumberLiteral(value: typeDeclaration.attributes.count + (typeDeclaration.isStruct ? 0 : 1))],
+                        //arguments: [ASTNumberLiteral(value: typeDeclaration.attributes.count + (typeDeclaration.isStruct ? 0 : 1))],
+                        arguments: [
+                            ASTNumberLiteral(value: compiler.typeCache.sizeof(type: typename))
+                        ],
                         unusedReturnValue: false)
                 ),
                 
@@ -226,11 +229,11 @@ class AutoSynthesizedCodeGen {
                 
                 // go through the parameters and fill the attributes
                 ASTComposite(
-                    statements: typeDeclaration.attributes.enumerated().map { arg0 -> ASTStatement in
-                        let (offset, attribute) = arg0
+                    statements: typeDeclaration.attributes.map { attribute -> ASTStatement in
                         return ASTArraySetter(
                             target: _self,
-                            offset: ASTNumberLiteral(value: offset + (typeDeclaration.isStruct ? 0 : 1)),
+                            //offset: ASTNumberLiteral(value: offset + (typeDeclaration.isStruct ? 0 : 1)),
+                            offset: ASTNumberLiteral(value: compiler.typeCache.offset(ofMember: attribute.identifier.value, inType: typename)),
                             value: typeDeclaration.isStruct || !attribute.type.isComplex
                                 ? attribute.identifier
                                 : ASTFunctionCall(

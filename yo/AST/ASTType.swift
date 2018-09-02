@@ -8,6 +8,10 @@
 
 import Foundation
 
+func sizeof(_ type: ASTType) -> Int {
+    return type.size
+}
+
 
 /// An `ASTType` describes the type of an identifier: whether it is primitive, complex or a function pointer
 indirect enum ASTType: Equatable, CustomStringConvertible {
@@ -17,12 +21,19 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
     case _enum(String)
     case unresolved
     
-    static let primitives: [ASTType] = [.bool, .int, .double, .any, .void]
+    static let primitives: [ASTType] = [.bool, .i8, .i16, .i32, .i64, .int, .double, .any, .void]
     static let primitiveTypenames = ASTType.primitives.map { $0.typename }
+    static let intTypes = [ASTType.i8, .i16, .i32, .i64, .int]
     
     static let bool   = ASTType.primitive(name: "bool")
-    static let int    = ASTType.primitive(name: "int")
+    
+    static let i8     = ASTType.primitive(name: "i8")
+    static let i16    = ASTType.primitive(name: "i16")
+    static let i32    = ASTType.primitive(name: "i32")
+    static let i64    = ASTType.primitive(name: "i64")
+    
     static let double = ASTType.primitive(name: "double")
+    
     static let any    = ASTType.primitive(name: "any")
     static let id     = ASTType.complex(name: "id")
     static let void   = ASTType.primitive(name: "void")
@@ -31,6 +42,28 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
     
     static let Array  = ASTType.complex(name: "Array")
     static let String = ASTType.complex(name: "String")
+    
+    //static let int    = ASTType.i64
+    //static let intptr = ASTType.i64
+    static let int = ASTType.primitive(name: "int")
+    
+    
+    // size, in bytes
+    var size: Int {
+        switch self {
+        case .i8:
+            return 1
+        case .i16:
+            return 2
+        case .i32:
+            return 4
+        case .i64, .int, .double, .complex(_), .any, .function(_, _), ._enum(_):
+            return 8
+        default:
+            fatalError("Unable to determine size of \(self.typename)")
+        }
+    }
+    
     
     var description: String {
         switch self {
@@ -68,6 +101,7 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
         }
     }
     
+    
     var isComplex: Bool {
         if case .complex(_) = self {
             return true
@@ -95,6 +129,10 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
         }
         
         if both.contains(.id) && both.all({ $0.isComplex }) {
+            return true
+        }
+        
+        if both.all(ASTType.intTypes.contains) && self.size < other.size {
             return true
         }
         

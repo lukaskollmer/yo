@@ -14,7 +14,7 @@ type Array {
 impl Array {
     // Create a new Array
     static fn new(): Array {
-        ret Array::init(0, 10, runtime::alloc(10));
+        ret Array::init(0, 10, runtime::alloc(10 * 8));
     }
 
 
@@ -58,7 +58,7 @@ impl Array {
 
 
     // Check whether the array contains an object
-    fn contains(self: Array, object: any): bool {
+    fn contains(self: Array, object: id): bool {
         if self.indexOf(object) == -1 {
             ret false;
         }
@@ -68,8 +68,9 @@ impl Array {
 
     // Get the first index of an object in the array
     // Returns -1 if the array does not contain the object
-    fn indexOf(self: Array, obj: any): int {
-        for i in 0..<self._count {
+    fn indexOf(self: Array, obj: id): int {
+        //for i in 0..<self._count {
+        for val i = 0; i < self._count; i += 1; {
             if self.get(i) == obj {
                 ret i;
             }
@@ -232,7 +233,7 @@ impl Array {
     // Move to a smaller/larger backing
     // Also updates `_allocatedLength`
     fn _resizeBacking(self: Array, newSize: int): void {
-        val newBacking: int = runtime::alloc(newSize);
+        val newBacking: int = runtime::alloc(newSize * 8);
 
         runtime::copy_array(self._backing, 0, newBacking, 0, self._count);
 

@@ -72,11 +72,15 @@ class Runtime: NativeFunctions {
         
         self["runtime", "alloc", .int, [.int]] = { interpreter in
             let size = interpreter.stack.peek()
-            return interpreter.heap.alloc(size: size)
+            let address = interpreter.heap.alloc(size: size)
+            //print("ALLOC", address)
+            return address
         }
         
         self["runtime", "free", .void, [.int]] = { interpreter in
-            interpreter.stack.heap.free(address: interpreter.stack.peek())
+            let address = interpreter.stack.peek()
+            //print("FREE", address)
+            interpreter.stack.heap.free(address: address)
             return 0
         }
         
@@ -107,7 +111,7 @@ class Runtime: NativeFunctions {
         self["runtime", "_invoke", .any, [.int, .int, .int]] = { interpreter in
             let address = interpreter.stack.peek()
             let argc = interpreter.stack.peek(offset: -1)
-            let argv = interpreter.stack.peek(offset: -2)
+            let argv = interpreter.stack.peek(offset: -2) / sizeof(.i64) // TODO find a solution that allows passing objects smaller than 8 bytes
             
             let args: [Int] = argc == 0
                 ? []
@@ -150,6 +154,10 @@ class Runtime: NativeFunctions {
             return Runtime.getString(atAddress: interpreter.stack.peek(), heap: interpreter.heap).hashValue
         }
         
+        self["runtime", "_strlen", .int, [.int]] = { interpreter in
+            return Runtime.strlen(address: interpreter.stack.peek(), heap: interpreter.heap)
+        }
+        
         // MARK: IO
         
         
@@ -174,9 +182,9 @@ class Runtime: NativeFunctions {
             let heap = interpreter.heap
             
             let format = Runtime.getString(atAddress: interpreter.stack.peek(), heap: heap)
-            let args_ptr = heap[interpreter.stack.peek(offset: -1) + 3]
+            let args_ptr = heap[interpreter.stack.peek(offset: -1) + TypeCache.sizeof([.i64, .i64, .i64])]
             
-            let getArgAtIndex: (Int) -> Int = { heap[args_ptr + $0] }
+            let getArgAtIndex: (Int) -> Int = { heap[args_ptr + $0 * ASTType.i64.size] }
             
             var text = ""
             let scalars = format.unicodeScalars.map { $0 }
@@ -198,12 +206,14 @@ class Runtime: NativeFunctions {
                         text += String(getArgAtIndex(arg_index))
                         
                     case "s": // String
-                        text += Runtime.getString(atAddress: getArgAtIndex(arg_index), heap: heap)
+                        let str = Runtime.getString(atAddress: getArgAtIndex(arg_index), heap: heap)
+                        //text += Runtime.getString(atAddress: getArgAtIndex(arg_index), heap: heap)
+                        text += str
                         
                     case "n": // Number
                         let addr = getArgAtIndex(arg_index)
-                        let value = heap[addr + 1]
-                        let type = heap[addr + 2]
+                        let value = heap[addr + sizeof(.i64)]
+                        let type = heap[addr + 2*sizeof(.i64)]
                         switch type {
                         case Constants.NumberTypeMapping.integer:
                             if !isLast && scalars[index + 1] == "h" {
@@ -233,9 +243,16 @@ class Runtime: NativeFunctions {
                 nextScalarFormatToken = scalar == "%"
             }
             
-            let string_backing = heap.alloc(size: text.count + 1)
-            heap[string_backing] = text.count
-            text.unicodeScalars.enumerated().forEach { heap[string_backing + $0.offset + 1] = Int($0.element.value) }
+            //let string_backing = heap.alloc(size: text.count + 1)
+            //heap[string_backing] = text.count
+            //text.unicodeScalars.enumerated().forEach { heap[string_backing + $0.offset + 1] = Int($0.element.value) }
+            
+            //return string_backing
+            
+            text += "\0"
+            
+            let string_backing = heap.alloc(size: text.count * sizeof(.i64))
+            text.unicodeScalars.enumerated().forEach { heap[string_backing + ($0.offset * sizeof(.i64))] = Int($0.element.value) }
             
             return string_backing
         }

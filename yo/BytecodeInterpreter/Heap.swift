@@ -44,7 +44,7 @@ class Heap {
     
     init(size: Int) {
         self.size = size
-        self.backing = Buffer(byteCount: size * 8)
+        self.backing = Buffer(byteCount: size)
         self.stack = Stack(heap: self)
         
         //for _ in 0..<size {
@@ -66,11 +66,11 @@ class Heap {
         let size = roundUp(size, toNextMultipleOf: 16) // TODO extract magic number!
         
         let address = firstFreeAddress(forSize: size)
+        //print("ADDR", address)
         allocations.append((address, size))
         
         // TODO this is a giant bottleneck
         allocations.sort { $0.address < $1.address } // not sure why but it seems like new tupels aren't always appended to the end of the array?
-        
         return address
     }
     
@@ -83,7 +83,7 @@ class Heap {
         
         if Heap.resetOnFree {
             for i in allocation.address..<(allocation.address + allocation.size) {
-                backing[i] = initialValue
+                backing[i] = Int8(0)//initialValue
             }
         }
     }

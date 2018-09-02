@@ -35,7 +35,7 @@ impl runtime {
             runtime::fatalError(String::format("Unable to invoke %s: unrecognized selector", selector));
         }
 
-        val argv_with_self = runtime::alloc(argc + 1);
+        val argv_with_self = runtime::alloc((argc + 1) * 8);
         argv_with_self[0] = target;
         if argc > 0 {
             runtime::copy_array(argv, 0, argv_with_self, 1, argc);

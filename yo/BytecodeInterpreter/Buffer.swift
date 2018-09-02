@@ -16,16 +16,17 @@ class Buffer {
     init(byteCount: Int, alignment: Int = 0) {
         size = byteCount
         base = .allocate(byteCount: byteCount, alignment: alignment)
-        base.initializeMemory(as: Int.self, repeating: 0, count: byteCount)
+        base.initializeMemory(as: Int8.self, repeating: 0, count: byteCount)
+        //for i in 0..<size { base.advanced(by: i).assumingMemoryBound(to: Int8.self).pointee = 0 }
     }
     
     subscript<T>(offset: Int) -> T {
         get {
-            return base.advanced(by: offset * 8).assumingMemoryBound(to: T.self).pointee
+            return base.advanced(by: offset).assumingMemoryBound(to: T.self).pointee
         }
         
         set {
-            base.advanced(by: offset * 8).assumingMemoryBound(to: T.self).pointee = newValue
+            base.advanced(by: offset).assumingMemoryBound(to: T.self).pointee = newValue
         }
     }
     

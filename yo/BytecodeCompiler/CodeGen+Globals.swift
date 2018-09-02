@@ -73,9 +73,9 @@ extension AutoSynthesizedCodeGen {
             kind: .global,
             body: [
                 // Allocate space for the global variables
-                // Since this is the very first alloc call, we know for a fact that the address of the allocates heap space is 2
+                // Since this is the very first alloc call, we know for a fact that the address of the allocates heap space is 16
                 // We allocate twice the space, so that all globals have even addresses, which is important for the runtime to treat them as objects
-                ASTFunctionCall(functionName: SymbolMangling.alloc, arguments: [ASTNumberLiteral(value: 2 * globals.count)], unusedReturnValue: true),
+                ASTFunctionCall(functionName: SymbolMangling.alloc, arguments: [ASTNumberLiteral(value: globals.count * TypeCache.sizeof([.i64]))], unusedReturnValue: true),
                 
                 // Call all metatype initializers
                 ASTComposite(statements:
@@ -96,7 +96,7 @@ extension AutoSynthesizedCodeGen {
                         }()
                         
                         return ASTArraySetter(
-                            target: ASTNumberLiteral(value: 0), // beginning of heap
+                            target: ASTNumberLiteral(value: 0).as(.i8), // beginning of heap
                             offset: ASTNumberLiteral(value: compiler._actualAddressOfGlobal(withIdentifier: global.identifier)!),
                             value: value
                         )
@@ -160,7 +160,14 @@ extension AutoSynthesizedCodeGen {
                 ),
                 
                 // free the space allocated for globals
-                ASTFunctionCall(functionName: SymbolMangling.free, arguments: [ASTNumberLiteral(value: 2)], unusedReturnValue: true)
+                ASTFunctionCall(
+                    functionName: SymbolMangling.free,
+                    //arguments: [ASTNumberLiteral(value: )],
+                    arguments: [
+                        ASTNumberLiteral(value: 16)
+                    ],
+                    unusedReturnValue: true
+                )
             ]
         )
         compiler.functions.insert(functionDeclaration: invokeStaticCleanupFunctions)

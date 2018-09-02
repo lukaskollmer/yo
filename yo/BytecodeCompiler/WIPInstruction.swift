@@ -13,7 +13,7 @@ enum WIPInstruction {
     case label(String)                  // A label
     case operation(Operation, Int)      // A "finalized" instruction
     case unresolved(Operation, String)  // An instruction that takes an address as parameter, which will be resolved later (after all codegen finished)
-    case arrayLiteral(String, [Int])    // TODO write desc
+    case arrayLiteral(String, Int, [Int])   // label : element size : elements
     case comment(String)
     case raw(Int)                       // Just a 64 bit wide integer
     
@@ -46,11 +46,12 @@ extension Array where Element == WIPInstruction {
         _self.insert(contentsOf: arrayliterals, at: 10)
         
         return _self.lk_flatMap { instruction in
-            if case WIPInstruction.arrayLiteral(let label, let array) = instruction {
+            if case WIPInstruction.arrayLiteral(let label, let elementSize, let elements) = instruction {
                 return [
                     WIPInstruction.label(label),
-                    WIPInstruction.operation(.noop, array.count)
-                ] + array.map { WIPInstruction.operation(.noop, $0) }
+                    WIPInstruction.operation(.noop, elementSize),
+                    WIPInstruction.operation(.noop, elements.count)
+                ] + elements.map { WIPInstruction.operation(.noop, $0) }
             }
             return [instruction]
         }
@@ -134,7 +135,7 @@ extension Array where Element == WIPInstruction {
                 line(idx, String(describing: operation), "\(immediate)")
             case .unresolved(let operation, let unresolvedLabel):
                 line(idx, String(describing: operation), unresolvedLabel)
-            case .arrayLiteral(_, _):
+            case .arrayLiteral(_):
                 line(idx, "ARRAY LITERAL", "TODO")
             case .comment(let comment):
                 line(idx, ";" + comment, "")

@@ -1,9 +1,9 @@
 // runtime/utils
 
-use "std/string";
+//use "std/string";
 
 fn NotYetImplemented(): void {
-    runtime::fatalError("not yet implemented");
+    //runtime::fatalError("not yet implemented");
 }
 
 
@@ -24,6 +24,7 @@ impl runtime {
     }
 
     // Basically java's `Syatem.arraycopy`
+    // TODO make this work w/ different array sizes
     static fn copy_array(source: int, sourceIndex: int, destination: int, destinationIndex: int, length: int): void {
         for val i: int; i < length; i += 1; {
             destination[destinationIndex + i] = source[sourceIndex + i];

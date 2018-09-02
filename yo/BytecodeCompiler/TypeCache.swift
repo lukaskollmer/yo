@@ -66,18 +66,23 @@ class TypeCache {
             fatalError("type \(typename) doesn't exist")
         }
         
-        return type
-            .attributes
-            .index { $0.identifier.value == member }! + (type.isStruct ? 0 : 1)
+        let indexInAttributes = type.attributes.index { $0.identifier.value == member }!
+        var fields = type.attributes[0...indexInAttributes].map { $0.type }
+        
+        if !type.isStruct {
+            fields.insert(.i64, at: 0)
+        }
+        
+        return TypeCache.sizeof(fields) - fields[0].size
     }
     
-    func sizeof(type typeName: String, extraFields: [ASTType]) -> Int {
+    func sizeof(type typeName: String, extraFields: [ASTType] = []) -> Int {
         guard let type = self.type(withName: typeName) else {
             fatalError()
         }
         
-        let allFields = type.attributes.map { $0.type } + extraFields
-        return allFields.count * 8
+        let allFields = type.attributes.map { $0.type } + extraFields + (type.isStruct ? [] : [ASTType.i64]) // TODO (at the end: use intptr instead)
+        return TypeCache.sizeof(allFields)
     }
     
     func isStruct(_ typename: String) -> Bool {
@@ -112,6 +117,11 @@ class TypeCache {
             return ._enum(typeName)
         }
         return type
+    }
+    
+    
+    static func sizeof(_ fields: [ASTType]) -> Int {
+        return fields.reduce(into: 0) { $0 += $1.size }
     }
     
 }

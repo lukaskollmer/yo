@@ -26,6 +26,15 @@ extension NativeFunctions {
     }
     
     
+    static func strlen(address: Int, heap: Heap) -> Int {
+        var length = 0
+        while heap[address + (length * sizeof(.i64))] != 0 {
+            length += 1
+        }
+        return length
+    }
+    
+    
     static func getString(_ offset: Int, _ interpreter: BytecodeInterpreter) -> String {
         return getString(atAddress: interpreter.stack.peek(offset: offset), heap: interpreter.heap)
     }
@@ -33,13 +42,17 @@ extension NativeFunctions {
     static func getString(atAddress _address: Int, heap: Heap) -> String {
         guard _address != 0 else { return "(null)" }
         
-        let address = heap[_address + 1]
-        let size = heap[address]
+        let i64_s = ASTType.i64.size
         
-        let start = address + 1
-        let end = start + size
+        let address = heap[_address + i64_s]
+        let length = strlen(address: address, heap: heap)
         
-        let characters: [Character] = heap[start..<end]
+        let start = address
+        let end = start + (length * i64_s)
+        
+        
+        let characters: [Character] =
+            stride(from: start, to: end, by: i64_s).map { heap[$0] }
             .compactMap(UnicodeScalar.init)
             .map(Character.init)
         
