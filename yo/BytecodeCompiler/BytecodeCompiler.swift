@@ -611,24 +611,6 @@ private extension BytecodeCompiler {
         try handle(node: try _adjustSubscriptOffset(target: arrayGetter.target, offset: arrayGetter.offset))
         try handle(node: arrayGetter.target)
         add(.loadh)
-        /*let targetExprType = try guessType(ofExpression: arrayGetter.target)
-        
-        let offset: ASTExpression
-        
-        if targetExprType == .any {
-            offset = arrayGetter.offset
-        } else {
-            offset = ASTBinaryOperation(
-                lhs: ASTNumberLiteral(value: targetExprType.size),
-                operation: .mul,
-                rhs: arrayGetter.offset
-            )
-        }
-        
-        try handle(node: offset)
-        try handle(node: arrayGetter.target)
-        
-        add(.loadh)*/
     }
     
     func handle(typeImplementation: ASTTypeImplementation) throws {
