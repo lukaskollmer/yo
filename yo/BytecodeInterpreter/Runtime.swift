@@ -111,11 +111,11 @@ class Runtime: NativeFunctions {
         self["runtime", "_invoke", .any, [.int, .int, .int]] = { interpreter in
             let address = interpreter.stack.peek()
             let argc = interpreter.stack.peek(offset: -1)
-            let argv = interpreter.stack.peek(offset: -2) / sizeof(.i64) // TODO find a solution that allows passing objects smaller than 8 bytes
+            let argv = interpreter.stack.peek(offset: -2)
             
             let args: [Int] = argc == 0
-                ? []
-                : Array(interpreter.heap[argv..<(argv + argc)])
+                ? []    // NOTE: since arguments are passed on the heap (which is always 64 bit wide), there's no need to take element sizes into account
+                : stride(from: argv, to: (argv + argc * sizeof(.i64)), by: sizeof(.i64)).map { interpreter.heap[$0] }
             
             guard let _ = interpreter.procedureEntryAddresses[address] else {
                 fatalError("Trying to invoke an address which is not a function entry point")
