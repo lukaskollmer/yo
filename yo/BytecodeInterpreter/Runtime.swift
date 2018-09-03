@@ -154,7 +154,7 @@ class Runtime: NativeFunctions {
             return Runtime.getString(atAddress: interpreter.stack.peek(), heap: interpreter.heap).hashValue
         }
         
-        self["runtime", "_strlen", .int, [.int]] = { interpreter in
+        self["runtime", "_strlen", .int, [.ref(.i8)]] = { interpreter in
             return Runtime.strlen(address: interpreter.stack.peek(), heap: interpreter.heap)
         }
         
@@ -185,7 +185,7 @@ class Runtime: NativeFunctions {
         }
         
         
-        self["runtime", "__format", .int, [.String, .Array]] = { interpreter in
+        self["runtime", "__format", .ref(.i8), [.String, .Array]] = { interpreter in
             let heap = interpreter.heap
             
             let format = Runtime.getString(atAddress: interpreter.stack.peek(), heap: heap)
