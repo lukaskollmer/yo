@@ -17,6 +17,7 @@ protocol NativeFunctions {
 extension NativeFunctions {
     
     static func number_getIntValue(address: Int, heap: Heap) -> Int {
+        fatalError("needs updated implementation")
         let value = heap[address + 1]
         let type = heap[address + 2]
         guard type == Constants.NumberTypeMapping.integer else {
@@ -28,7 +29,7 @@ extension NativeFunctions {
     
     static func strlen(address: Int, heap: Heap) -> Int {
         var length = 0
-        while heap[address + (length * sizeof(.i64))] != 0 {
+        while heap.backing[_8: address + (length * sizeof(.i8))] != 0 {
             length += 1
         }
         return length
@@ -42,17 +43,14 @@ extension NativeFunctions {
     static func getString(atAddress _address: Int, heap: Heap) -> String {
         guard _address != 0 else { return "(null)" }
         
-        let i64_s = ASTType.i64.size
-        
-        let address = heap[_address + i64_s]
+        let address = heap[_address + sizeof(.i64)]
         let length = strlen(address: address, heap: heap)
         
         let start = address
-        let end = start + (length * i64_s)
+        let end = start + length
         
-        
-        let characters: [Character] =
-            stride(from: start, to: end, by: i64_s).map { heap[$0] }
+        let characters: [Character] = (start..<end)
+            .map { UInt8(heap.backing[_8: $0]) }
             .compactMap(UnicodeScalar.init)
             .map(Character.init)
         
