@@ -258,8 +258,8 @@ class Runtime: NativeFunctions {
             
             text += "\0"
             
-            let string_backing = heap.alloc(size: text.count * sizeof(.i64))
-            text.unicodeScalars.enumerated().forEach { heap[string_backing + ($0.offset * sizeof(.i64))] = Int($0.element.value) }
+            let string_backing = heap.alloc(size: text.count * sizeof(.i8))
+            text.unicodeScalars.enumerated().forEach { heap.backing[_8: string_backing + ($0.offset * sizeof(.i8))] = Int8($0.element.value) }
             
             return string_backing
         }
