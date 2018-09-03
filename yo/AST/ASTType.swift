@@ -75,7 +75,7 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
         case .function(let returnType, let parameterTypes):
             return "ASTType.function<(\(parameterTypes)): \(returnType)>"
         case .ref(let type):
-            return "ref \(type)"
+            return "ASTType.ref(\(type))"
         case ._enum(let name):
             return "ASTType._enum(\(name))"
         case .unresolved:
