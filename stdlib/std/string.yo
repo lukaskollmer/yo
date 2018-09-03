@@ -1,7 +1,7 @@
 use "std/array";
 
 type String {
-    _backing: int
+    _backing: ref i8
 };
 
 impl String {
@@ -11,29 +11,29 @@ impl String {
 
 
     fn appending(self: String, other: String): String {
-        runtime::fatalError(0 as any);
-        val self_length = self.length();
-        val other_length = other.length();
-        val newLength: int = self_length + other_length;
+        ret String::format("%s%s", self, other);
+        //val self_length = self.length();
+        //val other_length = other.length();
+        //val newLength: int = self_length + other_length;
 
-        val newBacking: int = runtime::alloc(newLength + 1);
-        newBacking[0] = newLength;
+        //val newBacking: int = runtime::alloc(newLength + 1);
+        //newBacking[0] = newLength;
 
-        runtime::copy_array(self._backing, 1, newBacking, 1, self_length);
-        runtime::copy_array(other._backing, 1, newBacking, self_length + 1, other_length);
+        //runtime::copy_array(self._backing, 1, newBacking, 1, self_length);
+        //runtime::copy_array(other._backing, 1, newBacking, self_length + 1, other_length);
 
-        ret String::init(newBacking);
+        //ret String::init(newBacking);
 
     }
 
     fn copy(self: String): String {
-        runtime::fatalError(0 as any);
-        val length = self.length() + 1;
+        ret String::format("%s", self);
+        //val length = self.length() + 1;
 
-        val newBacking = runtime::alloc(length);
-        runtime::copy_array(self._backing, 0, newBacking, 0, length);
+        //val newBacking = runtime::alloc(length);
+        //runtime::copy_array(self._backing, 0, newBacking, 0, length);
 
-        ret String::init(newBacking);
+        //ret String::init(newBacking);
     }
 
     fn hashValue(self: String): int {
@@ -69,7 +69,7 @@ impl String {
 
 
     fn dealloc(self: String): void {
-        runtime::free(self._backing);
+        runtime::free(self._backing as int);
     }
 
 
