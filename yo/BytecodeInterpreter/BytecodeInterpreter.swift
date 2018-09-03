@@ -353,13 +353,59 @@ class BytecodeInterpreter {
         case .loadh:
             let address = try stack.pop()
             let offset  = try stack.pop()
-            try stack.push(heap[address + offset])
+            
+            func read_and_push_to_stack<T: BinaryInteger>(_ type: T.Type) {
+                let value: T = heap.backing[address + offset]
+                try! stack.push(Int(value))
+            }
+            
+            switch immediate {
+            case sizeof(.i8):
+                read_and_push_to_stack(Int8.self)
+                
+            case sizeof(.i16):
+                read_and_push_to_stack(Int16.self)
+                
+            case sizeof(.i32):
+                read_and_push_to_stack(Int32.self)
+                
+            case sizeof(.i64):
+                read_and_push_to_stack(Int64.self)
+                
+            default:
+                fatalError("unhandled `loadh` size \(immediate)")
+            }
+            
+            
             
         case .storeh:
             let address = try stack.pop()
             let offset  = try stack.pop()
             let value   = try stack.pop()
-            heap[address + offset] = value
+            
+            func write<T: SignedInteger>(_ type: T.Type) {
+                guard let _value = T(exactly: value) else {
+                    fatalError("Error: Unable to represent value as \(T.self)")
+                }
+                heap.backing[address + offset] = _value
+            }
+            
+            switch immediate {
+            case sizeof(.i8):
+                write(Int8.self)
+            
+            case sizeof(.i16):
+                write(Int16.self)
+            
+            case sizeof(.i32):
+                write(Int32.self)
+            
+            case sizeof(.i64):
+                write(Int64.self)
+                
+            default:
+                fatalError("unhandled 'storeh' size \(immediate)")
+            }
             
             
         case .loadc: // load constant

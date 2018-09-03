@@ -576,14 +576,14 @@ private extension BytecodeCompiler {
     
     // TODO guard that only primitive types can be subscripted (get & set)!
     
-    func _adjustSubscriptOffset(target: ASTExpression, offset: ASTExpression) throws -> ASTExpression {
+    func _adjustSubscriptOffset(target: ASTExpression, offset: ASTExpression) throws -> (elementSize: Int, offsetExpression: ASTExpression) {
         let elementSize: Int
         
         let guessedTargetType = try guessType(ofExpression: target)
         
         switch guessedTargetType {
         case .any:
-            return offset
+            return (sizeof(.any), offset)
             
         case .ref(let type):
             elementSize = type.size
@@ -592,25 +592,32 @@ private extension BytecodeCompiler {
             elementSize = guessedTargetType.size
         }
         
-        return ASTBinaryOperation(
+        let offsetExpr = ASTBinaryOperation(
             lhs: ASTNumberLiteral(value: elementSize),
             operation: .mul,
             rhs: offset
         )
+        
+        return (elementSize, offsetExpr)
     }
     
     func handle(arraySetter: ASTArraySetter) throws {
+        let (elementSize, offset) = try _adjustSubscriptOffset(target: arraySetter.target, offset: arraySetter.offset)
+        
         try handle(node: arraySetter.value)
-        try handle(node: try _adjustSubscriptOffset(target: arraySetter.target, offset: arraySetter.offset))
+        try handle(node: offset)
         try handle(node: arraySetter.target)
         
-        add(.storeh)
+        add(.storeh, elementSize)
     }
     
     func handle(arrayGetter: ASTArrayGetter) throws {
-        try handle(node: try _adjustSubscriptOffset(target: arrayGetter.target, offset: arrayGetter.offset))
+        let (elementSize, offset) = try _adjustSubscriptOffset(target: arrayGetter.target, offset: arrayGetter.offset)
+        
+        try handle(node: offset)
         try handle(node: arrayGetter.target)
-        add(.loadh)
+        
+        add(.loadh, elementSize)
     }
     
     func handle(typeImplementation: ASTTypeImplementation) throws {
@@ -1365,7 +1372,7 @@ private extension BytecodeCompiler {
         //let (label, alreadyRegistered) = stringLiteralsCache.label(forStringLiteral: text)
         let (label, alreadyRegistered) = constantArrayLiteralsCache.label(forArray: codepoints)
         if !alreadyRegistered {
-            add(.arrayLiteral(label, sizeof(.i64), codepoints)) // TODO encode as array of i8
+            add(.arrayLiteral(label, sizeof(.i8), codepoints))
         }
         
         let stringInitCall = ASTFunctionCall(
@@ -1796,8 +1803,13 @@ private extension BytecodeCompiler {
             } else if let assignedValueMemberAccess = expression as? ASTMemberAccess {
                 return try processMemberAccess(memberAccess: assignedValueMemberAccess).types.last!
                 
-            }  else if expression is ASTArrayGetter {
-                return .int
+            } else if let arrayGetter = expression as? ASTArrayGetter {
+                let targetType = try guessType(ofExpression: arrayGetter.target)
+                if case .ref(let type) = targetType {
+                    return type
+                } else {
+                    return targetType
+                }
                 
             } else if let typeMemberFunctionCall = expression as? ASTTypeMemberFunctionCall {
                 return functions[typeMemberFunctionCall.mangledName]!.returnType // TODO don't force unwrap!
