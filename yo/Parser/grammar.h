@@ -42,7 +42,6 @@ const char *YO_GRAMMAR =
 
 " impl          : \"impl\" <ident> (':' <ident> (',' <ident>)* )? '{' <function>* '}' ;             "
 
-
 " type          : <fn_ptr>                                                          "
 "               | \"ref\" <type>                                                          "
 "               |  <ident>    ;                                                      "
