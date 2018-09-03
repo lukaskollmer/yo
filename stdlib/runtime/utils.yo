@@ -11,7 +11,7 @@ impl runtime {
     // Basically java's `Syatem.arraycopy`
     static fn copy_array(element_size: int, source: any, sourceIndex: int, destination: any, destinationIndex: int, length: int): void {
         for val i: int; i < length; i += 1; {
-            destination[destinationIndex + (i * element_size)] = source[sourceIndex + (i * element_size)];
+            destination[element_size * (i + destinationIndex)] = source[element_size * (i + sourceIndex)];
         }
     }
 }
