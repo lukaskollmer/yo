@@ -1,9 +1,9 @@
 // runtime/utils
 
-//use "std/string";
+use "std/string";
 
 fn NotYetImplemented(): void {
-    //runtime::fatalError("not yet implemented");
+    runtime::fatalError("not yet implemented");
 }
 
 
