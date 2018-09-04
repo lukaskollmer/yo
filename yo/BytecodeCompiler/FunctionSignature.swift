@@ -9,7 +9,7 @@
 import Foundation
 
 
-protocol FunctionSignature {
+protocol FunctionSignature: ASTTypeThatCanBeAnnotated {
     var parameterTypes: [ASTType] { get }
     var returnType: ASTType { get }
     var annotations: [ASTAnnotation.Element] { get }
