@@ -12,9 +12,11 @@ import Foundation
 class ASTArrayGetter: ASTExpression {
     let target: ASTExpression
     let offset: ASTExpression
+    let typeOfAccessedField: ASTType? // if nil, typeof(target) will be used instead
     
-    init(target: ASTExpression, offset: ASTExpression) {
+    init(target: ASTExpression, offset: ASTExpression, typeOfAccessedField: ASTType? = nil) {
         self.target = target
         self.offset = offset
+        self.typeOfAccessedField = typeOfAccessedField
     }
 }

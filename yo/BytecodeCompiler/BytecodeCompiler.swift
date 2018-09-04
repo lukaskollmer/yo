@@ -581,6 +581,9 @@ private extension BytecodeCompiler {
     
     // TODO guard that only primitive types can be subscripted (get & set)!
     
+    // returns a tuple containing:
+    // - elementSize: the size (in bytes) of one element in the target array (assuming that all elements have the same size!)
+    // - offsetExpression: a binop multiplying the offset by the elementSize
     func _adjustSubscriptOffset(target: ASTExpression, offset: ASTExpression) throws -> (elementSize: Int, offsetExpression: ASTExpression) {
         let elementSize: Int
         
@@ -606,15 +609,6 @@ private extension BytecodeCompiler {
         return (elementSize, offsetExpr)
     }
     
-    func handle(arraySetter: ASTArraySetter) throws {
-        let (elementSize, offset) = try _adjustSubscriptOffset(target: arraySetter.target, offset: arraySetter.offset)
-        
-        try handle(node: arraySetter.value)
-        try handle(node: offset)
-        try handle(node: arraySetter.target)
-        
-        add(.storeh, elementSize)
-    }
     
     func handle(arrayGetter: ASTArrayGetter) throws {
         let (elementSize, offset) = try _adjustSubscriptOffset(target: arrayGetter.target, offset: arrayGetter.offset)
@@ -622,8 +616,20 @@ private extension BytecodeCompiler {
         try handle(node: offset)
         try handle(node: arrayGetter.target)
         
-        add(.loadh, elementSize)
+        add(.loadh, arrayGetter.typeOfAccessedField?.size ?? elementSize)
     }
+    
+    
+    func handle(arraySetter: ASTArraySetter) throws {
+        let offset = try _adjustSubscriptOffset(target: arraySetter.target, offset: arraySetter.offset).offsetExpression
+        
+        try handle(node: arraySetter.value)
+        try handle(node: offset)
+        try handle(node: arraySetter.target)
+        
+        add(.storeh, sizeof(try guessType(ofExpression: arraySetter.value)))
+    }
+
     
     func handle(typeImplementation: ASTTypeImplementation) throws {
         for function in typeImplementation.functions {
@@ -1234,7 +1240,8 @@ private extension BytecodeCompiler {
                 
                 expr = ASTArrayGetter(
                     target: expr.as(.any),
-                    offset: ASTNumberLiteral(value: typeCache.offset(ofMember: identifier.value, inType: currentTypename))
+                    offset: ASTNumberLiteral(value: typeCache.offset(ofMember: identifier.value, inType: currentTypename)),
+                    typeOfAccessedField: typeCache.type(ofMember: identifier.value, ofType: currentTypename)!
                 )
                 
                 if index < memberAccess.members.count {
@@ -1307,6 +1314,7 @@ private extension BytecodeCompiler {
             errorMessage: "Cannot perform binary operation \(binop.operation) with non-number types '\(lhsType)' and '\(rhsType)'"
         )
         
+        // TODO switch to the commented-out version and disallow binops between different types
         
         // TODO add a check that only +-*/ can be used w/ doubles?
         
