@@ -282,16 +282,25 @@ class AutoSynthesizedCodeGen {
                 annotations: [.disable_arc]
             ),
             body: [
+                // 1. if provided, call the type's custom dealloc function
                 !hasCustomDeallocFunction
                     ? ASTNoop()
                     : ASTFunctionCall(functionName: customDeallocFunctionName, arguments: [_self], unusedReturnValue: true),
-                ASTComposite(statements: structDeclaration.attributes.enumerated().filter({ $0.element.type.supportsReferenceCounting }).map { arg0 in
-                    return ASTFunctionCall(
-                        functionName: SymbolMangling.release,
-                        arguments: [ASTArrayGetter(target: _self, offset: ASTNumberLiteral(value: arg0.offset + 1))],
-                        unusedReturnValue: true
-                    )
-                })
+                
+                // 2. release all refcounted attributes
+                ASTComposite(
+                    statements: structDeclaration.attributes
+                        .filter { $0.type.supportsReferenceCounting && compiler.typeCache.hasArcEnabled($0.type.typename) }
+                        .map {
+                            ASTFunctionCall(
+                                functionName: SymbolMangling.release,
+                                arguments: [
+                                    ASTMemberAccess(members: [.initial_identifier(_self), .attribute(name: $0.identifier)])
+                                ],
+                                unusedReturnValue: true
+                            )
+                        }
+                )
             ]
         )
         
