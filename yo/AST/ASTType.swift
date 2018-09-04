@@ -137,7 +137,7 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
             return true
         }
         
-        if both.all(ASTType.intTypes.contains) && self.size < other.size {
+        if both.all(ASTType.intTypes.contains) && self.size <= other.size {
             return true
         }
         
