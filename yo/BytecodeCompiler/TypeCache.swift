@@ -73,7 +73,7 @@ class TypeCache {
             fields.insert(.i64, at: 0)
         }
         
-        return TypeCache.sizeof(fields) - fields[0].size
+        return TypeCache.sizeof(fields) - fields.last!.size // i guess this is faster than creating a new array from a slice excluding the last element?
     }
     
     func sizeof(type typeName: String, extraFields: [ASTType] = []) -> Int {
