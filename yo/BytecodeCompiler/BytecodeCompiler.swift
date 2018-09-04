@@ -1065,10 +1065,13 @@ private extension BytecodeCompiler {
                 arg = arg.as(expectedType)
             }
             
-            let argType = try guessType(ofExpression: arg)
-            guard argType.isCompatible(with: expectedType) else {
-                fatalError("cannot pass '\(argType)' to function expecting '\(expectedType)'")
+            if !functionSignature.hasAnnotation(.pass_unchecked) {
+                let argType = try guessType(ofExpression: arg)
+                guard argType.isCompatible(with: expectedType) else {
+                    fatalError("cannot pass '\(argType)' to function expecting '\(expectedType)'")
+                }
             }
+            
             try handle(node: arg)
         }
         

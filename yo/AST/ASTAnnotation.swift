@@ -26,6 +26,7 @@ class ASTAnnotation {
         static let base_protocol: Element = "base_protocol"
         static let attribute_accessors: Element = "attribute_accessors"
         static let variadic: Element = "variadic"
+        static let pass_unchecked: Element = "pass_unchecked"
         
         let key: String
         let value: Value
@@ -48,7 +49,7 @@ extension ASTAnnotation.Element: ExpressibleByStringLiteral {
 
 // TODO come up w/ a better name
 protocol ASTTypeThatCanBeAnnotated {
-    var annotations: [ASTAnnotation.Element] { get set }
+    var annotations: [ASTAnnotation.Element] { get }
 }
 
 extension ASTTypeThatCanBeAnnotated {
