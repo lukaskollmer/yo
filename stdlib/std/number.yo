@@ -39,7 +39,7 @@ impl Number {
 
 
     fn hashValue(self: Number): int {
-        ret (self._value << 2) | self._type;
+        ret ((self._value as int) << 2) | self._type;
     }
 
 
