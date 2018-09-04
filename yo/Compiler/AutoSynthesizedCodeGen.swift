@@ -44,27 +44,27 @@ class AutoSynthesizedCodeGen {
     func synthesize(intoAST ast: inout AST, options: CodegenOptions = .all) {
         var retval = AST()
         ast
-            .compactMap { $0 as? ASTTypeDeclaration }
-            .filter { !$0.isStruct }
-            .forEach { typeDecl in
+            .compactMap { $0 as? ASTStructDeclaration }
+            .filter { $0.hasArcEnabled }
+            .forEach { structDecl in
                 // Q: Why the `as AST` casts?
                 // A: https://forums.swift.org/t/weird-protocol-behaviour/14963
                 
                 if options.contains(.initializer) {
-                    retval += generateMetatypeInitializerAndCleanupFunctions(forType: typeDecl) as AST
-                    retval += generateInitializer(forType: typeDecl) as AST
+                    retval += generateMetatypeInitializerAndCleanupFunctions(forStruct: structDecl) as AST
+                    retval += generateInitializer(forStruct: structDecl) as AST
                 }
                 
                 if options.contains(.dealloc) {
-                    retval += [generateDeallocFunction(forType: typeDecl)]
+                    retval += [generateDeallocFunction(forStruct: structDecl)]
                 }
                 
                 if options.contains(.attributeAccessors) {
-                    retval += generateAttributeAccessors(forType: typeDecl) as AST
+                    retval += generateAttributeAccessors(forStruct: structDecl) as AST
                 }
                 
                 if options.contains(.baseProtocolConformances) {
-                    retval += generateProtocolConformance(forType: typeDecl)
+                    retval += generateProtocolConformance(forStruct: structDecl)
                 }
             }
         
@@ -72,12 +72,12 @@ class AutoSynthesizedCodeGen {
     }
     
     
-    private func generateMetatypeInitializerAndCleanupFunctions(forType type: ASTTypeDeclaration) -> [ASTFunctionDeclaration] {
+    private func generateMetatypeInitializerAndCleanupFunctions(forStruct _struct: ASTStructDeclaration) -> [ASTFunctionDeclaration] {
         var retval = [ASTFunctionDeclaration]()
         
-        let typename = type.name.value
+        let typename = _struct.identifier.value
         let g_metatype = ASTIdentifier(value: SymbolMangling.mangleMetatypeTableName(forType: typename))
-        compiler.globals.append(ASTVariableDeclaration(identifier: g_metatype, type: .int, isStatic: true))
+        compiler.globals.append(ASTVariableDeclaration(identifier: g_metatype, type: .int, isStatic: true)) // TODO is .int right? isn't this a pointer?
         
         let l_metatype: ASTIdentifier = "l_metatype"
         
@@ -169,10 +169,10 @@ class AutoSynthesizedCodeGen {
     }
     
     
-    private func generateInitializer(forType typeDeclaration: ASTTypeDeclaration) -> [ASTFunctionDeclaration] {
+    private func generateInitializer(forStruct structDeclaration: ASTStructDeclaration) -> [ASTFunctionDeclaration] {
         var retval = [ASTFunctionDeclaration]()
         
-        let typename = typeDeclaration.name.value
+        let typename = structDeclaration.identifier.value
         let _selfType = ASTType.complex(name: typename)
         
         //
@@ -187,7 +187,7 @@ class AutoSynthesizedCodeGen {
             signature: ASTFunctionSignature(
                 name: ASTIdentifier(value: "init"),
                 kind: .staticImpl(typename),
-                parameters: typeDeclaration.attributes,
+                parameters: structDeclaration.attributes,
                 returnType: _selfType,
                 annotations: []
             ),
@@ -207,7 +207,7 @@ class AutoSynthesizedCodeGen {
                         unusedReturnValue: false)
                 ),
                 
-                typeDeclaration.isStruct
+                !structDeclaration.hasArcEnabled
                     ? ASTNoop()
                     :
                     // store a pointer to the metatype in the upper 32 bits
@@ -229,12 +229,12 @@ class AutoSynthesizedCodeGen {
                 
                 // go through the parameters and fill the attributes
                 ASTComposite(
-                    statements: typeDeclaration.attributes.map { attribute -> ASTStatement in
+                    statements: structDeclaration.attributes.map { attribute -> ASTStatement in
                         return ASTArraySetter(
                             target: _self,
                             //offset: ASTNumberLiteral(value: offset + (typeDeclaration.isStruct ? 0 : 1)),
                             offset: ASTNumberLiteral(value: compiler.typeCache.offset(ofMember: attribute.identifier.value, inType: typename)),
-                            value: typeDeclaration.isStruct || !attribute.type.isComplex
+                            value: !structDeclaration.hasArcEnabled || !attribute.type.isComplex
                                 ? attribute.identifier
                                 : ASTFunctionCall(
                                     functionName: SymbolMangling.retain,
@@ -258,9 +258,9 @@ class AutoSynthesizedCodeGen {
     
     
     
-    private func generateDeallocFunction(forType typeDeclaration: ASTTypeDeclaration) -> ASTFunctionDeclaration {
+    private func generateDeallocFunction(forStruct structDeclaration: ASTStructDeclaration) -> ASTFunctionDeclaration {
         
-        let typename = typeDeclaration.name.value
+        let typename = structDeclaration.identifier.value
         let _selfType = ASTType.complex(name: typename)
         
         // Function names
@@ -285,7 +285,7 @@ class AutoSynthesizedCodeGen {
                 !hasCustomDeallocFunction
                     ? ASTNoop()
                     : ASTFunctionCall(functionName: customDeallocFunctionName, arguments: [_self], unusedReturnValue: true),
-                ASTComposite(statements: typeDeclaration.attributes.enumerated().filter({ $0.element.type.supportsReferenceCounting }).map { arg0 in
+                ASTComposite(statements: structDeclaration.attributes.enumerated().filter({ $0.element.type.supportsReferenceCounting }).map { arg0 in
                     return ASTFunctionCall(
                         functionName: SymbolMangling.release,
                         arguments: [ASTArrayGetter(target: _self, offset: ASTNumberLiteral(value: arg0.offset + 1))],
@@ -301,16 +301,16 @@ class AutoSynthesizedCodeGen {
     }
     
     
-    private func generateAttributeAccessors(forType typeDeclaration: ASTTypeDeclaration) -> [ASTFunctionDeclaration] {
-        guard typeDeclaration.hasAnnotation(.attribute_accessors) else {
+    private func generateAttributeAccessors(forStruct structDeclaration: ASTStructDeclaration) -> [ASTFunctionDeclaration] {
+        guard structDeclaration.hasAnnotation(.attribute_accessors) else {
             return []
         }
         
         var retval = [ASTFunctionDeclaration]()
-        let typename = typeDeclaration.name.value
+        let typename = structDeclaration.identifier.value
         let _selfType = ASTType.complex(name: typename)
         
-        for attribute in typeDeclaration.attributes {
+        for attribute in structDeclaration.attributes {
             let attributeName = attribute.identifier.value
             let offset = ASTNumberLiteral(value: compiler.typeCache.offset(ofMember: attributeName, inType: typename))
             
@@ -398,7 +398,7 @@ class AutoSynthesizedCodeGen {
     
     // MARK: Protocol Conformance
     
-    private func generateProtocolConformance(forType typeDecl: ASTTypeDeclaration) -> AST {
+    private func generateProtocolConformance(forStruct structDeclaration: ASTStructDeclaration) -> AST {
         var retval = AST()
         
         let getProtocolWithName: (ASTIdentifier) -> ASTProtocolDeclaration? = { identifier in
@@ -407,13 +407,13 @@ class AutoSynthesizedCodeGen {
         }
         
         // every type implements all protocols declared w/ the "base_protocol" annotation
-        for baseProtocol in compiler.baseProtocols where !typeDecl.protocols.contains(baseProtocol.name) {
-            typeDecl.protocols.append(baseProtocol.name)
+        for baseProtocol in compiler.baseProtocols where !structDeclaration.protocols.contains(baseProtocol.name) {
+            structDeclaration.protocols.append(baseProtocol.name)
         }
         
-        let typename = typeDecl.name
+        let typename = structDeclaration.identifier
         
-        for protocolName in typeDecl.protocols {
+        for protocolName in structDeclaration.protocols {
             guard let _protocol = getProtocolWithName(protocolName) else {
                 fatalError("Unable to get protocol named '\(protocolName)'")
             }

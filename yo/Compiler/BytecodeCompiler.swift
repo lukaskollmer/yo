@@ -316,7 +316,7 @@ private extension BytecodeCompiler {
         } else if let comparison = node as? ASTComparison {
             try handle(comparison: comparison)
             
-        } else if node is ASTTypeDeclaration {
+        } else if node is ASTStructDeclaration {
             // initializers etc have already been generated
             
         } else if let arraySetter = node as? ASTArraySetter {
@@ -417,7 +417,7 @@ private extension BytecodeCompiler {
             
             if arcEnabledInCurrentScope {
                 try signature.parameters
-                    .filter { $0.type.supportsReferenceCounting && !typeCache.isStruct($0.type.typename) }
+                    .filter { $0.type.supportsReferenceCounting && typeCache.hasArcEnabled($0.type.typename) }
                     .forEach { try retain(expression: $0.identifier) }
             }
             
@@ -514,7 +514,7 @@ private extension BytecodeCompiler {
                 try localVariables
                     .filter { variable in
                         let type = try scope.type(of: variable.identifier.value)
-                        return type.supportsReferenceCounting && !typeCache.isStruct(type.typename)
+                        return type.supportsReferenceCounting && typeCache.hasArcEnabled(type.typename)
                     }
                     .forEach { try release(expression: $0.identifier) }
                 for _ in 0..<localVariables.count { add(.pop) }
@@ -530,7 +530,8 @@ private extension BytecodeCompiler {
                         if let _returnedLocalIdentifier = returnStatement.expression as? ASTIdentifier,
                             scope.contains(identifier: _returnedLocalIdentifier.value),
                             case let type = try scope.type(of: _returnedLocalIdentifier.value),
-                            type.supportsReferenceCounting && !typeCache.isStruct(type.typename) { // TODO not sure whether replacing isComplex w/ supportsReferenceCounting was the right idea here...
+                            type.supportsReferenceCounting && typeCache.hasArcEnabled(type.typename)
+                        {
                             returnedLocalIdentifier = _returnedLocalIdentifier
                         } else {
                             returnedLocalIdentifier = nil
@@ -550,7 +551,7 @@ private extension BytecodeCompiler {
                                 .filter { returnedLocalIdentifier == nil || $0.identifier != returnedLocalIdentifier! }
                                 .forEach { variable in
                                     let type = try scope.type(of: variable.identifier.value)
-                                    if type.supportsReferenceCounting && !typeCache.isStruct(type.typename) {
+                                    if type.supportsReferenceCounting && typeCache.hasArcEnabled(type.typename) {
                                         try release(expression: variable.identifier)
                                     }
                                 }
@@ -771,7 +772,7 @@ private extension BytecodeCompiler {
             fatalError("cannot assign value of type `\(rhsType)` to `\(lhsType)`")
         }
         
-        let shouldArcLhs = assignment.shouldRetainAssignedValueIfItIsAnObject && arcEnabledInCurrentScope && lhsType.supportsReferenceCounting && !typeCache.isStruct(lhsType.typename) // TODO the last 2 seem a bit redunant
+        let shouldArcLhs = assignment.shouldRetainAssignedValueIfItIsAnObject && arcEnabledInCurrentScope && lhsType.supportsReferenceCounting && typeCache.hasArcEnabled(lhsType.typename) // TODO the last 2 seem a bit redunant
         
         var target: ASTExpression = assignment.target
         
@@ -955,12 +956,11 @@ private extension BytecodeCompiler {
                 
                 // Lambda type
                 
-                let type = ASTTypeDeclaration(
-                    name: ASTIdentifier(value: typename),
-                    attributes: [ASTVariableDeclaration(identifier: invoke_functionPtr, type: lambda_impType)] + importedVariables,
-                    annotations: []
+                let type = ASTStructDeclaration(
+                    identifier: ASTIdentifier(value: typename),
+                    attributes: [ASTVariableDeclaration(identifier: invoke_functionPtr, type: lambda_impType)] + importedVariables
                 )
-                typeCache.register(type: type)
+                typeCache.register(struct: type)
                 
                 var lambdaAST: AST = [type]
                 self.codegen.synthesize(intoAST: &lambdaAST)

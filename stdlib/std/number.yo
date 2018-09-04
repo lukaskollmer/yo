@@ -1,6 +1,6 @@
 // std/number
 
-type Number {
+struct Number {
     _value: any,
     _type: int
 };

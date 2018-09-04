@@ -13,7 +13,7 @@ enum LKError: Error {
 }
 
 class TypeCache {
-    private(set) var types = [ASTTypeDeclaration]()
+    private(set) var types = [ASTStructDeclaration]()
     private(set) var enums = [ASTEnumDeclaration]()
     
     private func nameIsRegistered(_ name: String) -> Bool {
@@ -26,9 +26,9 @@ class TypeCache {
         }
     }
     
-    func register(type: ASTTypeDeclaration) {
-        try! guardNameStillAvailable(type.name.value)
-        types.append(type)
+    func register(struct _struct: ASTStructDeclaration) {
+        try! guardNameStillAvailable(_struct.identifier.value)
+        types.append(_struct)
     }
     
     func register(enum enumDecl: ASTEnumDeclaration) {
@@ -58,7 +58,7 @@ class TypeCache {
     }
     
     func index(ofType typename: String) -> Int {
-        return types.index { $0.name.value == typename }! // TODO don't force-unwrap
+        return types.index { $0.identifier.value == typename }! // TODO don't force-unwrap
     }
     
     func offset(ofMember member: String, inType typename: String) -> Int {
@@ -69,24 +69,25 @@ class TypeCache {
         let indexInAttributes = type.attributes.index { $0.identifier.value == member }!
         var fields = type.attributes[0...indexInAttributes].map { $0.type }
         
-        if !type.isStruct {
+        if type.hasArcEnabled {
             fields.insert(.i64, at: 0)
         }
         
         return TypeCache.sizeof(fields) - fields.last!.size // i guess this is faster than creating a new array from a slice excluding the last element?
     }
     
-    func sizeof(type typeName: String, extraFields: [ASTType] = []) -> Int {
+    func sizeof(type typeName: String) -> Int {
         guard let type = self.type(withName: typeName) else {
             fatalError()
         }
         
-        let allFields = type.attributes.map { $0.type } + extraFields + (type.isStruct ? [] : [ASTType.i64]) // TODO (at the end: use intptr instead)
+        let allFields = type.attributes.map { $0.type } + (type.hasArcEnabled ? [ASTType.i64] : []) // TODO (at the end: use intptr instead)
         return TypeCache.sizeof(allFields)
     }
     
-    func isStruct(_ typename: String) -> Bool {
-        return self.type(withName: typename)?.isStruct ?? false
+    func hasArcEnabled(_ typename: String) -> Bool {
+        // returning true by default seems wrong, but otherwise there's a bunch of errors
+        return self.type(withName: typename)?.hasArcEnabled ?? true
     }
     
     
@@ -95,8 +96,8 @@ class TypeCache {
     }
     
     
-    private func type(withName typename: String) -> ASTTypeDeclaration? {
-        return types.first { $0.name.value == typename }
+    func type(withName typename: String) -> ASTStructDeclaration? {
+        return types.first { $0.identifier.value == typename }
     }
     
     private func enumDecl(withName typename: String) -> ASTEnumDeclaration? {
@@ -110,9 +111,6 @@ class TypeCache {
             return type
         }
         
-        if typeName == "RangeType" {
-            noop()
-        }
         if !typeExists(withName: typeName) && enumExists(withName: typeName) {
             return ._enum(typeName)
         }

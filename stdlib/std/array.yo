@@ -2,7 +2,7 @@ use "std/range";
 use "std/string";
 use "std/string_builder";
 
-type Array {
+struct Array {
     _count: int,
     _allocatedLength: int,
     _backing: int
@@ -253,7 +253,7 @@ impl Array: Iterable {
 
 
 
-type ArrayIterator {
+struct ArrayIterator {
     index: int,
     array: Array
 };

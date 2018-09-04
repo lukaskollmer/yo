@@ -2,7 +2,7 @@
 
 use "std/iterable";
 
-type RangeIterator {
+struct RangeIterator {
     current: int,
     end: int
 };
@@ -28,7 +28,7 @@ enum RangeType {
 };
 
 
-type Range {
+struct Range {
     start: int,
     end: int,
     type: RangeType

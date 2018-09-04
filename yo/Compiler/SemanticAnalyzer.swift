@@ -22,14 +22,14 @@ extension Dictionary where Key == String, Value == FunctionSignature {
 class SemanticAnalyzer {
     struct Result {
         let globalFunctions: GlobalFunctions
-        let types: [ASTTypeDeclaration]
+        let types: [ASTStructDeclaration]
         let globals: [ASTVariableDeclaration]
         let enums: [ASTEnumDeclaration]
     }
     
     func analyze(ast: AST) -> SemanticAnalyzer.Result {
         let enums   = ast.compactMap { $0 as? ASTEnumDeclaration }
-        let types   = ast.compactMap { $0 as? ASTTypeDeclaration }
+        let types   = ast.compactMap { $0 as? ASTStructDeclaration }
         let globals = ast.compactMap { $0 as? ASTVariableDeclaration }.filter { $0.isStatic }
         
         // TODO check that there aren't type &/ enum decls using the same name
@@ -44,12 +44,12 @@ class SemanticAnalyzer {
         
         for implBlock in ast.compactMap({ $0 as? ASTTypeImplementation }) {
             if !implBlock.protocols.isEmpty {
-                let type = types.first { $0.name == implBlock.typename }!
+                let type = types.first { $0.identifier == implBlock.typename }!
                 
                 // check whether the type already implements the protocol
                 for protocolName in implBlock.protocols {
                     guard !type.protocols.contains(protocolName) else {
-                        fatalError("Type '\(type.name)' already implements protocol '\(protocolName)'")
+                        fatalError("Type '\(type.identifier)' already implements protocol '\(protocolName)'")
                     }
                     type.protocols.append(protocolName)
                 }

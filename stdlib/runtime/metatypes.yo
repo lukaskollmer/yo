@@ -2,6 +2,7 @@
 
 use "std/string";
 
+#[disable_arc]
 struct Type {
     id: int,
     name: String,

@@ -8,6 +8,17 @@
 
 import Foundation
 
+
+infix operator ?=
+
+func ?= <T> (lhs: inout T?, rhs: @autoclosure () -> T?) {
+    if lhs == nil {
+        lhs = rhs()
+    }
+}
+
+
+
 func cast<T, R>(_ arg0: inout T) -> R {
     return withUnsafeBytes(of: &arg0) { $0.load(as: R.self) }
 }

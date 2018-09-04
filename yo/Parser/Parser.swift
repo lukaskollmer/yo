@@ -153,8 +153,8 @@ class Parser {
     // TODO introduce an `ASTTopLevelStatement` protocol?
     func parseTopLevelStatement(_ ast: mpc_ast_t) throws -> ASTStatement {
         switch ast.lk_tag {
-        case "topLevelStatement|type_decl|>":
-            return try parseTypeDecl(ast)
+        case "topLevelStatement|struct_decl|>":
+            return try parseStructDeclaration(ast)
             
         case "topLevelStatement|impl|>":
             return try parseImplementation(ast)
@@ -400,24 +400,12 @@ class Parser {
     
     
     
-    func parseTypeDecl(_ ast: mpc_ast_t) throws -> ASTTypeDeclaration {
-        let isStruct = ast[0].lk_content == "struct"
-        let typename = try parseIdentifier(ast[1])
+    func parseStructDeclaration(_ ast: mpc_ast_t) throws -> ASTStructDeclaration {
+        let annotations = try ast.lk_children.filter { $0.lk_tag == "annotation|>" }.map { try parseAnnotation($0) }
+        let identifier = try parseIdentifier(ast.lk_children.first { $0.lk_tag == "ident|regex" }!)
+        let attributes = try parseParameterList(ast.lk_children.first { $0.lk_tag == "paramList|>" }!)
         
-        let attributes: [ASTVariableDeclaration]
-        
-        if ast[3] == _closingCurlyBraces {
-            attributes = []
-        } else {
-            attributes = try parseParameterList(ast[3])
-        }
-        
-        return ASTTypeDeclaration(
-            name: typename,
-            attributes: attributes,
-            annotations: [], // TODO
-            isStruct: isStruct
-        )
+        return ASTStructDeclaration(identifier: identifier, attributes: attributes, annotations: annotations)
     }
     
     

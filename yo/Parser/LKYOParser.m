@@ -65,7 +65,7 @@ static BOOL shouldEmitSignposts;
     rule(binop_mul);
     rule(lexpr);
     rule(var_decl);
-    rule(type_decl);
+    rule(struct_decl);
     rule(impl);
     rule(static_target);
     rule(call_target);
@@ -119,7 +119,7 @@ static BOOL shouldEmitSignposts;
     mpc_err_t *err =
     mpca_lang(MPCA_LANG_DEFAULT, YO_GRAMMAR,
               ident, boolean, number, character, string, number_double, number_b02, number_b08, number_b10, number_b16,
-              fn_ptr, global_var, type_decl, impl, type,
+              fn_ptr, global_var, struct_decl, impl, type,
               expr_list, subscript, var_access, static_target, call_target, fn_call, array_literal,
               boxed_expr, range, binop_mul, binop_add, unary, lambda, typecast, lexpr, expr,
               ret, var_decl, in_place_binop, assignment, stmt_fn_call,

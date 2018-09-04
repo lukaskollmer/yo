@@ -1,6 +1,7 @@
 use "std/array";
 
-type String {
+
+struct String {
     _backing: ref i8
 };
 

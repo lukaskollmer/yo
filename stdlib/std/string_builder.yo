@@ -1,6 +1,6 @@
 use "std/string";
 
-type StringBuilder {
+struct StringBuilder {
     _string: String
 };
 

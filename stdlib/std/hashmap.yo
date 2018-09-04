@@ -11,13 +11,14 @@ fn _freePrimes(): void {
 }
 
 
+#[disable_arc]
 struct HashMapKeyValuePair {
     key: String,
     value: id
 };
 
 
-type HashMap {
+struct HashMap {
     _usedSize: int,
     _allocatedSize: int,
     _sizeIndex: int,
