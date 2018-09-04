@@ -52,7 +52,7 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
     // size, in bytes
     var size: Int {
         switch self {
-        case .i8:
+        case .i8, .bool:
             return 1
         case .i16:
             return 2
