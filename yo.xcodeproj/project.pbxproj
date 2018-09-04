@@ -314,9 +314,9 @@
 				80AE212920BB0D9F004900DC /* yo.swift */,
 				809F5C20212DB3B100F96919 /* Profiling.swift */,
 				80E74FF220EB751400C7DB90 /* CLI.swift */,
-				80EAA47620B75F240043A6F6 /* BytecodeInterpreter */,
-				80EAA47320B75EDA0043A6F6 /* BytecodeCompiler */,
 				804834E120B6EAB2009E59FC /* Parser */,
+				80EAA47320B75EDA0043A6F6 /* Compiler */,
+				80EAA47620B75F240043A6F6 /* Interpreter */,
 				80EAA49F20B9C2610043A6F6 /* AST */,
 				808CC63D20EFC029003F62F4 /* yo-Bridging-Header.h */,
 			);
@@ -413,7 +413,7 @@
 			path = deps;
 			sourceTree = "<group>";
 		};
-		80EAA47320B75EDA0043A6F6 /* BytecodeCompiler */ = {
+		80EAA47320B75EDA0043A6F6 /* Compiler */ = {
 			isa = PBXGroup;
 			children = (
 				80EAA47420B75EE40043A6F6 /* BytecodeCompiler.swift */,
@@ -433,10 +433,10 @@
 				806FEE0A212C75DC00E2EF11 /* ShortCircuitEvaluation.swift */,
 				80BE85AC21383F4100A4D03B /* FunctionSignature.swift */,
 			);
-			path = BytecodeCompiler;
+			path = Compiler;
 			sourceTree = "<group>";
 		};
-		80EAA47620B75F240043A6F6 /* BytecodeInterpreter */ = {
+		80EAA47620B75F240043A6F6 /* Interpreter */ = {
 			isa = PBXGroup;
 			children = (
 				80EAA47720B75F370043A6F6 /* BytecodeInterpreter.swift */,
@@ -452,7 +452,7 @@
 				806D73652131B43E003D3902 /* CallLogger.swift */,
 				806D73672131B78D003D3902 /* CountedSet.swift */,
 			);
-			path = BytecodeInterpreter;
+			path = Interpreter;
 			sourceTree = "<group>";
 		};
 		80EAA49F20B9C2610043A6F6 /* AST */ = {
