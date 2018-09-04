@@ -253,10 +253,15 @@ extension BytecodeCompiler {
     
     
     var arcEnabledInCurrentScope: Bool {
+        return !currentScopeHasAnnotation(.disable_arc)
+    }
+    
+    func currentScopeHasAnnotation(_ annotation: ASTAnnotation.Element) -> Bool {
         guard case .function(let functionName, _) = scope.type else {
             return false
         }
-        return !functions[functionName]!.annotations.contains(.disable_arc)
+        
+        return functions[functionName]!.hasAnnotation(annotation)
     }
     
     
