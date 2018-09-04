@@ -1310,11 +1310,33 @@ private extension BytecodeCompiler {
         
         // TODO add a check that only +-*/ can be used w/ doubles?
         
+        /*guard lhsType == rhsType else {
+            fatalError("Binary operation '\(binop.operation) cannot be applied to operands of type '\(lhsType.typename)' and '\(rhsType.typename)'")
+        }
+        
+        try handle(node: binop.lhs)
+        try handle(node: binop.rhs)
+        
+        switch lhsType {
+        case .int:
+            add(binop.operation.operation)
+        
+        case .double:
+            add(binop.operation.operation.doubleVariant)
+        
+        default:
+            fatalError("unhandled type \(lhsType.typename)")
+        }*/
+        
+        
         let handleLhs = { try self.handle(node: binop.lhs) }
         let handleRhs = { try self.handle(node: binop.rhs) }
+    
+        let isInt: (ASTType) -> Bool = ASTType.intTypes.contains
         
         switch (lhsType, rhsType) {
-        case (.int, .int), (.any, .int), (.int, .any):
+        //case (.int, .int), (.any, .int), (.int, .any), (_, _) where true:
+        case _ where (isInt(lhsType) && isInt(rhsType)) || (isInt(lhsType) && rhsType == .any) || (lhsType == .any && isInt(rhsType)) :
             try handleLhs()
             try handleRhs()
             add(binop.operation.operation)
