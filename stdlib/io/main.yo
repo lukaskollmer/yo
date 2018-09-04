@@ -12,7 +12,7 @@ impl io {
     }
 
     static fn print(arg: String): void {
-        runtime::_print(arg);
+        runtime::_printc(arg._backing);
     }
 
     #[variadic]

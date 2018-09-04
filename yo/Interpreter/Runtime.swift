@@ -169,8 +169,8 @@ class Runtime: NativeFunctions {
         
         self["runtime", "_printc", .void, [.ref(.i8)]] = { interpreter in
             let address = interpreter.stack.peek()
-            let cstr = interpreter.heap.backing.base.advanced(by: address).assumingMemoryBound(to: Int8.self)
-            puts(cstr)
+            let cString = interpreter.heap.backing.base.advanced(by: address).assumingMemoryBound(to: Int8.self)
+            puts(cString)
             return 0
         }
         
