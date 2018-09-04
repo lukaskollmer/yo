@@ -68,9 +68,9 @@ const char *YO_GRAMMAR =
 " range         : <lexpr> (\"...\" | \"..<\") <lexpr> ; "
 
 
-" binop_mul     : <lexpr> (( '*' | '/' | '%' ) (<binop_mul> | <lexpr>))+  ;   "
+" binop_mul     : <lexpr> (( '*' | '/' | '%' ) (<binop_mul> | <lexpr>))*  ;   "
 
-" binop_add     : (<binop_mul> | <lexpr>) (( '+' | '-' | '&' | '|' | \"<<\" | \">>\" | '^') (<binop_add> | <binop_mul> | <lexpr>))* ; "
+" binop_add     : <binop_mul> (( '+' | '-' | '&' | '|' | \"<<\" | \">>\" | '^') <binop_add>)* ; "
 
 " unary         : ('-' | '~' | '!') <expr>  ;  "
 
