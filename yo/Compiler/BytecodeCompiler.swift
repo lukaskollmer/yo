@@ -1041,9 +1041,24 @@ private extension BytecodeCompiler {
         
         // Special handling for `runtime::decltype`
         if functionCall.functionName == SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "decltype") {
+        }
+        
+        switch functionCall.functionName {
+        case "runtime_Sdecltype":
             let type = try guessType(ofExpression: functionCall.arguments[0])
             try handle(node: ASTStringLiteral(value: type.typename))
             return
+            
+        case "runtime_Soffset":
+            let typeName  = (functionCall.arguments[0] as! ASTIdentifier).value
+            let fieldName = (functionCall.arguments[1] as! ASTIdentifier).value
+            
+            let offset = typeCache.offset(ofMember: fieldName, inType: typeName)
+            try handle(numberLiteral: ASTNumberLiteral(value: offset))
+            
+            return
+            
+        default: break
         }
         
         let numberOfFixedArguments = !isVariadic

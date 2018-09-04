@@ -8,6 +8,11 @@
 
 import Foundation
 
+private let ResolvedAtCompileTime: Runtime.NativeFunctionImp = { interpreter in
+    let functionName = Runtime.shared[address: interpreter.callStack.last!]!.name
+    fatalError("'\(functionName)' should be resolved at compile time")
+}
+
 // TODO don't have Runtime conform to NativeFunctions. it's just a temporary hack to get the getString function
 class Runtime: NativeFunctions {
     static func register(_ runtime: Runtime) {}
@@ -95,7 +100,9 @@ class Runtime: NativeFunctions {
             fatalError()
         }
         
-        self["runtime", "decltype", .String, [.any]] = {_ in return 0 }   // manually implemented in the compiler
+        // These are resolved at compile time
+        self["runtime", "decltype", .String, [.any]]        = ResolvedAtCompileTime
+        self["runtime", "offset", .int, [.String, .String]] = ResolvedAtCompileTime
         
         
         self["runtime", "_lookupAddress", .int, [.String]] = { interpreter in

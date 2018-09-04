@@ -24,7 +24,7 @@ class BytecodeInterpreter {
     private let instructions: [InstructionDescriptor]
     private var instructionPointer = 0  // plz don't use this directly
     
-    private var callStack = [Int]()
+    private(set) var callStack = [Int]()
     let procedureEntryAddresses: [Int: String]
     
     
