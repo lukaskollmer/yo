@@ -68,7 +68,7 @@ enum yo {
         Profiling.recordEnd(event: .parseAST)
         
         Profiling.recordStart(event: .compile)
-        var (instructions, stats) = try BytecodeCompiler().compile(ast: ast)
+        var instructions = try BytecodeCompiler().compile(ast: ast)
         Profiling.recordEnd(event: .compile)
         
         instructions = instructions.withArrayLiteralsResolved()

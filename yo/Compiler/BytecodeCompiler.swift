@@ -69,10 +69,6 @@ class ConstantArrayLiteralsCache {
 /// Class that compiles an AST to bytecode instructions
 class BytecodeCompiler {
     
-    struct CompilationStats {
-        var calledFunctions = Set<String>()
-    }
-    
     private var instructions = [WIPInstruction]()
     private var conditionalStatementCounter = Counter()
     private var lambdaCounter = Counter()
@@ -99,15 +95,13 @@ class BytecodeCompiler {
     private var breakDestination: String?
     private var continueDestination: String?
     
-    private var stats = CompilationStats()
-    
     init() {
         // fill the functions table w/ all native functions
         Runtime.shared.builtins.forEach { functions[$0.name] = $0 }
     }
     
     
-    func compile(ast _ast: AST) throws -> (instructions: [WIPInstruction], stats: CompilationStats) {
+    func compile(ast _ast: AST) throws -> [WIPInstruction] {
         var ast = _ast
         
         //var ast = try resolveImports(in: ast)
@@ -174,7 +168,7 @@ class BytecodeCompiler {
 
         add(label: "end")
         
-        return (instructions, stats)
+        return instructions
     }
 }
 
@@ -1119,7 +1113,6 @@ private extension BytecodeCompiler {
         } else if isGlobalFunction {
             let mangledName = SymbolMangling.mangleGlobalFunction(name: identifier.value)
             add(.push, unresolvedLabel: mangledName)
-            stats.calledFunctions.insert(mangledName)
             
         } else if !isGlobalFunction {
             try handle(identifier: identifier)
