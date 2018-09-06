@@ -146,24 +146,3 @@ class Heap {
         
     }
 }
-
-
-
-/// MARK: sorting
-
-
-
-
-extension Heap {
-    
-    func sort(address: Int, count: Int, fn: (Int, Int) -> Bool) {
-        // TODO there has to be a better way than this...
-        
-        let range: Range<Int> = address..<(address + count)
-        var backingAsArray = backing.asArray(ofType: Int.self)
-        backingAsArray.replaceSubrange(range, with: self[range].sorted(by: fn))
-    }
-    
-}
-
-

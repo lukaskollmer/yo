@@ -133,27 +133,91 @@ class Runtime: NativeFunctions {
         
         
         
-        // Sorting
         
-        self["runtime", "sort", .void, [.int, .int]] = { interpreter in
-            let address = interpreter.stack.peek()
-            let count = interpreter.stack.peek(offset: -1)
-            interpreter.heap.sort(address: address, count: count, fn: <)
-            return 0
-        }
+        // MARK: Sorting
         
-        self["runtime", "sortf", .void, [.int, .int, .function(returnType: .bool, parameterTypes: [.int, .int])]] = { interpreter in // todo have the sorting function take any?
-            let address = interpreter.stack.peek()
-            let count = interpreter.stack.peek(offset: -1)
-            let fn_address = interpreter.stack.peek(offset: -2)
+        // helper function used by `runtime::sort` and `runtime::sortf`
+        func _sort(interpreter: BytecodeInterpreter, address: Int, count: Int, elementSize: Int, fn_address: Int?) {
+            typealias SortingImp = (UnsafeRawPointer?, UnsafeRawPointer?) -> Int32
             
-            interpreter.heap.sort(address: address, count: count) { a, b in
-                let areInIncreasingOrder = try! interpreter.call(address: fn_address, arguments: [a, b])
-                return areInIncreasingOrder == Constants.BooleanValues.true
+            // Q: Why are these structs?
+            // A: From how i unserstand it, you can't do `fn<Int>` when refering to a function,
+            // which means we have to use the struct as a wrapper to pass the generic parameter
+            
+            struct SortingImp_Default<T: SignedInteger> {
+                static func imp(_ arg0: UnsafeRawPointer!, _ arg1: UnsafeRawPointer!) -> Int32 {
+                    let x = arg0.load(as: T.self)
+                    let y = arg1.load(as: T.self)
+                    
+                    return y > x ? -1 : (y == x ? 0 : 1)
+                }
             }
             
+            struct SortingImp_CustomCall<T: SignedInteger> {
+                let interpreter: BytecodeInterpreter
+                let address: Int
+                
+                func imp(_ arg0: UnsafeRawPointer!, _ arg1: UnsafeRawPointer!) -> Int32 {
+                    let x = Int(arg0.load(as: T.self))
+                    let y = Int(arg1.load(as: T.self))
+                    
+                    let retval = try! interpreter.call(address: address, arguments: [x, y])
+                    return retval == Constants.BooleanValues.true ? -1 : 1
+                }
+            }
+            
+            func GetSortingImp<T: SignedInteger>(withType type: T.Type) -> SortingImp {
+                if let fn_address = fn_address {
+                    return SortingImp_CustomCall<T>(interpreter: interpreter, address: fn_address).imp
+                } else {
+                    return SortingImp_Default<T>.imp
+                }
+            }
+            
+            let base = interpreter.heap.backing.base.advanced(by: address)
+            let imp: SortingImp
+            
+            switch elementSize {
+            case sizeof(.i8):
+                imp = GetSortingImp(withType: Int8.self)
+                
+            case sizeof(.i16):
+                imp = GetSortingImp(withType: Int16.self)
+                
+            case sizeof(.i32):
+                imp = GetSortingImp(withType: Int32.self)
+                
+            case sizeof(.i64):
+                imp = GetSortingImp(withType: Int64.self)
+                
+            default:
+                fatalError("invalid size")
+            }
+            
+            qsort_b(base, count, elementSize, imp)
+            
+        }
+        
+        self["runtime", "sort", .void, [.ref(.any), .i64, .i64]] = { interpreter in
+            let address = interpreter.stack.peek()
+            let count = interpreter.stack.peek(offset: -1)
+            let elementSize = interpreter.stack.peek(offset: -2)
+            
+            _sort(interpreter: interpreter, address: address, count: count, elementSize: elementSize, fn_address: nil)
             return 0
         }
+        
+        
+        self["runtime", "sortf", .void, [.ref(.any), .i64, .i64, .function(returnType: .bool, parameterTypes: [.any, .any])]] = { interpreter in
+            let address = interpreter.stack.peek()
+            let count = interpreter.stack.peek(offset: -1)
+            let elementSize = interpreter.stack.peek(offset: -2)
+            let fn_address = interpreter.stack.peek(offset: -3)
+            
+            _sort(interpreter: interpreter, address: address, count: count, elementSize: elementSize, fn_address: fn_address)
+            return 0
+        }
+        
         
         // MARK: Hashing?
         
