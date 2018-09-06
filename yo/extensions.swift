@@ -17,6 +17,20 @@ func ?= <T> (lhs: inout T?, rhs: @autoclosure () -> T?) {
     }
 }
 
+func NotYetImplemented(function: StaticString = #function, file: StaticString = #file, line: UInt = #line) -> Never {
+    fatalError("\(function) is not yet implemented", file: file, line: line)
+}
+
+func ShouldNeverReachHere(_ _message: String? = nil, function: StaticString = #function, file: StaticString = #file, line: UInt = #line) -> Never {
+    let message: String
+    if let _message = _message {
+        message = " " + _message
+    } else {
+        message = ""
+    }
+    fatalError("\(function): should never reach here\(message)", file: file, line: line)
+}
+
 
 // MARK: Collection of terrible hacks that actually seem to work fine
 
