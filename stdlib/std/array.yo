@@ -33,8 +33,8 @@ impl Array {
 
         self._backing[self._count] = object;
         runtime::retain(object);
-        // TODO make this `self._count += 1;`
-        self._count = self._count + 1;
+
+        self._count += 1;
         ret self._count;
     }
 
@@ -111,16 +111,10 @@ impl Array {
     }
 
 
-    // Sort the array in ascending order
-    fn sort(self: Array): void {
-        runtime::sort(self._backing, self._count);
-    }
-
-
     // Sort the array using a custom sorting function
-    fn sortf(self: Array, f: fn<(id, id): bool>): void {
-        // cast to any bc runtime::sortf expects fn<(int, int): bool>
-        runtime::sortf(self._backing, self._count, f as any);
+    // `f` should return true if the elements are in ascending order
+    fn sort(self: Array, f: fn<(id, id): bool>): void {
+        runtime::sortf(self._backing as ref i64, self._count, 8, f);
     }
 
 
