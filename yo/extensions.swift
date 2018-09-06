@@ -18,6 +18,35 @@ func ?= <T> (lhs: inout T?, rhs: @autoclosure () -> T?) {
 }
 
 
+func lk_eval_binop<T>(lhs: Int, rhs: Int, type: T.Type, fn: (T, T) -> T) -> Int {
+    if type == Int.self {
+        return lk_call(fn, arg0: lhs, arg1: rhs) as! Int
+        
+    } else if type == Double.self {
+        let retval = lk_call(fn, arg0: lhs.unsafe_loadAsDouble, arg1: rhs.unsafe_loadAsDouble) as! Double
+        return retval.unsafe_loadAsInt
+        
+    } else {
+        fatalError("Only Int and Double are supported types!")
+    }
+}
+
+
+func lk_eval_comp<T>(lhs: Int, rhs: Int, type: T.Type, fn: (T, T) -> Bool) -> Bool {
+    let retval: Bool
+    
+    if type == Int.self {
+        retval = lk_call(fn, arg0: lhs, arg1: rhs)
+        
+    } else if type == Double.self {
+        retval = lk_call(fn, arg0: lhs.unsafe_loadAsDouble, arg1: rhs.unsafe_loadAsDouble)
+        
+    } else {
+        fatalError("Unsupported type!")
+    }
+    
+    return retval
+}
 
 func cast<T, R>(_ arg0: inout T) -> R {
     return withUnsafeBytes(of: &arg0) { $0.load(as: R.self) }
@@ -38,6 +67,7 @@ extension Double {
 }
 
 
+// MARK: extensions
 
 extension Int {
     var isEven: Bool {
