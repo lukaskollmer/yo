@@ -69,7 +69,12 @@ extension CLIOptions {
         description: "(internal) Call `kdebug_signpost` et al to mark points of interest"
     )
     
-    static let all: [CLIOptions] = [.help, .verbose, .checkHeapEmpty, .printInstructions, .printHeap, .heapSize, .stdlibPath, .printAST, .logAllCalls, .recordCallStats, .emitSignposts]
+    static let optimize = CLIOption<Void>(
+        flag: "--optimize",
+        description: "Apply some optimizations"
+    )
+    
+    static let all: [CLIOptions] = [.help, .verbose, .checkHeapEmpty, .printInstructions, .printHeap, .heapSize, .stdlibPath, .printAST, .logAllCalls, .recordCallStats, .emitSignposts, .optimize]
 }
 
 

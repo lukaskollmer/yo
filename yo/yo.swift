@@ -67,17 +67,16 @@ enum yo {
         LKYOParser.sharedInstance()._printFilePathIndexes()
         Profiling.recordEnd(event: .parseAST)
         
+        // TODO optimize
+        if CLI.hasFlag(.optimize) {
+            ast = Optimizer().optimize(ast: ast)
+        }
+        
         Profiling.recordStart(event: .compile)
         var instructions = try BytecodeCompiler().compile(ast: ast)
         Profiling.recordEnd(event: .compile)
         
         instructions = instructions.withArrayLiteralsResolved()
-        
-        // TODO optimize
-        
-        //let optimizer = Optimizer(instructions: instructions, ast: ast, stats: stats)
-        //instructions = optimizer.optimize([.unusedSymbols]) // TODO
-        
         instructions = instructions.withLabelsPadded()
         
         if CLI.hasFlag(.printInstructions) {

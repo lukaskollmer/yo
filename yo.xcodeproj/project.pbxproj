@@ -38,6 +38,7 @@
 		807936F720D24D0700DCCE1F /* ASTBreakStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807936F620D24D0700DCCE1F /* ASTBreakStatement.swift */; };
 		807936F920D252AB00DCCE1F /* ASTContinueStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807936F820D252AB00DCCE1F /* ASTContinueStatement.swift */; };
 		809761B320D7F21F004DB9A4 /* ASTLambda.swift in Sources */ = {isa = PBXBuildFile; fileRef = 809761B220D7F21F004DB9A4 /* ASTLambda.swift */; };
+		809F458A21402F3500118BCD /* Optimizer+Binop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 809F458921402F3500118BCD /* Optimizer+Binop.swift */; };
 		809F5C21212DB3B100F96919 /* Profiling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 809F5C20212DB3B100F96919 /* Profiling.swift */; };
 		80AE211920BA06D1004900DC /* TypeCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE211820BA06D1004900DC /* TypeCache.swift */; };
 		80AE211B20BAB48D004900DC /* ASTTypeImplementation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80AE211A20BAB48D004900DC /* ASTTypeImplementation.swift */; };
@@ -194,6 +195,7 @@
 		808CC95F20EFC838003F62F4 /* ffitarget.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ffitarget.h; sourceTree = "<group>"; };
 		808CC96020EFC874003F62F4 /* fficonfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fficonfig.h; sourceTree = "<group>"; };
 		809761B220D7F21F004DB9A4 /* ASTLambda.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTLambda.swift; sourceTree = "<group>"; };
+		809F458921402F3500118BCD /* Optimizer+Binop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Optimizer+Binop.swift"; sourceTree = "<group>"; };
 		809F5C20212DB3B100F96919 /* Profiling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Profiling.swift; sourceTree = "<group>"; };
 		80AE211820BA06D1004900DC /* TypeCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypeCache.swift; sourceTree = "<group>"; };
 		80AE211A20BAB48D004900DC /* ASTTypeImplementation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTTypeImplementation.swift; sourceTree = "<group>"; };
@@ -310,6 +312,7 @@
 				803BEDE2211AF7D0009DC37A /* LKUtilities.m */,
 				80AE212920BB0D9F004900DC /* yo.swift */,
 				809F5C20212DB3B100F96919 /* Profiling.swift */,
+				809F458821402F1300118BCD /* Optimizer */,
 				80E74FF220EB751400C7DB90 /* CLI.swift */,
 				804834E120B6EAB2009E59FC /* Parser */,
 				80EAA47320B75EDA0043A6F6 /* Compiler */,
@@ -392,6 +395,15 @@
 			path = src;
 			sourceTree = "<group>";
 		};
+		809F458821402F1300118BCD /* Optimizer */ = {
+			isa = PBXGroup;
+			children = (
+				8073276220E2760400FF25E7 /* Optimizer.swift */,
+				809F458921402F3500118BCD /* Optimizer+Binop.swift */,
+			);
+			path = Optimizer;
+			sourceTree = "<group>";
+		};
 		80C829FF20BEE93500C97214 /* test */ = {
 			isa = PBXGroup;
 			children = (
@@ -425,7 +437,6 @@
 				80EAA4A420B9CB230043A6F6 /* Instruction+Debug.swift */,
 				80EAA4A620B9D1B10043A6F6 /* SymbolMangling.swift */,
 				80AE212D20BB13EA004900DC /* ImportPathResolver.swift */,
-				8073276220E2760400FF25E7 /* Optimizer.swift */,
 				80F85CBE2111D5C70040A49D /* WIPInstructionFormatter.swift */,
 				80BE85AC21383F4100A4D03B /* FunctionSignature.swift */,
 			);
@@ -674,6 +685,7 @@
 				80F1E9B620BD658100336F4C /* ASTRawOperation.swift in Sources */,
 				80EAA47C20B7629C0043A6F6 /* Instruction.swift in Sources */,
 				80F85CBF2111D5C70040A49D /* WIPInstructionFormatter.swift in Sources */,
+				809F458A21402F3500118BCD /* Optimizer+Binop.swift in Sources */,
 				806F7649211F0FE500DD67F3 /* ASTDeferStatement.swift in Sources */,
 				80EAA47220B75BE20043A6F6 /* ASTNoop.swift in Sources */,
 				80EA785D20EE57C900882378 /* NativeFunctions+IO.swift in Sources */,
