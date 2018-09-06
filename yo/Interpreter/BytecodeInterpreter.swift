@@ -183,31 +183,12 @@ class BytecodeInterpreter {
     
     
     
-    private func call<T, R, U>(_ fn: (T, T) -> R, arg0: U, arg1: U) -> R {
-        return withoutActuallyEscaping(fn) {
-            let fn = unsafeBitCast($0, to: ((U, U) -> R).self)
-            return fn(arg0, arg1)
-        }
-    }
-    
-    
-    
     private func eval_binop<T>(type: T.Type, fn: (T, T) -> T) throws {
         // rhs first because lhs is evaluated first, meaning that rhs lies before lhs on the stack
         let rhs = try stack.pop()
         let lhs = try stack.pop()
         
-        if type == Int.self {
-            let result = call(fn, arg0: lhs, arg1: rhs) as! Int
-            try stack.push(result)
-            
-        } else if type == Double.self {
-            let result = call(fn, arg0: lhs.unsafe_loadAsDouble, arg1: rhs.unsafe_loadAsDouble) as! Double
-            try stack.push(result.unsafe_loadAsInt)
-            
-        } else {
-            fatalError("Only Int and Double are supported types!")
-        }
+        try stack.push(lk_eval_binop(lhs: lhs, rhs: rhs, type: type, fn: fn))
     }
     
     
@@ -215,19 +196,8 @@ class BytecodeInterpreter {
         let rhs = try stack.pop()
         let lhs = try stack.pop()
         
-        let result: Bool
-        
-        if type == Int.self {
-            result = call(fn, arg0: lhs, arg1: rhs)
-            
-        } else if type == Double.self {
-            result = call(fn, arg0: lhs.unsafe_loadAsDouble, arg1: rhs.unsafe_loadAsDouble)
-        
-        } else {
-            fatalError("Unsupported type!")
-        }
-        
-        try stack.push(result == true ? Constants.BooleanValues.true : Constants.BooleanValues.false)
+        let retval = lk_eval_comp(lhs: lhs, rhs: rhs, type: type, fn: fn)
+        try stack.push(retval == true ? Constants.BooleanValues.true : Constants.BooleanValues.false)
     }
     
     
