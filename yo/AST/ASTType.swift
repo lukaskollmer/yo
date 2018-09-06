@@ -125,6 +125,10 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
         return isComplex || isFunction
     }
     
+    var isIntegerType: Bool {
+        return ASTType.intTypes.contains(self)
+    }
+    
     
     func isCompatible(with other: ASTType) -> Bool {
         let both = [self, other]
