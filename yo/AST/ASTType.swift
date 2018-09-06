@@ -145,6 +145,10 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
             return true
         }
         
+        if case .ref(let self_ref) = self, case .ref(let other_ref) = other {
+            return self_ref.isCompatible(with: other_ref)
+        }
+        
         if case .function(let retval1, let parameterTypes1) = self, case .function(let retval2, let parameterTypes2) = other {
             return
                 retval1.isCompatible(with: retval2)
