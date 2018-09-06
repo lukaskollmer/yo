@@ -18,6 +18,16 @@ func ?= <T> (lhs: inout T?, rhs: @autoclosure () -> T?) {
 }
 
 
+// MARK: Collection of terrible hacks that actually seem to work fine
+
+func lk_call<T, R, U>(_ fn: (T, T) -> R, arg0: U, arg1: U) -> R {
+    return withoutActuallyEscaping(fn) {
+        let fn = unsafeBitCast($0, to: ((U, U) -> R).self)
+        return fn(arg0, arg1)
+    }
+}
+
+
 func lk_eval_binop<T>(lhs: Int, rhs: Int, type: T.Type, fn: (T, T) -> T) -> Int {
     if type == Int.self {
         return lk_call(fn, arg0: lhs, arg1: rhs) as! Int
