@@ -67,6 +67,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "--optimize"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "-record-call-stats"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -88,7 +92,7 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-print-instructions"
-            isEnabled = "NO">
+            isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-print-heap"
@@ -103,11 +107,11 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-heap-size 20000"
+            argument = "-heap-size 25000"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "/Users/lukas/Developer/yo/temp/main_8.yo"
+            argument = "/Users/lukas/Developer/yo/temp/main_6.yo"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
