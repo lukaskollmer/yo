@@ -11,7 +11,7 @@ fn _freePrimes(): void {
 }
 
 
-#[disable_header_field]
+#[disable_metadata]
 struct HashMapKeyValuePair {
     key: String,
     value: id
@@ -19,23 +19,24 @@ struct HashMapKeyValuePair {
 
 
 struct HashMap {
-    _usedSize: int,
-    _allocatedSize: int,
-    _sizeIndex: int,
-    _backing: int
+    _usedSize: i64,
+    _allocatedSize: i64,
+    _sizeIndex: i64,
+    _backing: ref i64
 };
 
-impl HashMap {
 
+impl HashMap {
     static fn new(): HashMap {
         ret HashMap::_withSize(_primes[0], 0);
     }
 
     static fn _withSize(size: int, sizeIndex: int): HashMap {
-        ret HashMap::init(0, size, sizeIndex, runtime::alloc(2 * size));
+        ret HashMap::init(0, size, sizeIndex, runtime::alloc(2 * 8 * size) as ref i64);
     }
 
 
+    // TODO support inserting duplicate keys!!!
     fn insert(self: HashMap, key: String, value: id): void {
         if self._usedSize >= (self._allocatedSize - 5) {
             self._resize(true);
@@ -55,6 +56,7 @@ impl HashMap {
 
 
     fn _resize(self: HashMap, makeLarger: bool): void {
+        io::print("RESIZE");
         val newSize: int;
         val newSizeIndex: int;
         if makeLarger {
@@ -98,7 +100,7 @@ impl HashMap {
             runtime::release(pair.value);
         });
 
-        runtime::free(self._backing);
+        runtime::free(self._backing as i64);
         self._sizeIndex = temp._sizeIndex;
         self._allocatedSize = temp._allocatedSize;
         self._backing = temp._backing;
@@ -108,7 +110,7 @@ impl HashMap {
         // _usedSize and _allocatedSize to 0, to prevent these iterations
         temp._usedSize = 0;
         temp._allocatedSize = 0;
-        temp._backing = 0;
+        temp._backing = 0 as any;
     }
 
 
@@ -191,7 +193,7 @@ impl HashMap {
         for val i: int; i < self._allocatedSize; i += 1; {
             val offset = 2 * i;
             if self._backing[offset] != 0 {
-                val pair = (self._backing + offset) as HashMapKeyValuePair;
+                val pair = ((self._backing as i64) + (offset * 8)) as HashMapKeyValuePair;
                 block(pair);
             }
         }
@@ -200,10 +202,9 @@ impl HashMap {
 
     fn dealloc(self: HashMap): void {
         self.enumerateKeyValuePairs(|pair| -> {
-            io::printf("RC k(%n) v(%n)", @(runtime::getRetainCount(pair.key)), @(runtime::getRetainCount(pair.value)));
             runtime::release(pair.key);
             runtime::release(pair.value);
         });
-        runtime::free(self._backing);
+        runtime::free(self._backing as i64);
     }
 }
