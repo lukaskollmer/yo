@@ -121,7 +121,7 @@ class Runtime: NativeFunctions {
             let argv = interpreter.stack.peek(offset: -2)
             
             let args: [Int] = argc == 0
-                ? []    // NOTE: since arguments are passed on the heap (which is always 64 bit wide), there's no need to take element sizes into account
+                ? []    // NOTE: since arguments are passed on the stack (which is always 64 bit wide), there's no need to take element sizes into account
                 : stride(from: argv, to: (argv + argc * sizeof(.i64)), by: sizeof(.i64)).map { interpreter.heap[$0] }
             
             guard let _ = interpreter.procedureEntryAddresses[address] else {
