@@ -12,7 +12,7 @@ extension Optimizer {
     func optimize(unaryExpression: ASTUnaryExpression) -> ASTExpression {
         let optimizedExpression = optimize(unaryExpression.expression)
         
-        if unaryExpression.operator == .bitwiseNot, let booleanLiteral = optimizedExpression as? ASTBooleanLiteral {
+        if unaryExpression.operator == .logicalNegation, let booleanLiteral = optimizedExpression as? ASTBooleanLiteral {
             return ASTBooleanLiteral(value: !booleanLiteral.value)
         }
         
@@ -36,7 +36,7 @@ extension Optimizer {
                 return ASTNumberLiteral(value: ~value)
                 
             case .logicalNegation:
-                ShouldNeverReachHere("logical negation only works w/ integer types")
+                ShouldNeverReachHere("logical negation only works w/ boolean types")
             }
         }
         
