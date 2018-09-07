@@ -455,6 +455,8 @@ class BytecodeInterpreter {
             print("Call Stack:")
             print(callStackSymbols().joined(separator: "\n"))
             
+            // There should be an xcode breakpoint on the `noop` line
+            // (focus on should since it seems like xcode randomly deletes the breakpoint)
             noop()
         }
     }
