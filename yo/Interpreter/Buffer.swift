@@ -17,7 +17,6 @@ class Buffer {
         size = byteCount
         base = .allocate(byteCount: byteCount, alignment: alignment)
         base.initializeMemory(as: Int8.self, repeating: 0, count: byteCount)
-        //for i in 0..<size { base.advanced(by: i).assumingMemoryBound(to: Int8.self).pointee = 0 }
     }
     
     subscript<T>(offset: Int) -> T {
