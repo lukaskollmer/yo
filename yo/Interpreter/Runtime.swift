@@ -77,14 +77,11 @@ class Runtime: NativeFunctions {
         
         self["runtime", "alloc", .int, [.int]] = { interpreter in
             let size = interpreter.stack.peek()
-            let address = interpreter.heap.alloc(size: size)
-            //print("ALLOC", address)
-            return address
+            return interpreter.heap.alloc(size: size)
         }
         
         self["runtime", "free", .void, [.int]] = { interpreter in
             let address = interpreter.stack.peek()
-            //print("FREE", address)
             interpreter.stack.heap.free(address: address)
             return 0
         }
