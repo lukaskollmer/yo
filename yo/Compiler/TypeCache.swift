@@ -69,7 +69,7 @@ class TypeCache {
         let indexInAttributes = type.attributes.index { $0.identifier.value == member }!
         var fields = type.attributes[0...indexInAttributes].map { $0.type }
         
-        if type.hasArcEnabled {
+        if !type.hasMetadataDisabled {
             fields.insert(.i64, at: 0)
         }
         
@@ -81,12 +81,12 @@ class TypeCache {
             fatalError()
         }
         
-        let allFields = type.attributes.map { $0.type } + (type.hasArcEnabled ? [ASTType.i64] : []) // TODO (at the end: use intptr instead)
+        let allFields = type.attributes.map { $0.type } + (!type.hasMetadataDisabled ? [ASTType.i64] : []) // TODO (at the end: use intptr instead)
         return TypeCache.sizeof(allFields)
     }
     
     
-    func hasArcEnabled(_ type: ASTType) -> Bool {
+    func supportsArc(_ type: ASTType) -> Bool {
         switch type {
         // Types where we always return false
         case ._enum(_),
@@ -107,7 +107,7 @@ class TypeCache {
             }
             
             if let structDecl = self.type(withName: name) {
-                return !structDecl.hasAnnotation(.disable_header_field)
+                return !structDecl.hasMetadataDisabled
             } else {
                 fatalError("unregistered typename \(name)")
             }

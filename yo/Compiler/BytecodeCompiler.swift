@@ -415,7 +415,7 @@ private extension BytecodeCompiler {
             
             if arcEnabledInCurrentScope {
                 try signature.parameters
-                    .filter { $0.type.supportsReferenceCounting && typeCache.hasArcEnabled($0.type) }
+                    .filter { $0.type.supportsReferenceCounting && typeCache.supportsArc($0.type) }
                     .forEach { try retain(expression: $0.identifier) }
             }
             
@@ -512,7 +512,7 @@ private extension BytecodeCompiler {
                 try localVariables
                     .filter { variable in
                         let type = try scope.type(of: variable.identifier.value)
-                        return type.supportsReferenceCounting && typeCache.hasArcEnabled(type)
+                        return type.supportsReferenceCounting && typeCache.supportsArc(type)
                     }
                     .forEach { try release(expression: $0.identifier) }
                 for _ in 0..<localVariables.count { add(.pop) }
@@ -528,7 +528,7 @@ private extension BytecodeCompiler {
                         if let _returnedLocalIdentifier = returnStatement.expression as? ASTIdentifier,
                             scope.contains(identifier: _returnedLocalIdentifier.value),
                             case let type = try scope.type(of: _returnedLocalIdentifier.value),
-                            type.supportsReferenceCounting && typeCache.hasArcEnabled(type)
+                            type.supportsReferenceCounting && typeCache.supportsArc(type)
                         {
                             returnedLocalIdentifier = _returnedLocalIdentifier
                         } else {
@@ -549,7 +549,7 @@ private extension BytecodeCompiler {
                                 .filter { returnedLocalIdentifier == nil || $0.identifier != returnedLocalIdentifier! }
                                 .forEach { variable in
                                     let type = try scope.type(of: variable.identifier.value)
-                                    if type.supportsReferenceCounting && typeCache.hasArcEnabled(type) {
+                                    if type.supportsReferenceCounting && typeCache.supportsArc(type) {
                                         try release(expression: variable.identifier)
                                     }
                                 }
@@ -770,7 +770,7 @@ private extension BytecodeCompiler {
             fatalError("cannot assign value of type `\(rhsType)` to `\(lhsType)`")
         }
         
-        let shouldArcLhs = assignment.shouldRetainAssignedValueIfItIsAnObject && arcEnabledInCurrentScope && lhsType.supportsReferenceCounting && typeCache.hasArcEnabled(lhsType) // TODO the last 2 seem a bit redunant
+        let shouldArcLhs = assignment.shouldRetainAssignedValueIfItIsAnObject && arcEnabledInCurrentScope && lhsType.supportsReferenceCounting && typeCache.supportsArc(lhsType) // TODO the last 2 seem a bit redunant
         
         var target: ASTExpression = assignment.target
         

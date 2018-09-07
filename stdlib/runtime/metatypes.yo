@@ -2,7 +2,7 @@
 
 use "std/string";
 
-#[disable_header_field]
+#[disable_metadata]
 struct Type {
     id: int,
     name: String,

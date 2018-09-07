@@ -27,7 +27,7 @@ class ASTAnnotation {
         static let attribute_accessors: Element = "attribute_accessors"
         static let variadic: Element = "variadic"
         static let pass_unchecked: Element = "pass_unchecked"
-        static let disable_header_field: Element = "disable_header_field"
+        static let disable_metadata: Element = "disable_metadata"
         
         let key: String
         let value: Value

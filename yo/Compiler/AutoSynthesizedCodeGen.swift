@@ -45,7 +45,7 @@ class AutoSynthesizedCodeGen {
         var retval = AST()
         ast
             .compactMap { $0 as? ASTStructDeclaration }
-            .filter { $0.hasArcEnabled }
+            .filter { !$0.hasMetadataDisabled }
             .forEach { structDecl in
                 // Q: Why the `as AST` casts?
                 // A: https://forums.swift.org/t/weird-protocol-behaviour/14963
@@ -207,7 +207,7 @@ class AutoSynthesizedCodeGen {
                         unusedReturnValue: false)
                 ),
                 
-                !structDeclaration.hasArcEnabled
+                structDeclaration.hasMetadataDisabled
                     ? ASTNoop()
                     :
                     // store a pointer to the metatype in the upper 32 bits
@@ -234,7 +234,7 @@ class AutoSynthesizedCodeGen {
                             target: _self,
                             //offset: ASTNumberLiteral(value: offset + (typeDeclaration.isStruct ? 0 : 1)),
                             offset: ASTNumberLiteral(value: compiler.typeCache.offset(ofMember: attribute.identifier.value, inType: typename)),
-                            value: !structDeclaration.hasArcEnabled || !attribute.type.isComplex
+                            value: structDeclaration.hasMetadataDisabled || !attribute.type.isComplex
                                 ? attribute.identifier
                                 : ASTFunctionCall(
                                     functionName: SymbolMangling.retain,
@@ -290,7 +290,7 @@ class AutoSynthesizedCodeGen {
                 // 2. release all refcounted attributes
                 ASTComposite(
                     statements: structDeclaration.attributes
-                        .filter { $0.type.supportsReferenceCounting && compiler.typeCache.hasArcEnabled($0.type) }
+                        .filter { $0.type.supportsReferenceCounting && compiler.typeCache.supportsArc($0.type) }
                         .map {
                             ASTFunctionCall(
                                 functionName: SymbolMangling.release,
