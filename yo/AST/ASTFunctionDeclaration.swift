@@ -9,38 +9,17 @@
 import Foundation
 
 class ASTFunctionDeclaration: ASTStatement {
-    /*enum Kind: Equatable {
-        case global              // a global function
-        case impl(String)        // instance function for some type
-        case staticImpl(String)  // static function for some type
-        
-        func withTypename(_ typename: String) -> Kind {
-            switch self {
-            case .global:
-                return .global
-            case .impl(_):
-                return .impl(typename)
-            case .staticImpl(_):
-                return .staticImpl(typename)
-            }
-        }
-    }*/
-    
-    
     let signature: ASTFunctionSignature
-    //var kind: Kind
     let body: ASTComposite
     
     
-    init(signature: ASTFunctionSignature,/* kind: Kind,*/ body: ASTComposite) {
+    init(signature: ASTFunctionSignature, body: ASTComposite) {
         self.signature = signature
-        //self.kind = kind
         self.body = body
     }
     
     init(name: ASTIdentifier, parameters: [ASTVariableDeclaration], returnType: ASTType, kind: FunctionKind, annotations: [ASTAnnotation.Element] = [], body: ASTComposite) {
         self.signature = ASTFunctionSignature(name: name, kind: kind, parameters: parameters, returnType: returnType, annotations: annotations)
-        //self.kind = kind
         self.body = body
     }
     
