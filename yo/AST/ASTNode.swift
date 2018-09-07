@@ -30,17 +30,3 @@ protocol ASTNode {
 protocol ASTStatement: ASTNode {}
 protocol ASTExpression: ASTNode {}
 
-
-
-extension Array where Element == ASTNode {
-    var functions: [ASTFunctionDeclaration] {
-        return self.lk_flatMap {
-            if let fn = $0 as? ASTFunctionDeclaration {
-                return [fn]
-            } else if let impl = $0 as? ASTTypeImplementation {
-                return impl.functions
-            }
-            return []
-        }
-    }
-}
