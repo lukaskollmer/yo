@@ -180,10 +180,6 @@ class AutoSynthesizedCodeGen {
         //
         
         let initializer = ASTFunctionDeclaration(
-            //name: ASTIdentifier(value: "init"),
-            //parameters: typeDeclaration.attributes,
-            //returnType: _selfType,
-            //kind: .staticImpl(typename),
             signature: ASTFunctionSignature(
                 name: ASTIdentifier(value: "init"),
                 kind: .staticImpl(typename),
@@ -269,11 +265,6 @@ class AutoSynthesizedCodeGen {
         let hasCustomDeallocFunction = compiler.functions.keys.contains(customDeallocFunctionName)
         
         let deallocFunction = ASTFunctionDeclaration(
-            //name: "__dealloc",
-            //parameters: [ASTVariableDeclaration(identifier: _self, type: _selfType)],
-            //returnType: .void,
-            //kind: .impl(typename),
-            //annotations: [.disable_arc],
             signature: ASTFunctionSignature(
                 name: "__dealloc",
                 kind: .impl(typename),
@@ -325,11 +316,6 @@ class AutoSynthesizedCodeGen {
             
             // Generate a getter
             let getter = ASTFunctionDeclaration(
-                //name: ASTIdentifier(value: attributeName),
-                //parameters: [ASTVariableDeclaration(identifier: _self, type: _selfType)],
-                //returnType: attribute.type,
-                //kind: .impl(typename),
-                //annotations: [.disable_arc],
                 signature: ASTFunctionSignature(
                     name: ASTIdentifier(value: attributeName),
                     kind: .impl(typename),
@@ -352,11 +338,6 @@ class AutoSynthesizedCodeGen {
             }
             
             let setter = ASTFunctionDeclaration(
-                //name: ASTIdentifier(value: setterName),
-                //parameters: [.init(identifier: _self, type: _selfType), .init(identifier: "newValue", type: attribute.type)],
-                //returnType: .void,
-                //kind: .impl(typename),
-                //annotations: [.disable_arc],
                 signature: ASTFunctionSignature(
                     name: ASTIdentifier(value: setterName),
                     kind: .impl(typename),
