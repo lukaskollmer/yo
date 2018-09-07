@@ -15,8 +15,10 @@ class ASTStructDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated {
     var protocols: [ASTIdentifier] = []
     var annotations: [ASTAnnotation.Element]
     
+    // TODO get rid of this or replace it w/ `hasHeaderFieldDisabled`
+    // Not disabling the header doesn't mean that arc is supported/enabled!!!
     var hasArcEnabled: Bool {
-        return !self.hasAnnotation(.disable_arc)
+        return !self.hasAnnotation(.disable_header_field)
     }
     
     init(identifier: ASTIdentifier, attributes: [ASTVariableDeclaration], annotations: [ASTAnnotation] = []) {

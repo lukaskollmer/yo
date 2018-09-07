@@ -290,7 +290,7 @@ class AutoSynthesizedCodeGen {
                 // 2. release all refcounted attributes
                 ASTComposite(
                     statements: structDeclaration.attributes
-                        .filter { $0.type.supportsReferenceCounting && compiler.typeCache.hasArcEnabled($0.type.typename) }
+                        .filter { $0.type.supportsReferenceCounting && compiler.typeCache.hasArcEnabled($0.type) }
                         .map {
                             ASTFunctionCall(
                                 functionName: SymbolMangling.release,
@@ -435,6 +435,7 @@ class AutoSynthesizedCodeGen {
                 }
                 
                 // Resolve `Self` types in the signature
+                // TODO get rid of this
                 let implementation = ASTFunctionDeclaration(
                     signature: ASTFunctionSignature(
                         name: fn.signature.name,

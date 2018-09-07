@@ -126,11 +126,15 @@ class BytecodeCompiler {
         globals.append(contentsOf: semanticAnalysis.globals)
         
         // resolve enum parameters
+        // TODO this is a shitty implementation
+        // what about
+        // - struct attributes
+        // - local variables
+        // - function return types
         functions.values
             .compactMap { $0 as? ASTFunctionSignature }
             .flatMap { $0.parameters }
             .forEach { $0.type = typeCache.resolveAsComplexOrEnum($0.type) }
-        
         
         
         // Inserts the instructions to call a function w/ 0 arguments and a discarded return value
@@ -411,7 +415,7 @@ private extension BytecodeCompiler {
             
             if arcEnabledInCurrentScope {
                 try signature.parameters
-                    .filter { $0.type.supportsReferenceCounting && typeCache.hasArcEnabled($0.type.typename) }
+                    .filter { $0.type.supportsReferenceCounting && typeCache.hasArcEnabled($0.type) }
                     .forEach { try retain(expression: $0.identifier) }
             }
             
@@ -508,7 +512,7 @@ private extension BytecodeCompiler {
                 try localVariables
                     .filter { variable in
                         let type = try scope.type(of: variable.identifier.value)
-                        return type.supportsReferenceCounting && typeCache.hasArcEnabled(type.typename)
+                        return type.supportsReferenceCounting && typeCache.hasArcEnabled(type)
                     }
                     .forEach { try release(expression: $0.identifier) }
                 for _ in 0..<localVariables.count { add(.pop) }
@@ -524,7 +528,7 @@ private extension BytecodeCompiler {
                         if let _returnedLocalIdentifier = returnStatement.expression as? ASTIdentifier,
                             scope.contains(identifier: _returnedLocalIdentifier.value),
                             case let type = try scope.type(of: _returnedLocalIdentifier.value),
-                            type.supportsReferenceCounting && typeCache.hasArcEnabled(type.typename)
+                            type.supportsReferenceCounting && typeCache.hasArcEnabled(type)
                         {
                             returnedLocalIdentifier = _returnedLocalIdentifier
                         } else {
@@ -545,7 +549,7 @@ private extension BytecodeCompiler {
                                 .filter { returnedLocalIdentifier == nil || $0.identifier != returnedLocalIdentifier! }
                                 .forEach { variable in
                                     let type = try scope.type(of: variable.identifier.value)
-                                    if type.supportsReferenceCounting && typeCache.hasArcEnabled(type.typename) {
+                                    if type.supportsReferenceCounting && typeCache.hasArcEnabled(type) {
                                         try release(expression: variable.identifier)
                                     }
                                 }
@@ -766,7 +770,7 @@ private extension BytecodeCompiler {
             fatalError("cannot assign value of type `\(rhsType)` to `\(lhsType)`")
         }
         
-        let shouldArcLhs = assignment.shouldRetainAssignedValueIfItIsAnObject && arcEnabledInCurrentScope && lhsType.supportsReferenceCounting && typeCache.hasArcEnabled(lhsType.typename) // TODO the last 2 seem a bit redunant
+        let shouldArcLhs = assignment.shouldRetainAssignedValueIfItIsAnObject && arcEnabledInCurrentScope && lhsType.supportsReferenceCounting && typeCache.hasArcEnabled(lhsType) // TODO the last 2 seem a bit redunant
         
         var target: ASTExpression = assignment.target
         
@@ -1606,13 +1610,16 @@ private extension BytecodeCompiler {
     func handle(boxedExpression: ASTBoxedExpression) throws {
         let type = try guessType(ofExpression: boxedExpression.expression)
         
-        guard [ASTType.int, .double, .bool].contains(type) else {
+        let supportedTypes = ASTType.intTypes + [ASTType.bool, .double]
+        guard supportedTypes.contains(type) else {
             fatalError("Unable to box expression of type \(type)")
         }
         
         let _type: Int = {
             switch type {
-            case .int:    return Constants.NumberTypeMapping.integer
+            case _ where ASTType.intTypes.contains(type):
+                return Constants.NumberTypeMapping.integer
+            
             case .bool:   return Constants.NumberTypeMapping.boolean
             case .double: return Constants.NumberTypeMapping.double
             default: fatalError()
@@ -1891,7 +1898,8 @@ private extension BytecodeCompiler {
     func boxedType(ofExpression expression: ASTExpression) throws -> ASTType {
         let type = try guessType(ofExpression: expression)
         switch type {
-        case .int, .double, .bool:
+        case .bool, .double,
+        _ where ASTType.intTypes.contains(type):
             return .complex(name: "Number")
         default:
             return .unresolved

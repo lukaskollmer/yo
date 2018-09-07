@@ -85,9 +85,36 @@ class TypeCache {
         return TypeCache.sizeof(allFields)
     }
     
-    func hasArcEnabled(_ typename: String) -> Bool {
-        // returning true by default seems wrong, but otherwise there's a bunch of errors
-        return self.type(withName: typename)?.hasArcEnabled ?? true
+    
+    func hasArcEnabled(_ type: ASTType) -> Bool {
+        switch type {
+        // Types where we always return false
+        case ._enum(_),
+        _ where ASTType.intTypes.contains(type):
+            return false
+        
+        // Types where we always return true
+        case .function(_):
+            return true
+        
+        // Types where we have to do further lookups
+        case .complex(name: let name):
+            if name == "id" {
+                return true
+            } else if enumExists(withName: name) {
+                // Problem: enums are parsed as complex types
+                return false
+            }
+            
+            if let structDecl = self.type(withName: name) {
+                return !structDecl.hasAnnotation(.disable_header_field)
+            } else {
+                fatalError("unregistered typename \(name)")
+            }
+            
+        default:
+            fatalError("unhandled type \(type)")
+        }
     }
     
     
