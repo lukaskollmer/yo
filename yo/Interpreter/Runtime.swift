@@ -317,19 +317,7 @@ class Runtime: NativeFunctions {
                 }
                 nextScalarFormatToken = scalar == "%"
             }
-            
-            //let string_backing = heap.alloc(size: text.count + 1)
-            //heap[string_backing] = text.count
-            //text.unicodeScalars.enumerated().forEach { heap[string_backing + $0.offset + 1] = Int($0.element.value) }
-            
-            //return string_backing
-            
-            text += "\0"
-            
-            let string_backing = heap.alloc(size: text.count * sizeof(.i8))
-            text.unicodeScalars.enumerated().forEach { heap.backing[_8: string_backing + ($0.offset * sizeof(.i8))] = Int8($0.element.value) }
-            
-            return string_backing
+            return Runtime.allocateBacking(forString: text, heap: interpreter.heap)
         }
     }
 

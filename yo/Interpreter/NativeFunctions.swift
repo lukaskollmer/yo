@@ -47,5 +47,17 @@ extension NativeFunctions {
         let address = heap[_address + sizeof(.i64)]
         return String(cString: heap.backing.base.advanced(by: address).assumingMemoryBound(to: Int8.self))
     }
+    
+    static func allocateBacking(forString _string: String, heap: Heap) -> Int {
+        var string = _string
+        if !string.hasSuffix("\0") {
+            string += "\0"
+        }
+        
+        let string_backing = heap.alloc(size: string.count * sizeof(.i8))
+        string.unicodeScalars.enumerated().forEach { heap.backing[_8: string_backing + ($0.offset * sizeof(.i8))] = Int8($0.element.value) }
+        
+        return string_backing
+    }
 
 }
