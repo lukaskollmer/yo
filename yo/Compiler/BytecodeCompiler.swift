@@ -922,11 +922,14 @@ private extension BytecodeCompiler {
                 let lambdaFunctionName = ASTIdentifier(value: "__\(functionName)_lambda_invoke_\(lambdaCounter.get())")
                 
                 let fn = ASTFunctionDeclaration(
-                    name: lambdaFunctionName,
-                    parameters: resolveLambdaParameterList(lambda.parameters, parameterTypes),
-                    returnType: returnType,
-                    kind: .global,
-                    annotations: !arcEnabledInCurrentScope ? [.disable_arc] : [], // pure lambda literals inherit the `disable_arc` annotation from the function in which they were declared
+                    signature: ASTFunctionSignature(
+                        name: lambdaFunctionName,
+                        kind: .global,
+                        parameters: resolveLambdaParameterList(lambda.parameters, parameterTypes),
+                        returnType: returnType,
+                        annotations: !arcEnabledInCurrentScope ? [.disable_arc] : [], // pure lambda literals inherit the `disable_arc` annotation from the function in which they were declared
+                        isUnsafe: lambda.body.isUnsafe
+                    ),
                     body: lambda.body
                 )
                 functions.insert(functionDeclaration: fn)
@@ -971,10 +974,14 @@ private extension BytecodeCompiler {
                 // Lambda implementation
                 
                 let imp = ASTFunctionDeclaration(
-                    name: "invoke",
-                    parameters: [.init(identifier: "__self", type: .complex(name: typename))] + resolveLambdaParameterList(lambda.parameters, parameterTypes),
-                    returnType: returnType,
-                    kind: .impl(typename),
+                    signature: ASTFunctionSignature(
+                        name: "invoke",
+                        kind: .impl(typename),
+                        parameters: [.init(identifier: "__self", type: .complex(name: typename))] + resolveLambdaParameterList(lambda.parameters, parameterTypes),
+                        returnType: returnType,
+                        annotations: [],
+                        isUnsafe: lambda.body.isUnsafe
+                    ),
                     body: lambda.body
                 )
                 
