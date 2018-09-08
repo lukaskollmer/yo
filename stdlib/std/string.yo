@@ -43,6 +43,10 @@ impl String {
 
 
     fn isEqualToString(self: String, other: String): bool {
+        if self as i64 == other as i64 {
+            ret true;
+        }
+
         if self.length() != other.length() {
             ret false;
         }
