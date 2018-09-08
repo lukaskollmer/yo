@@ -15,6 +15,10 @@ protocol Object {
         ret Object::_description(self);
     }
 
+    fn debugDescription(self: Self): String {
+        ret self.description();
+    }
+
     fn isEqualTo(self: Self, other: Self): bool {
         if self == other {
             ret true;
