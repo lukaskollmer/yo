@@ -226,6 +226,11 @@ class Runtime: NativeFunctions {
             return Runtime.strlen(address: interpreter.stack.peek(), heap: interpreter.heap)
         }
         
+        self["runtime", "_stringDebugDescription", .ref(.i8), [.String]] = { interpreter in
+            let string = Runtime.getString(0, interpreter)
+            return Runtime.allocateBacking(forString: string.debugDescription, heap: interpreter.heap)
+        }
+        
         // MARK: IO
         
         self["runtime", "_printc", .void, [.ref(.i8)]] = { interpreter in

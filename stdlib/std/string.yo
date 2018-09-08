@@ -65,7 +65,11 @@ impl String {
 
 
     fn description(self: String): String {
-        ret String::format("\"%s\"", self);
+        ret self;
+    }
+
+    fn debugDescription(self: String): String {
+        ret String::init(runtime::_stringDebugDescription(self));
     }
 
 
