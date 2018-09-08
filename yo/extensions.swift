@@ -141,12 +141,9 @@ extension Array {
     
     // TODO move this to Sequence?
     func lk_flatMap<T>(_ block: (Element) throws -> [T]) rethrows -> [T] {
-        var retval = [T]()
-        try self.forEach { retval.append(contentsOf: try block($0)) }
-        return retval
+        return try self.reduce(into: [T]()) { $0.append(contentsOf: try block($1)) }
     }
     
-    //func lk_flatMap<T>(_ block: (Element) throws -> [T]) rethrows ->
     
     // remove all elements matching a predicate and return the removed elements
     @discardableResult mutating func remove(where block: (Element) -> Bool) -> [Element] {
@@ -155,7 +152,6 @@ extension Array {
         
         for (idx, elememt) in self.reversed().enumerated() {
             if block(elememt) {
-                //retval.append(self.remove(at: initialSize - idx - 1))
                 retval.insert(self.remove(at: initialSize - idx - 1), at: 0)
             }
         }
