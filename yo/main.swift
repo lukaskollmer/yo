@@ -118,17 +118,12 @@ func printHelpAndExit() -> Never {
 
 }
 
-// This is the only exception where we allow a flag w/ 2 dashes
 if CLI.arguments.contains("--help") || CLI.hasFlag(.help) {
     printHelpAndExit()
 }
 
 
-//guard let filename = CLI.arguments[safe: 1] else {
-//    printHelpAndExit()
-//}
 let filename = CLI.arguments.last!
-
 
 let filepath: String = {
     if filename.hasPrefix("/") {
