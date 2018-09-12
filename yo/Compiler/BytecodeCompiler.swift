@@ -1044,9 +1044,8 @@ private extension BytecodeCompiler {
             fatalError("wrong argc in call to '\(identifier.value)': expected \(functionSignature.argc), got \(functionCall.arguments.count)")
         }
         
-        // Special handling for `runtime::decltype`
-        if functionCall.functionName == SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "decltype") {
-        }
+        
+        // Special handling for functions resolved at compile time
         
         switch functionCall.functionName {
         case "runtime_Sdecltype":
@@ -1065,6 +1064,7 @@ private extension BytecodeCompiler {
             
         default: break
         }
+        
         
         let numberOfFixedArguments = !isVariadic
             ? functionCall.arguments.count
