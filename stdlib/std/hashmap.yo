@@ -4,7 +4,7 @@ use "math";
 
 static _maxSizeIndex: int = 5;
 static _primes: int = {13, 23, 41, 71, 127, 421};
-static HashMapEmptySlotIndicator: any = 1;
+static HashMapEmptySlotIndicator: any = 0;
 
 #[static_cleanup]
 fn _freePrimes(): void {
@@ -29,7 +29,6 @@ struct HashMap {
 
 impl HashMap {
     static fn new(): HashMap {
-        io::printi(_primes[0] as any);
         ret HashMap::_withSize(_primes[0], 0);
     }
 
@@ -45,7 +44,6 @@ impl HashMap {
         }
 
         if self.get(key) {
-            io::printf("key %s already in hashmap", key);
             // key already present -> replace w/ new value
             self.remove(key);
             self.insert(key, value);
@@ -62,10 +60,15 @@ impl HashMap {
     }
 
 
+    fn get(self: HashMap, key: String): id {
+        val pair = self._pairInBucketWithIndex(self.findBucketForKey(key));
+        ret pair.value;
+    }
+
+
     // removes a key/value pair from the hash map
     fn remove(self: HashMap, key: String): void {
-        // Locate the kay/value pair
-        val bucketIndex = self._bucketIndexForKey(key);
+        val bucketIndex = self.findBucketForKey(key);
         val pair = self._pairInBucketWithIndex(bucketIndex);
 
         runtime::release(pair.key);
@@ -132,19 +135,6 @@ impl HashMap {
         temp._allocatedSize = 0;
         temp._backing = 0 as any;
     }
-
-
-    fn get(self: HashMap, key: String): id {
-        val bucketIndex = self.findBucketForKey(key);
-        ret self._backing[(2 * bucketIndex) + 1] as id;
-    }
-
-
-    fn _bucketIndexForKey(self: HashMap, key: String): int {
-        // TODO make sure the hash value is > 0?
-        ret key.hashValue() % self._allocatedSize;
-    }
-
 
     fn findBucketForKey(self: HashMap, key: String): int {
         val hashValue = abs(key.hashValue());
@@ -216,17 +206,12 @@ impl HashMap {
 
     fn _pairInBucketWithIndex(self: HashMap, bucketIndex: i64): HashMapKeyValuePair {
         val offset = 2 * bucketIndex;
-
-        //if self._backing[offset] == 0 || self._backing[offset] == HashMapEmptySlotIndicator {
-        //    runtime::fatalError("Error: Cannot fetch key/value pair for empty slot");
-        //}
-
         ret ((self._backing as i64) + (offset * 8)) as HashMapKeyValuePair;
     }
 
 
     fn enumerateKeyValuePairs(self: HashMap, block: fn<(HashMapKeyValuePair): void>): void {
-        // TODO use the _pairInBucketWithIndex method from above!
+        // TODO use the _pairInBucketWithIndex method from above?
         for val i: int; i < self._allocatedSize; i += 1; {
             val offset = 2 * i;
             if self._backing[offset] != 0 && self._backing[offset] != HashMapEmptySlotIndicator {
