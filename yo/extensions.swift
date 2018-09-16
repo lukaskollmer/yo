@@ -105,6 +105,10 @@ extension Int {
     var numberOfDigitsInBase10: Int {
         return Int(log10(Double(self))) + 1
     }
+    
+    var asHexString: String {
+        return "0x" + String(self, radix: 16).padding(.left, toLength: 9, withPad: "0")
+    }
 }
 
 

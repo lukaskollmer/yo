@@ -72,19 +72,11 @@ class Runtime: NativeFunctions {
     
     private init() {
         
+        NativeFunctions_MemoryManagement.register(self)
         NativeFunctions_IO.register(self)
         NativeFunctions_FFI.register(self)
         
-        self["runtime", "alloc", .int, [.int]] = { interpreter in
-            let size = interpreter.stack.peek()
-            return interpreter.heap.alloc(size: size)
-        }
         
-        self["runtime", "free", .void, [.int]] = { interpreter in
-            let address = interpreter.stack.peek()
-            interpreter.stack.heap.free(address: address)
-            return 0
-        }
         
         self["runtime", "fatalError", .void, [.String]] = { interpreter in
             let errorMessagePtr = interpreter.stack.peek()
