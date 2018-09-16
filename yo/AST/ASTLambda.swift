@@ -134,7 +134,7 @@ extension ASTNode {
         } else if let ifStatement = self as? ASTIfStatement {
             return ifStatement.branches.lk_flatMap { branch in
                 switch branch {
-                // TODO refactor this into a single case once the swift compiler supports matching protocol values in different patterns
+                // TODO refactor the first two into a single case once the swift compiler supports matching protocol values in different patterns
                 case ._if(let condition, let body):
                     return condition.getAccessedIdentifiers() + body.getAccessedIdentifiers()
                 case ._else_if(let condition, let body):
