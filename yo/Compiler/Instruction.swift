@@ -92,7 +92,8 @@ enum Operation: Int {
     case readh  // read a value from the address in the immediate
     case writeh // write a value at the address in the immediate
     
-    case jump
+    case jump   // conditional jump
+    case ujump  // unconditional jump   // TODO use this one everywhere where we currently push a 1 before jumping!
     case call
     case ret
     

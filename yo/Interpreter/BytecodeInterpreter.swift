@@ -401,6 +401,9 @@ class BytecodeInterpreter {
         
             
         // jump/call/ret
+        case .ujump:
+            instructionPointer = immediate
+        
         case .jump:
             if try stack.pop() == Constants.BooleanValues.true {
                 instructionPointer = immediate
