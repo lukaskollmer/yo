@@ -60,8 +60,8 @@
 - [ ] move `defer` blocks to after the temp retval assignment, but before the `ret` instruction?
 - [ ] redeclare primitive types as structs? that'd allow int/etc to have member functions
 - [ ] `use` paths case insensitive? (currently they are not and `use "std/Array";` will cause many issues)
-
 - [ ]  `io::print(a.get(3).description());` chained method calls
+- [ ] builtin functions that are just a single instruction and therefore can be inlined?
 
 **lambdas**
 - [ ] what if a lambda declares `x`, but there's alao an `x` in the outer scope? (it should obviously NOT capture the outer `x`)
