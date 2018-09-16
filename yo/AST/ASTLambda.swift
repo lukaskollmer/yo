@@ -130,6 +130,19 @@ extension ASTNode {
             
         } else if let implicitNonZeroComparison = self as? ASTImplicitNonZeroComparison {
             return implicitNonZeroComparison.expression.getAccessedIdentifiers()
+        
+        } else if let ifStatement = self as? ASTIfStatement {
+            return ifStatement.branches.lk_flatMap { branch in
+                switch branch {
+                // TODO refactor this into a single case once the swift compiler supports matching protocol values in different patterns
+                case ._if(let condition, let body):
+                    return condition.getAccessedIdentifiers() + body.getAccessedIdentifiers()
+                case ._else_if(let condition, let body):
+                    return condition.getAccessedIdentifiers() + body.getAccessedIdentifiers()
+                case ._else(let body):
+                    return body.getAccessedIdentifiers()
+                }
+            }
         }
         
         fatalError("unhandled node \(self)")
