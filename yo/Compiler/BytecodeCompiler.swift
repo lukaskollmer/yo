@@ -1825,11 +1825,24 @@ private extension BytecodeCompiler {
         // if the result is 1, one of them is true
         // if the result is  0, both are false
         
-        let expectedResult = binaryCondition.operator == .and ? 2 : 1
-        
         add(.add)
-        add(.push, expectedResult)
-        add(.eq)
+        
+        // depending on the comparison operator (&& or ||) we now compare the sum
+        // with the expected result
+        
+        switch binaryCondition.operator {
+        case .and:
+            // both need to be true
+            add(.push, 2)
+            add(.eq)
+            
+        case .or:
+            // at least one needs to be true
+            // make sure the sum is greater than ot equal to 1
+            add(.push, 1)
+            add(.lt)
+            add(.lnot)
+        }
     }
     
     
