@@ -242,9 +242,34 @@ class Parser {
         case "stmt|composite|>":
             return try parseComposite(ast)
             
+        case "stmt|if_stmt|>":
+            return try parseIfStatement(ast)
+            
         default:
             fatalError("unexpected statement \(ast)")
         }
+    }
+    
+    
+    func parseIfStatement(_ ast: mpc_ast_t) throws -> ASTIfStatement {
+        var branches = [ASTIfStatement.Branch]()
+        
+        // Parse the initial branch (always present)
+        branches.append(._if(try parseCondition(ast[1]), body: try parseComposite(ast[2])))
+        
+        // Parse all `else if` branches
+        try ast.lk_children
+            .filter { $0.lk_tag == "else_if_stmt|>" }
+            .forEach {
+                branches.append(._else_if(try parseCondition($0[2]), body: try parseComposite($0[3])))
+            }
+        
+        // Parse a potential `else` branch
+        if case let else_ast = ast[ast.count - 1], else_ast.lk_tag == "else_stmt|>" {
+            branches.append(._else(try parseComposite(else_ast[1])))
+        }
+        
+        return ASTIfStatement(branches: branches)
     }
     
     

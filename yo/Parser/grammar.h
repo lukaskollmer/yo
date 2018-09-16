@@ -137,14 +137,11 @@ const char *YO_GRAMMAR =
 // TODO seems like there's no difference between `*` and `?` bc rhs is <cond> which will match a new binop
 " cond          : <lcond> (<bin_cond_op> <cond>)? ; "
 
-
-" if_stmt       : \"if\" <cond> <composite>  <else_stmt>?   ;         "
-" else_stmt     : \"else\" ( <if_stmt> | <composite> )    ;         "
+" if_stmt       : \"if\" <cond> <composite> <else_if_stmt>* <else_stmt>?  ;   "
+" else_if_stmt  : \"else\" \"if\" <cond> <composite>  ;  "
+" else_stmt     :  \"else\" <composite>  ;  "
 
 " while_stmt    : \"while\" <cond> <composite>     ;         "
-
-
-" cond_stmt     : <if_stmt> | <while_stmt> ; "
 
 " for_loop_target   : <range>  ; "
 
@@ -162,7 +159,8 @@ const char *YO_GRAMMAR =
 "               | <var_decl>     "
 "               | <asm_stmt>       "
 "               | <stmt_fn_call>    "
-"               | <cond_stmt>       "
+"               | <if_stmt>       "
+"               | <while_stmt>       "
 "               | <for_loop>        "
 "               | <defer_block> ;     "
 // var_decl after assignment because it can interfer w/ other statements

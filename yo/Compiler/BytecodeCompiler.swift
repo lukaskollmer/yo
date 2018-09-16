@@ -381,6 +381,9 @@ private extension BytecodeCompiler {
         } else if let forLoop = node as? ASTForLoop {
             try handle(forLoop: forLoop)
             
+        } else if let ifStatement = node as? ASTIfStatement {
+            try handle(ifStatement: ifStatement)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -873,6 +876,96 @@ private extension BytecodeCompiler {
         ]
         
         try handle(composite: composite)
+    }
+    
+    
+    
+    
+    func handle(ifStatement: ASTIfStatement) throws {
+        guard case .function(let functionName, _) = scope.type else {
+            ShouldNeverReachHere()
+        }
+        
+        let counter = self.conditionalStatementCounter.get()
+        let makeLabel: (String) -> String = { ".\(functionName)_if_\(counter)_\($0)" }
+        
+        /*
+         Q: How does this work?
+         A: The generated instructions have the following structure:
+         
+         - initial if condition
+         - goto `.initial_if_body` if true. otherwise fallthrough
+         - for every `else if` condition:
+           - `.else_if_COUNTER`
+           - else if condition
+           - goto `.else_if_COUNTER_body` if through, otherwise fallthrough
+         
+         - `.else_body`
+         - (else body instructions)
+         - goto `.if_end`
+         
+         - for every `else if`
+           - `.else_if_COUNTER_body`
+           - (else if instructions)
+           - goto `.if_end`
+         
+         - `.initial_if_body`
+         - `.if_end`
+         */
+        
+        var branches = ifStatement.branches
+        var hasElseBranch = false
+        
+        // 1. handle all conditions
+        for (index, branch) in branches.enumerated() {
+            switch branch {
+            case ._if(let condition, _):
+                // The initial if statement
+                add(comment: "Initial if condition")
+                try handle(condition: condition)
+                add(.jump, unresolvedLabel: makeLabel("main_body"))
+                
+            case ._else_if(let condition, _):
+                add(comment: "if else #\(index) condition")
+                try handle(condition: condition)
+                add(.jump, unresolvedLabel: makeLabel("else_if_\(index)_body"))
+            
+            case ._else(_):
+                hasElseBranch = true
+            }
+        }
+        
+        
+        // if the if statement doesn't have an else branch, there's nothing to fall through to
+        if !hasElseBranch {
+            add(.ujump, unresolvedLabel: makeLabel("end"))
+        } else {
+            // if the if statement does have an else branch, we need to swap the first and last branch
+            // bc we want the else branch first and the "main" branch last
+            branches.swapAt(0, branches.count - 1)
+        }
+        
+        // 2. handle all bodies
+        for (index, branch) in branches.enumerated() {
+            switch branch {
+            case ._if(_, let body):
+                add(label: makeLabel("main_body"))
+                try handle(composite: body)
+                
+            case ._else_if(_, let body):
+                add(label: makeLabel("else_if_\(index)_body"))
+                try handle(composite: body)
+                add(.ujump, unresolvedLabel: makeLabel("end"))
+                
+            case ._else(let body):
+                // no label needed since we simply fall through (see above)
+                try handle(composite: body)
+                add(.ujump, unresolvedLabel: makeLabel("end"))
+            }
+        }
+        
+        add(label: makeLabel("end"))
+        
     }
     
     
