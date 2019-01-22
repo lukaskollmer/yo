@@ -31,12 +31,13 @@ class Stack: CustomStringConvertible {
         return heap.size - (index * 8) - 8
     }
     
-    func push(_ newValue: Int) throws {
+    func push(_ newValue: Int) {
         stackPointer += 1
         heap[actualIndex(for: stackPointer)] = newValue
     }
     
-    func pop() throws -> Int {
+    @discardableResult
+    func pop() -> Int {
         let value: Int = heap.backing[actualIndex(for: stackPointer)]
         heap[actualIndex(for: stackPointer)] = heap.initialValue
         stackPointer -= 1

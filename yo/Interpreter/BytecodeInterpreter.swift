@@ -77,7 +77,7 @@ class BytecodeInterpreter {
             callStatsRecorder.writeToFile()
         }
         
-        return try stack.pop()
+        return stack.pop()
     }
     
     
@@ -91,7 +91,7 @@ class BytecodeInterpreter {
         // check whether we're calling a native function (native functions have a negative "virtual" address)
         if instructionPointer < 0 {
             let nativeFunction = Runtime.shared[address: instructionPointer]! // TODO the subscript returns an IOU, no idea why the force unwrap is still necessary tbh
-            try stack.push(nativeFunction.imp(self))
+            stack.push(nativeFunction.imp(self))
             // return from the native function
             try eval(InstructionDescriptor(instruction: Operation.ret.encode(withImmediate: nativeFunction.argc)))
             
@@ -121,16 +121,16 @@ class BytecodeInterpreter {
             address = heap[address + sizeof(.i64)]
         }
         
-        try stack.push(stack.framePointer)
+        stack.push(stack.framePointer)
         let designatedReturnAddress = instructionPointer + 0 // return address. since this is a native call, we return to the same address?
-        try stack.push(designatedReturnAddress)
+        stack.push(designatedReturnAddress)
 
         
         // We have to push the arguments onto the stack *in reverse order*
         // Why? When handling a normal function call, we go through the arguments in order (ie left-to-right)
         // and call the `handle` function for each argument. That means that they will end up on the stack in reverse order
         // (the last argument is evaluated last and therefore pushed onto the stack last and therefore the top argument on the stack)
-        try arguments.reversed().forEach(stack.push)
+        arguments.reversed().forEach(stack.push)
         
         stack.framePointer = stack.stackPointer
         instructionPointer = address
@@ -155,14 +155,14 @@ class BytecodeInterpreter {
                         && previousFramePointer == stack.framePointer
                 
                 if isReturningFromInitialFunctionCall {
-                    let returnValue = try stack.pop()
+                    let returnValue = stack.pop()
                     
                     for _ in 0..<next.immediate {
-                        _ = try stack.pop()
+                        stack.pop()
                     }
                     
-                    instructionPointer = try stack.pop()
-                    stack.framePointer = try stack.pop()
+                    instructionPointer = stack.pop()
+                    stack.framePointer = stack.pop()
                     
                     recordCallEvent(.exit)
                     
@@ -185,19 +185,19 @@ class BytecodeInterpreter {
     
     private func eval_binop<T>(type: T.Type, fn: (T, T) -> T) throws {
         // rhs first because lhs is evaluated first, meaning that rhs lies before lhs on the stack
-        let rhs = try stack.pop()
-        let lhs = try stack.pop()
+        let rhs = stack.pop()
+        let lhs = stack.pop()
         
-        try stack.push(lk_eval_binop(lhs: lhs, rhs: rhs, type: type, fn: fn))
+        stack.push(lk_eval_binop(lhs: lhs, rhs: rhs, type: type, fn: fn))
     }
     
     
     private func eval_comp<T>(type: T.Type, fn: (T, T) -> Bool) throws {
-        let rhs = try stack.pop()
-        let lhs = try stack.pop()
+        let rhs = stack.pop()
+        let lhs = stack.pop()
         
         let retval = lk_eval_comp(lhs: lhs, rhs: rhs, type: type, fn: fn)
-        try stack.push(retval == true ? Constants.BooleanValues.true : Constants.BooleanValues.false)
+        stack.push(retval == true ? Constants.BooleanValues.true : Constants.BooleanValues.false)
     }
     
     
@@ -259,18 +259,18 @@ class BytecodeInterpreter {
             
             
         case .not:
-            try stack.push(~(try stack.pop()))
+            stack.push(~(stack.pop()))
             
         case .lnot:
-            try stack.push(try stack.pop() != 0 ? 0 : 1)
+            stack.push(stack.pop() != 0 ? 0 : 1)
             
             
         // Int <-> Double conversion
         case .cvti2d:
-            try stack.push(Double(try stack.pop()).unsafe_loadAsInt)
+            stack.push(Double(stack.pop()).unsafe_loadAsInt)
             
         case .cvtd2i:
-            try stack.push(Int(try stack.pop().unsafe_loadAsDouble))
+            stack.push(Int(stack.pop().unsafe_loadAsDouble))
             
             
         // Comparisons
@@ -298,35 +298,35 @@ class BytecodeInterpreter {
         // Stack operations
         case .alloc:
             for _ in 0..<immediate {
-                try stack.push(0)
+                stack.push(0)
             }
         
         case .push:
-            try stack.push(immediate)
+            stack.push(immediate)
             
         case .push64:
             let value = instructions[instructionPointer + 1].instruction
-            try stack.push(value)
+            stack.push(value)
             step()
             
         case .pop:
-            _ = try stack.pop()
+            stack.pop()
             
         case .load:
-            try stack.push(stack.getFrameElement(atIndex: immediate))
+            stack.push(stack.getFrameElement(atIndex: immediate))
             
         case .store:
-            stack.pushFrame(index: immediate, value: try stack.pop())
+            stack.pushFrame(index: immediate, value: stack.pop())
             
             
         // Heap operations
         case .loadh:
-            let address = try stack.pop()
-            let offset  = try stack.pop()
+            let address = stack.pop()
+            let offset  = stack.pop()
             
             func read_and_push_to_stack<T: BinaryInteger>(_ type: T.Type) {
                 let value: T = heap.backing[address + offset]
-                try! stack.push(Int(value))
+                stack.push(Int(value))
             }
             
             switch immediate {
@@ -349,9 +349,9 @@ class BytecodeInterpreter {
             
             
         case .storeh:
-            let address = try stack.pop()
-            let offset  = try stack.pop()
-            let value   = try stack.pop()
+            let address = stack.pop()
+            let offset  = stack.pop()
+            let value   = stack.pop()
             
             func write<T: SignedInteger>(_ type: T.Type) {
                 guard let _value = T(exactly: value) else {
@@ -389,14 +389,14 @@ class BytecodeInterpreter {
                 heap[address + (i * elementSize)] = value
             }
             
-            try! stack.push(address)
+            stack.push(address)
             
             
         case .readh:
-            try stack.push(heap[immediate])
+            stack.push(heap[immediate])
             
         case .writeh:
-            heap[immediate] = try stack.pop()
+            heap[immediate] = stack.pop()
             
         
             
@@ -405,16 +405,16 @@ class BytecodeInterpreter {
             instructionPointer = immediate
         
         case .jump:
-            if try stack.pop() == Constants.BooleanValues.true {
+            if stack.pop() == Constants.BooleanValues.true {
                 instructionPointer = immediate
             }
         
         case .call:
-            var destinationInstructionPointer = try stack.pop()
+            var destinationInstructionPointer = stack.pop()
             
             var args = [Int]()
             for _ in 0..<immediate {
-                args.append(try stack.pop())
+                args.append(stack.pop())
             }
             
             if destinationInstructionPointer > 0 && destinationInstructionPointer.isEven {
@@ -429,10 +429,10 @@ class BytecodeInterpreter {
                 fatalError("the fuck")
             }
             
-            try stack.push(stack.framePointer)
-            try stack.push(instructionPointer + 1)
+            stack.push(stack.framePointer)
+            stack.push(instructionPointer + 1)
             
-            try args.forEach(stack.push)
+            args.forEach(stack.push)
             
             stack.framePointer = stack.stackPointer
             instructionPointer = destinationInstructionPointer
@@ -440,16 +440,16 @@ class BytecodeInterpreter {
             recordCallEvent(.entry(destinationInstructionPointer))
             
         case .ret:
-            let returnValue = try stack.pop()
+            let returnValue = stack.pop()
             
             for _ in 0..<immediate {
-                _ = try stack.pop()
+                stack.pop()
             }
             
-            instructionPointer = try stack.pop()
-            stack.framePointer = try stack.pop()
+            instructionPointer = stack.pop()
+            stack.framePointer = stack.pop()
             
-            try stack.push(returnValue)
+            stack.push(returnValue)
             
             recordCallEvent(.exit)
             
