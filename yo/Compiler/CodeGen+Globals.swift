@@ -89,9 +89,14 @@ extension AutoSynthesizedCodeGen {
                             
                         let value: ASTExpression = {
                             let initialValue = global.initialValue!
-                            return global.type.supportsReferenceCounting
-                                ? ASTFunctionCall(functionName: SymbolMangling.retain, arguments: [initialValue], unusedReturnValue: false)
-                                : initialValue
+                            if !global.type.supportsReferenceCounting {
+                                return initialValue
+                            } else {
+                                return ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
+                                    initialValue,
+                                    ASTRawWIPInstruction(operation: .retain, immediate: kARCOperationKeepAddressOnStack)
+                                ])
+                            }
                         }()
                         
                         return ASTArraySetter(
@@ -144,7 +149,12 @@ extension AutoSynthesizedCodeGen {
                 ASTComposite(statements:
                     globals
                         .filter { $0.type.supportsReferenceCounting }
-                        .map { ASTFunctionCall(functionName: SymbolMangling.release, arguments: [$0.identifier], unusedReturnValue: true) }
+                        .map {
+                            ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
+                                $0.identifier,
+                                ASTRawWIPInstruction(operation: .release, immediate: kARCOperationPopAddressOffStack)
+                            ])
+                        }
                 ),
                 
                 // free all metatypes (except String)
@@ -163,7 +173,6 @@ extension AutoSynthesizedCodeGen {
                 // free the space allocated for globals
                 ASTFunctionCall(
                     functionName: SymbolMangling.free,
-                    //arguments: [ASTNumberLiteral(value: )],
                     arguments: [
                         ASTNumberLiteral(value: 16)
                     ],

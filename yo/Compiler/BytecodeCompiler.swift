@@ -2059,11 +2059,13 @@ extension BytecodeCompiler {
 
 extension BytecodeCompiler {
     func retain(expression: ASTExpression) throws {
-        try call(SymbolMangling.retain, arguments: [expression])
+        try handle(node: expression)
+        add(.retain, kARCOperationPopAddressOffStack)
     }
     
     func release(expression: ASTExpression) throws {
-        try call(SymbolMangling.release, arguments: [expression])
+        try handle(node: expression)
+        add(.release, kARCOperationPopAddressOffStack)
     }
     
     func call(_ functionName: String, arguments: [ASTExpression], unusedReturnValue: Bool = true) throws {

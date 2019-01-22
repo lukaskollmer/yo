@@ -97,6 +97,10 @@ enum Operation: Int {
     case call
     case ret
     
+    // ARC
+    case retain
+    case release
+    
     case label      // noop, used for manually specifying labels in the source code
     case comment    // noop, used for manually specifying asm comments in the source code
     

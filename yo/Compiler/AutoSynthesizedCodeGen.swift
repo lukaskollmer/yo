@@ -109,14 +109,16 @@ class AutoSynthesizedCodeGen {
                     value: ASTNumberLiteral(value: compiler.typeCache.index(ofType: typename))
                 ),
                 
+                
+                ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
+                    ASTStringLiteral(value: typename),
+                    ASTRawWIPInstruction(operation: .retain, immediate: kARCOperationKeepAddressOnStack)
+                ]),
+                
                 ASTArraySetter(
                     target: l_metatype,
                     offset: 1 as ASTNumberLiteral,
-                    value: ASTFunctionCall(
-                        functionName: SymbolMangling.retain,
-                        arguments: [ASTStringLiteral(value: typename)],
-                        unusedReturnValue: false
-                    )
+                    value: ASTNoop()
                 ),
                 
                 ASTArraySetter(
@@ -144,14 +146,10 @@ class AutoSynthesizedCodeGen {
             ),
             body: [
                 // release the typename
-                ASTFunctionCall(
-                    functionName: SymbolMangling.release,
-                    arguments: [
-                        ASTArrayGetter(target: g_metatype, offset: 1 as ASTNumberLiteral)
-                    ],
-                    unusedReturnValue: true
-                ),
-                
+                ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
+                    ASTArrayGetter(target: g_metatype, offset: 1 as ASTNumberLiteral),
+                    ASTRawWIPInstruction(operation: .release, immediate: kARCOperationPopAddressOffStack)
+                ]),
                 // free the metatype
                 ASTFunctionCall(
                     functionName: SymbolMangling.free,
@@ -232,11 +230,10 @@ class AutoSynthesizedCodeGen {
                             offset: ASTNumberLiteral(value: compiler.typeCache.offset(ofMember: attribute.identifier.value, inType: typename)),
                             value: structDeclaration.hasMetadataDisabled || !attribute.type.isComplex
                                 ? attribute.identifier
-                                : ASTFunctionCall(
-                                    functionName: SymbolMangling.retain,
-                                    arguments: [attribute.identifier],
-                                    unusedReturnValue: false
-                            )
+                                : ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
+                                    attribute.identifier,
+                                    ASTRawWIPInstruction(operation: .retain, immediate: kARCOperationKeepAddressOnStack)
+                                ])
                         )
                     }
                 ),
@@ -283,13 +280,10 @@ class AutoSynthesizedCodeGen {
                     statements: structDeclaration.attributes
                         .filter { $0.type.supportsReferenceCounting && compiler.typeCache.supportsArc($0.type) }
                         .map {
-                            ASTFunctionCall(
-                                functionName: SymbolMangling.release,
-                                arguments: [
-                                    ASTMemberAccess(members: [.initial_identifier(_self), .attribute(name: $0.identifier)])
-                                ],
-                                unusedReturnValue: true
-                            )
+                            ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
+                                ASTMemberAccess(members: [.initial_identifier(_self), .attribute(name: $0.identifier)]),
+                                ASTRawWIPInstruction(operation: .release, immediate: kARCOperationPopAddressOffStack)
+                            ])
                         }
                 )
             ]
@@ -352,23 +346,24 @@ class AutoSynthesizedCodeGen {
                     // TODO this code is pretty bad, but it was the best i could come up with that keeps the retain/release dance within the body literal
                     
                     // release the old value
-                    !attribute.type.isComplex ? ASTNoop() :
-                        ASTFunctionCall(
-                            functionName: SymbolMangling.release,
-                            arguments: [ASTArrayGetter(target: _self, offset: offset)],
-                            unusedReturnValue: true
-                    ),
+                    !attribute.type.isComplex
+                        ? ASTNoop()
+                        : ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
+                            ASTArrayGetter(target: _self, offset: offset),
+                            ASTRawWIPInstruction(operation: .release, immediate: kARCOperationPopAddressOffStack)
+                        ])
+                    ,
                     
                     // store the new value
                     ASTArraySetter(target: _self, offset: offset, value: ASTIdentifier(value: "newValue")),
                     
                     // retain the new value
-                    !attribute.type.isComplex ? ASTNoop() :
-                        ASTFunctionCall(
-                            functionName: SymbolMangling.retain,
-                            arguments: [ASTIdentifier(value: "newValue")],
-                            unusedReturnValue: true
-                    ),
+                    !attribute.type.isComplex
+                        ? ASTNoop()
+                        : ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
+                            ASTIdentifier("newValue"),
+                            ASTRawWIPInstruction(operation: .retain, immediate: kARCOperationPopAddressOffStack)
+                        ])
                 ]
             )
             
@@ -438,7 +433,7 @@ class AutoSynthesizedCodeGen {
             
             
             
-            for signature in _protocol.functionsWithoutDefaultImplementation {
+            for _ in _protocol.functionsWithoutDefaultImplementation {
                 // TODO throw an error if the type doesn't provide an implementation of the function
             }
             

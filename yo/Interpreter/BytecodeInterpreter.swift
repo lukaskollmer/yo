@@ -9,6 +9,10 @@
 import Foundation
 
 
+let kARCOperationKeepAddressOnStack = 0
+let kARCOperationPopAddressOffStack = 1
+
+
 class BytecodeInterpreter {
     struct DebugOptions: OptionSet {
         let rawValue: Int
@@ -452,6 +456,20 @@ class BytecodeInterpreter {
             stack.push(returnValue)
             
             recordCallEvent(.exit)
+        
+        
+        // ARC
+        case .retain:
+            ARC.retain(stack.peek(), heap: heap)
+            if immediate == kARCOperationPopAddressOffStack {
+                stack.pop()
+            }
+        
+        case .release:
+            ARC.release(stack.peek(), interpreter: self)
+            if immediate == kARCOperationPopAddressOffStack {
+                stack.pop()
+            }
             
             
         case .debug:
