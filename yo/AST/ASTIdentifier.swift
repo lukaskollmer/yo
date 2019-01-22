@@ -13,9 +13,14 @@ class ASTIdentifier: ASTExpression, Hashable, ExpressibleByStringLiteral, Custom
     let value: String
     let isBuiltin: Bool
     
+    
     init(value: String, isBuiltin: Bool = false) {
         self.value = value
         self.isBuiltin = isBuiltin
+    }
+    
+    convenience init(_ value: String) {
+        self.init(value: value, isBuiltin: false)
     }
     
     convenience init(builtin value: String) {
