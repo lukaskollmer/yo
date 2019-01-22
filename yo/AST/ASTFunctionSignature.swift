@@ -22,7 +22,7 @@ class ASTFunctionSignature: ASTStatement, FunctionSignature {
     }
     
     
-    init(name: ASTIdentifier, kind: FunctionKind, parameters: [ASTVariableDeclaration], returnType: ASTType, annotations: [ASTAnnotation.Element], isUnsafe: Bool = false) {
+    init(name: ASTIdentifier, kind: FunctionKind, parameters: [ASTVariableDeclaration], returnType: ASTType, annotations: [ASTAnnotation.Element] = [], isUnsafe: Bool = false) {
         self.name = name
         self.kind = kind
         self.parameters = parameters
