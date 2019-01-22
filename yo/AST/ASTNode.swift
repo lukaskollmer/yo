@@ -22,7 +22,7 @@ struct SourceCodeLocation {
 typealias AST = [ASTNode]
 
 
-protocol ASTNode {
+protocol ASTNode: class, CustomStringConvertible {
     /// position in the original source code
     //var sourceCodeLocation: SourceCodeLocation { get } // TODO
 }
@@ -30,3 +30,47 @@ protocol ASTNode {
 protocol ASTStatement: ASTNode {}
 protocol ASTExpression: ASTNode {}
 
+
+// MARK: Node+Debug
+
+extension ASTNode {
+    var description: String {
+        var desc = ""
+        
+        let mirror = Mirror(reflecting: self)
+        desc += "\(type(of: self)) ["
+        
+        let children = mirror.children
+        
+        if children.isEmpty {
+            return desc + "]"
+        }
+        desc += "\n"
+        
+        for (offset, child) in children.enumerated() {
+            guard case let (label?, value) = child else { continue }
+            
+            desc.append(withIndentation: 2, "\(label): \(String(describing: value))")
+            if AnyIndex(offset + 1) != children.endIndex {
+                desc += ","
+            }
+            desc += "\n"
+        }
+        desc += "]"
+        
+        return desc
+    }
+}
+
+
+extension Array where Element == ASTNode {
+    var ast_description: String {
+        return self.enumerated().reduce(into: "Array<Node> [\n", { (desc, arg1) in
+            desc.append(withIndentation: 2, arg1.element.description)
+            if arg1.offset < endIndex.advanced(by: -1) {
+                desc += ","
+            }
+            desc += "\n"
+        }) + "]"
+    }
+}
