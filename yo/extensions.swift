@@ -285,10 +285,21 @@ extension DateFormatter {
 }
 
 
+/*
 extension Array: Hashable where Element: Hashable {
     public var hashValue: Int {
         return self.reduce(into: 0) { $0 ^= $1.hashValue }
     }
+}*/
+
+
+// String + Indentation
+extension String {
+    mutating func append(withIndentation indent: Int, _ other: String) {
+        let _indent = String(repeating: " ", count: indent)
+        self += other
+            .split(separator: "\n")
+            .map { _indent + $0 }
+            .joined(separator: "\n")
+    }
 }
-
-
