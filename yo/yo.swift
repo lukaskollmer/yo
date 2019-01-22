@@ -100,6 +100,7 @@ enum yo {
         let interpreter = BytecodeInterpreter(wipInstructions: instructions, heapSize: heapSize, debugOptions: interpreterDebugOptions)
         
         Profiling.recordStart(event: .interpret)
+        let start_timestamp = Date()
         let retval = try interpreter.run()
         Profiling.recordEnd(event: .interpret)
         
@@ -107,6 +108,7 @@ enum yo {
             print("heap after: \(interpreter.heap.backing)")
         }
         
+        Log.info("Run duration: \(abs(start_timestamp.timeIntervalSinceNow))")
         Log.info("main returned with exit code \(retval)")
         
         if CLI.hasFlag(.checkHeapEmpty) {
