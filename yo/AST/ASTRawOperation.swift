@@ -16,4 +16,8 @@ class ASTRawWIPInstruction: ASTStatement & ASTExpression {
     init(instruction: WIPInstruction) {
         self.instruction = instruction
     }
+    
+    init(operation: Operation, immediate: Int) {
+        self.instruction = .operation(operation, immediate)
+    }
 }
