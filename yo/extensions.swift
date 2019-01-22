@@ -303,3 +303,14 @@ extension String {
             .joined(separator: "\n")
     }
 }
+
+
+extension FixedWidthInteger {
+    var binaryString: String {
+        return stride(from: 0, to: Self.bitWidth, by: 8).reduce(into: ["0b"]) { bytePatterns, step in
+            let byte = UInt8(truncatingIfNeeded: self >> step)
+            let byteString = String(byte, radix: 2).padding(.left, toLength: 8, withPad: "0")
+            bytePatterns.insert(byteString, at: 1)
+        }.joined(separator: "_")
+    }
+}
