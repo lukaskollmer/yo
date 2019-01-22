@@ -18,12 +18,6 @@ class ASTFunctionDeclaration: ASTStatement {
         self.body = body
     }
     
-    @available(*, deprecated)
-    init(name: ASTIdentifier, parameters: [ASTVariableDeclaration], returnType: ASTType, kind: FunctionKind, annotations: [ASTAnnotation.Element] = [], body: ASTComposite) {
-        self.signature = ASTFunctionSignature(name: name, kind: kind, parameters: parameters, returnType: returnType, annotations: annotations)
-        self.body = body
-    }
-    
     
     var mangledName: String {
         let name = signature.name.value

@@ -1610,10 +1610,12 @@ private extension BytecodeCompiler {
                 let array: ASTIdentifier = "array"
                 
                 let specializedInitializer = ASTFunctionDeclaration(
-                    name: ASTIdentifier(value: initializerName),
-                    parameters: (0..<elements.count).map { ASTVariableDeclaration(identifier: ASTIdentifier(value: "_\($0)"), type: .any) },
-                    returnType: .int,
-                    kind: .staticImpl("runtime"),
+                    signature: ASTFunctionSignature(
+                        name: ASTIdentifier(initializerName),
+                        kind: .staticImpl("runtime"),
+                        parameters: (0..<elements.count).map { ASTVariableDeclaration(identifier: ASTIdentifier("_\($0)"), type: .any) },
+                        returnType: .int
+                    ),
                     body: [
                         ASTVariableDeclaration(identifier: array, type: .int), // TODO i64
                         ASTAssignment(
@@ -1665,10 +1667,12 @@ private extension BytecodeCompiler {
             let array = ASTIdentifier(value: "array")
             
             let specializedArrayInitializer = ASTFunctionDeclaration(
-                name: ASTIdentifier(value: arrayInitializerMemberName),
-                parameters: (0..<elements.count).map { ASTVariableDeclaration(identifier: ASTIdentifier(value: "_\($0)"), type: .id) },
-                returnType: .Array,
-                kind: .staticImpl("Array"),
+                signature: ASTFunctionSignature(
+                    name: ASTIdentifier(arrayInitializerMemberName),
+                    kind: .staticImpl("Array"),
+                    parameters: (0..<elements.count).map { ASTVariableDeclaration(identifier: ASTIdentifier("_\($0)"), type: .id) },
+                    returnType: .Array
+                ),
                 body: [
                     // create the array
                     ASTVariableDeclaration(identifier: array, type: .Array),

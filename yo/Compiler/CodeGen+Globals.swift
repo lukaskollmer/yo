@@ -40,10 +40,7 @@ extension AutoSynthesizedCodeGen {
             
             for functionName in ["__INVOKING_ALL_STATIC_INITIALIZERS__", "__INVOKING_ALL_STATIC_CLEANUP_FUNCTIONS__"] {
                 let fn = ASTFunctionDeclaration(
-                    name: ASTIdentifier(value: functionName),
-                    parameters: [],
-                    returnType: .void,
-                    kind: .global,
+                    signature: ASTFunctionSignature(name: ASTIdentifier(functionName), kind: .global, parameters: [], returnType: .void),
                     body: []
                 )
                 compiler.functions.insert(functionDeclaration: fn)
@@ -67,10 +64,12 @@ extension AutoSynthesizedCodeGen {
         let isMetatypeInitializer: (String) -> Bool = { $0.hasPrefix("__") && $0.hasSuffix("_metatype_init") }
         
         let invokeStaticInitializers = ASTFunctionDeclaration(
-            name: "__INVOKING_ALL_STATIC_INITIALIZERS__",
-            parameters: [],
-            returnType: .void,
-            kind: .global,
+            signature: ASTFunctionSignature(
+                name: ASTIdentifier("__INVOKING_ALL_STATIC_INITIALIZERS__"),
+                kind: .global,
+                parameters: [],
+                returnType: .void
+            ),
             body: [
                 // Allocate space for the global variables
                 // Since this is the very first alloc call, we know for a fact that the address of the allocates heap space is 16
@@ -129,10 +128,12 @@ extension AutoSynthesizedCodeGen {
         
         
         let invokeStaticCleanupFunctions = ASTFunctionDeclaration(
-            name: "__INVOKING_ALL_STATIC_CLEANUP_FUNCTIONS__",
-            parameters: [],
-            returnType: .void,
-            kind: .global,
+            signature: ASTFunctionSignature(
+                name: ASTIdentifier("__INVOKING_ALL_STATIC_CLEANUP_FUNCTIONS__"),
+                kind: .global,
+                parameters: [],
+                returnType: .void
+            ),
             body: [
                 // call all custom cleanup functions
                 ASTComposite(statements:
