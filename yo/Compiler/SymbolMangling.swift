@@ -11,8 +11,6 @@ import Foundation
 
 enum SymbolMangling {
     
-    static let retain  = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "retain")
-    static let release = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "release")
     static let alloc   = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "alloc")
     static let free    = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "free")
     
