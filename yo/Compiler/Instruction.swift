@@ -10,18 +10,17 @@ import Foundation
 
 
 typealias Instruction = Int
-let InstructionSize = MemoryLayout<Instruction>.size * 8
-let ImmediateSize = InstructionSize - 8 // It's probably best to avoid using the sign bit
-// An instruction is an integer, with the following layout:
-// The lower 7 bits are used to encode the opcode and the upper 57 to encode the immediate
+typealias Immediate = Int32
+
+// An instruction is a 64-bit wide integer, with the opcode stored in the lowest byte, and the immediate stored in the upper 7 bytes
+
 
 // Wrapper struct that extracts data from an instruction
-// TODO maybe find a better name?
 struct InstructionDescriptor: CustomStringConvertible {
     let instruction: Instruction
     
-    var opcode: Int {
-        return instruction & 0b1111111
+    var opcode: Operation.RawValue {
+        return Operation.RawValue(truncatingIfNeeded: instruction) & Operation.RawValue.max
     }
     
     var operation: Operation {
@@ -29,7 +28,7 @@ struct InstructionDescriptor: CustomStringConvertible {
     }
     
     var immediate: Int {
-        return instruction >> 7
+        return instruction >> Operation.bitWidth
     }
     
     var description: String {
@@ -38,7 +37,9 @@ struct InstructionDescriptor: CustomStringConvertible {
 }
 
 
-enum Operation: Int {
+enum Operation: UInt8, NameInitializable {
+    static let bitWidth = RawValue.bitWidth
+    
     case noop
     
     // arithmetic operations
@@ -108,22 +109,18 @@ enum Operation: Int {
     case debug
     
     
-    func encode(withImmediate immediate: Int = 0) -> Int {
-        // TODO guard that the immediate fits in `InstructionSize - 7`
-        return (immediate << 7) | self.rawValue
+    
+    var opcode: RawValue {
+        return self.rawValue
     }
     
-    init?(name: String) {
-        var i = 0
-        while let item = Operation(rawValue: i) {
-            if String(describing: item) == name {
-                self = item
-                return
-            }
-            i += 1
+    
+    func encode(withImmediate immediate: Int = 0) -> Int {
+        // TODO pretty sure this is wrong
+        guard immediate.magnitude.leadingZeroBitCount > Operation.bitWidth else {
+            fatalError("value \(immediate) cannot be represented as an immediate")
         }
-        
-        return nil
+        return (immediate << Operation.bitWidth) | Int(self.rawValue)
     }
     
     
