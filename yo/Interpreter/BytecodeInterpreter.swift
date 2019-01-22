@@ -51,12 +51,12 @@ class BytecodeInterpreter {
     
     
     
-    init(wipInstructions: [WIPInstruction], heapSize: Int, debugOptions: DebugOptions = []) {
+    init(unresolvedInstructions: [UnresolvedInstruction], heapSize: Int, debugOptions: DebugOptions = []) {
         self.heap = Heap(size: heapSize)
         self.stack = heap.stack
         self.debugOptions = debugOptions
         
-        let finalizedInstructions    = wipInstructions.finalized()
+        let finalizedInstructions    = unresolvedInstructions.finalized()
         self.instructions            = finalizedInstructions.instructions.map(InstructionDescriptor.init)
         self.procedureEntryAddresses = finalizedInstructions.procedureEntryAddresses
     }

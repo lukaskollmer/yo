@@ -38,7 +38,6 @@ class ASTLambda: ASTExpression {
 
 extension ASTNode {
     func getAccessedIdentifiers() -> [ASTIdentifier] {
-        
         if let identifier = self as? ASTIdentifier {
             return [identifier]
             
@@ -54,7 +53,7 @@ extension ASTNode {
         } else if self is ASTBooleanLiteral {
             return []
             
-        } else if self is ASTRawWIPInstruction {
+        } else if self is ASTRawUnresolvedInstruction {
             return []
             
         } else if let arrayLiteral = self as? ASTArrayLiteral {

@@ -279,8 +279,8 @@ class Parser {
     }
     
     
-    func parseAsmStatement(_ ast: mpc_ast_t) throws -> ASTRawWIPInstruction {
-        let instruction: WIPInstruction
+    func parseAsmStatement(_ ast: mpc_ast_t) throws -> ASTRawUnresolvedInstruction {
+        let instruction: UnresolvedInstruction
         
         let operationName = try parseIdentifier(ast[2]).value
         guard let operation = Operation(name: operationName) else {
@@ -327,7 +327,7 @@ class Parser {
             fatalError("unexpected immediate type in __asm literal: \(ast[4])")
         }
         
-        return ASTRawWIPInstruction(instruction: instruction)
+        return ASTRawUnresolvedInstruction(instruction: instruction)
     }
     
     

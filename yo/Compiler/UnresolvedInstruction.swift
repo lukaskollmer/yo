@@ -1,5 +1,5 @@
 //
-//  WIPInstruction.swift
+//  UnresolvedInstruction.swift
 //  yo
 //
 //  Created by Lukas Kollmer on 27.05.18.
@@ -9,14 +9,13 @@
 import Foundation
 
 
-enum WIPInstruction {
+enum UnresolvedInstruction {
     case label(String)                  // A label
     case operation(Operation, Int)      // A "finalized" instruction
     case unresolved(Operation, String)  // An instruction that takes an address as parameter, which will be resolved later (after all codegen finished)
     case arrayLiteral(String, Int, [Int])   // label : element size : elements
     case comment(String)
     case raw(Int)                       // Just a 64 bit wide integer
-    
     
     var isLabel: Bool {
         return labelValue != nil
@@ -34,10 +33,16 @@ enum WIPInstruction {
 }
 
 
-extension Array where Element == WIPInstruction {
-    
-    
-    func withArrayLiteralsResolved() -> [WIPInstruction] {
+
+struct InstructionFinalizationResult {
+    let instructions: [Instruction]
+    let procedureEntryAddresses: [Int: String]
+}
+
+
+
+extension Array where Element == UnresolvedInstruction {
+    func withArrayLiteralsResolved() -> [UnresolvedInstruction] {
         var _self = self
         
         // Insert all array literals after the bootstrapping code
@@ -46,12 +51,12 @@ extension Array where Element == WIPInstruction {
         _self.insert(contentsOf: arrayliterals, at: 10)
         
         return _self.lk_flatMap { instruction in
-            if case WIPInstruction.arrayLiteral(let label, let elementSize, let elements) = instruction {
+            if case .arrayLiteral(let label, let elementSize, let elements) = instruction {
                 return [
-                    WIPInstruction.label(label),
-                    WIPInstruction.operation(.noop, elementSize),
-                    WIPInstruction.operation(.noop, elements.count)
-                ] + elements.map { WIPInstruction.operation(.noop, $0) }
+                    .label(label),
+                    .operation(.noop, elementSize),
+                    .operation(.noop, elements.count)
+                ] + elements.map { .operation(.noop, $0) }
             }
             return [instruction]
         }
@@ -60,8 +65,8 @@ extension Array where Element == WIPInstruction {
     // make sure all labels have odd addresses
     // more info in the documentation // TODO
     // TODO only apply this to function entry points?
-    func withLabelsPadded() -> [WIPInstruction] {
-        var retval = [WIPInstruction]()
+    func withLabelsPadded() -> [UnresolvedInstruction] {
+        var retval = [UnresolvedInstruction]()
         
         for instruction in self {
             guard instruction.isLabel else {
@@ -77,12 +82,8 @@ extension Array where Element == WIPInstruction {
         return retval
     }
     
-    struct WIPInstructionFinalizationResult {
-        let instructions: [Instruction]
-        let procedureEntryAddresses: [Int: String]
-    }
     
-    func finalized() -> WIPInstructionFinalizationResult {
+    func finalized() -> InstructionFinalizationResult {
         // TODO move withArrayLiteralsResolved back into finalized?
         var procedureEntryAddresses = [Int: String]()
         let instructions: [Instruction] = self.enumerated().map { index, instruction in
@@ -103,7 +104,7 @@ extension Array where Element == WIPInstruction {
             }
         }
         
-        return WIPInstructionFinalizationResult(instructions: instructions, procedureEntryAddresses: procedureEntryAddresses)
+        return InstructionFinalizationResult(instructions: instructions, procedureEntryAddresses: procedureEntryAddresses)
     }
     
     func getAddress(ofLabel label: String) -> Index {

@@ -1,5 +1,5 @@
 //
-//  NativeFunctions+MemoryManagement.swift
+//  ARC.swift
 //  yo
 //
 //  Created by Lukas Kollmer on 16.09.18.
@@ -9,9 +9,13 @@
 import Foundation
 
 
+
+
+let kIsMarkedForReleaseBit = 29
+let kIsDeallocatingBit = 30
+
+
 enum ARC {
-    static let kIsMarkedForReleaseBit = 29
-    static let kIsDeallocatingBit = 30
     
     
     static func isObject(_ address: Int, _ heap: Heap) -> Bool {

@@ -69,7 +69,7 @@ class ConstantArrayLiteralsCache {
 /// Class that compiles an AST to bytecode instructions
 class BytecodeCompiler {
     
-    private var instructions = [WIPInstruction]()
+    private var instructions = [UnresolvedInstruction]()
     private var conditionalStatementCounter = Counter()
     private var lambdaCounter = Counter()
     private var forLoopCounter = Counter()
@@ -101,7 +101,7 @@ class BytecodeCompiler {
     }
     
     
-    func compile(ast _ast: AST) throws -> [WIPInstruction] {
+    func compile(ast _ast: AST) throws -> [UnresolvedInstruction] {
         var ast = _ast
         
         //var ast = try resolveImports(in: ast)
@@ -148,7 +148,8 @@ class BytecodeCompiler {
         // generate the bootstrapping instructions
         
         // NOTE: if the bootstrapping instructions before `jump end` are updated,
-        // also update the magic number in `Array<WIPInstruction>.withArrayLiteralsResolved`
+        // also update the magic number in `Array<UnresolvedInstruction>.withArrayLiteralsResolved`
+        // TODO: Fetch the number of instructions after `ujump end`, and use it to determine where resolved array literals should be inserted
         
         // call all static initializers
         invoke_noChecks_noArgs_unusedRetval("__INVOKING_ALL_STATIC_INITIALIZERS__")
@@ -192,7 +193,7 @@ extension BytecodeCompiler {
         instructions.append(.unresolved(operation, unresolvedLabel))
     }
     
-    func add(_ instruction: WIPInstruction) {
+    func add(_ instruction: UnresolvedInstruction) {
         instructions.append(instruction)
     }
     
@@ -334,7 +335,7 @@ private extension BytecodeCompiler {
         } else if let stringLiteral = node as? ASTStringLiteral {
             try handle(stringLiteral: stringLiteral)
             
-        } else if let rawInstruction = node as? ASTRawWIPInstruction {
+        } else if let rawInstruction = node as? ASTRawUnresolvedInstruction {
             add(rawInstruction.instruction)
             
         } else if let arrayLiteral = node as? ASTArrayLiteral {
@@ -1533,7 +1534,7 @@ private extension BytecodeCompiler {
         let stringInitCall = ASTFunctionCall(
             functionName: SymbolMangling.mangleInitializer(forType: "String"),
             arguments: [
-                ASTRawWIPInstruction(instruction: .unresolved(.loadc, label))
+                ASTRawUnresolvedInstruction(instruction: .unresolved(.loadc, label))
             ],
             unusedReturnValue: false
         )
@@ -1582,7 +1583,7 @@ private extension BytecodeCompiler {
             /*let call = ASTFunctionCall(
                 functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "_primitiveArrayFromConstant"),
                 arguments: [
-                    ASTRawWIPInstruction(instruction: .unresolved(.loadc, label))
+                    ASTRawUnresolvedInstruction(instruction: .unresolved(.loadc, label))
                 ],
                 unusedReturnValue: false
             )
@@ -1992,7 +1993,7 @@ private extension BytecodeCompiler {
             } else if let boxedExpression = expression as? ASTBoxedExpression {
                 return try boxedType(ofExpression: boxedExpression.expression)
             
-            } else if expression is ASTRawWIPInstruction {
+            } else if expression is ASTRawUnresolvedInstruction {
                 return .any
                 
             } else if expression is ASTInlineBooleanExpression {

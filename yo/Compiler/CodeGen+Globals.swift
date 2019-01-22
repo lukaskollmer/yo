@@ -94,7 +94,7 @@ extension AutoSynthesizedCodeGen {
                             } else {
                                 return ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
                                     initialValue,
-                                    ASTRawWIPInstruction(operation: .retain, immediate: kARCOperationKeepAddressOnStack)
+                                    ASTRawUnresolvedInstruction(operation: .retain, immediate: kARCOperationKeepAddressOnStack)
                                 ])
                             }
                         }()
@@ -152,7 +152,7 @@ extension AutoSynthesizedCodeGen {
                         .map {
                             ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
                                 $0.identifier,
-                                ASTRawWIPInstruction(operation: .release, immediate: kARCOperationPopAddressOffStack)
+                                ASTRawUnresolvedInstruction(operation: .release, immediate: kARCOperationPopAddressOffStack)
                             ])
                         }
                 ),

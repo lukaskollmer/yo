@@ -112,7 +112,7 @@ class AutoSynthesizedCodeGen {
                 
                 ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
                     ASTStringLiteral(value: typename),
-                    ASTRawWIPInstruction(operation: .retain, immediate: kARCOperationKeepAddressOnStack)
+                    ASTRawUnresolvedInstruction(operation: .retain, immediate: kARCOperationKeepAddressOnStack)
                 ]),
                 
                 ASTArraySetter(
@@ -124,7 +124,7 @@ class AutoSynthesizedCodeGen {
                 ASTArraySetter(
                     target: l_metatype,
                     offset: 2 as ASTNumberLiteral,
-                    value: ASTRawWIPInstruction(instruction: .unresolved(.push, SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "__dealloc")))
+                    value: ASTRawUnresolvedInstruction(instruction: .unresolved(.push, SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "__dealloc")))
                 ),
                 
                 // assign the local metatyoe to the global variable
@@ -148,7 +148,7 @@ class AutoSynthesizedCodeGen {
                 // release the typename
                 ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
                     ASTArrayGetter(target: g_metatype, offset: 1 as ASTNumberLiteral),
-                    ASTRawWIPInstruction(operation: .release, immediate: kARCOperationPopAddressOffStack)
+                    ASTRawUnresolvedInstruction(operation: .release, immediate: kARCOperationPopAddressOffStack)
                 ]),
                 // free the metatype
                 ASTFunctionCall(
@@ -215,9 +215,7 @@ class AutoSynthesizedCodeGen {
                             // is created (ie we create Strings which we put in metatypes, but there's no guarantee that the string metatype has already been created)
                             let metatype_name = SymbolMangling.mangleMetatypeTableName(forType: typename)
                             let metatype_address = compiler._actualAddressOfGlobal(withIdentifier: ASTIdentifier(value: metatype_name))!
-                            return ASTRawWIPInstruction(
-                                instruction: .operation(.push, metatype_address << 32)
-                            )
+                            return ASTRawUnresolvedInstruction(operation: .push, immediate: metatype_address << 32)
                         }()
                     ),
                 
@@ -232,7 +230,7 @@ class AutoSynthesizedCodeGen {
                                 ? attribute.identifier
                                 : ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
                                     attribute.identifier,
-                                    ASTRawWIPInstruction(operation: .retain, immediate: kARCOperationKeepAddressOnStack)
+                                    ASTRawUnresolvedInstruction(operation: .retain, immediate: kARCOperationKeepAddressOnStack)
                                 ])
                         )
                     }
@@ -282,7 +280,7 @@ class AutoSynthesizedCodeGen {
                         .map {
                             ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
                                 ASTMemberAccess(members: [.initial_identifier(_self), .attribute(name: $0.identifier)]),
-                                ASTRawWIPInstruction(operation: .release, immediate: kARCOperationPopAddressOffStack)
+                                ASTRawUnresolvedInstruction(operation: .release, immediate: kARCOperationPopAddressOffStack)
                             ])
                         }
                 )
@@ -350,7 +348,7 @@ class AutoSynthesizedCodeGen {
                         ? ASTNoop()
                         : ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
                             ASTArrayGetter(target: _self, offset: offset),
-                            ASTRawWIPInstruction(operation: .release, immediate: kARCOperationPopAddressOffStack)
+                            ASTRawUnresolvedInstruction(operation: .release, immediate: kARCOperationPopAddressOffStack)
                         ])
                     ,
                     
@@ -362,7 +360,7 @@ class AutoSynthesizedCodeGen {
                         ? ASTNoop()
                         : ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
                             ASTIdentifier("newValue"),
-                            ASTRawWIPInstruction(operation: .retain, immediate: kARCOperationPopAddressOffStack)
+                            ASTRawUnresolvedInstruction(operation: .retain, immediate: kARCOperationPopAddressOffStack)
                         ])
                 ]
             )

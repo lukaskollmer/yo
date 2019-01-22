@@ -97,7 +97,7 @@ enum yo {
             return options
         }()
         
-        let interpreter = BytecodeInterpreter(wipInstructions: instructions, heapSize: heapSize, debugOptions: interpreterDebugOptions)
+        let interpreter = BytecodeInterpreter(unresolvedInstructions: instructions, heapSize: heapSize, debugOptions: interpreterDebugOptions)
         
         Profiling.recordStart(event: .interpret)
         let start_timestamp = Date()
