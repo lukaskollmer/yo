@@ -364,13 +364,13 @@ private extension BytecodeCompiler {
         } else if node is ASTEnumDeclaration {
             // already handled during semantic analysis
             
-        } else if let staticMemberGetter = node as? ASTStaticMemberGetter {
+        } else if let _ = node as? ASTStaticMemberGetter {
             fatalError("do we ever reach here or can we safely delete this?")
             //try handle(staticMemberGetter: staticMemberGetter)
             
-        } else if let inlineBooleanExpression = node as? ASTInlineBooleanExpression {
+        } else if let _ = node as? ASTInlineBooleanExpression {
             fatalError("TODO reimplement")
-            try handle(condition: inlineBooleanExpression.condition)
+            //try handle(condition: inlineBooleanExpression.condition)
             
         } else if let deferStatement = node as? ASTDeferStatement {
             try handle(composite: deferStatement.body)
@@ -818,8 +818,9 @@ private extension BytecodeCompiler {
                 target = implicitSelfAccess.memberAccess
                 // fallthrough to the member access handling code below
             
-            } else if let globalAddress = _actualAddressOfGlobal(withIdentifier: targetIdentifier) {
+            } else if let _ = _actualAddressOfGlobal(withIdentifier: targetIdentifier) {
                 // TODO should we put code here?
+                fatalError()
             }
         }
         

@@ -290,7 +290,7 @@ class Runtime: NativeFunctions {
                         case Constants.NumberTypeMapping.integer:
                             if !isLast && scalars[index + 1] == "h" {
                                 skipNext = true
-                                text += "0x" + String(value, radix: 16).padding(.left, toLength: 9, withPad: "0")
+                                text += value.asHexString
                             } else {
                                 text += String(value, radix: 10)
                             }
