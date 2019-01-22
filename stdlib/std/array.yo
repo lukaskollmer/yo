@@ -86,7 +86,8 @@ impl Array {
     fn remove(self: Array, object: id): void {
         NotYetImplemented();
         // TODO take a reduced length due to mutations into account!!!
-        for i in 0..<self._count {
+        //for i in 0..<self._count {
+        for val i = 0; i < self._count; i += 1; {
             // TODO we probably should also check the object's hash values or call isEqual or something like that
             if self.get(i) == object {
                 self.removeAtIndex(i);
@@ -119,14 +120,16 @@ impl Array {
 
 
     fn forEach(self: Array, f: fn<(id): void>): void {
-        for i in 0..<self._count {
+        //for i in 0..<self._count {
+        for val i = 0; i < self._count; i += 1; {
             f(self.get(i));
         }
     }
 
 
     fn enumerate(self: Array, f: fn<(int, id): void>): void {
-        for i in 0..<self._count {
+        //for i in 0..<self._count {
+        for val i = 0; i < self._count; i += 1; {
             f(i, self.get(i));
         }
     }
@@ -135,7 +138,8 @@ impl Array {
     fn map(self: Array, f: fn<(id): id>): Array {
         val newArray = Array::new();
 
-        for i in 0..<self._count {
+        //for i in 0..<self._count {
+        for val i = 0; i < self._count; i += 1; {
             newArray.append(f(self.get(i)));
         }
 
@@ -146,7 +150,8 @@ impl Array {
     fn filter(self: Array, f: fn<(id): bool>): Array {
         val newArray: Array = Array::new();
 
-        for i in 0..<self._count {
+        //for i in 0..<self._count {
+        for val i = 0; i < self._count; i += 1; {
             val element = self.get(i);
             if f(element) {
                 newArray.append(element);
@@ -157,7 +162,8 @@ impl Array {
 
 
     fn reduce(self: Array, initial: any, f: fn<(any, id): any>): any {
-        for i in 0..<self._count {
+        for val i = 0; i < self._count; i += 1; {
+        //for i in 0..<self._count {
             initial = f(initial, self.get(i));
         }
 

@@ -51,7 +51,9 @@ impl String {
             ret false;
         }
 
-        for i in 0..<self.length() {
+        //for i in 0..<self.length() {
+        val length = self.length();
+        for val i = 0; i < length; i += 1; {
             if self._backing[i] != other._backing[i] {
                 ret false;
             }
