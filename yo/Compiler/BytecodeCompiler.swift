@@ -384,6 +384,10 @@ private extension BytecodeCompiler {
         } else if let ifStatement = node as? ASTIfStatement {
             try handle(ifStatement: ifStatement)
             
+        } else if let arbitraryNodes = node as? ASTArbitraryNodes {
+            try arbitraryNodes.nodes.forEach(handle)
+            //try handle(node: arbitraryNode)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -1999,6 +2003,13 @@ private extension BytecodeCompiler {
                 }
                 fatalError("static member getter for unregistered type?!")
                 // TOOD what about using static member getters to refer to functions in an impl?
+            } else if let arbitraryNodes = expression as? ASTArbitraryNodes {
+                switch arbitraryNodes.typeInferenceHelper {
+                case .expression(let expr):
+                    return try guessType(ofExpression: expr)
+                case .type(let type):
+                    return type
+                }
             }
             
             // We seem to hit this error pretty often (/always?) when encountering an undefined identifier
