@@ -86,4 +86,8 @@ class LKYOCLI: NSObject {
     @objc class func hasFlag(_ name: String) -> Bool {
         return CLI.arguments.contains(name)
     }
+    
+    @objc class func emitSignpostsFlag() -> String {
+        return CLIOptions.emitSignposts.flag
+    }
 }

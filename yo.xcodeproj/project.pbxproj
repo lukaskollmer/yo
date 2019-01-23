@@ -38,6 +38,7 @@
 		8072C76720E931D600FA9F62 /* ASTProtocolDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8072C76620E931D600FA9F62 /* ASTProtocolDeclaration.swift */; };
 		8072C76920EA1C2600FA9F62 /* ASTBooleanLiteral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8072C76820EA1C2600FA9F62 /* ASTBooleanLiteral.swift */; };
 		8073276320E2760400FF25E7 /* Optimizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8073276220E2760400FF25E7 /* Optimizer.swift */; };
+		80770C5921F8B37500FABFAA /* CLI+Flags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80770C5821F8B37500FABFAA /* CLI+Flags.swift */; };
 		807936F720D24D0700DCCE1F /* ASTBreakStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807936F620D24D0700DCCE1F /* ASTBreakStatement.swift */; };
 		807936F920D252AB00DCCE1F /* ASTContinueStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807936F820D252AB00DCCE1F /* ASTContinueStatement.swift */; };
 		809761B320D7F21F004DB9A4 /* ASTLambda.swift in Sources */ = {isa = PBXBuildFile; fileRef = 809761B220D7F21F004DB9A4 /* ASTLambda.swift */; };
@@ -192,6 +193,7 @@
 		8072C76620E931D600FA9F62 /* ASTProtocolDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTProtocolDeclaration.swift; sourceTree = "<group>"; };
 		8072C76820EA1C2600FA9F62 /* ASTBooleanLiteral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTBooleanLiteral.swift; sourceTree = "<group>"; };
 		8073276220E2760400FF25E7 /* Optimizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Optimizer.swift; sourceTree = "<group>"; };
+		80770C5821F8B37500FABFAA /* CLI+Flags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CLI+Flags.swift"; sourceTree = "<group>"; };
 		807936F620D24D0700DCCE1F /* ASTBreakStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTBreakStatement.swift; sourceTree = "<group>"; };
 		807936F820D252AB00DCCE1F /* ASTContinueStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTContinueStatement.swift; sourceTree = "<group>"; };
 		808CC63D20EFC029003F62F4 /* yo-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "yo-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -321,6 +323,7 @@
 				809F5C20212DB3B100F96919 /* Profiling.swift */,
 				809F458821402F1300118BCD /* Optimizer */,
 				80E74FF220EB751400C7DB90 /* CLI.swift */,
+				80770C5821F8B37500FABFAA /* CLI+Flags.swift */,
 				804834E120B6EAB2009E59FC /* Parser */,
 				80EAA47320B75EDA0043A6F6 /* Compiler */,
 				80EAA47620B75F240043A6F6 /* Interpreter */,
@@ -697,6 +700,7 @@
 				803ECFEB21148D2A001B9975 /* CodeGen+Globals.swift in Sources */,
 				80F1E9B620BD658100336F4C /* ASTRawOperation.swift in Sources */,
 				80EAA47C20B7629C0043A6F6 /* Instruction.swift in Sources */,
+				80770C5921F8B37500FABFAA /* CLI+Flags.swift in Sources */,
 				809F458A21402F3500118BCD /* Optimizer+Binop.swift in Sources */,
 				806F7649211F0FE500DD67F3 /* ASTDeferStatement.swift in Sources */,
 				80EAA47220B75BE20043A6F6 /* ASTNoop.swift in Sources */,
