@@ -161,8 +161,7 @@ class BytecodeCompiler {
         invoke_noChecks_noArgs_unusedRetval("__INVOKING_ALL_STATIC_CLEANUP_FUNCTIONS__")
         
         // jump to `end`
-        add(.push, Constants.BooleanValues.true)
-        add(.jump, unresolvedLabel: "end")
+        add(.ujump, unresolvedLabel: "end")
         
         // run codegen
         try ast.forEach(handle)
@@ -772,8 +771,7 @@ private extension BytecodeCompiler {
             fatalError("ugh something went wrong")
         }
         
-        add(.push, Constants.BooleanValues.true)
-        add(.jump, unresolvedLabel: breakDestination)
+        add(.ujump, unresolvedLabel: breakDestination)
     }
     
     func handle(continueStatement: ASTContinueStatement) throws {
@@ -781,8 +779,7 @@ private extension BytecodeCompiler {
             fatalError("ugh sorry for that")
         }
         
-        add(.push, Constants.BooleanValues.true)
-        add(.jump, unresolvedLabel: continueDestination)
+        add(.ujump, unresolvedLabel: continueDestination)
     }
     
     

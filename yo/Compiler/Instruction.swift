@@ -95,7 +95,7 @@ enum Operation: UInt8, NameInitializable {
     case writeh // write a value at the address in the immediate
     
     case jump   // conditional jump
-    case ujump  // unconditional jump   // TODO use this one everywhere where we currently push a 1 before jumping!
+    case ujump  // unconditional jump
     case call
     case ret
     
