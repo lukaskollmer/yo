@@ -19,13 +19,19 @@ class Buffer {
         base.initializeMemory(as: UInt8.self, repeating: 0, count: byteCount)
     }
     
+    subscript<T>(ptr offset: Int, type: T.Type) -> UnsafeMutablePointer<T> {
+        get {
+            return base.advanced(by: offset).assumingMemoryBound(to: T.self)
+        }
+    }
+    
     subscript<T>(offset: Int) -> T {
         get {
-            return base.advanced(by: offset).assumingMemoryBound(to: T.self).pointee
+            return self[ptr: offset, T.self].pointee
         }
         
         set {
-            base.advanced(by: offset).assumingMemoryBound(to: T.self).pointee = newValue
+            self[ptr: offset, T.self].pointee = newValue
         }
     }
     
