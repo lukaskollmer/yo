@@ -10,16 +10,12 @@ import Foundation
 
 
 enum yo {
-    
-    //static var workingDirectory: String = FileManager.default.currentDirectoryPath
-    
-    
     static func read(file path: String) throws -> String {
         guard
             let data = FileManager.default.contents(atPath: path),
             let rawSource = String(data: data, encoding: .utf8)
             else {
-                Log.error("Unable to read file '\(path)'")
+                log(.info, "Unable to read file '\(path)'")
                 throw NSError(domain: "yo", code: 0) // TODO
         }
         
@@ -57,9 +53,7 @@ enum yo {
     
     
     static func run(atPath path: String, heapSize: Int) throws -> Int {
-        if CLI.hasFlag(.verbose) {
-            Log.info("Input file: \(filepath)")
-        }
+        log(.verbose, "Input file: \(filepath)")
         
         Profiling.recordStart(event: .parseAST)
         var ast = try parse(atPath: path)
@@ -77,7 +71,7 @@ enum yo {
         Profiling.recordEnd(event: .compile)
         
         if CLI.hasFlag(.printInstructions) {
-            Log.info("\n\(instructions.fancyDescription)")
+            log(.info, "\n\(instructions.fancyDescription)")
         }
         
         let interpreterDebugOptions: BytecodeInterpreter.DebugOptions = {
@@ -102,20 +96,20 @@ enum yo {
         Profiling.recordEnd(event: .interpret)
         
         if CLI.hasFlag(.printHeap) {
-            print("heap after: \(interpreter.heap)")
+            log(.info, "heap after: \(interpreter.heap)")
         }
         
-        Log.info("Run duration: \(abs(start_timestamp.timeIntervalSinceNow))")
-        Log.info("main returned with exit code \(retval)")
+        log(.info, "Run duration: \(abs(start_timestamp.timeIntervalSinceNow))")
+        log(.info, "main returned with exit code \(retval)")
         
         if CLI.hasFlag(.checkHeapEmpty) {
             // the second part (checking that all allocations have been freed is arguably a bad idea since there's no actual reason to free everything before the program exits
             // also, there's always going to be at least one allocation, since we have to make sure no object can get address 0
             let heapEmpty = interpreter.heap.asArray(ofType: Int.self).all { $0 == 0 } && interpreter.heap.allocations.isEmpty
-            Log.info("Heap empty: \(heapEmpty)")
+            log(.info, "Heap empty: \(heapEmpty)")
             
             if !heapEmpty {
-                Log.info("allocations: \(interpreter.heap.allocations)")
+                log(.info, "allocations: \(interpreter.heap.allocations)")
             }
         }
         

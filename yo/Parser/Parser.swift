@@ -131,7 +131,7 @@ class Parser {
         let ast = ast_ptr.pointee
         
         if CLI.hasFlag(.printAST) {
-            print("\(path):")
+            log(.info, "\(path):")
             ast.print()
         }
         

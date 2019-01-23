@@ -82,9 +82,9 @@ class Runtime: NativeFunctions {
             let errorMessagePtr = interpreter.stack.peek()
             let errorMessage = errorMessagePtr == 0 ? "(null)" : Runtime.getString(atAddress: errorMessagePtr, heap: interpreter.heap)
             
-            print("Aborting due to fatal error: \(errorMessage)")
-            print("Call Stack:")
-            print(interpreter.callStackSymbols().joined(separator: "\n"))
+            log(.info, "Aborting due to fatal error: \(errorMessage)")
+            log(.info, "Call Stack:")
+            log(.info, interpreter.callStackSymbols().joined(separator: "\n"))
             
             fatalError()
         }
@@ -235,18 +235,18 @@ class Runtime: NativeFunctions {
         
         
         self["runtime", "_print", .void, [.String]] = { interpreter in
-            print(Runtime.getString(atAddress: interpreter.stack.peek(), heap: interpreter.heap))
+            Swift.print(Runtime.getString(atAddress: interpreter.stack.peek(), heap: interpreter.heap))
             return 0
         }
         
         self["runtime", "_printi", .void, [.int]] = { interpreter in
-            print(interpreter.stack.peek())
+            Swift.print(interpreter.stack.peek())
             return 0
         }
         
         
         self["runtime", "_printd", .void, [.double]] = { interpreter in
-            print(interpreter.stack.peek().unsafe_loadAsDouble)
+            Swift.print(interpreter.stack.peek().unsafe_loadAsDouble)
             return 0
         }
         

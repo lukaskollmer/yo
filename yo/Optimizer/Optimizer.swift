@@ -56,7 +56,7 @@ class Optimizer {
     
     // ideally, this would be `<T: ASTNode>` instead, but for some reason the compiler refuses to pass some ast types
     func optimize<T>(_ _node: T) -> T {
-        print("optimize", _node)
+        log(.info, "optimize", _node)
         guard let node = _node as? ASTNode else {
             fatalError("not an ASTNode")
         }

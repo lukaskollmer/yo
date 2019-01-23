@@ -8,26 +8,40 @@
 
 import Foundation
 
-private enum Color : String {
-    case yellow = "33"
-    case red = "31"
+var LogLevel: _LogLevel = .info
+
+enum _LogLevel: UInt8, Comparable {
+    case verbose    // Only if the verbose flag is set (-v)
+    case info       // Default level
+    // TODO add a debug option that only prints if this is a debug build
+    
+    static func < (lhs: _LogLevel, rhs: _LogLevel) -> Bool {
+        return lhs.rawValue < rhs.rawValue
+    }
 }
 
-struct Log {
-    private init() {}
-    
-    static private func _log(label: String, message: String) {
-        print("[yo:\(label)] \(message)")
-    }
-    
-    static func info(_ message: String) {
-        _log(label: "info", message: message)
-    }
-    
-    static func error(_ message: String) {
-        _log(label: "error", message: message)
-        
-        // TODO https://stackoverflow.com/a/27808423/2513803
-        //print("\u{001B}[0;31m\(message)")
+
+private struct StdoutOutputStream: TextOutputStream {
+    mutating func write(_ string: String) {
+        string.utf8CString.withUnsafeBytes { ptr in
+            _ = Darwin.write(STDOUT_FILENO, ptr.baseAddress!, string.count)
+        }
     }
 }
+
+func log(_ level: _LogLevel, _ items: Any..., separator: String = " ", terminator: String = "\n") {
+    guard level >= LogLevel else { return }
+    
+    var stdout = StdoutOutputStream()
+    
+    for (index, item) in items.enumerated() {
+        let hasNext = index < items.endIndex.advanced(by: -1)
+        stdout.write("[yo] ")
+        Swift.print(item, terminator: hasNext ? separator : terminator, to: &stdout)
+    }
+}
+
+
+// Make sure the current module can't use the print function
+@available(*, unavailable, message: "Use the `log(_:_:`) function instead!", renamed: "log")
+internal func print(_ items: Any...) {}

@@ -46,9 +46,14 @@ func printHelpAndExit() -> Never {
         message += entry
     }
     
-    print(message)
+    log(.info, message)
     exit(EXIT_SUCCESS)
 
+}
+
+
+if CLI.hasFlag(.verbose) {
+    LogLevel = .verbose
 }
 
 if CLI.hasFlag(.help) {

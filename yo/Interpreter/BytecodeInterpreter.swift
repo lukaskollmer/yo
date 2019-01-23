@@ -462,8 +462,8 @@ class BytecodeInterpreter {
             
             
         case .debug:
-            print("Call Stack:")
-            print(callStackSymbols().joined(separator: "\n"))
+            log(.info, "Call Stack:")
+            log(.info, callStackSymbols().joined(separator: "\n"))
             
             // There should be an xcode breakpoint on the `noop` line
             // (focus on should since it seems like xcode randomly deletes the breakpoint)
