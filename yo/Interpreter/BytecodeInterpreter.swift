@@ -329,7 +329,7 @@ class BytecodeInterpreter {
             let offset  = stack.pop()
             
             func read_and_push_to_stack<T: BinaryInteger>(_ type: T.Type) {
-                let value: T = heap.backing[address + offset]
+                let value: T = heap[address + offset]
                 stack.push(Int(value))
             }
             
@@ -361,7 +361,7 @@ class BytecodeInterpreter {
                 guard let _value = T(exactly: value) else {
                     fatalError("Error: Unable to represent value as \(T.self)")
                 }
-                heap.backing[address + offset] = _value
+                heap[address + offset] = _value
             }
             
             switch immediate {

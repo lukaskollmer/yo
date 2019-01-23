@@ -74,7 +74,7 @@ enum NativeFunctions_FFI: NativeFunctions {
             var parameterTypes = [FFIType]()
             
             for i in 0..<argc {
-                let numberPtr = interpreter.heap[parameterTypesPtr + i]
+                let numberPtr = interpreter.heap[_64: parameterTypesPtr + i]
                 let intValue = number_getIntValue(address: numberPtr, heap: interpreter.heap)
                 let type = ffi_type_mapping[intValue]
                 parameterTypes.append(type)

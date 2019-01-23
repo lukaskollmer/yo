@@ -163,7 +163,7 @@ class Runtime: NativeFunctions {
                 }
             }
             
-            let base = interpreter.heap.backing.base.advanced(by: address)
+            let base = interpreter.heap.base.advanced(by: address)
             let imp: SortingImp
             
             switch elementSize {
@@ -227,7 +227,8 @@ class Runtime: NativeFunctions {
         
         self["runtime", "_printc", .void, [.ref(.i8)]] = { interpreter in
             let address = interpreter.stack.peek()
-            let cString = interpreter.heap.backing.base.advanced(by: address).assumingMemoryBound(to: Int8.self)
+            //let cString = interpreter.heap.base.advanced(by: address).assumingMemoryBound(to: Int8.self)
+            let cString = interpreter.heap[ptr: address, Int8.self]
             puts(cString)
             return 0
         }
@@ -254,7 +255,7 @@ class Runtime: NativeFunctions {
             let heap = interpreter.heap
             
             let format = Runtime.getString(atAddress: interpreter.stack.peek(), heap: heap)
-            let args_ptr = heap[interpreter.stack.peek(offset: -1) + TypeCache.sizeof([.i64, .i64, .i64])]
+            let args_ptr: Int = heap[interpreter.stack.peek(offset: -1) + TypeCache.sizeof([.i64, .i64, .i64])]
             
             let getArgAtIndex: (Int) -> Int = { heap[args_ptr + $0 * ASTType.i64.size] }
             
@@ -284,8 +285,8 @@ class Runtime: NativeFunctions {
                         
                     case "n": // Number
                         let addr = getArgAtIndex(arg_index)
-                        let value = heap[addr + sizeof(.i64)]
-                        let type = heap[addr + 2*sizeof(.i64)]
+                        let value: Int = heap[addr + sizeof(.i64)]
+                        let type: Int = heap[addr + 2*sizeof(.i64)]
                         switch type {
                         case Constants.NumberTypeMapping.integer:
                             if !isLast && scalars[index + 1] == "h" {

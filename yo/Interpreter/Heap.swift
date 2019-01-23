@@ -30,26 +30,18 @@ enum HeapError: Error {
     case stackUnderflow // TODO throw this one
 }
 
-class Heap {
+class Heap: Buffer {
     // whether data should be zeroed out on free
     private static let resetOnFree = true
     
-    let size: Int
     private(set) var stack: Stack! // we can't make this a stored property (let) bc the initializer takes `self`
     
-    //var backing = [Int]()
-    let backing: Buffer
-    let initialValue: Int = 0
+    let initialValue: UInt8 = 0
     private(set) var allocations = [(address: Int, size: Int)]()
     
     init(size: Int) {
-        self.size = size
-        self.backing = Buffer(byteCount: size)
+        super.init(byteCount: size)
         self.stack = Stack(heap: self)
-        
-        //for _ in 0..<size {
-        //    backing.append(initialValue)
-        //}
         
         _ = alloc(size: 1) // make sure all addresses are > 0
     }
@@ -83,7 +75,7 @@ class Heap {
         
         if Heap.resetOnFree {
             for i in allocation.address..<(allocation.address + allocation.size) {
-                backing[i] = Int8(0)//initialValue
+                self[i] = initialValue
             }
         }
     }
@@ -93,30 +85,12 @@ class Heap {
     }
     
     
-    subscript(index: Int) -> Int {
-        // TODO guard index
-        get {
-            //guard let value = backing[safe: index] else {
-            //    _invalidHeapAccess(atIndex: index)
-            //}
-            //return value
-            return backing[index]
-        }
-        set {
-            //guard backing.isValidIndex(index) else {
-            //    _invalidHeapAccess(atIndex: index)
-            //}
-            backing[index] = newValue
-        }
-    }
-    
-    
     subscript(range: Range<Int>) -> ArraySlice<Int> {
         get {
-            return backing.asArray(ofType: Int.self)[range]
+            return self.asArray(ofType: Int.self)[range]
         }
         set {
-            var backingAsArray = backing.asArray(ofType: Int.self)
+            var backingAsArray = self.asArray(ofType: Int.self)
             backingAsArray[range] = newValue
         }
     }

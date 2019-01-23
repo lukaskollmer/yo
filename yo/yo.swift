@@ -105,7 +105,7 @@ enum yo {
         Profiling.recordEnd(event: .interpret)
         
         if CLI.hasFlag(.printHeap) {
-            print("heap after: \(interpreter.heap.backing)")
+            print("heap after: \(interpreter.heap)")
         }
         
         Log.info("Run duration: \(abs(start_timestamp.timeIntervalSinceNow))")
@@ -114,7 +114,7 @@ enum yo {
         if CLI.hasFlag(.checkHeapEmpty) {
             // the second part (checking that all allocations have been freed is arguably a bad idea since there's no actual reason to free everything before the program exits
             // also, there's always going to be at least one allocation, since we have to make sure no object can get address 0
-            let heapEmpty = interpreter.heap.backing.asArray(ofType: Int.self).all { $0 == 0 } && interpreter.heap.allocations.isEmpty
+            let heapEmpty = interpreter.heap.asArray(ofType: Int.self).all { $0 == 0 } && interpreter.heap.allocations.isEmpty
             Log.info("Heap empty: \(heapEmpty)")
             
             if !heapEmpty {
