@@ -63,7 +63,7 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "-stdlib-path /Users/lukas/Developer/yo/stdlib"
+            argument = "--stdlib-path /Users/lukas/Developer/yo/stdlib"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -71,35 +71,35 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-record-call-stats"
+            argument = "--record-call-stats"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-emit-signposts"
+            argument = "--emit-signposts"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-log-calls"
+            argument = "--log-calls"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-print-ast"
+            argument = "--print-ast"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-help"
+            argument = "--help"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-print-instructions"
+            argument = "--print-instructions"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-print-heap"
+            argument = "--print-heap"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-check-heap-empty"
+            argument = "--check-heap-empty"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
@@ -107,7 +107,7 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-heap-size 25000"
+            argument = "--heap-size 25000"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
