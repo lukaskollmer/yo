@@ -147,10 +147,6 @@ class BytecodeCompiler {
         
         // generate the bootstrapping instructions
         
-        // NOTE: if the bootstrapping instructions before `jump end` are updated,
-        // also update the magic number in `Array<UnresolvedInstruction>.withArrayLiteralsResolved`
-        // TODO: Fetch the number of instructions after `ujump end`, and use it to determine where resolved array literals should be inserted
-        
         // call all static initializers
         invoke_noChecks_noArgs_unusedRetval("__INVOKING_ALL_STATIC_INITIALIZERS__")
         
@@ -162,6 +158,7 @@ class BytecodeCompiler {
         
         // jump to `end`
         add(.ujump, unresolvedLabel: "end")
+        let arrayLiteralsInsertionPoint = instructions.count
         
         // run codegen
         try ast.forEach(handle)
@@ -173,6 +170,8 @@ class BytecodeCompiler {
         add(label: "end")
         
         return instructions
+            .withArrayLiteralsResolved(insertionPoint: arrayLiteralsInsertionPoint)
+            .withLabelsPadded()
     }
 }
 

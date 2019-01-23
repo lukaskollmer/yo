@@ -73,11 +73,8 @@ enum yo {
         }
         
         Profiling.recordStart(event: .compile)
-        var instructions = try BytecodeCompiler().compile(ast: ast)
+        let instructions = try BytecodeCompiler().compile(ast: ast)
         Profiling.recordEnd(event: .compile)
-        
-        instructions = instructions.withArrayLiteralsResolved()
-        instructions = instructions.withLabelsPadded()
         
         if CLI.hasFlag(.printInstructions) {
             Log.info("\n\(instructions.fancyDescription)")
