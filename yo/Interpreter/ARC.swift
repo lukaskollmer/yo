@@ -9,56 +9,81 @@
 import Foundation
 
 
+// Every object's first field (64 bit wide) stores the following data:
+// - in the upper 32 bits: a pointer to a pointer to the object's metatype (32 bits are sufficient here since metatypes are stored as globals, at the beginning of the heap)
+// - in the lower 32 bits: the object's
 
 
-let kIsMarkedForReleaseBit = 29
-let kIsDeallocatingBit = 30
+private struct ObjectMetadataAccessor {
+    private enum Flags: Int, CaseIterable {
+        case isDeallocating = 1
+        case isMarkedForRelease
+        
+        var mask: Int {
+            return 1 << (31 - self.rawValue)
+        }
+    }
+    
+    static let retainCountMask = Int(UInt32.max >> (Flags.allCases.count + 1))
+    
+    //let contents: UnsafeMutablePointer<Int>
+    let address: Int
+    let heap: Heap
+    
+    private var metadata: Int {
+        get {
+            return heap[address]
+        }
+        set {
+            heap[address] = newValue
+        }
+    }
+    
+    var retainCount: Int {
+        return metadata & ObjectMetadataAccessor.retainCountMask
+    }
+    
+    var isDeallocating: Bool {
+        get {
+            return metadata & Flags.isDeallocating.mask != 0
+        }
+        set {
+            guard !isDeallocating else {
+                fatalError("Internal inconsistency: object at \(address.asHexString) is already deallocating")
+            }
+            metadata |= Flags.isDeallocating.mask
+        }
+    }
+    
+    var isMarkedForRelease: Bool {
+        get {
+            return metadata & Flags.isMarkedForRelease.mask != 0
+        }
+        
+        set {
+            switch newValue {
+            case true:
+                guard !isMarkedForRelease else {
+                    fatalError("Internal inconsistency: object at \(address.asHexString) is already marked for release")
+                }
+                metadata |= Flags.isMarkedForRelease.mask
+                
+            case false:
+                guard isMarkedForRelease else {
+                    fatalError("Internal inconsistency: object at \(address.asHexString) is already not marked for release")
+                }
+                metadata &= ~Flags.isMarkedForRelease.mask
+            }
+        }
+    }
+}
+
 
 
 enum ARC {
-    
-    
     static func isObject(_ address: Int, _ heap: Heap) -> Bool {
-        return address != 0 && address % 16 == 0 && heap.backing[_64: address] != 0
+        return address != 0 && address % 16 == 0 && heap[_64: address] != 0
     }
-    
-    static func getRetainCount(_ address: Int, _ heap: Heap) -> Int {
-        return heap[address] & 0x3fffffff
-    }
-    
-    static func isMarkedForRelease(_ address: Int, _ heap: Heap) -> Bool {
-        return heap[address] & (1 << kIsMarkedForReleaseBit) != 0
-    }
-    
-    static func setIsMarkedForReleaseBit(_ address: Int, _ heap: Heap, _ isMarkedForRelease_newValue: Bool) {
-        switch isMarkedForRelease_newValue {
-        case true:
-            guard !isMarkedForRelease(address, heap) else {
-                fatalError("Internal inconsistency: object at \(address.asHexString) is already marked for release")
-            }
-            heap[address] |= 1 << kIsMarkedForReleaseBit
-            
-        case false:
-            guard isMarkedForRelease(address, heap) else {
-                fatalError("Internal inconsistency: object at \(address.asHexString) is already not marked for release")
-            }
-            heap[address] &= ~(1 << kIsMarkedForReleaseBit)
-        }
-    }
-    
-    
-    static func isDeallocating(_ address: Int, _ heap: Heap) -> Bool {
-        return heap[address] & (1 << kIsDeallocatingBit) != 0
-    }
-    
-    static func setIsDeallocating(_ address: Int, _ heap: Heap) {
-        guard !isDeallocating(address, heap) else {
-            fatalError("Internal inconsistency: object at \(address.asHexString) is already deallocating")
-        }
-        
-        heap[address] |= 1 << kIsDeallocatingBit
-    }
-    
     
     @discardableResult
     static func retain(_ address: Int, heap: Heap) -> Int {
@@ -66,8 +91,13 @@ enum ARC {
             return address
         }
         
-        if isMarkedForRelease(address, heap) {
-            setIsMarkedForReleaseBit(address, heap, false)
+        var metadata = ObjectMetadataAccessor(address: address, heap: heap)
+        
+        // TODO don't retain if the object is being deallocated? // THIS IS IMPORTANT
+        
+        
+        if metadata.isMarkedForRelease {
+            metadata.isMarkedForRelease = false
             return address
         }
         
@@ -84,21 +114,24 @@ enum ARC {
             return address
         }
         
-        if isDeallocating(address, heap) {
+        var metadata = ObjectMetadataAccessor(address: address, heap: heap)
+        
+        if metadata.isDeallocating {
             // the object is already in the process of being deallocated, so we'll just ignore this release call
             return address
         }
         
-        if isMarkedForRelease(address, heap) {
-            setIsMarkedForReleaseBit(address, heap, false)
+        if metadata.isMarkedForRelease {
+            // we reach here when releasing the unused return vslue from a function call returning a complex object
+            metadata.isMarkedForRelease = false
         }
         
-        if getRetainCount(address, heap) == 1 {
-            setIsDeallocating(address, heap)
-            
+        if metadata.retainCount == 1 {
+            metadata.isDeallocating = true
+        
             let typeof = interpreter.procedureEntryAddresses[reverse: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "typeof")]!
             let type = try! interpreter.call(address: typeof, arguments: [address])
-            let dealloc_fn_address = heap[type + sizeof(.i64) + sizeof(.String)] // TODO this is tied to the structure of the `Type` struct, which is bad
+            let dealloc_fn_address: Int = heap[type + sizeof(.i64) + sizeof(.String)] // TODO this is tied to the structure of the `Type` struct, which is bad
             _ = try! interpreter.call(address: dealloc_fn_address, arguments: [address])
             
             heap.free(address: address)
@@ -132,15 +165,15 @@ class NativeFunctions_MemoryManagement: NativeFunctions {
         // MARK: Reference Counting
         
         
-        func wrap(_ fn: @escaping (Int, Heap) -> Int) -> (BytecodeInterpreter) -> Int {
-            return { interpreter in
-                return fn(interpreter.stack.peek(), interpreter.heap)
-            }
+        runtime["runtime", "getRetainCount", .i64, [.any]] = { interpreter in
+            return ObjectMetadataAccessor(address: interpreter.stack.peek(), heap: interpreter.heap).retainCount
         }
         
-        runtime["runtime", "getRetainCount", .i64, [.any]] = wrap(ARC.getRetainCount)
-        runtime["runtime", "markForRelease", .i64, [.any]] = wrap { ARC.setIsMarkedForReleaseBit($0, $1, true); return 0 }
-        
+        runtime["runtime", "markForRelease", .i64, [.any]] = { interpreter in
+            var metadata = ObjectMetadataAccessor(address: interpreter.stack.peek(), heap: interpreter.heap)
+            metadata.isMarkedForRelease = true
+            return 0
+        }
         
         runtime["runtime", "retain", .any, [.any]] = { interpreter in
             return ARC.retain(interpreter.stack.peek(), heap: interpreter.heap)
