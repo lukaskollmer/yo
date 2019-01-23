@@ -12,7 +12,7 @@ import Foundation
 // TODO all the pointer stuff is probably wrong
 
 
-class FFIFunctionInvocation {
+class FFIFunction {
     typealias FunctionPointerType = @convention(c) () -> Void
     static private let _defaultHandle = dlopen(nil, RTLD_LAZY)
     
@@ -27,7 +27,7 @@ class FFIFunctionInvocation {
     private var arguments: UnsafeMutablePointer<UnsafeMutableRawPointer?>
     
     init(symbol: String, handle: UnsafeMutableRawPointer? = nil, returnType: FFIType, parameterTypes: [FFIType], isVariadic: Bool = false) {
-        self.functionPointer = unsafeBitCast(dlsym(handle ?? FFIFunctionInvocation._defaultHandle, symbol), to: FunctionPointerType.self)
+        self.functionPointer = unsafeBitCast(dlsym(handle ?? FFIFunction._defaultHandle, symbol), to: FunctionPointerType.self)
         
         self.returnType = returnType
         self.parameterTypes = parameterTypes
@@ -52,7 +52,6 @@ class FFIFunctionInvocation {
             status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, UInt32(parameterTypes.count), returnType._pointer, argTypes)
         }
         
-        //let status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, UInt32(parameterTypes.count), returnType._pointer, argTypes)
         guard status == FFI_OK else { fatalError() }
     }
     
@@ -72,8 +71,7 @@ class FFIFunctionInvocation {
     // TODO add a `reset` function to allow reusing the same function proxy thing?
     
     deinit {
-        arguments.deinitialize(count: parameterTypes.count)
-        argTypes.deinitialize(count: parameterTypes.count)
+        // TODO deinitialize / dealloc arguments and argTypes
     }
 }
 

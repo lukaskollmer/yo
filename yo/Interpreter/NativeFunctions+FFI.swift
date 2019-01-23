@@ -22,7 +22,7 @@ private let ffi_type_mapping: [FFIType] = [
     .longdouble
 ]
 
-private var _functions = [FFIFunctionInvocation]()
+private var _functions = [FFIFunction]()
 
 enum NativeFunctions_FFI: NativeFunctions {
     static func register(_ runtime: Runtime) {
@@ -31,14 +31,14 @@ enum NativeFunctions_FFI: NativeFunctions {
             let _symbolName = getString(0, interpreter)
             let returnType = ffi_type_mapping[interpreter.stack.peek(offset: -1)]
             
-            let functionInvocation = FFIFunctionInvocation(symbol: _symbolName, returnType: returnType, parameterTypes: [])
+            let functionInvocation = FFIFunction(symbol: _symbolName, returnType: returnType, parameterTypes: [])
             return functionInvocation.invoke() as Int
         }
         
         
         runtime["ffi", "_call", .int, [.int, .int]] = { interpreter in
             var _handle = interpreter.stack.peek()
-            let fn: FFIFunctionInvocation = cast(&_handle)
+            let fn: FFIFunction = cast(&_handle)
             
             let arguments_ptr = interpreter.stack.peek(offset: -1)
             
@@ -81,7 +81,7 @@ enum NativeFunctions_FFI: NativeFunctions {
             }
             
             
-            var fn = FFIFunctionInvocation(
+            var fn = FFIFunction(
                 symbol: _symbolName,
                 handle: _libHandle == 0 ? nil : cast(&_libHandle),
                 returnType: returnType,
@@ -176,14 +176,3 @@ enum NativeFunctions_FFI: NativeFunctions {
         }    
     }
 }
-
-
-
-
-
-
-
-
-
-
-
