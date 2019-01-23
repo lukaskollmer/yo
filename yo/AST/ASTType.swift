@@ -8,13 +8,15 @@
 
 import Foundation
 
-func sizeof(_ type: ASTType) -> Int {
+func sizeof(_ type: ASTType) -> ASTType.Size {
     return type.size
 }
 
 
 /// An `ASTType` describes the type of an identifier: whether it is primitive, complex or a function pointer
 indirect enum ASTType: Equatable, CustomStringConvertible {
+    typealias Size = Int
+    
     case primitive(name: String)    // int/void
     case complex(name: String)      // something declared w/ the `type` or `struct` keyword
     case function(returnType: ASTType, parameterTypes: [ASTType])   // a function pointer
@@ -50,7 +52,7 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
     
     
     // size, in bytes
-    var size: Int {
+    var size: Size {
         switch self {
         case .i8, .bool:
             return 1
