@@ -13,7 +13,7 @@ let VERSION = "0.0.1"
 
 extension CLIOptions {
     static let help = CLIOption<Void>(
-        flag: "-help",
+        flag: "--help",
         description: "Print this message"
     )
     
@@ -23,49 +23,49 @@ extension CLIOptions {
     )
     
     static let checkHeapEmpty = CLIOption<Void>(
-        flag: "-check-heap-empty",
+        flag: "--check-heap-empty",
         description: "After running the program, checks whether the heap is empty and - if not - prints all remaining allocations"
     )
     
     static let printInstructions = CLIOption<Void>(
-        flag: "-print-instructions",
+        flag: "--print-instructions",
         description: "Print pre-finalized instructions to stdout before passing them to the interpreter"
     )
     
     static let printHeap = CLIOption<Void>(
-        flag: "-print-heap",
+        flag: "--print-heap",
         description: "Print the contents of the heap after running the program"
     )
     
     static let heapSize = CLIOption<Int>(
-        flag: "-heap-size",
+        flag: "--heap-size",
         defaultValue: Int(1 << 12),
         description: "Specify the size of the heap"
     )
     
     static let stdlibPath = CLIOption<String>(
-        flag: "-stdlib-path",
+        flag: "--stdlib-path",
         defaultValue: "/Users/lukas/Developer/yo/stdlib",
         description: "Path of the standard library"
     )
     
     static let printAST = CLIOption<Void>(
-        flag: "-print-ast",
+        flag: "--print-ast",
         description: "Print the parsed AST"
     )
     
     static let logAllCalls = CLIOption<Void>(
-        flag: "-log-calls",
+        flag: "--log-calls",
         description: "Log all method calls"
     )
     
     static let recordCallStats = CLIOption<Void>(
-        flag: "-record-call-stats",
+        flag: "--record-call-stats",
         description: "Records all method invocations as a text file (similar to NSObjCMessageLoggingEnabled in Objective-C)"
     )
     
     static let emitSignposts = CLIOption<Void>(
-        flag: "-emit-signposts",
+        flag: "--emit-signposts",
         description: "(internal) Call `kdebug_signpost` et al to mark points of interest"
     )
     
@@ -118,7 +118,7 @@ func printHelpAndExit() -> Never {
 
 }
 
-if CLI.arguments.contains("--help") || CLI.hasFlag(.help) {
+if CLI.hasFlag(.help) {
     printHelpAndExit()
 }
 
@@ -141,4 +141,3 @@ guard FileManager.default.fileExists(atPath: filepath) else {
 
 let heapSize = CLI.value(of: .heapSize)
 exit(try Int32(yo.run(atPath: filepath, heapSize: heapSize)))
-

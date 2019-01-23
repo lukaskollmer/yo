@@ -29,7 +29,7 @@ static BOOL shouldEmitSignposts;
     static id sharedInstance;
     dispatch_once(&once, ^{
         sharedInstance = [[self alloc] init];
-        shouldEmitSignposts = [LKYOCLI hasFlag:@"-emit-signposts"];
+        shouldEmitSignposts = [LKYOCLI hasFlag:@"--emit-signposts"];
     });
     return sharedInstance;
 }
