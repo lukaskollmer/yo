@@ -130,9 +130,9 @@ enum ARC {
             metadata.isDeallocating = true
         
             let typeof = interpreter.procedureEntryAddresses[reverse: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "typeof")]!
-            let type = try! interpreter.call(address: typeof, arguments: [address])
+            let type = interpreter.call(address: typeof, arguments: [address])
             let dealloc_fn_address: Int = heap[type + sizeof(.i64) + sizeof(.String)] // TODO this is tied to the structure of the `Type` struct, which is bad
-            _ = try! interpreter.call(address: dealloc_fn_address, arguments: [address])
+            _ = interpreter.call(address: dealloc_fn_address, arguments: [address])
             
             heap.free(address: address)
         } else {

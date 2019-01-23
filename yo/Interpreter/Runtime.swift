@@ -117,7 +117,7 @@ class Runtime: NativeFunctions {
                 fatalError("Trying to invoke an address which is not a function entry point")
             }
             
-            return try! interpreter.call(address: address, arguments: args) // TODO handle error?
+            return interpreter.call(address: address, arguments: args) // TODO handle error?
         }
         
         
@@ -150,7 +150,7 @@ class Runtime: NativeFunctions {
                     let x = Int(arg0.load(as: T.self))
                     let y = Int(arg1.load(as: T.self))
                     
-                    let retval = try! interpreter.call(address: address, arguments: [x, y])
+                    let retval = interpreter.call(address: address, arguments: [x, y])
                     return retval == Constants.BooleanValues.true ? -1 : 1
                 }
             }

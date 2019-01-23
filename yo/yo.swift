@@ -101,7 +101,7 @@ enum yo {
         
         Profiling.recordStart(event: .interpret)
         let start_timestamp = Date()
-        let retval = try interpreter.run()
+        let retval = interpreter.run()
         Profiling.recordEnd(event: .interpret)
         
         if CLI.hasFlag(.printHeap) {

@@ -63,12 +63,12 @@ class BytecodeInterpreter {
     
     
     /// Evaluate the instructions. Returns the last value on the stack (aka whetever `main` returned)
-    func run() throws -> Int {
+    func run() -> Int {
         
         while instructionPointer < instructions.count && instructionPointer != -1 { // -1 is HALT (TODO implement)
             let previousInstructionPointer = instructionPointer
             
-            try performAtCurrentInstructionPointer()
+            performAtCurrentInstructionPointer()
             
             // TODO we have this code twice (see the simulated function call below). fix that
             if _didStep || instructionPointer == previousInstructionPointer {
@@ -91,23 +91,23 @@ class BytecodeInterpreter {
     }
     
     
-    private func performAtCurrentInstructionPointer() throws {
+    private func performAtCurrentInstructionPointer() {
         // check whether we're calling a native function (native functions have a negative "virtual" address)
         if instructionPointer < 0 {
             let nativeFunction = Runtime.shared[address: instructionPointer]! // TODO the subscript returns an IOU, no idea why the force unwrap is still necessary tbh
             stack.push(nativeFunction.imp(self))
             // return from the native function
-            try eval(InstructionDescriptor(instruction: Operation.ret.encode(withImmediate: nativeFunction.argc)))
+            eval(InstructionDescriptor(instruction: Operation.ret.encode(withImmediate: nativeFunction.argc)))
             
         } else {
             let instruction = instructions[instructionPointer]
-            try eval(instruction)
+            eval(instruction)
         }
     }
     
     
     
-    func call(address: Int, arguments: [Int]) throws -> Int {
+    func call(address: Int, arguments: [Int]) -> Int {
         //print("INIT", stack)
         if address == 0 {
             fatalError("fuckin hell")
@@ -176,7 +176,7 @@ class BytecodeInterpreter {
             }
             
             let previousIP = instructionPointer
-            try performAtCurrentInstructionPointer()
+            performAtCurrentInstructionPointer()
             if _didStep ||  previousIP == instructionPointer {
                 instructionPointer += 1
                 _didStep = false
@@ -187,7 +187,7 @@ class BytecodeInterpreter {
     
     
     
-    private func eval_binop<T>(type: T.Type, fn: (T, T) -> T) throws {
+    private func eval_binop<T>(type: T.Type, fn: (T, T) -> T) {
         // rhs first because lhs is evaluated first, meaning that rhs lies before lhs on the stack
         let rhs = stack.pop()
         let lhs = stack.pop()
@@ -196,7 +196,7 @@ class BytecodeInterpreter {
     }
     
     
-    private func eval_comp<T>(type: T.Type, fn: (T, T) -> Bool) throws {
+    private func eval_comp<T>(type: T.Type, fn: (T, T) -> Bool) {
         let rhs = stack.pop()
         let lhs = stack.pop()
         
@@ -226,7 +226,7 @@ class BytecodeInterpreter {
     }
     
     
-    func eval(_ instruction: InstructionDescriptor) throws {
+    func eval(_ instruction: InstructionDescriptor) {
         let immediate = instruction.immediate
     
         switch instruction.operation {
@@ -235,50 +235,50 @@ class BytecodeInterpreter {
             
         // Arithmetic Operations
         case .add:
-            try eval_binop(type: Int.self, fn: +)
+            eval_binop(type: Int.self, fn: +)
             
         case .d_add:
-            try eval_binop(type: Double.self, fn: +)
+            eval_binop(type: Double.self, fn: +)
             
             
         case .sub:
-            try eval_binop(type: Int.self, fn: -)
+            eval_binop(type: Int.self, fn: -)
         
         case .d_sub:
-            try eval_binop(type: Double.self, fn: -)
+            eval_binop(type: Double.self, fn: -)
             
         
         case .mul:
-            try eval_binop(type: Int.self, fn: *)
+            eval_binop(type: Int.self, fn: *)
             
         case .d_mul:
-            try eval_binop(type: Double.self, fn: *)
+            eval_binop(type: Double.self, fn: *)
         
         case .div:
-            try eval_binop(type: Int.self, fn: /)
+            eval_binop(type: Int.self, fn: /)
             
         case .d_div:
-            try eval_binop(type: Double.self, fn: /)
+            eval_binop(type: Double.self, fn: /)
         
         case .mod:
-            try eval_binop(type: Int.self, fn: %)
+            eval_binop(type: Int.self, fn: %)
             
             
         // Bitwise Operations
         case .and:
-            try eval_binop(type: Int.self, fn: &)
+            eval_binop(type: Int.self, fn: &)
             
         case .or:
-            try eval_binop(type: Int.self, fn: |)
+            eval_binop(type: Int.self, fn: |)
         
         case .xor:
-            try eval_binop(type: Int.self, fn: ^)
+            eval_binop(type: Int.self, fn: ^)
         
         case .shl:
-            try eval_binop(type: Int.self, fn: <<)
+            eval_binop(type: Int.self, fn: <<)
             
         case .shr:
-            try eval_binop(type: Int.self, fn: >>)
+            eval_binop(type: Int.self, fn: >>)
             
             
         case .not:
@@ -298,23 +298,23 @@ class BytecodeInterpreter {
             
         // Comparisons
         case .eq:
-            try eval_comp(type: Int.self, fn: ==)
+            eval_comp(type: Int.self, fn: ==)
             
         case .lt:
-            try eval_comp(type: Int.self, fn: <)
+            eval_comp(type: Int.self, fn: <)
             
         case .le:
-            try eval_comp(type: Int.self, fn: <=)
+            eval_comp(type: Int.self, fn: <=)
             
             
         case .d_eq:
-            try eval_comp(type: Double.self, fn: ==)
+            eval_comp(type: Double.self, fn: ==)
             
         case .d_lt:
-            try eval_comp(type: Double.self, fn: <)
+            eval_comp(type: Double.self, fn: <)
             
         case .d_le:
-            try eval_comp(type: Double.self, fn: <=)
+            eval_comp(type: Double.self, fn: <=)
             
         
         
