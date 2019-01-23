@@ -70,7 +70,7 @@
 - [ ] allow lambdas w/out the parens and a single expression?
 
 **conditions**
-- [ ] OR comp where both sides are true fail (ie `true == true || false == false`)
+- [x] OR comp where both sides are true fail (ie `true == true || false == false`)
 
 **native function naming**
 - [ ] use underscore to indicate that a function is implemented as a native function and therefore doesn't retain/release its arguments?
