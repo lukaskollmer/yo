@@ -206,6 +206,25 @@ class BytecodeInterpreter {
     
     
     
+    private func loadh_impl_for_type<T: BinaryInteger>(_ type: T.Type) {
+        let address = stack.pop()
+        let offset  = stack.pop()
+        
+        let value: T = heap[address + offset]
+        stack.push(Int(value))
+    }
+    
+    private func storeh_impl_for_type<T: BinaryInteger>(_ type: T.Type) {
+        let address = stack.pop()
+        let offset  = stack.pop()
+        let value   = stack.pop()
+        
+        guard let _value = T(exactly: value) else {
+            fatalError("Error: Unable to represent value as \(T.self)")
+        }
+        heap[address + offset] = _value
+    }
+    
     
     func eval(_ instruction: InstructionDescriptor) throws {
         let immediate = instruction.immediate
@@ -324,62 +343,32 @@ class BytecodeInterpreter {
             
             
         // Heap operations
-        case .loadh:
-            let address = stack.pop()
-            let offset  = stack.pop()
             
-            func read_and_push_to_stack<T: BinaryInteger>(_ type: T.Type) {
-                let value: T = heap[address + offset]
-                stack.push(Int(value))
-            }
+        case .loadh_8:
+            loadh_impl_for_type(Int8.self)
             
-            switch immediate {
-            case sizeof(.i8):
-                read_and_push_to_stack(Int8.self)
-                
-            case sizeof(.i16):
-                read_and_push_to_stack(Int16.self)
-                
-            case sizeof(.i32):
-                read_and_push_to_stack(Int32.self)
-                
-            case sizeof(.i64):
-                read_and_push_to_stack(Int64.self)
-                
-            default:
-                fatalError("unhandled `loadh` size \(immediate)")
-            }
+        case .loadh_16:
+            loadh_impl_for_type(Int16.self)
+            
+        case .loadh_32:
+            loadh_impl_for_type(Int32.self)
+            
+        case .loadh_64:
+            loadh_impl_for_type(Int64.self)
             
             
+        case .storeh_8:
+            storeh_impl_for_type(Int8.self)
             
-        case .storeh:
-            let address = stack.pop()
-            let offset  = stack.pop()
-            let value   = stack.pop()
+        case .storeh_16:
+            storeh_impl_for_type(Int16.self)
             
-            func write<T: SignedInteger>(_ type: T.Type) {
-                guard let _value = T(exactly: value) else {
-                    fatalError("Error: Unable to represent value as \(T.self)")
-                }
-                heap[address + offset] = _value
-            }
+        case .storeh_32:
+            storeh_impl_for_type(Int32.self)
             
-            switch immediate {
-            case sizeof(.i8):
-                write(Int8.self)
+        case .storeh_64:
+            storeh_impl_for_type(Int64.self)
             
-            case sizeof(.i16):
-                write(Int16.self)
-            
-            case sizeof(.i32):
-                write(Int32.self)
-            
-            case sizeof(.i64):
-                write(Int64.self)
-                
-            default:
-                fatalError("unhandled 'storeh' size \(immediate)")
-            }
             
             
         case .loadc: // load constant

@@ -617,13 +617,35 @@ private extension BytecodeCompiler {
     }
     
     
+    func loadh_operation(forSize size: ASTType.Size) -> Operation {
+        switch size {
+        case sizeof(.i8):  return .loadh_8
+        case sizeof(.i16): return .loadh_16
+        case sizeof(.i32): return .loadh_32
+        case sizeof(.i64): return .loadh_64
+        default: fatalError("unsupported size")
+        }
+    }
+    
+    
+    func storeh_operation(forSize size: ASTType.Size) -> Operation {
+        switch size {
+        case sizeof(.i8):  return .storeh_8
+        case sizeof(.i16): return .storeh_16
+        case sizeof(.i32): return .storeh_32
+        case sizeof(.i64): return .storeh_64
+        default: fatalError("unsupported size")
+        }
+    }
+    
+    
     func handle(arrayGetter: ASTArrayGetter) throws {
         let (elementSize, offset) = try _adjustSubscriptOffset(target: arrayGetter.target, offset: arrayGetter.offset)
         
         try handle(node: offset)
         try handle(node: arrayGetter.target)
         
-        add(.loadh, arrayGetter.typeOfAccessedField?.size ?? elementSize)
+        add(loadh_operation(forSize: arrayGetter.typeOfAccessedField?.size ?? elementSize))
     }
     
     
@@ -634,7 +656,8 @@ private extension BytecodeCompiler {
         try handle(node: offset)
         try handle(node: arraySetter.target)
         
-        add(.storeh, sizeof(try guessType(ofExpression: arraySetter.value)))
+        add(storeh_operation(forSize: sizeof(try guessType(ofExpression: arraySetter.value))))
+        //add(.storeh, sizeof(try guessType(ofExpression: arraySetter.value)))
     }
 
     

@@ -85,9 +85,10 @@ enum Operation: UInt8, NameInitializable {
     case load   // copies the value in the frame at the index specified by the immediate onto the stack
     case store  // pops a value off the stack and stores it in the frame, at the index specified by the immediate
     
+    
     // heap operations
-    case loadh  // read a value from an array allocated on the heap
-    case storeh // write a value to an array allocated on the heap
+    case loadh_8, loadh_16, loadh_32, loadh_64      // read a value from an array allocated on the heap
+    case storeh_8, storeh_16, storeh_32, storeh_64  // write a value to an array allocated on the heap
     case loadc  // load the array constant starting at immediate into a heap array and push the address onto the heap
     
     case readh  // read a value from the address in the immediate
