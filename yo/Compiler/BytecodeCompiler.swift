@@ -1739,25 +1739,24 @@ private extension BytecodeCompiler {
     func handle(boxedExpression: ASTBoxedExpression) throws {
         let type = try guessType(ofExpression: boxedExpression.expression)
         
-        let supportedTypes = ASTType.intTypes + [ASTType.bool, .double]
-        guard supportedTypes.contains(type) else {
+        guard type.isTriviallyRepresentableAsInteger || type == .double else {
             fatalError("Unable to box expression of type \(type)")
         }
         
-        let _type: Int = {
-            switch type {
-            case _ where ASTType.intTypes.contains(type):
-                return Constants.NumberTypeMapping.integer
-            
-            case .bool:   return Constants.NumberTypeMapping.boolean
-            case .double: return Constants.NumberTypeMapping.double
-            default: fatalError()
-            }
-        }()
+        let _type: Int
+        
+        switch type {
+        case .bool:
+            _type = Constants.NumberTypeMapping.boolean
+        case .double:
+            _type = Constants.NumberTypeMapping.double
+        default:
+            _type = Constants.NumberTypeMapping.integer
+        }
         
         let initCall = ASTFunctionCall(
             functionName: SymbolMangling.mangleInitializer(forType: "Number"),
-            arguments: [boxedExpression.expression, ASTNumberLiteral(value: _type)],
+            arguments: [boxedExpression.expression, ASTNumberLiteral(value: _type).as(.any)],
             unusedReturnValue: false
         )
         
@@ -2047,7 +2046,7 @@ private extension BytecodeCompiler {
     func boxedType(ofExpression expression: ASTExpression) throws -> ASTType {
         let type = try guessType(ofExpression: expression)
         switch type {
-        case .bool, .double,
+        case .bool, .double, ._enum(_),
         _ where ASTType.intTypes.contains(type):
             return .complex(name: "Number")
         default:

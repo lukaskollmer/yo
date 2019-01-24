@@ -131,6 +131,21 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
         return ASTType.intTypes.contains(self)
     }
     
+    var isBool: Bool {
+        return self == .bool
+    }
+    
+    var isEnum: Bool {
+        if case ._enum(_) = self {
+            return true
+        }
+        return false
+    }
+    
+    var isTriviallyRepresentableAsInteger: Bool {
+        return isBool || isEnum || ASTType.intTypes.contains(self)
+    }
+    
     
     func isCompatible(with other: ASTType) -> Bool {
         let both = [self, other]
@@ -142,6 +157,12 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
         if both.contains(.id) && both.all({ $0.isComplex }) {
             return true
         }
+        
+        // TODO is this going too far?
+        // Basically, the purpose of this if statement is allowing ints to be passed where an enum is expected
+        //if self.isTriviallyRepresentableAsInteger && other.isTriviallyRepresentableAsInteger {
+        //    return true
+        //}
         
         if both.all(ASTType.intTypes.contains) && self.size <= other.size {
             return true

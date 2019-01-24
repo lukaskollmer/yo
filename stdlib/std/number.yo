@@ -1,24 +1,31 @@
 // std/number
 
+
+enum _NumberType {
+    integer,
+    bool,
+    double
+};
+
 struct Number {
     _value: any,
-    _type: int
+    _type: _NumberType
 };
 
 impl Number {
 
     static fn fromInt(value: int): Number {
-        ret Number::init(value, 0);
+        ret Number::init(value, _NumberType.integer);
     }
 
 
     static fn fromBoolean(value: bool): Number {
-        ret Number::init(value, 1);
+        ret Number::init(value, _NumberType.bool);
     }
 
 
     static fn fromDouble(value: double): Number {
-        ret Number::init(value, 2);
+        ret Number::init(value, _NumberType.double);
     }
 
 
@@ -39,7 +46,7 @@ impl Number {
 
 
     fn hashValue(self: Number): int {
-        ret ((self._value as int) << 2) | self._type;
+        ret ((self._value as int) << 2) | (self._type as int);
     }
 
 
