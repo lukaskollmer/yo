@@ -89,7 +89,7 @@ extension AutoSynthesizedCodeGen {
                             
                         let value: ASTExpression = {
                             let initialValue = global.initialValue!
-                            if !global.type.supportsReferenceCounting {
+                            if !compiler.typeCache.supportsArc(global.type) {
                                 return initialValue
                             } else {
                                 return ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
@@ -148,7 +148,7 @@ extension AutoSynthesizedCodeGen {
                 // release all complex globals w/ an initial value
                 ASTComposite(statements:
                     globals
-                        .filter { $0.type.supportsReferenceCounting }
+                        .filter { compiler.typeCache.supportsArc($0.type) }
                         .map {
                             ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
                                 $0.identifier,

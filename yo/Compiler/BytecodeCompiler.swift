@@ -63,6 +63,18 @@ class ConstantArrayLiteralsCache {
     }
 }
 
+private var ASTDeferStatement_associatedIdentifierHandle: UInt8 = 0
+private extension ASTDeferStatement {
+    var associatedIdentifier: ASTIdentifier! {
+        get {
+            return objc_getAssociatedObject(self, &ASTDeferStatement_associatedIdentifierHandle) as? ASTIdentifier
+        }
+        set {
+            objc_setAssociatedObject(self, &ASTDeferStatement_associatedIdentifierHandle, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+    }
+}
+
 
 // MARK: Codegen
 
@@ -74,6 +86,7 @@ class BytecodeCompiler {
     private var lambdaCounter = Counter()
     private var forLoopCounter = Counter()
     private let constantArrayLiteralsCache = ConstantArrayLiteralsCache()
+    private var counter = Counter()
     
     
     // Scope info
@@ -421,7 +434,7 @@ private extension BytecodeCompiler {
             
             if arcEnabledInCurrentScope {
                 try signature.parameters
-                    .filter { $0.type.supportsReferenceCounting && typeCache.supportsArc($0.type) }
+                    .filter { typeCache.supportsArc($0.type) }
                     .forEach { try retain(expression: $0.identifier) }
             }
             
@@ -482,17 +495,41 @@ private extension BytecodeCompiler {
         }
         
         
-        var statements = composite.statements
         
-        if statements.any({ $0 is ASTDeferStatement }) {
-            let allDeferStatements = statements.remove { $0 is ASTDeferStatement }
-            
-            let insertionPoint = !hasReturnStatement
-                ? statements.count
-                : statements.firstIndex { $0 is ASTReturnStatement }!
-            
-            statements.insert(contentsOf: allDeferStatements, at: insertionPoint)
+        // Handle defer blocks
+        
+        let DeferHandleType = ASTType.complex(name: "_DeferHandle")
+        
+        let deferHandles: [ASTVariableDeclaration] = composite.statements
+            .compactMap { $0 as? ASTDeferStatement }
+            .map { stmt in
+                let identifier = ASTIdentifier("%defer_handle_\(counter.get())")
+                stmt.associatedIdentifier = identifier
+                return ASTVariableDeclaration(identifier: identifier, type: DeferHandleType)
+            }
+        
+        localVariables.append(contentsOf: deferHandles)
+        
+        
+        func handleDeferStatement(_ deferStatement: ASTDeferStatement) throws {
+            let assignment = ASTAssignment(
+                target: deferStatement.associatedIdentifier,
+                value: ASTFunctionCall(
+                    functionName: SymbolMangling.mangleInitializer(forType: "_DeferHandle"),
+                    arguments: [
+                        ASTLambda(
+                            signature: .unresolved,
+                            parameters: [],
+                            body: deferStatement.body
+                        )
+                    ],
+                    unusedReturnValue: false
+                )
+            )
+            try handle(node: assignment)
         }
+        
+        
         
         
         // TODO maybe include a check to make sure that we managed to infer all types?
@@ -508,25 +545,41 @@ private extension BytecodeCompiler {
             localVariables.append(retval_temp_storage)
         }
         
+        
         try withScope(scope.adding(localVariables: localVariables)) {
             add(.alloc, localVariables.count)
             
             if !hasReturnStatement {
-                try statements.forEach(handle)
-                let localVariables = statements.getLocalVariables(recursive: false)
+                for statement in composite.statements {
+                    if let deferStatement = statement as? ASTDeferStatement {
+                        try handleDeferStatement(deferStatement)
+                    } else {
+                        try handle(node: statement)
+                    }
+                }
+                
+                // Release defer handles
+                try deferHandles.forEach { try release(expression: $0.identifier) }
+                
+                // This does not include any potential defer handles
+                let localVariables = composite.statements.getLocalVariables(recursive: false)
                 
                 try localVariables
-                    .filter { variable in
-                        let type = try scope.type(of: variable.identifier.value)
-                        return type.supportsReferenceCounting && typeCache.supportsArc(type)
-                    }
+                    .filter { typeCache.supportsArc($0.type) }
                     .forEach { try release(expression: $0.identifier) }
-                for _ in 0..<localVariables.count { add(.pop) }
+                
+                add(.popi, localVariables.count + deferHandles.count)
             } else {
                 // the composite contains a return statement
                 // this means that we need to insert release calls for all objects in the local scope before handling the return statement
+                // We also have to make sure that defer blocks are called before local variables are released
                 
-                for statement in statements {
+                for statement in composite.statements {
+                    if let deferBlock = statement as? ASTDeferStatement {
+                        try handleDeferStatement(deferBlock)
+                        continue
+                    }
+                    
                     if arcEnabledInCurrentScope, let returnStatement = statement as? ASTReturnStatement {
                         
                         let returnedLocalIdentifier: ASTIdentifier?
@@ -534,7 +587,7 @@ private extension BytecodeCompiler {
                         if let _returnedLocalIdentifier = returnStatement.expression as? ASTIdentifier,
                             scope.contains(identifier: _returnedLocalIdentifier.value),
                             case let type = try scope.type(of: _returnedLocalIdentifier.value),
-                            type.supportsReferenceCounting && typeCache.supportsArc(type)
+                            typeCache.supportsArc(type)
                         {
                             returnedLocalIdentifier = _returnedLocalIdentifier
                         } else {
@@ -549,13 +602,23 @@ private extension BytecodeCompiler {
                         
                         try handle(assignment: storeRetval)
                         
+                        // Release all defer handles
+                        // We can't use rhe `deferHandles` array from above since this might very well be a nested scope
+                        for deferHandle in scope.localVariables.filter({ $0.type == DeferHandleType }) {
+                            if deferHandle != retval_temp_storage && (returnedLocalIdentifier == nil || deferHandle.identifier != returnedLocalIdentifier!) {
+                                try release(expression: deferHandle.identifier)
+                            }
+                        }
+                        
+                        
                         if arcEnabledInCurrentScope {
                             try (scope.parameters + scope.localVariables)
                                 .filter { $0 != retval_temp_storage }
+                                .filter { $0.type != DeferHandleType }
                                 .filter { returnedLocalIdentifier == nil || $0.identifier != returnedLocalIdentifier! }
                                 .forEach { variable in
                                     let type = try scope.type(of: variable.identifier.value)
-                                    if type.supportsReferenceCounting && typeCache.supportsArc(type) {
+                                    if typeCache.supportsArc(type) {
                                         try release(expression: variable.identifier)
                                     }
                                 }
@@ -564,7 +627,6 @@ private extension BytecodeCompiler {
                                 try call(SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "markForRelease"), arguments: [returnedLocalIdentifier])
                             }
                         }
-                        
                         
                         try handle(return: ASTReturnStatement(expression: retval_temp_storage.identifier))
                         
@@ -797,7 +859,7 @@ private extension BytecodeCompiler {
             fatalError("cannot assign value of type `\(rhsType)` to `\(lhsType)`")
         }
         
-        let shouldArcLhs = assignment.shouldRetainAssignedValueIfItIsAnObject && arcEnabledInCurrentScope && lhsType.supportsReferenceCounting && typeCache.supportsArc(lhsType) // TODO the last 2 seem a bit redunant
+        let shouldArcLhs = assignment.shouldRetainAssignedValueIfItIsAnObject && arcEnabledInCurrentScope && typeCache.supportsArc(lhsType)
         
         var target: ASTExpression = assignment.target
         
@@ -1253,7 +1315,7 @@ private extension BytecodeCompiler {
         add(.call, !isVariadic ? numberOfFixedArguments : numberOfFixedArguments + 1)
         
         if functionCall.unusedReturnValue {
-            if functionSignature.returnType.supportsReferenceCounting {
+            if typeCache.supportsArc(functionSignature.returnType) {
                 // return value is still on the stack
                 try release(expression: ASTNoop())
             } else {

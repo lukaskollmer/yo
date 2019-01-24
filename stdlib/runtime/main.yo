@@ -1,3 +1,15 @@
 use "runtime/object";
 use "runtime/metatypes";
 use "runtime/utils";
+
+
+struct _DeferHandle {
+    imp: fn<(): void>
+};
+
+impl _DeferHandle {
+    fn dealloc(self: _DeferHandle): void {
+        val imp = self.imp;
+        imp();
+    }
+}

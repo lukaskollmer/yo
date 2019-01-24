@@ -138,6 +138,19 @@ extension Sequence {
     func firstIndex(after index: Int, where block: (Element) -> Bool) -> Int? {
         return self.lazy.enumerated().first(where: { $0.offset > index && block($0.1) })?.offset
     }
+    
+    func count(where block: (Element) throws -> Bool) rethrows -> Int {
+        var count = 0
+        for element in self where try block(element) {
+            count += 1
+        }
+        return count
+    }
+    
+    func peek(_ block: (Element) throws -> Void) rethrows -> Self {
+        try forEach(block)
+        return self
+    }
 }
 
 

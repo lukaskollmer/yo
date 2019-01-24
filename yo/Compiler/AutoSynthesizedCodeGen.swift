@@ -224,9 +224,8 @@ class AutoSynthesizedCodeGen {
                     statements: structDeclaration.attributes.map { attribute -> ASTStatement in
                         return ASTArraySetter(
                             target: _self,
-                            //offset: ASTNumberLiteral(value: offset + (typeDeclaration.isStruct ? 0 : 1)),
                             offset: ASTNumberLiteral(value: compiler.typeCache.offset(ofMember: attribute.identifier.value, inType: typename)),
-                            value: structDeclaration.hasMetadataDisabled || !attribute.type.supportsReferenceCounting
+                            value: structDeclaration.hasMetadataDisabled || !compiler.typeCache.supportsArc(attribute.type)
                                 ? attribute.identifier
                                 : ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
                                     attribute.identifier,
@@ -276,7 +275,7 @@ class AutoSynthesizedCodeGen {
                 // 2. release all refcounted attributes
                 ASTComposite(
                     statements: structDeclaration.attributes
-                        .filter { $0.type.supportsReferenceCounting && compiler.typeCache.supportsArc($0.type) }
+                        .filter { compiler.typeCache.supportsArc($0.type) }
                         .map {
                             ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
                                 ASTMemberAccess(members: [.initial_identifier(_self), .attribute(name: $0.identifier)]),

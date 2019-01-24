@@ -87,6 +87,10 @@ class TypeCache {
     
     
     func supportsArc(_ type: ASTType) -> Bool {
+        guard type.supportsReferenceCounting else {
+            return false
+        }
+        
         switch type {
         // Types where we always return false
         case ._enum(_),

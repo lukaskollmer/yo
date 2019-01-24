@@ -82,6 +82,7 @@ enum Operation: UInt8, NameInitializable {
     case push   // push the immediate onto the stack
     case push64 // push the entire contents of the next instruction onto the stack
     case pop    // pop a value off the stack and discard it
+    case popi   // pop {immediate} values off the stack and discard them
     case load   // copies the value in the frame at the index specified by the immediate onto the stack
     case store  // pops a value off the stack and stores it in the frame, at the index specified by the immediate
     

@@ -321,7 +321,7 @@ class BytecodeInterpreter {
         // Stack operations
         case .alloc:
             for _ in 0..<immediate {
-                stack.push(0)
+                stack.push(0) // TODO what about just updating the stack pointer?
             }
         
         case .push:
@@ -334,6 +334,11 @@ class BytecodeInterpreter {
             
         case .pop:
             stack.pop()
+        
+        case .popi:
+            for _ in 0..<immediate {
+                stack.pop()
+            }
             
         case .load:
             stack.push(stack.getFrameElement(atIndex: immediate))
