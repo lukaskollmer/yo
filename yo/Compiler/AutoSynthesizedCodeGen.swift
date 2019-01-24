@@ -226,7 +226,7 @@ class AutoSynthesizedCodeGen {
                             target: _self,
                             //offset: ASTNumberLiteral(value: offset + (typeDeclaration.isStruct ? 0 : 1)),
                             offset: ASTNumberLiteral(value: compiler.typeCache.offset(ofMember: attribute.identifier.value, inType: typename)),
-                            value: structDeclaration.hasMetadataDisabled || !attribute.type.isComplex
+                            value: structDeclaration.hasMetadataDisabled || !attribute.type.supportsReferenceCounting
                                 ? attribute.identifier
                                 : ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
                                     attribute.identifier,
