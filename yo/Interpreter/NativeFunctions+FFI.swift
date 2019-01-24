@@ -96,7 +96,7 @@ enum NativeFunctions_FFI: NativeFunctions {
         // - #parameters
         // - parameter types (pointer to Array backing)
         // - lib handle
-        runtime["ffi", "declareFunction", .int, [.String, .int, .int, .ref(.int), .ref(.int)]] = { interpreter in
+        runtime["ffi", "declareFunction", .int, [.String, .int, .int, .ref(.int), .int]] = { interpreter in
             let symbol = getString(0, interpreter)
             let returnType = ffi_type_mapping[interpreter.stack.peek(offset: -1)]
             let argc = interpreter.stack.peek(offset: -2)
