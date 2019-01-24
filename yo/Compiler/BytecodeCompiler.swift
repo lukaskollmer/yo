@@ -75,6 +75,8 @@ private extension ASTDeferStatement {
     }
 }
 
+private let ReservedIdentifiers: [ASTIdentifier] = ["nil"]
+
 
 // MARK: Codegen
 
@@ -137,6 +139,8 @@ class BytecodeCompiler {
         
         // We have to append the globals found during semantic analysis later to make sure they come after the type metatables
         globals.append(contentsOf: semanticAnalysis.globals)
+        
+        globals.forEach { guard_identifierIsLegal($0.identifier) }
         
         // resolve enum parameters
         // TODO this is a shitty implementation
@@ -316,6 +320,7 @@ private extension BytecodeCompiler {
             try handle(assignment: assignment)
             
         } else if let variableDeclaration = node as? ASTVariableDeclaration {
+            guard_identifierIsLegal(variableDeclaration.identifier)
             if let initialValue = variableDeclaration.initialValue {
                 try handle(assignment: ASTAssignment(target: variableDeclaration.identifier, value: initialValue))
             }
@@ -1349,6 +1354,9 @@ private extension BytecodeCompiler {
                 prettyFunctionName += functionInfo.returnType.typename
                 
                 try handle(stringLiteral: ASTStringLiteral(value: prettyFunctionName))
+                
+            case .nil:
+                try handle(numberLiteral: ASTNumberLiteral(value: 0))
             }
             
             return
@@ -1965,6 +1973,12 @@ private extension BytecodeCompiler {
             identifiers.append(identifier)
         }
     }
+    
+    func guard_identifierIsLegal(_ identifier: ASTIdentifier) {
+        if ReservedIdentifiers.contains(identifier) {
+            fatalError("Identifier '\(identifier.value)' is reserved")
+        }
+    }
 }
 
 
@@ -1992,6 +2006,7 @@ private extension BytecodeCompiler {
     func guessType(ofExpression expression: ASTExpression, additionalIdentifiers: [ASTVariableDeclaration] = []) throws -> ASTType {
         return try withScope(scope.adding(localVariables: additionalIdentifiers)) {
             if let identifier = expression as? ASTIdentifier {
+                
                 if identifier.isBuiltin {
                     return identifier.builtin_type
                 }

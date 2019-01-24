@@ -12,6 +12,7 @@ import Foundation
 extension ASTIdentifier {
     enum Builtin : String {
         case function
+        case `nil`
     }
     
     var builtin_identifier: ASTIdentifier.Builtin {
@@ -26,6 +27,8 @@ extension ASTIdentifier {
         switch builtin_identifier {
         case .function:
             return .String
+        case .nil:
+            return .id
         }
     }
 }

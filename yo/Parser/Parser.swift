@@ -78,11 +78,11 @@ extension mpc_ast_t {
     }
     
     var lk_tag: String {
-        return String(cString: self.tag)
+        return String(bytesNoCopy: self.tag, length: strlen(self.tag), encoding: .utf8, freeWhenDone: false)!
     }
     
     var lk_content: String {
-        return String(cString: self.contents)
+        return String(bytesNoCopy: self.contents, length: strlen(self.contents), encoding: .utf8, freeWhenDone: false)!
     }
     
     
@@ -1065,7 +1065,9 @@ class Parser {
     func parseIdentifier(_ ast: mpc_ast_t) throws -> ASTIdentifier {
         guard ast.lk_tag.hasSuffix("ident|regex") else { fatalError() }
         
-        // TODO add support for builtin identifiers (like `#function`)
+        if ast.lk_content.first == "#" {
+            return ASTIdentifier(builtin: String(ast.lk_content.dropFirst()))
+        }
         return ASTIdentifier(value: ast.lk_content)
     }
     
