@@ -5,6 +5,7 @@ use "std/string_builder";
 struct Array {
     _count: int,
     _allocatedLength: int,
+    // TODO make _backing `ref int`?
     _backing: int
 };
 
