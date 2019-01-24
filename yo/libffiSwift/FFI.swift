@@ -29,7 +29,10 @@ class FFIFunction {
     private var arguments: UnsafeMutablePointer<UnsafeMutableRawPointer?>
     
     init(symbol: String, handle: UnsafeMutableRawPointer? = nil, returnType: FFIType, parameterTypes: [FFIType], isVariadic: Bool = false) {
-        self.functionPointer = unsafeBitCast(dlsym(handle ?? FFIFunction._defaultHandle, symbol), to: FunctionPointerType.self)
+        guard let symbolPtr = dlsym(handle ?? FFIFunction._defaultHandle, symbol) else {
+            fatalError("[FFI] Unable to load symbol '\(symbol)'")
+        }
+        self.functionPointer = unsafeBitCast(symbolPtr, to: FunctionPointerType.self)
         
         self.returnType = returnType
         self.parameterTypes = parameterTypes
