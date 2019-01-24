@@ -37,7 +37,6 @@ impl HashMap {
     }
 
 
-    // TODO support inserting duplicate keys!!!
     fn insert(self: HashMap, key: String, value: id): void {
         if self._usedSize >= (self._allocatedSize - 5) {
             self._resize(true);

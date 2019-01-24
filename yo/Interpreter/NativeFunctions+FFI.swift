@@ -9,6 +9,11 @@
 import Foundation
 
 
+@_silgen_name("lk_add")
+func add(_ x: Int, y: Int) -> Int {
+    return x + y
+}
+
 // WIP
 
 private let ffi_type_mapping: [FFIType] = [
@@ -24,155 +29,116 @@ private let ffi_type_mapping: [FFIType] = [
 
 private var _functions = [FFIFunction]()
 
+
+// This is either a fucking genius idea, or absolutely terrible
+private class RetainPool<T: AnyObject> {
+    private var objects = [Int : T]()
+    private var counter = Counter()
+    
+    init() {}
+    
+    func retain(_ object: T) -> Int {
+        let id = counter.get()
+        self.objects[id] = object
+        return id
+    }
+    
+    func release(id: Int) -> T? {
+        return objects.removeValue(forKey: id)!
+    }
+    
+    func get(id: Int) -> T {
+        return objects[id]!
+    }
+}
+
+private let ffi_function_pool = RetainPool<FFIFunction>()
+
+
 enum NativeFunctions_FFI: NativeFunctions {
+    
+    private static func retain(offset: Int, interpreter: BytecodeInterpreter) {
+        let address = interpreter.stack.peek(offset: offset)
+        ARC.retain(address, heap: interpreter.heap)
+    }
+    
+    private static func release(offset: Int, interpreter: BytecodeInterpreter) {
+        let address = interpreter.stack.peek(offset: offset)
+        ARC.release(address, interpreter: interpreter)
+    }
+        
+    
     static func register(_ runtime: Runtime) {
         
-        runtime["ffi", "_call_old", .int, [.String, .int]] = { interpreter in
-            let _symbolName = getString(0, interpreter)
-            let returnType = ffi_type_mapping[interpreter.stack.peek(offset: -1)]
-            
-            let functionInvocation = FFIFunction(symbol: _symbolName, returnType: returnType, parameterTypes: [])
-            return functionInvocation.invoke() as Int
-        }
         
-        
-        runtime["ffi", "_call", .int, [.int, .int]] = { interpreter in
-            var _handle = interpreter.stack.peek()
-            let fn: FFIFunction = cast(&_handle)
+        runtime["ffi", "dlopen", .int, [.String]] = { interpreter in
+            retain(offset: 0, interpreter: interpreter)
+            defer { release(offset: 0, interpreter: interpreter) }
             
-            let arguments_ptr = interpreter.stack.peek(offset: -1)
-            
-            for i in 0..<fn.parameterTypes.count {
-                fatalError("TODO: implement")
-                //interpreter.heap.backing.withUnsafeMutableBufferPointer { ptr in
-                //    fn.setArgument(ptr.baseAddress!.advanced(by: arguments_ptr + i), atIndex: i)
-                //}
+            let path = getString(0, interpreter)
+            if let handle = dlopen(path, RTLD_LAZY) {
+                return Int(bitPattern: handle)
             }
-            
-            return fn.invoke() as Int
+            return 0
         }
         
         
+        runtime["ffi", "dlclose", .int, [.int]] = { interpreter in
+            let handle = UnsafeMutableRawPointer(bitPattern: interpreter.stack.peek())
+            return Int(dlclose(handle))
+        }
         
         
         
         // Parameters:
-        // - (String)   symbol name
-        // - (int)      return type
-        // - (int)      argc
-        // - (int)      pointer to array containing argument types
-        // - (int)      lib handle
-        // - (bool)     is variadic
-        runtime["ffi", "_declareFunction", .int, [.String, .int, .int, .int, .int, .bool]] = { interpreter in
-            let _symbolName = getString(0, interpreter)
+        // - symbol
+        // - return type
+        // - #parameters
+        // - parameter types (pointer to Array backing)
+        // - lib handle
+        runtime["ffi", "declareFunction", .int, [.String, .int, .int, .ref(.int), .ref(.int)]] = { interpreter in
+            let symbol = getString(0, interpreter)
             let returnType = ffi_type_mapping[interpreter.stack.peek(offset: -1)]
             let argc = interpreter.stack.peek(offset: -2)
             let parameterTypesPtr = interpreter.stack.peek(offset: -3)
-            var _libHandle  = interpreter.stack.peek(offset: -4)
-            let isVariadic = interpreter.stack.peek(offset: -5) == Constants.BooleanValues.true
+            let handle = UnsafeMutableRawPointer(bitPattern: interpreter.stack.peek(offset: -4))
             
             var parameterTypes = [FFIType]()
             
             for i in 0..<argc {
-                let numberPtr = interpreter.heap[_64: parameterTypesPtr + i]
+                let numberPtr = interpreter.heap[_64: parameterTypesPtr + i * sizeof(.id)]
                 let intValue = number_getIntValue(address: numberPtr, heap: interpreter.heap)
                 let type = ffi_type_mapping[intValue]
                 parameterTypes.append(type)
             }
             
-            
-            var fn = FFIFunction(
-                symbol: _symbolName,
-                handle: _libHandle == 0 ? nil : cast(&_libHandle),
+            let fn = FFIFunction(
+                symbol: symbol,
+                handle: handle,
                 returnType: returnType,
-                parameterTypes: parameterTypes
+                parameterTypes: parameterTypes,
+                isVariadic: false // TODO implement
             )
-            _functions.append(fn) // retain it
             
-            return cast(&fn)
+            return ffi_function_pool.retain(fn)
+        }
+        
+        
+        runtime["ffi", "invoke", .i64, [.int, .int]] = { interpreter in
+            let function = ffi_function_pool.get(id: interpreter.stack.peek())
+            let argsPtr = interpreter.stack.peek(offset: -1) // Pointer to int array
             
-            /*let libobjc = dlopen("/usr/lib/libobjc.A.dylib", RTLD_LAZY)!
-            
-            let _objc_getClass = FFIFunctionInvocation(symbol: "objc_getClass", handle: libobjc, returnType: .pointer, parameterTypes: [.pointer])
-            
-            var text = "NSString".utf8CString
-            
-            var arg: UnsafePointer<CChar>!
-            text.withUnsafeBufferPointer { ptr in
-                arg = ptr.baseAddress!
+            let read: (Int) -> Int = {
+                interpreter.heap[_64: argsPtr + $0 * sizeof(.i64)]
             }
             
-            _objc_getClass.setArgument(&arg, atIndex: 0)
+            let argc = function.isVariadic ? read(0) : function.parameterTypes.count
             
-            var ptr: Int = _objc_getClass.invoke()
-            print("ptr", ptr)
-            
-            
-            
-            
-            let _class_getName = FFIFunctionInvocation(symbol: "class_getName", handle: libobjc, returnType: .pointer, parameterTypes: [.pointer])
-            
-            _class_getName.setArgument(&ptr, atIndex: 0)
-            
-            let _classname: UnsafePointer<CChar> = _class_getName.invoke()
-            print("name", _classname)
-            puts(_classname)*/
-        }
-        
-        
-        // Parameters:
-        // - path
-        // - mode
-        runtime["ffi", "_dlopen", .int, [.String]] = { interpreter in
-            let path = getString(0, interpreter)
-            
-            guard var handle = dlopen(path, RTLD_LAZY) else {
-                return -1
+            for i in 0..<argc {
+                function.setArgument(interpreter.heap.base.advanced(by: argsPtr + i * sizeof(.i64)), atIndex: i)
             }
             
-            return cast(&handle)
+            return function.invoke() as Int
         }
-        
-        
-        // TODO implement
-        runtime["ffi", "_dlclose", .int, [.int]] = { interpreter in
-            //dlclose(<#T##__handle: UnsafeMutableRawPointer!##UnsafeMutableRawPointer!#>)
-            fatalError()
-        }
-        
-        
-        
-        
-        // MARK: C String Utils
-        
-        
-        runtime["ffi", "_allocCString", .int, [.String]] = { interpreter in
-            let inputString = getString(0, interpreter)
-            
-            var dest = malloc(MemoryLayout<CChar>.size * inputString.count + 1).bindMemory(to: CChar.self, capacity: inputString.count + 1)
-            let src = inputString.utf8CString.withUnsafeBufferPointer { $0.baseAddress }
-            strcpy(dest, src)
-            
-            return cast(&dest)
-        }
-        
-        
-        runtime["ffi", "_printCString", .void, [.int]] = { interpreter in
-            var ptr = interpreter.stack.peek()
-            
-            let str: UnsafePointer<CChar> = cast(&ptr)
-            puts(str)
-            
-            return 0
-        }
-        
-        runtime["ffi", "_freeCString", .void, [.int]] = { interpreter in
-            var ptr = interpreter.stack.peek()
-            
-            let str: UnsafeMutablePointer<CChar> = cast(&ptr)
-            free(str)
-            
-            return 0
-        }    
     }
 }

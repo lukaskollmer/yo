@@ -17,9 +17,9 @@ protocol NativeFunctions {
 extension NativeFunctions {
     
     static func number_getIntValue(address: Int, heap: Heap) -> Int {
-        fatalError("needs updated implementation")
-        let value = heap[_64: address + 1]
-        let type = heap[_64: address + 2]
+        let value = heap[_64: address + sizeof(.i64)]
+        let type = heap[_64: address + 2 * sizeof(.i64)]
+        
         guard type == Constants.NumberTypeMapping.integer else {
             fatalError("TODO add support for non-int types")
         }
@@ -45,7 +45,7 @@ extension NativeFunctions {
         guard _address != 0 else { return "(null)" }
         
         let address = heap[_64: _address + sizeof(.i64)]
-        //return String(cString: heap.base.advanced(by: address).assumingMemoryBound(to: Int8.self))
+        // TODO Can we use String(bytesNoCopy) here?
         return String(cString: heap[ptr: address, Int8.self])
     }
     

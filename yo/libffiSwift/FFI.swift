@@ -21,6 +21,8 @@ class FFIFunction {
     let returnType: FFIType
     let parameterTypes: [FFIType]
     
+    let isVariadic: Bool
+    
     private var cif = ffi_cif()
     
     private var argTypes:  UnsafeMutablePointer<UnsafeMutablePointer<ffi_type>?>
@@ -31,6 +33,7 @@ class FFIFunction {
         
         self.returnType = returnType
         self.parameterTypes = parameterTypes
+        self.isVariadic = isVariadic
         
         arguments = .allocate(capacity: parameterTypes.count)
         arguments.initialize(repeating: nil, count: parameterTypes.count)
