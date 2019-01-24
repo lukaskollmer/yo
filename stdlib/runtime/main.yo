@@ -9,7 +9,7 @@ struct _DeferHandle {
 
 impl _DeferHandle {
     fn dealloc(self: _DeferHandle): void {
-        val imp = self.imp;
+        let imp = self.imp;
         imp();
     }
 }

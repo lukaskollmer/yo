@@ -6,24 +6,24 @@ struct StringBuilder {
 
 impl StringBuilder {
     static fn new(): StringBuilder {
-        ret StringBuilder::init(0 as String);
+        return StringBuilder::init(0 as String);
     }
 
     fn append(self: StringBuilder, otherString: String): void {
         if self._string == 0 {
             self._string = otherString.copy();
-            ret;
+            return;
         }
         self._string = self._string.appending(otherString);
     }
 
     #[variadic]
     fn append_format(self: StringBuilder, format: String, args: Array): void {
-        val formatted = String::format_v(format, args);
+        let formatted = String::format_v(format, args);
         self.append(formatted);
     }
 
     fn stringValue(self: StringBuilder): String {
-        ret self._string.copy();
+        return self._string.copy();
     }
 }

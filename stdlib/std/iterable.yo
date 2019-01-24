@@ -7,10 +7,10 @@ protocol Iterable {
 protocol Iterator {
     fn hasNext(self: Self): bool {
         runtime::fatalError("needs custom implementation");
-        ret false;
+        return false;
     }
     fn next(self: Self): any {
         runtime::fatalError("needs custom implementation");
-        ret 0;
+        return 0;
     }
 }

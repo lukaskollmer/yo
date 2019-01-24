@@ -15,42 +15,42 @@ struct Number {
 impl Number {
 
     static fn fromInt(value: int): Number {
-        ret Number::init(value, _NumberType.integer);
+        return Number::init(value, _NumberType.integer);
     }
 
 
     static fn fromBoolean(value: bool): Number {
-        ret Number::init(value, _NumberType.bool);
+        return Number::init(value, _NumberType.bool);
     }
 
 
     static fn fromDouble(value: double): Number {
-        ret Number::init(value, _NumberType.double);
+        return Number::init(value, _NumberType.double);
     }
 
 
     fn intValue(self: Number): int {
         if self._type == 0 {
-            ret self._value;
+            return self._value;
         }
-        ret (self._value as double) as int;
+        return (self._value as double) as int;
     }
 
 
     fn doubleValue(self: Number): double {
         if self._type == 1 {
-            ret self._value;
+            return self._value;
         }
-        ret (self._value as int) as double;
+        return (self._value as int) as double;
     }
 
 
     fn hashValue(self: Number): int {
-        ret ((self._value as int) << 2) | (self._type as int);
+        return ((self._value as int) << 2) | (self._type as int);
     }
 
 
     fn description(self: Number): String {
-        ret String::format("%n", self);
+        return String::format("%n", self);
     }
 }

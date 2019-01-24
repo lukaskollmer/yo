@@ -8,22 +8,22 @@ use "std/number";
 #[base_protocol]
 protocol Object {
     fn hashValue(self: Self): int {
-        ret self as int;
+        return self as int;
     }
 
     fn description(self: Self): String {
-        ret Object::_description(self);
+        return Object::_description(self);
     }
 
     fn debugDescription(self: Self): String {
-        ret self.description();
+        return self.description();
     }
 
     fn isEqualTo(self: Self, other: Self): bool {
         if self == other {
-            ret true;
+            return true;
         }
-        ret false;
+        return false;
     }
 }
 
@@ -31,16 +31,16 @@ protocol Object {
 impl Object {
     // Call some object's `description` method
     static unsafe fn description(obj: id): String {
-        ret obj.description();
+        return obj.description();
     }
 
     // The default implementation of -[id description]
     static fn _description(obj: id): String {
-        val metatype = runtime::typeof(obj);
-        ret String::format("<%s %nh>", metatype.name, @(obj as int));
+        let metatype = runtime::typeof(obj);
+        return String::format("<%s %nh>", metatype.name, @(obj as int));
     }
 
     static unsafe fn _isEqualTo(obj1: id, obj2: id): bool {
-        ret obj1.isEqualTo(obj2) as bool;
+        return obj1.isEqualTo(obj2) as bool;
     }
 }

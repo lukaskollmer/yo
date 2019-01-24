@@ -12,29 +12,34 @@ enum FFIType {
 
 
 struct FFI {
-    dlopen_handle: int,
+    libHandle: int,
     functionHandles: HashMap
 };
 
 impl FFI {
     static fn new(path: String): FFI {
-        ret FFI::init(ffi::dlopen(path), HashMap::new());
+        let handle = 0;
+        if path {
+            handle = ffi::dlopen(path);
+        }
+        return FFI::init(handle, HashMap::new());
     }
 
     fn dealloc(self: FFI): void {
-        ffi::dlclose(self.dlopen_handle);
+        if self.libHandle {
+            ffi::dlclose(self.libHandle);
+        }
     }
 
     fn declareFunction(self: FFI, name: String, returnType: FFIType, parameterTypes: Array, libHandle: any): void {
-        // TODO add support for null lib handles (current binary)
-        val functionHandle = ffi::declareFunction(name, returnType as int, parameterTypes.count(), parameterTypes._backing as ref int, libHandle);
+        let functionHandle = ffi::declareFunction(name, returnType as int, parameterTypes.count(), parameterTypes._backing as ref int, self.libHandle);
         self.functionHandles.insert(name, @(functionHandle));
     }
 
     #[variadic]
     fn invoke(self: FFI, name: String, args: int): int {
-        val boxedHandle: Number = self.functionHandles.get(name);
+        let boxedHandle: Number = self.functionHandles.get(name);
         defer { runtime::free(args); }
-        ret ffi::invoke(boxedHandle.intValue(), args);
+        return ffi::invoke(boxedHandle.intValue(), args);
     }
 }

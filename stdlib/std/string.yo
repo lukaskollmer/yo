@@ -7,12 +7,12 @@ struct String {
 
 impl String {
     fn length(self: String): int {
-        ret runtime::_strlen(self._backing);
+        return runtime::_strlen(self._backing);
     }
 
 
     fn appending(self: String, other: String): String {
-        ret String::format("%s%s", self, other);
+        return String::format("%s%s", self, other);
         //val self_length = self.length();
         //val other_length = other.length();
         //val newLength: int = self_length + other_length;
@@ -28,7 +28,7 @@ impl String {
     }
 
     fn copy(self: String): String {
-        ret String::format("%s", self);
+        return String::format("%s", self);
         //val length = self.length() + 1;
 
         //val newBacking = runtime::alloc(length);
@@ -38,44 +38,44 @@ impl String {
     }
 
     fn hashValue(self: String): int {
-        ret runtime::_hashString(self);
+        return runtime::_hashString(self);
     }
 
 
     fn isEqualToString(self: String, other: String): bool {
         if self as i64 == other as i64 {
-            ret true;
+            return true;
         }
 
         if self.length() != other.length() {
-            ret false;
+            return false;
         }
 
         //for i in 0..<self.length() {
-        val length = self.length();
-        for val i = 0; i < length; i += 1; {
+        let length = self.length();
+        for let i = 0; i < length; i += 1; {
             if self._backing[i] != other._backing[i] {
-                ret false;
+                return false;
             }
         }
-        ret true;
+        return true;
     }
 
     fn isEqualTo(self: String, other: id): bool {
         // Make sure borh are strings
         if runtime::typeof(self) != runtime::typeof(other) {
-            ret false;
+            return false;
         }
-        ret self.isEqualToString(other);
+        return self.isEqualToString(other);
     }
 
 
     fn description(self: String): String {
-        ret self;
+        return self;
     }
 
     fn debugDescription(self: String): String {
-        ret String::init(runtime::_stringDebugDescription(self));
+        return String::init(runtime::_stringDebugDescription(self));
     }
 
 
@@ -86,11 +86,11 @@ impl String {
 
     #[variadic]
     static fn format(format: String, args: Array): String {
-        ret String::format_v(format, args);
+        return String::format_v(format, args);
     }
 
 
     static fn format_v(format: String, args: Array): String {
-        ret String::init(runtime::__format(format, args));
+        return String::init(runtime::__format(format, args));
     }
 }

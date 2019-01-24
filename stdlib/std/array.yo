@@ -15,7 +15,7 @@ struct Array {
 impl Array {
     // Create a new Array
     static fn new(): Array {
-        ret Array::init(0, 10, runtime::alloc(10 * 8));
+        return Array::init(0, 10, runtime::alloc(10 * 8));
     }
 
 
@@ -36,13 +36,13 @@ impl Array {
         runtime::retain(object);
 
         self._count += 1;
-        ret self._count;
+        return self._count;
     }
 
 
     // Get the object at `index`
     fn get(self: Array, index: int): id {
-        ret self._backing[self._normalizeIndexAndCheckBounds(index)] as id;
+        return self._backing[self._normalizeIndexAndCheckBounds(index)] as id;
     }
 
 
@@ -50,20 +50,20 @@ impl Array {
     // Returns the previous value
     fn set(self: Array, index: int, object: id): id {
         index = self._normalizeIndexAndCheckBounds(index);
-        val oldValue = self.get(index);
+        let oldValue = self.get(index);
         runtime::release(oldValue);
         self._backing[index] = object;
         runtime::retain(object);
-        ret oldValue;
+        return oldValue;
     }
 
 
     // Check whether the array contains an object
     fn contains(self: Array, object: id): bool {
         if self.indexOf(object) == -1 {
-            ret false;
+            return false;
         }
-        ret true;
+        return true;
     }
 
 
@@ -71,15 +71,15 @@ impl Array {
     // Returns -1 if the array does not contain the object
     fn indexOf(self: Array, obj: id): int {
         //for i in 0..<self._count {
-        for val i = 0; i < self._count; i += 1; {
+        for let i = 0; i < self._count; i += 1; {
             if self.get(i) == obj {
-                ret i;
+                return i;
             }
             if Object::_isEqualTo(self.get(i), obj) {
-                ret i;
+                return i;
             }
         }
-        ret -1;
+        return -1;
     }
 
 
@@ -88,7 +88,7 @@ impl Array {
         NotYetImplemented();
         // TODO take a reduced length due to mutations into account!!!
         //for i in 0..<self._count {
-        for val i = 0; i < self._count; i += 1; {
+        for let i = 0; i < self._count; i += 1; {
             // TODO we probably should also check the object's hash values or call isEqual or something like that
             if self.get(i) == object {
                 self.removeAtIndex(i);
@@ -122,7 +122,7 @@ impl Array {
 
     fn forEach(self: Array, f: fn<(id): void>): void {
         //for i in 0..<self._count {
-        for val i = 0; i < self._count; i += 1; {
+        for let i = 0; i < self._count; i += 1; {
             f(self.get(i));
         }
     }
@@ -130,45 +130,45 @@ impl Array {
 
     fn enumerate(self: Array, f: fn<(int, id): void>): void {
         //for i in 0..<self._count {
-        for val i = 0; i < self._count; i += 1; {
+        for let i = 0; i < self._count; i += 1; {
             f(i, self.get(i));
         }
     }
 
 
     fn map(self: Array, f: fn<(id): id>): Array {
-        val newArray = Array::new();
+        let newArray = Array::new();
 
         //for i in 0..<self._count {
-        for val i = 0; i < self._count; i += 1; {
+        for let i = 0; i < self._count; i += 1; {
             newArray.append(f(self.get(i)));
         }
 
-        ret newArray;
+        return newArray;
     }
 
 
     fn filter(self: Array, f: fn<(id): bool>): Array {
-        val newArray: Array = Array::new();
+        let newArray: Array = Array::new();
 
         //for i in 0..<self._count {
-        for val i = 0; i < self._count; i += 1; {
-            val element = self.get(i);
+        for let i = 0; i < self._count; i += 1; {
+            let element = self.get(i);
             if f(element) {
                 newArray.append(element);
             }
         }
-        ret newArray;
+        return newArray;
     }
 
 
     fn reduce(self: Array, initial: any, f: fn<(any, id): any>): any {
-        for val i = 0; i < self._count; i += 1; {
+        for let i = 0; i < self._count; i += 1; {
         //for i in 0..<self._count {
             initial = f(initial, self.get(i));
         }
 
-        ret initial;
+        return initial;
     }
 
 
@@ -177,18 +177,18 @@ impl Array {
             f(obj, x);
         });
 
-        ret obj;
+        return obj;
     }
 
 
     // Get the number of objects in the array
     fn count(self: Array): int {
-        ret self._count;
+        return self._count;
     }
 
 
     fn dealloc(self: Array): void {
-        for val i: int; i < self._count; i += 1; {
+        for let i: int; i < self._count; i += 1; {
             runtime::release(self.get(i));
         }
         runtime::free(self._backing);
@@ -196,7 +196,7 @@ impl Array {
 
 
     fn description(self: Array): String {
-        val desc = StringBuilder::new();
+        let desc = StringBuilder::new();
         desc.append("Array {\n");
 
         // TODO append commas to all elements except the last
@@ -205,7 +205,7 @@ impl Array {
         });
 
         desc.append("}");
-        ret desc.stringValue();
+        return desc.stringValue();
     }
 
 
@@ -222,7 +222,7 @@ impl Array {
             runtime::fatalError("array index out of bounds");
         }
 
-        ret index;
+        return index;
     }
 
 // TODO
@@ -234,7 +234,7 @@ impl Array {
     // Move to a smaller/larger backing
     // Also updates `_allocatedLength`
     fn _resizeBacking(self: Array, newSize: int): void {
-        val newBacking: int = runtime::alloc(newSize * 8);
+        let newBacking: int = runtime::alloc(newSize * 8);
 
         runtime::copy_array(8, self._backing, 0, newBacking, 0, self._count);
 
@@ -247,7 +247,7 @@ impl Array {
 
 impl Array: Iterable {
     fn iterator(self: Array): ArrayIterator {
-        ret ArrayIterator::newWithArray(self);
+        return ArrayIterator::newWithArray(self);
     }
 }
 
@@ -261,20 +261,20 @@ struct ArrayIterator {
 
 impl ArrayIterator: Iterator {
     static fn newWithArray(array: Array): ArrayIterator {
-        ret ArrayIterator::init(0, array);
+        return ArrayIterator::init(0, array);
     }
 
 
     fn hasNext(self: ArrayIterator): bool {
         if self.index < self.array.count() {
-            ret true;
+            return true;
         }
-        ret false;
+        return false;
     }
 
     fn next(self: ArrayIterator): any {
-        val element = self.array.get(self.index);
+        let element = self.array.get(self.index);
         self.index += 1;
-        ret element;
+        return element;
     }
 }

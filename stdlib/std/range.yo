@@ -10,15 +10,15 @@ struct RangeIterator {
 impl RangeIterator: Iterator {
     fn hasNext(self: RangeIterator): bool {
         if self.current <= self.end {
-            ret true;
+            return true;
         }
-        ret false;
+        return false;
     }
 
     fn next(self: RangeIterator): any {
-        val value = self.current;
+        let value = self.current;
         self.current += 1;
-        ret value;
+        return value;
     }
 }
 
@@ -36,35 +36,35 @@ struct Range {
 
 impl Range {
     static fn inclusive(start: int, end: int): Range {
-        ret Range::init(start, end, RangeType.Inclusive);
+        return Range::init(start, end, RangeType.Inclusive);
     }
 
     static fn exclusive(start: int, end: int): Range {
-        ret Range::init(start, end, RangeType.Exclusive);
+        return Range::init(start, end, RangeType.Exclusive);
     }
 
     fn description(self: Range): String {
-        val rangeType: String;
+        let rangeType: String;
         if self.type == RangeType.Inclusive {
             rangeType = "...";
         } else {
             rangeType = "..<";
         }
-        ret String::format("<Range %n%s%n>", @self.start, rangeType, @self.end);
+        return String::format("<Range %n%s%n>", @self.start, rangeType, @self.end);
     }
 }
 
 
 impl Range: Iterable {
     fn iterator(self: Range): RangeIterator {
-        val start = self.start;
-        val end = self.end;
+        let start = self.start;
+        let end = self.end;
 
         if self.type == RangeType.Exclusive {
             end -= 1;
         }
 
-        ret RangeIterator::init(start, end);
+        return RangeIterator::init(start, end);
     }
 
 }

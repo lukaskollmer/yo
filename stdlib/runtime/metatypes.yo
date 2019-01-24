@@ -15,8 +15,8 @@ impl runtime {
     static fn typeof(obj: any): Type {
         // the upper 32 bit of an object's first field are a pointer to a pointer to the actual metatype
         // see the source code for more information TODO link to source code
-        val metatype_ptr = obj[0] >> 32;
-        ret metatype_ptr[0] as Type;
+        let metatype_ptr = obj[0] >> 32;
+        return metatype_ptr[0] as Type;
     }
 
 
@@ -24,13 +24,13 @@ impl runtime {
     #[variadic]
     static fn msgSend(target: id, selector: String, argc: int, argv: int): any {
         if target == 0 {
-            ret 0;
+            return 0;
         }
 
-        val type = runtime::typeof(target);
+        let type = runtime::typeof(target);
         selector = String::format("%s_I%s", type.name, selector);
 
-        val addr = runtime::_lookupAddress(selector);
+        let addr = runtime::_lookupAddress(selector);
 
         if addr == -1 {
             runtime::fatalError(String::format("Unable to invoke %s: unrecognized selector", selector));
@@ -38,16 +38,16 @@ impl runtime {
 
         // io::printf("You really shouldn't be doing this (%s)", selector);
 
-        val argv_with_self = runtime::alloc((argc + 1) * 8);
+        let argv_with_self = runtime::alloc((argc + 1) * 8);
         argv_with_self[0] = target;
         if argc > 0 {
             runtime::copy_array(8, argv, 0, argv_with_self, 1, argc);
         }
         runtime::free(argv);
 
-        val retval = runtime::_invoke(addr, argc + 1, argv_with_self);
+        let retval = runtime::_invoke(addr, argc + 1, argv_with_self);
         runtime::free(argv_with_self);
 
-        ret retval;
+        return retval;
     }
 }

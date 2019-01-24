@@ -2,8 +2,8 @@
 
 fn abs(x: int): int {
     if x > 0 {
-        ret x;
+        return x;
     } else {
-        ret -x;
+        return -x;
     }
 }

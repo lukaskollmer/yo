@@ -106,9 +106,9 @@ const char *YO_GRAMMAR =
 "               | <boxed_expr>  "
 "               | \"nil\" ;     "
 
-" ret           : \"ret\" <expr>? ';' ; "
+" ret           : \"return\" <expr>? ';' ; "
 
-" var_decl      : \"val\" <ident> (':' <type>)? ('=' <expr>)? ';' ; "
+" var_decl      : \"let\" <ident> (':' <type>)? ('=' <expr>)? ';' ; "
 
 // TODO split up the various kinds of assignments? (attribute, subscript, etc)
 " in_place_binop    : (\"+=\" | \"-=\" | \"*=\" | \"/=\" | \"%=\" | \"|=\" | \"&=\" | \"^=\" | \">>=\" | \"<<=\") ; "
@@ -163,8 +163,8 @@ const char *YO_GRAMMAR =
 "               | <while_stmt>      "
 "               | <for_loop>        "
 "               | <defer_block> ;   "
-// var_decl after assignment because it can interfer w/ other statements
-// example: `value = 12;` would be parsed as `val ue = 12;`
+// var_decl after assignment because it can interfere w/ other statements
+// example: `lettuce = 12;` would be parsed as `let tuce = 12;`
 
 " composite     : \"unsafe\"? '{' <stmt>* '}' ; "
 
