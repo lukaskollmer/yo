@@ -619,7 +619,8 @@ class Parser {
     
     // Returns either ASTAssignment or ASTArraySetter
     func parseAssignment(_ ast: mpc_ast_t) throws -> ASTStatement {
-        let target = try parseVariableAccess(ast[0])
+        //let target = try parseVariableAccess(ast[0])
+        let target = try parseLvalue(ast[0])
         
         // TODO introduce ASTInPlaceBinaryOperation
         let isInPlaceBinop = ast[1].lk_tag == "in_place_binop|string"
@@ -952,6 +953,9 @@ class Parser {
         case "expr|character|regex":
             return try parseCharacterLiteral(ast)
             
+        case "lexpr|pointer_op|>":
+            return try parsePointerOperation(ast)
+            
             
         default:
             fatalError("unexpected expression \(ast)")
@@ -979,6 +983,25 @@ class Parser {
             start: start,
             end: end,
             kind: rangeLiteralKindMapping[ast[1].lk_content]!
+        )
+    }
+    
+    
+    func parsePointerOperation(_ ast: mpc_ast_t) throws -> ASTPointerOperation {
+        let operation: ASTPointerOperation.Operation
+        switch ast.lk_children[0].lk_content {
+        case "&+":
+            operation = .ref
+        case "&++":
+            operation = .ref_absolute
+        case "*":
+            operation = .deref
+        default:
+            fatalError("unhandled pointer operation")
+        }
+        return ASTPointerOperation(
+            operation: operation,
+            target: try parseExpression(ast.lk_children[1])
         )
     }
     
@@ -1241,6 +1264,17 @@ class Parser {
     }
     
     
+    
+    func parseLvalue(_ ast: mpc_ast_t) throws -> ASTExpression {
+        switch ast.lk_tag.hasPrefix {
+        case "lvalue|pointer_op|>":
+            return try parsePointerOperation(ast)
+        case "lvalue|var_access":
+            return try ast | parseVariableAccess
+        default:
+            fatalError()
+        }
+    }
     
     
     // TODO rename?

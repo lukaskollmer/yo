@@ -28,6 +28,7 @@
 		805509EF20F0C5B5001B4867 /* FFI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 805509EE20F0C5B5001B4867 /* FFI.swift */; };
 		805E370A20D3E42500F5BB63 /* ASTMemberAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 805E370920D3E42500F5BB63 /* ASTMemberAccess.swift */; };
 		80606AFC2149689100D33C0E /* ASTIfStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80606AFB2149689100D33C0E /* ASTIfStatement.swift */; };
+		806227D221FB2BBF00594671 /* ASTPointerOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806227D121FB2BBF00594671 /* ASTPointerOperation.swift */; };
 		8064380E21F7441C0025204B /* ASTArbitraryNodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8064380D21F7441C0025204B /* ASTArbitraryNodes.swift */; };
 		8064381021F760460025204B /* Enum+NameInitializable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8064380F21F760460025204B /* Enum+NameInitializable.swift */; };
 		806D73642131AFB1003D3902 /* CallStatRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806D73632131AFB1003D3902 /* CallStatRecorder.swift */; };
@@ -183,6 +184,7 @@
 		805509EE20F0C5B5001B4867 /* FFI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFI.swift; sourceTree = "<group>"; };
 		805E370920D3E42500F5BB63 /* ASTMemberAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTMemberAccess.swift; sourceTree = "<group>"; };
 		80606AFB2149689100D33C0E /* ASTIfStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTIfStatement.swift; sourceTree = "<group>"; };
+		806227D121FB2BBF00594671 /* ASTPointerOperation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTPointerOperation.swift; sourceTree = "<group>"; };
 		8064380D21F7441C0025204B /* ASTArbitraryNodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTArbitraryNodes.swift; sourceTree = "<group>"; };
 		8064380F21F760460025204B /* Enum+NameInitializable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Enum+NameInitializable.swift"; sourceTree = "<group>"; };
 		806D73632131AFB1003D3902 /* CallStatRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallStatRecorder.swift; sourceTree = "<group>"; };
@@ -517,6 +519,7 @@
 				80D28C97213EDB1400B9EBA3 /* ASTStructDeclaration.swift */,
 				80606AFB2149689100D33C0E /* ASTIfStatement.swift */,
 				8064380D21F7441C0025204B /* ASTArbitraryNodes.swift */,
+				806227D121FB2BBF00594671 /* ASTPointerOperation.swift */,
 			);
 			path = AST;
 			sourceTree = "<group>";
@@ -687,6 +690,7 @@
 				80EAA48A20B85BA00043A6F6 /* ASTUnaryExpression.swift in Sources */,
 				805E370A20D3E42500F5BB63 /* ASTMemberAccess.swift in Sources */,
 				8072C75A20E90DA100FA9F62 /* ASTBoxedExpression.swift in Sources */,
+				806227D221FB2BBF00594671 /* ASTPointerOperation.swift in Sources */,
 				80EAA47820B75F370043A6F6 /* BytecodeInterpreter.swift in Sources */,
 				80EAA48020B826730043A6F6 /* ASTBinaryOperation.swift in Sources */,
 				80E74FF320EB751400C7DB90 /* CLI.swift in Sources */,

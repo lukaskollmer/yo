@@ -104,6 +104,9 @@ enum Operation: UInt8, NameInitializable {
     case retain
     case release
     
+    case addr_cvt2abs  // Convert a "relative" address (relative to the beginning of our heap), to an absolute one
+    case push_fp       // Push the current frame pointer onto the stack
+    
     case label      // noop, used for manually specifying labels in the source code
     case comment    // noop, used for manually specifying asm comments in the source code
     

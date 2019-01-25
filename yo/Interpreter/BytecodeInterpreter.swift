@@ -347,6 +347,13 @@ class BytecodeInterpreter {
             stack.pushFrame(index: immediate, value: stack.pop())
             
             
+        case .push_fp:
+            stack.push(stack.actualIndex(for: stack.framePointer))
+        
+        case .addr_cvt2abs:
+            stack.pop() | heap.base.advanced(by:) | Int.init(bitPattern:) | stack.push
+            
+            
         // Heap operations
             
         case .loadh_8:
@@ -472,6 +479,7 @@ class BytecodeInterpreter {
             
             // There should be an xcode breakpoint on the `noop` line
             // (focus on should since it seems like xcode randomly deletes the breakpoint)
+            print(stack.description)
             noop()
         }
     }

@@ -82,7 +82,13 @@ const char *YO_GRAMMAR =
 " typecast      : <lexpr> \"as\" <type> ;  "
 
 
+" lvalue        : <pointer_op> | <var_access> ; " // TODO add more
+
+" pointer_op    : (\"&++\" | \"&+\" | '*') <lvalue> ; "
+
+// Basically, all of these are rvalues
 " lexpr         : <boolean>         "
+"               | <pointer_op>      "
 "               | <lambda>          "
 "               | '(' <expr>  ')'   "
 "               | <number>          "
@@ -112,7 +118,7 @@ const char *YO_GRAMMAR =
 
 // TODO split up the various kinds of assignments? (attribute, subscript, etc)
 " in_place_binop    : (\"+=\" | \"-=\" | \"*=\" | \"/=\" | \"%=\" | \"|=\" | \"&=\" | \"^=\" | \">>=\" | \"<<=\") ; "
-" assignment    : <var_access> ( '[' <expr> ']' )? ('=' | <in_place_binop> ) <expr>  ';' ;  "
+" assignment    : <lvalue> ( '[' <expr> ']' )? ('=' | <in_place_binop> ) <expr>  ';' ;  "
 
 // Q: Why is stmt_fn_call its own thing, instead of replacing the respective line in stmt with `<fn_call> ';'` ?
 // A: We have to make sure the semicolon is part of the statement function call, which is important to have them both put in the same ast node

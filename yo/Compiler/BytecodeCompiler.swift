@@ -405,6 +405,12 @@ private extension BytecodeCompiler {
             try arbitraryNodes.nodes.forEach(handle)
             //try handle(node: arbitraryNode)
             
+        } else if let implicitNonZeroComparison = node as? ASTImplicitNonZeroComparison {
+            try handle(implicitNonZeroComparison: implicitNonZeroComparison)
+            
+        } else if let pointerOperation = node as? ASTPointerOperation {
+            try handle(pointerOperation: pointerOperation)
+            
         } else if let _ = node as? ASTNoop {
             
         } else {
@@ -925,6 +931,16 @@ private extension BytecodeCompiler {
             
             try handle(node: newAssignment)
 
+        } else if let pointerOperation = target as? ASTPointerOperation {
+            guard pointerOperation.operation == .deref else { fatalError() }
+            
+            let assignment = ASTArraySetter(
+                target: pointerOperation.target,
+                offset: ASTNumberLiteral(value: 0),
+                value: rhs
+            )
+            try handle(node: assignment) // TODO what about arc ?!??!!!!!
+            return
             
         } else {
             fatalError("the fuck you doing?")
@@ -1384,8 +1400,18 @@ private extension BytecodeCompiler {
     
     
     func processMemberAccess(memberAccess: ASTMemberAccess) throws -> (expr: ASTExpression, types: [ASTType]) {
-        guard memberAccess.members.count > 1 else {
+        guard !memberAccess.members.isEmpty else {
             fatalError("wat")
+        }
+        
+        if memberAccess.members.count == 1 {
+            switch memberAccess.members[0] {
+            case .initial_identifier(let identifier):
+                return (identifier, [try guessType(ofExpression: identifier)])
+            case .initial_functionCall(let functionCall):
+                return (functionCall, [try guessType(ofExpression: functionCall)])
+            default: fatalError("will never reach here")
+            }
         }
         
         if
@@ -1953,6 +1979,60 @@ private extension BytecodeCompiler {
         
         try handle(comparison: comparison)
     }
+    
+    
+    func handle(pointerOperation: ASTPointerOperation) throws {
+        let op = pointerOperation.operation
+        let target = pointerOperation.target
+        
+        // TODO this shortcut is probably wrong?
+        if op == .ref_absolute, case .ref(let underlyingType) = try guessType(ofExpression: target) {
+            try handle(node: target)
+            add(.addr_cvt2abs)
+            return
+        }
+        
+        switch op {
+        case .ref, .ref_absolute: // Push the address of `target` onto the stack
+            if let identifier = target as? ASTIdentifier {
+                if let frameIndex = try? scope.index(of: identifier.value) {
+                    add(.push_fp)
+                    add(.push, frameIndex * sizeof(.int)) // TODO update when adding variable stack element sizes
+                    add(.sub)
+                } else {
+                    fatalError("TODO")
+                }
+            } else if let memberAccess = target as? ASTMemberAccess {
+                guard case .attribute(name: let identifier) = memberAccess.members.last! else { fatalError() }
+                let (expr, types) = try processMemberAccess(memberAccess: ASTMemberAccess(members: Array(memberAccess.members.dropLast())))
+                let type = types[0]
+                
+                try handle(node: expr)
+                add(.push, typeCache.offset(ofMember: identifier.value, inType: type.typename))
+                add(.add)
+            } else {
+                fatalError("Unhandled ref target: \(target)")
+            }
+            
+            if pointerOperation.operation == .ref_absolute {
+                // TODO add an operation to convert the address (currently relative to the beginning of our heap) to something absolute
+                add(.addr_cvt2abs)
+            }
+            
+        case .deref:
+            // TODO this is implemenyed twice (also in assignment target handling)
+            if  let identifier = target as? ASTIdentifier,
+                let targetType = try? scope.type(of: identifier.value),
+                case .ref(let underlyingType) = targetType
+            {
+                try handle(node: identifier) // pushes the address of the pointer on the stack
+                add(.push, 0)
+                add(loadh_operation(forSize: underlyingType.size))
+            } else {
+                fatalError("Unhandled deref target: \(target)")
+            }
+        }
+    }
 }
 
 
@@ -2110,6 +2190,17 @@ private extension BytecodeCompiler {
                     return try guessType(ofExpression: expr)
                 case .type(let type):
                     return type
+                }
+            } else if let pointerOperation = expression as? ASTPointerOperation {
+                let targetType = try guessType(ofExpression: pointerOperation.target)
+                switch pointerOperation.operation {
+                case .ref, .ref_absolute:
+                    return .ref(targetType)
+                case .deref:
+                    guard case .ref(let underlyingType) = targetType else {
+                        fatalError("Cannot get underlying type for non-pointer type '\(targetType)'")
+                    }
+                    return underlyingType
                 }
             }
             

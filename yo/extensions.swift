@@ -9,6 +9,19 @@
 import Foundation
 
 
+
+
+func | <T, U>(lhs: T, rhs: (T) throws -> U) rethrows -> U {
+    return try rhs(lhs)
+}
+
+
+
+
+
+
+
+
 infix operator ?=
 
 func ?= <T> (lhs: inout T?, rhs: @autoclosure () -> T?) {

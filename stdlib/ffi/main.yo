@@ -31,7 +31,7 @@ impl FFI {
         }
     }
 
-    fn declareFunction(self: FFI, name: String, returnType: FFIType, parameterTypes: Array, libHandle: any): void {
+    fn declareFunction(self: FFI, name: String, returnType: FFIType, parameterTypes: Array): void {
         let functionHandle = ffi::declareFunction(name, returnType as int, parameterTypes.count(), parameterTypes._backing as ref int, self.libHandle);
         self.functionHandles.insert(name, @(functionHandle));
     }

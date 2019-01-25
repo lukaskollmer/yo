@@ -63,6 +63,8 @@ static BOOL shouldEmitSignposts;
     rule(fn_call);
     rule(binop_add);
     rule(binop_mul);
+    rule(lvalue);
+    rule(pointer_op);
     rule(lexpr);
     rule(var_decl);
     rule(struct_decl);
@@ -121,7 +123,7 @@ static BOOL shouldEmitSignposts;
               ident, boolean, number, character, string, number_double, number_b02, number_b08, number_b10, number_b16,
               fn_ptr, global_var, struct_decl, impl, type,
               expr_list, subscript, var_access, static_target, call_target, fn_call, array_literal,
-              boxed_expr, range, binop_mul, binop_add, unary, lambda, typecast, lexpr, expr,
+              boxed_expr, range, binop_mul, binop_add, unary, lambda, typecast, lvalue, pointer_op, lexpr, expr,
               ret, var_decl, in_place_binop, assignment, stmt_fn_call,
               comp_op, bin_cond_op, bin_cond, comp, lcond, cond, if_stmt, else_if_stmt, else_stmt, while_stmt, for_loop_target, for_loop,
               asm_stmt, defer_block, stmt, composite, paramList,

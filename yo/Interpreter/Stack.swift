@@ -26,8 +26,7 @@ class Stack: CustomStringConvertible {
         return stackPointer == -1
     }
     
-    private func actualIndex(for index: Int) -> Int {
-        //return heap.size - ((index + 1) * 8) - 1
+    func actualIndex(for index: Int) -> Int {
         return heap.size - (index * 8) - 8
     }
     
@@ -57,8 +56,9 @@ class Stack: CustomStringConvertible {
     }
     
     
-    private var elements: ArraySlice<Int> {
-        return heap[actualIndex(for: stackPointer)..<actualIndex(for: 0)]
+    private var elements: UnsafeBufferPointer<Int> {
+        let index = actualIndex(for: stackPointer)
+        return UnsafeBufferPointer<Int>(start: heap.base.advanced(by: index).assumingMemoryBound(to: Int.self), count: stackPointer)
     }
     
     

@@ -50,7 +50,8 @@ class FFIFunction {
         let status: ffi_status
         
         if isVariadic {
-            status = ffi_prep_cif_var(&cif, FFI_DEFAULT_ABI, 2, 2, returnType._pointer, argTypes)
+            fatalError("Not yet implemented") // TODO we have to know the total number of arguments before calling ffi_prep_cif_var
+            //status = ffi_prep_cif_var(&cif, FFI_DEFAULT_ABI, 2, 2, returnType._pointer, argTypes)
         } else {
             status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, UInt32(parameterTypes.count), returnType._pointer, argTypes)
         }
