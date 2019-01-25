@@ -72,21 +72,24 @@ func lk_eval_comp<T>(lhs: Int, rhs: Int, type: T.Type, fn: (T, T) -> Bool) -> Bo
     return retval
 }
 
+func reinterpret_cast<T, R>(_ arg: T) -> R {
+    return unsafeBitCast(arg, to: R.self)
+}
+
+@available(*, deprecated, renamed: "reinterpret_cast")
 func cast<T, R>(_ arg0: inout T) -> R {
     return withUnsafeBytes(of: &arg0) { $0.load(as: R.self) }
 }
 
 extension Int {
     var unsafe_loadAsDouble: Double {
-        var value = self
-        return cast(&value)
+        return reinterpret_cast(self)
     }
 }
 
 extension Double {
     var unsafe_loadAsInt: Int {
-        var value = self
-        return cast(&value)
+        return reinterpret_cast(self)
     }
 }
 

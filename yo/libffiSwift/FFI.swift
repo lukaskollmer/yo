@@ -9,9 +9,6 @@
 import Foundation
 
 
-// TODO all the pointer stuff is probably wrong
-
-
 class FFIFunction {
     typealias FunctionPointerType = @convention(c) () -> Void
     static private let _defaultHandle = dlopen(nil, RTLD_LAZY)
@@ -67,14 +64,12 @@ class FFIFunction {
     }
     
     
-    func invoke<T>(/*returnValue: UnsafeMutableRawPointer*/) -> T {
-        var retval = ffi_sarg() // TODO switch between ffi_arg and ffi_sarg based on which return type was defined?
+    func invoke<T>() -> T {
+        var retval = ffi_arg()
         ffi_call(&cif, functionPointer, &retval, arguments)
         
-        return cast(&retval)
+        return reinterpret_cast(retval)
     }
-    
-    // TODO add a `reset` function to allow reusing the same function proxy thing?
     
     deinit {
         // TODO deinitialize / dealloc arguments and argTypes
