@@ -116,6 +116,10 @@ enum Operation: UInt8, NameInitializable {
         return self.rawValue
     }
     
+    var mnemonic: String {
+        return self.name
+    }
+    
     
     func encode(withImmediate immediate: Int = 0) -> Int {
         // TODO pretty sure this is wrong

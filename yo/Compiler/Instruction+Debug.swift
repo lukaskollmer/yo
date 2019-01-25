@@ -35,8 +35,8 @@ extension Array where Element == Instruction {
         for (idx, element) in self.enumerated() {
             let instruction = InstructionDescriptor(instruction: element)
             
-            let lineNumber = String(describing: idx).padding(.left, toLength: 3, withPad: "0")
-            let operation = String(describing: instruction.operation).padding(.right, toLength: 7, withPad: " ")
+            let lineNumber = String(describing: idx).padding(.left, toLength: 5, withPad: "0")
+            let operation = instruction.operation.mnemonic.padding(.right, toLength: 8, withPad: " ")
             desc.append("  [\(lineNumber)] \(operation) \(instruction.immediate)")
         }
         
