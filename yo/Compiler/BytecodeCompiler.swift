@@ -1739,7 +1739,7 @@ private extension BytecodeCompiler {
                             target: array,
                             value: ASTFunctionCall(
                                 functionName: SymbolMangling.alloc,
-                                arguments: [ASTNumberLiteral(value: elements.count)], // TODO dynamically calculate size instead!
+                                arguments: [ASTNumberLiteral(value: elements.count * sizeof(.i64))], // TODO allow explicitly typed primitive array literals?
                                 unusedReturnValue: false
                             )
                         ),
@@ -1986,7 +1986,7 @@ private extension BytecodeCompiler {
         let target = pointerOperation.target
         
         // TODO this shortcut is probably wrong?
-        if op == .ref_absolute, case .ref(let underlyingType) = try guessType(ofExpression: target) {
+        if op == .ref_absolute, case .ref(_) = try guessType(ofExpression: target) {
             try handle(node: target)
             add(.addr_cvt2abs)
             return
@@ -2247,11 +2247,13 @@ extension BytecodeCompiler {
 
 extension BytecodeCompiler {
     func retain(expression: ASTExpression) throws {
+        add(comment: "retain \((expression as? ASTIdentifier)?.value ?? String(describing: expression)) (\(try guessType(ofExpression: expression)))")
         try handle(node: expression)
         add(.retain, kARCOperationPopAddressOffStack)
     }
     
     func release(expression: ASTExpression) throws {
+        add(comment: "release \((expression as? ASTIdentifier)?.value ?? String(describing: expression)) (\(try guessType(ofExpression: expression)))")
         try handle(node: expression)
         add(.release, kARCOperationPopAddressOffStack)
     }
