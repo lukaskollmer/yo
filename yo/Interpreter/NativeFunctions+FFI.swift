@@ -9,13 +9,6 @@
 import Foundation
 
 
-@_silgen_name("lk_add")
-func add(_ x: Int, y: Int) -> Int {
-    return x + y
-}
-
-// WIP
-
 private let ffi_type_mapping: [FFIType] = [
     .void,
     .uint8, .int8, .uint16, .int16, .uint32, .int32, .uint64, .int64,
@@ -26,8 +19,6 @@ private let ffi_type_mapping: [FFIType] = [
     .complex_longdouble,
     .longdouble
 ]
-
-private var _functions = [FFIFunction]()
 
 
 // This is either a fucking genius idea, or absolutely terrible
