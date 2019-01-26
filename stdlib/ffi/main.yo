@@ -38,8 +38,10 @@ impl FFI {
 
     #[variadic]
     fn invoke(self: FFI, name: String, args: int): int {
+        defer {
+            runtime::free(args);
+        }
         let boxedHandle: Number = self.functionHandles.get(name);
-        defer { runtime::free(args); }
         return ffi::invoke(boxedHandle.intValue(), args);
     }
 }
