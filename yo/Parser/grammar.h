@@ -37,6 +37,8 @@ const char *YO_GRAMMAR =
 
 " global_var    : \"static\" <ident> ':' <type> ('=' <expr>)?  ';' ; "  // TODO remove the type requirement?
 
+" const_decl    : \"const\" <ident> ':' <type> '=' <expr> ';' ; "
+
 " struct_decl   : <annotation>* \"struct\" <ident> '{' <paramList>? '}' ';' ; "
 
 
@@ -188,7 +190,7 @@ const char *YO_GRAMMAR =
 
 " function      : <function_signature> <composite> ;      "
 
-" topLevelStatement : ( <import> | <global_var> | <protocol> | <enum_decl> | <function> | <struct_decl> | <impl> ) ; "
+" topLevelStatement : ( <import> | <global_var> | <const_decl> | <protocol> | <enum_decl> | <function> | <struct_decl> | <impl> ) ; "
 
 " program       : /^/  <topLevelStatement>* /$/ ;   "
 ;

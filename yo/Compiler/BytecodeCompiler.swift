@@ -96,6 +96,7 @@ class BytecodeCompiler {
     var typeCache = TypeCache()
     var functions = GlobalFunctions()
     var globals = [ASTVariableDeclaration]()
+    var constants = [ASTConstantDeclaration]()
     
     private var codegen: AutoSynthesizedCodeGen!
     
@@ -131,6 +132,13 @@ class BytecodeCompiler {
         self.functions.insert(contentsOf: semanticAnalysis.globalFunctions)
         semanticAnalysis.types.forEach(self.typeCache.register)
         semanticAnalysis.enums.forEach(self.typeCache.register)
+        self.constants.append(contentsOf: semanticAnalysis.constants)
+        
+        guard_allConstantsHaveAValidType(semanticAnalysis.constants)
+        
+        // TODO check that:
+        // - there aren't type &/ enum decls using the same name
+        // - there are no constants and static variables using the same name
         
         // Generate initializers, getters/setters and dealloc functions
         codegen = AutoSynthesizedCodeGen(compiler: self)
@@ -410,6 +418,9 @@ private extension BytecodeCompiler {
             
         } else if let pointerOperation = node as? ASTPointerOperation {
             try handle(pointerOperation: pointerOperation)
+            
+        } else if node is ASTConstantDeclaration {
+            // pass
             
         } else if let _ = node as? ASTNoop {
             
@@ -1391,6 +1402,9 @@ private extension BytecodeCompiler {
             
         } else if let globalAddress = _actualAddressOfGlobal(withIdentifier: identifier) {
             add(.readh, globalAddress)
+            
+        } else if let constant = constants.first(where: { $0.identifier == identifier }) {
+            try handle(node: constant.value)
     
         } else {
             fatalError("unable to resolve idenfifier '\(identifier)'")
@@ -2059,6 +2073,15 @@ private extension BytecodeCompiler {
             fatalError("Identifier '\(identifier.value)' is reserved")
         }
     }
+    
+    
+    func guard_allConstantsHaveAValidType(_ constants: [ASTConstantDeclaration]) {
+        for constant in constants {
+            guard try! constant.type.isTriviallyRepresentableAsInteger && constant.type == self.guessType(ofExpression: constant.value) else {
+                fatalError("Constant '\(constant.identifier.value)' has unsupported type '\(constant.type)'")
+            }
+        }
+    }
 }
 
 
@@ -2102,6 +2125,8 @@ private extension BytecodeCompiler {
                 
                 } else if let global = globals.first(where: { $0.identifier == identifier }) {
                     return global.type
+                } else if let constant = constants.first(where: { $0.identifier == identifier }) {
+                    return constant.type
                 }
                 
             } else if let functionCall = expression as? ASTFunctionCall {

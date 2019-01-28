@@ -19,20 +19,27 @@ extension Dictionary where Key == String, Value == FunctionSignature {
 }
 
 
+extension Array {
+    func filter<T>(ofType type: T.Type = T.self) -> [T] {
+        return self.compactMap { $0 as? T }
+    }
+}
+
+
 class SemanticAnalyzer {
     struct Result {
         let globalFunctions: GlobalFunctions
         let types: [ASTStructDeclaration]
         let globals: [ASTVariableDeclaration]
         let enums: [ASTEnumDeclaration]
+        let constants: [ASTConstantDeclaration]
     }
     
     func analyze(ast: AST) -> SemanticAnalyzer.Result {
         let enums   = ast.compactMap { $0 as? ASTEnumDeclaration }
         let types   = ast.compactMap { $0 as? ASTStructDeclaration }
         let globals = ast.compactMap { $0 as? ASTVariableDeclaration }.filter { $0.isStatic }
-        
-        // TODO check that there aren't type &/ enum decls using the same name
+        let constants = ast.filter(ofType: ASTConstantDeclaration.self)
         
         var functions = GlobalFunctions()
         
@@ -60,6 +67,6 @@ class SemanticAnalyzer {
             }
         }
         
-        return SemanticAnalyzer.Result(globalFunctions: functions, types: types, globals: globals, enums: enums)
+        return SemanticAnalyzer.Result(globalFunctions: functions, types: types, globals: globals, enums: enums, constants: constants)
     }
 }

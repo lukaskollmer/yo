@@ -174,6 +174,9 @@ class Parser {
         case "topLevelStatement|enum_decl|>":
             return try parseEnumDeclaration(ast)
             
+        case "topLevelStatement|const_decl|>":
+            return try parseConstantDeclaration(ast)
+            
         default:
             fatalError("unexpected top level statement '\(ast)'")
         }
@@ -209,6 +212,16 @@ class Parser {
         }
         
         return ASTVariableDeclaration(identifier: identifier, type: type, initialValue: initialValue, isStatic: true)
+    }
+    
+    
+    
+    func parseConstantDeclaration(_ ast: mpc_ast_t) throws -> ASTConstantDeclaration {        
+        return ASTConstantDeclaration(
+            identifier: try parseIdentifier(ast[1]),
+            type: try parseType(ast[3]),
+            value: try parseExpression(ast[5])
+        )
     }
     
     

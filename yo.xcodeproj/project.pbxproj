@@ -42,6 +42,7 @@
 		80770C5921F8B37500FABFAA /* CLI+Flags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80770C5821F8B37500FABFAA /* CLI+Flags.swift */; };
 		807936F720D24D0700DCCE1F /* ASTBreakStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807936F620D24D0700DCCE1F /* ASTBreakStatement.swift */; };
 		807936F920D252AB00DCCE1F /* ASTContinueStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807936F820D252AB00DCCE1F /* ASTContinueStatement.swift */; };
+		80963A4721FF1CB600142FE4 /* ASTConstantDeclaration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80963A4621FF1CB600142FE4 /* ASTConstantDeclaration.swift */; };
 		809761B320D7F21F004DB9A4 /* ASTLambda.swift in Sources */ = {isa = PBXBuildFile; fileRef = 809761B220D7F21F004DB9A4 /* ASTLambda.swift */; };
 		809F458A21402F3500118BCD /* Optimizer+Binop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 809F458921402F3500118BCD /* Optimizer+Binop.swift */; };
 		809F5C21212DB3B100F96919 /* Profiling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 809F5C20212DB3B100F96919 /* Profiling.swift */; };
@@ -204,6 +205,7 @@
 		808CC95E20EFC827003F62F4 /* ffi.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ffi.h; sourceTree = "<group>"; };
 		808CC95F20EFC838003F62F4 /* ffitarget.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ffitarget.h; sourceTree = "<group>"; };
 		808CC96020EFC874003F62F4 /* fficonfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fficonfig.h; sourceTree = "<group>"; };
+		80963A4621FF1CB600142FE4 /* ASTConstantDeclaration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTConstantDeclaration.swift; sourceTree = "<group>"; };
 		809761B220D7F21F004DB9A4 /* ASTLambda.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTLambda.swift; sourceTree = "<group>"; };
 		809F458921402F3500118BCD /* Optimizer+Binop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Optimizer+Binop.swift"; sourceTree = "<group>"; };
 		809F5C20212DB3B100F96919 /* Profiling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Profiling.swift; sourceTree = "<group>"; };
@@ -520,6 +522,7 @@
 				80606AFB2149689100D33C0E /* ASTIfStatement.swift */,
 				8064380D21F7441C0025204B /* ASTArbitraryNodes.swift */,
 				806227D121FB2BBF00594671 /* ASTPointerOperation.swift */,
+				80963A4621FF1CB600142FE4 /* ASTConstantDeclaration.swift */,
 			);
 			path = AST;
 			sourceTree = "<group>";
@@ -624,6 +627,7 @@
 				80D82C8020F0F37500EB340D /* debug.c in Sources */,
 				80D82C7D20F0F37500EB340D /* raw_api.c in Sources */,
 				80D82C7B20F0F37500EB340D /* ffiw64_x86_64.c in Sources */,
+				80963A4721FF1CB600142FE4 /* ASTConstantDeclaration.swift in Sources */,
 				80D82C7820F0F37500EB340D /* closures.c in Sources */,
 				80D82C7A20F0F37500EB340D /* sysv_i386.S in Sources */,
 				80D82C7720F0F37500EB340D /* prep_cif.c in Sources */,
