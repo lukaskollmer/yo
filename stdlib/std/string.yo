@@ -3,7 +3,7 @@ use "std/array";
 
 struct String {
     _backing: ref i8
-};
+}
 
 impl String {
     fn length(self: String): int {

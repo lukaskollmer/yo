@@ -7,7 +7,7 @@ struct Type {
     id: int,
     name: String,
     dealloc_fn: int
-};
+}
 
 
 impl runtime {

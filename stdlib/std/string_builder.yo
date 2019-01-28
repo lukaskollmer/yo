@@ -2,7 +2,7 @@ use "std/string";
 
 struct StringBuilder {
     _string: String
-};
+}
 
 impl StringBuilder {
     static fn new(): StringBuilder {

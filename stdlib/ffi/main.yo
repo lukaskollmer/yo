@@ -8,13 +8,13 @@ enum FFIType {
     float, double,
     pointer,
     complex_float, complex_double, complex_longdouble, longdouble
-};
+}
 
 
 struct FFI {
     libHandle: int,
     functionHandles: HashMap
-};
+}
 
 impl FFI {
     static fn new(path: String): FFI {

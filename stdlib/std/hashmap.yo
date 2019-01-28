@@ -16,7 +16,7 @@ fn _freePrimes(): void {
 struct HashMapKeyValuePair {
     key: String,
     value: id
-};
+}
 
 
 struct HashMap {
@@ -24,7 +24,7 @@ struct HashMap {
     _allocatedSize: i64,
     _sizeIndex: i64,
     _backing: ref i64
-};
+}
 
 
 impl HashMap {

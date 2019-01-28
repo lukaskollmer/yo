@@ -7,7 +7,7 @@ struct Array {
     _allocatedLength: int,
     // TODO make _backing `ref int`?
     _backing: int
-};
+}
 
 // TODO write tests for all of this!
 
@@ -257,7 +257,7 @@ impl Array: Iterable {
 struct ArrayIterator {
     index: int,
     array: Array
-};
+}
 
 impl ArrayIterator: Iterator {
     static fn newWithArray(array: Array): ArrayIterator {

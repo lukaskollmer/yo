@@ -5,12 +5,12 @@ enum _NumberType {
     integer,
     bool,
     double
-};
+}
 
 struct Number {
     _value: any,
     _type: _NumberType
-};
+}
 
 impl Number {
 
