@@ -843,7 +843,7 @@ class Parser {
             let type = try parseType(ast[1])
             
             switch modifier {
-            case "ref":
+            case "*":
                 return ASTType.ref(type)
             default:
                 fatalError("unexpected type modifier '\(modifier)'")
@@ -1283,7 +1283,7 @@ class Parser {
         case "lvalue|pointer_op|>":
             return try parsePointerOperation(ast)
         case "lvalue|var_access":
-            return try ast | parseVariableAccess
+            return try parseVariableAccess(ast)
         default:
             fatalError()
         }

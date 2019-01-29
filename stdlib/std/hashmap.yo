@@ -23,7 +23,7 @@ struct HashMap {
     _usedSize: i64,
     _allocatedSize: i64,
     _sizeIndex: i64,
-    _backing: ref i64
+    _backing: *i64
 }
 
 
@@ -33,7 +33,7 @@ impl HashMap {
     }
 
     static fn _withSize(size: int, sizeIndex: int): HashMap {
-        return HashMap::init(0, size, sizeIndex, runtime::alloc(2 * 8 * size) as ref i64);
+        return HashMap::init(0, size, sizeIndex, runtime::alloc(2 * 8 * size) as *i64);
     }
 
 

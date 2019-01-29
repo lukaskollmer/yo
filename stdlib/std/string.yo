@@ -2,7 +2,7 @@ use "std/array";
 
 
 struct String {
-    _backing: ref i8
+    _backing: *i8
 }
 
 impl String {

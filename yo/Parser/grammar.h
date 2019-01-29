@@ -44,9 +44,9 @@ const char *YO_GRAMMAR =
 
 " impl          : \"impl\" <ident> (':' <ident> (',' <ident>)* )? '{' <function>* '}' ;  "
 
-" type          : <fn_ptr>          "
-"               | \"ref\" <type>    "
-"               |  <ident>  ;       "
+" type          : <fn_ptr>      "
+"               | '*' <type>    "
+"               |  <ident>  ;   "
 
 " expr_list     : <expr> ( ',' <expr> )*  ;     "
 

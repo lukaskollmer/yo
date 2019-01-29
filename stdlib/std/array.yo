@@ -5,7 +5,7 @@ use "std/string_builder";
 struct Array {
     _count: int,
     _allocatedLength: int,
-    // TODO make _backing `ref int`?
+    // TODO make _backing `*int`?
     _backing: int
 }
 
@@ -116,7 +116,7 @@ impl Array {
     // Sort the array using a custom sorting function
     // `f` should return true if the elements are in ascending order
     fn sort(self: Array, f: fn<(id, id): bool>): void {
-        runtime::sortf(self._backing as ref i64, self._count, 8, f);
+        runtime::sortf(self._backing as *i64, self._count, 8, f);
     }
 
 
