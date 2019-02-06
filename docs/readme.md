@@ -227,7 +227,8 @@ The first field contains the object's retain count (in the lower 4 bytes) and a 
 
 
 ### Automatic Reference Counting
-By default, automatic reference counting is enabled for all structs. You can disable ARC for a specific type via the `#[disable_metadata]` annotation.
+By default, automatic reference counting is enabled for all structs.  
+You can disable ARC for a specific type via the `#[disable_metadata]` annotation.
 
 Every object has a reference count, which represents the current number of references to that object. The runtime provides 2 functions for changing an object's reference count:
 - `runtime::retain(obj: id)` increases it by 1, indicating that a new reference to `obj` was created
