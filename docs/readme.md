@@ -71,7 +71,7 @@ There are two builtin identifiers:
 
 
 ### Conditional Statements
-- Yo has support for `if`, `while` and two types of`for` statements
+- Yo has support for `if`, `while` and two types of `for` statements
 - Curly braces are always required
 - C-style `for` loops: `for let i = 0; i < 5; i += 1; { ... }`
 - iterating `for` loops: `for i in 0..<5 { ... }`
@@ -88,6 +88,17 @@ use "std/array";
 fn main(): int {
     let foo = Array::new();
 }
+```
+
+
+### Enums
+Define an enum like the following:
+```rust
+enum Name {
+    case1, case2, ...
+}
+
+For the time being, enums are implemented as integers, meaning that you can trivially pass them anywhere an integer is expected, simply by casting.
 ```
 
 
@@ -110,7 +121,15 @@ For example, this is the signature of the `Array.sort` method:
 fn sort(self: Array, f: fn<(id, id): bool>): void;
 ```
 
-Lambdas can reference objects from outside their own scope, in which case the lambda will hold a strong reference to the object (this can lead to retain cycles!)
+Lambdas can reference objects from outside their own scope, in which case the lambda will hold a strong reference to the object (this can lead to retain cycles!).  
+Explicitly defining parameter types in a lambda isn't necssary, by default the parameters from the signature will be used:
+```rust
+// `x` and `y` are inferred to be of type int
+let f1: fn<(int, int): int> = |x, y| -> { return x + y; };
+
+// `x` is inferred to be of type int, while `y` is explicitly defined as a String
+let f2: fn<(int, id): void> = |x, y: String| -> { ... };
+```
 
 
 ### defer
@@ -166,6 +185,27 @@ fn main(): int {
 
 
 
+### Boxing primitive values
+Since yo doesn't support polymorphism or generics, and the standard library has to support ARC, most types and functions in the standard library accept objects of type `id` (aka, a pointer to a reference-counted object).
+
+An obvous limitation of this is that you can't trivially store a value of primitive type in an `Array` or `HashMap`. yo works around this by providing a `Number` type which functions as a wrapper around `int`, `bool` or `double` values.  
+The `@` operator constructs a `Number` object from a primitive literal or an expression which evaluates to a primitive type:
+```rust
+// Error: type mismatch
+let obj: id = 5;
+
+// Works fine, since `@5` evaluates to a `Number` object
+let obj: id = @5;
+```
+
+
+### IO
+
+The `io` module defines some functions for printing strings (`io::print`), ints (`io::printi`) or doubles (`io::printd`) to stdout.  
+
+The `io` module also defines
+
+
 
 ## Types
 
@@ -194,7 +234,9 @@ The yo compiler automatically creates an initializer for every type. For example
 ```rust
 static fn init(name: String, age: int): Person {
     // If arc is enabled, the first field contains metadata about the object
-    let self = runtime::alloc(8) as Person;
+    let self = runtime::alloc(24) as Person;
+
+    self[0] = runtime_type_metadata; // resolved at compile-time
     self[1] = runtime::retain(name);
     self[2] = age;
 
@@ -220,7 +262,7 @@ impl Person {
 }
 ```
 
-If you want a namespace to group some related functions, you can declare an `impl` block for a nonexistent type and put your functions in there (That's how the [runtime](https://github.com/lukaskollmer/yo/blob/master/stdlib/std/runtime.yo) module is implemented).
+If you want a namespace to group some related functions, you can declare an `impl` block for a nonexistent type and put your functions in there (That's how the [io](https://github.com/lukaskollmer/yo/blob/master/stdlib/io/main.yo) module is implemented).
 
 
 ## Memory Management
@@ -317,10 +359,11 @@ Note that this is extremely limited for now, basically it's just passing around 
 ## Roadmap
 
 In the future, i'd like to add:
+- Dramatically improved performance
 - OCaml-style pattern matching
 - Variant types (this could be implemented as enums with associated values)
 - Proper protocol support
-- Optimizations
+- An Optimizer
 
 
 ## License
