@@ -100,10 +100,10 @@ fn main(): int {
 }
 ```
 
-Unter the hood, lambdas are objects: they can be assigned to variables, passed to functions and stored as properties. A lambda type can be defined using the `fn<(param_types): return_type>` syntax. For example, this is the signature of the `Array.forEach` method from above:
+Unter the hood, lambdas are objects: they can be assigned to variables, passed to functions and stored as properties. A lambda type can be defined using the `fn<(param_types): return_type>` syntax. For example, this is the signature of the `Array.sort` method:
 
 ```rust
-fn forEach(self: Array, f: fn<(id): void>): void
+fn sort(self: Array, f: fn<(id, id): bool>): void
 ```
 
 Lambdas can reference objects from outside their own scope, in which case the lambda will hold a strong reference to the object (this can lead to retain cycles!)
@@ -130,13 +130,13 @@ fn main(): int {
 
 yo defines the following primitive types:
 - `bool`: A boolean type, implemented as an 8-bit integer. The only valid values are `true` and `false`
-- `.i8`, `.i16`, `.i32`, `.i64`: Signed integers (`.int` also exists as a type alias for `.i64`)
-- `.double`: A double-precision floating-point type
-- `.void`
+- `i8`, `i16`, `i32`, `i64`: Signed integers (`int` also exists as a type alias for `i64`)
+- `double`: A double-precision floating-point type
+- `void`
 
 Additional special-purpose types:
-- `.any`: An unspecified type of the same size as `.int`
-- `.id`: A reference-counted pointer
+- `any`: An unspecified type of the same size as `int`
+- `id`: A reference-counted pointer
 
 Declare a type using the `struct` keyword:
 
@@ -227,7 +227,8 @@ The first field contains the object's retain count (in the lower 4 bytes) and a 
 
 
 ### Automatic Reference Counting
-By default, automatic reference counting is enabled for all structs. You can disable ARC for a specific type via the `#[disable_metadata]` annotation.
+By default, automatic reference counting is enabled for all structs.  
+You can disable ARC for a specific type via the `#[disable_metadata]` annotation.
 
 Every object has a reference count, which represents the current number of references to that object. The runtime provides 2 functions for changing an object's reference count:
 - `runtime::retain(obj: id)` increases it by 1, indicating that a new reference to `obj` was created
