@@ -16,6 +16,16 @@ protocol NativeFunctions {
 
 extension NativeFunctions {
     
+    static func retain(offset: Int, interpreter: BytecodeInterpreter) {
+        let address = interpreter.stack.peek(offset: offset)
+        ARC.retain(address, heap: interpreter.heap)
+    }
+    
+    static func release(offset: Int, interpreter: BytecodeInterpreter) {
+        let address = interpreter.stack.peek(offset: offset)
+        ARC.release(address, interpreter: interpreter)
+    }
+    
     static func number_getIntValue(address: Int, heap: Heap) -> Int {
         let value = heap[_64: address + sizeof(.i64)]
         let type = heap[_64: address + 2 * sizeof(.i64)]

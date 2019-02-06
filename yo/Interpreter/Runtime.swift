@@ -251,6 +251,19 @@ class Runtime: NativeFunctions {
         }
         
         
+        self["runtime", "itoa", .String, [.i64, .int]] = { interpreter in
+            let value = interpreter.stack.peek()
+            let base = interpreter.stack.peek(offset: -1)
+            let string = String(value, radix: base)
+            return Runtime.allocateBacking(forString: string, heap: interpreter.heap)
+        }
+        
+        self["runtime", "_char_to_string", .ref(.i8), [.i8]] = { interpreter in
+            let string = interpreter.stack.peek() |> UnicodeScalar.init |> unwrap |> Character.init |> String.init
+            return Runtime.allocateBacking(forString: string, heap: interpreter.heap)
+        }
+        
+        
         self["runtime", "__format", .ref(.i8), [.String, .Array]] = { interpreter in
             let heap = interpreter.heap
             

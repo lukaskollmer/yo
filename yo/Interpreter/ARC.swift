@@ -150,6 +150,7 @@ class NativeFunctions_MemoryManagement: NativeFunctions {
         
         // MARK: Memory allocation
         
+        // TODO make this return .ref(.any) or something like that, so that the callee is forced to cast the return value
         runtime["runtime", "alloc", .int, [.int]] = { interpreter in
             let size = interpreter.stack.peek()
             return interpreter.heap.alloc(size: size)

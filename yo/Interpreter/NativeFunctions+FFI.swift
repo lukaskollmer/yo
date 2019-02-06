@@ -48,17 +48,6 @@ private let ffi_function_pool = RetainPool<FFIFunction>()
 
 enum NativeFunctions_FFI: NativeFunctions {
     
-    private static func retain(offset: Int, interpreter: BytecodeInterpreter) {
-        let address = interpreter.stack.peek(offset: offset)
-        ARC.retain(address, heap: interpreter.heap)
-    }
-    
-    private static func release(offset: Int, interpreter: BytecodeInterpreter) {
-        let address = interpreter.stack.peek(offset: offset)
-        ARC.release(address, interpreter: interpreter)
-    }
-        
-    
     static func register(_ runtime: Runtime) {
         
         
