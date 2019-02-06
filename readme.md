@@ -3,7 +3,7 @@
 
 <br>
 
-Yo is an interpreted, statically typed programming language with a rust-inspired syntax. This repo includes a lexer, parser, compiler and interpreter, as well as a small standard library.
+Yo is an interpreted, statically typed programming language with a rust-inspired syntax. This repo includes a parser, compiler and interpreter, as well as a small standard library.
 
 ## Example
 
