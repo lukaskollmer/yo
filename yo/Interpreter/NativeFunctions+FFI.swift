@@ -74,7 +74,7 @@ enum NativeFunctions_FFI: NativeFunctions {
         // - symbol
         // - return type
         // - #parameters
-        // - parameter types (pointer to Array backing)
+        // - parameter types (pointer to int array)
         // - lib handle
         runtime["ffi", "declareFunction", .int, [.String, .int, .int, .ref(.int), .int]] = { interpreter in
             let symbol = getString(0, interpreter)
@@ -86,9 +86,8 @@ enum NativeFunctions_FFI: NativeFunctions {
             var parameterTypes = [FFIType]()
             
             for i in 0..<argc {
-                let numberPtr = interpreter.heap[_64: parameterTypesPtr + i * sizeof(.id)]
-                let intValue = number_getIntValue(address: numberPtr, heap: interpreter.heap)
-                let type = ffi_type_mapping[intValue]
+                let number = interpreter.heap[_64: parameterTypesPtr + i * sizeof(.id)]
+                let type = ffi_type_mapping[number]
                 parameterTypes.append(type)
             }
             
