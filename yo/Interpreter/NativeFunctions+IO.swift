@@ -13,28 +13,35 @@ import Foundation
 enum NativeFunctions_IO: NativeFunctions {
     
     static func register(_ runtime: Runtime) {
-        runtime["io", "_open", .int, [.String, .String]] = { interpreter in
-            let path = self.getString(atAddress: interpreter.stack.peek(), heap: interpreter.stack.heap)
-            let mode = self.getString(atAddress: interpreter.stack.peek(offset: -1), heap: interpreter.stack.heap)
-            
-            guard let handle = fopen(path, mode) else {
-                return -1
+        runtime["io", "_open", .i32, [.String, .i32]] = { interpreter in
+            retain(offset: 0, interpreter: interpreter)
+            defer {
+                release(offset: 0, interpreter: interpreter)
             }
+            let path = self.getString(atAddress: interpreter.stack.peek(), heap: interpreter.stack.heap)
+            let flag = Int32(interpreter.stack.peek(offset: -1))
             
-            return reinterpret_cast(handle)
-            
-            //var dest = [UInt8](repeating: 0, count: 5)
-            //fread(&dest, 1, 5, file)
+            return Int(open(path, flag))
         }
         
-        runtime["io", "_close", .int, [.int]] = { interpreter in
-            let arg0 = interpreter.stack.peek()
-            let handle: UnsafeMutablePointer<FILE>! = reinterpret_cast(arg0)
-            fclose(handle)
-            return 0
+        runtime["io", "_close", .i32, [.i32]] = { interpreter in
+            let fd = Int32(interpreter.stack.peek())
+            return Int(close(fd))
         }
         
-        // TODO
-        //runtime["io", "_read", .]
+        runtime["io", "_read", .i32, [.i32, .ref(.i8), .i64]] = { interpreter in
+            let fd = Int32(interpreter.stack.peek())
+            let buf_ptr = interpreter.stack.peek(offset: -1)
+            let len = interpreter.stack.peek(offset: -2)
+            let buffer = interpreter.heap.base.advanced(by: buf_ptr)
+            return read(fd, buffer, len)
+        }
+        
+        runtime["io", "_lseek", .i64, [.i32, .i64, .i32]] = { interpreter in
+            let arg0 = Int32(interpreter.stack.peek())
+            let arg1 = Int64(interpreter.stack.peek(offset: -1))
+            let arg2 = Int32(interpreter.stack.peek(offset: -2))
+            return lseek(arg0, arg1, arg2) |> numericCast
+        }
     }
 }
