@@ -2077,7 +2077,7 @@ private extension BytecodeCompiler {
     
     func guard_allConstantsHaveAValidType(_ constants: [ASTConstantDeclaration]) {
         for constant in constants {
-            guard try! constant.type.isTriviallyRepresentableAsInteger && constant.type == self.guessType(ofExpression: constant.value) else {
+            guard try! constant.type.isTriviallyRepresentableAsInteger && self.guessType(ofExpression: constant.value).isTriviallyRepresentableAsInteger else {
                 fatalError("Constant '\(constant.identifier.value)' has unsupported type '\(constant.type)'")
             }
         }
@@ -2239,7 +2239,7 @@ private extension BytecodeCompiler {
     func boxedType(ofExpression expression: ASTExpression) throws -> ASTType {
         let type = try guessType(ofExpression: expression)
         switch type {
-        case .bool, .double, ._enum(_),
+        case .bool, .double, ._enum(_), // TODO use .isTriviallyRepresentableAsAnInteger or whatever its called
         _ where ASTType.intTypes.contains(type):
             return .complex(name: "Number")
         default:
