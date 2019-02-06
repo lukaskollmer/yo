@@ -16,17 +16,18 @@ fn main(): int {
 
 
 
-
 ## Table of Contents
-- [Syntax](#syntax)
+- [Syntax / Language Features](syntax--language-features)
 - [Types](#types)
 - [Memory Management](#memory-management)
-- [Standard Library](stdlib/)
+- [Standard Library](#standard-library)
+- [Roadmap](#roadmap)
 
-## Syntax
-yo's syntax is heavily inspired by rust
 
-> **Note**: This list of syntax features is most likely incomplete, have a look at the [standard library](https://github.com/lukaskollmer/yo/tree/master/stdlib) to see the language in use
+
+## Syntax / Language Features
+> **Note**: This list of features is incomplete, have a look at the [standard library](https://github.com/lukaskollmer/yo/tree/master/stdlib) to see the language in use.  
+The full syntax is defined in [grammar.h](https://github.com/lukaskollmer/yo/blob/master/yo/Parser/grammar.h)
 
 ### Functions
 - Declare a function using the `fn` keyword
@@ -54,6 +55,8 @@ fn addOne(x: int): int {
 
 ```rust
 fn main(): int {
+    let foo: String;
+
     let magicNumber = 42;
     let one = 1;
     let two = one * 2;
@@ -62,19 +65,18 @@ fn main(): int {
 }
 ```
 
+There are two builtin identifiers:
+- `#nil`: a value describing the absence of a value
+- `#function`: evaluates to the name of the current function
+
+
 ### Conditional Statements
 - Yo has support for `if`, `while` and two types of`for` statements
 - Curly braces are always required
+- C-style `for` loops: `for let i = 0; i < 5; i += 1; { ... }`
+- iterating `for` loops: `for i in 0..<5 { ... }`
 
-```rust
-fn abs(x: int): int {
-    if x > 0 {
-        return x;
-    } else {
-        return -x;
-    }
-}
-```
+
 
 ### Importing other modules
 Import other modules using the `use` keyword. Since yo doesn't have a concept of namespaces, all imported types and functions will be available globally (similar to C).
@@ -88,8 +90,9 @@ fn main(): int {
 }
 ```
 
+
 ### Lambdas
-Anonymous functions (lambdas) can be declared using the `|| -> {}` syntax:
+Anonymous functions (lambdas) are declared using the `|| -> {}` syntax:
 
 ```rust
 fn main(): int {
@@ -100,21 +103,23 @@ fn main(): int {
 }
 ```
 
-Unter the hood, lambdas are objects: they can be assigned to variables, passed to functions and stored as properties. A lambda type can be defined using the `fn<(param_types): return_type>` syntax. For example, this is the signature of the `Array.sort` method:
+Unter the hood, lambdas are objects: they can be assigned to variables, passed to functions and stored as properties. A lambda type can be defined using the `fn<(param_types): return_type>` syntax.
 
+For example, this is the signature of the `Array.sort` method:
 ```rust
-fn sort(self: Array, f: fn<(id, id): bool>): void
+fn sort(self: Array, f: fn<(id, id): bool>): void;
 ```
 
 Lambdas can reference objects from outside their own scope, in which case the lambda will hold a strong reference to the object (this can lead to retain cycles!)
 
-### `defer`
+
+### defer
 The `defer` statement allows delaying the execution of some code until just before the current scope is exited.
 
-For example, the following code will first print "foo", and then "defer":
+For example, the following code will first print `foo`, and then `defer`:
 ```rust
 fn foo(x: int): int {
-    io::("foo");
+    io::print("foo");
     return x;
 }
 
@@ -125,6 +130,42 @@ fn main(): int {
     return foo(0);
 }
 ```
+
+
+### Variadic functions
+The `#[variadic]` annotations indicates that a function accepts a variable number of parameters. How the variadic arguments are passed depends on the type of the last parameter:
+- `Array`: all additional arguments must be of type `id` (ie, complex objects)
+- `*i64`: all additional arguments must fit in a 64-bit integer
+
+```rust
+#[variadic]
+fn format(fmt: String, args: Array): String;
+
+#[variadic]
+fn format(fmt: String, args: *i64): String;
+```
+
+
+### Working with pointers
+You can use the `*`, `&+` and `&++` operators to reference or dereference values:
+- `* <lvalue>` dereference an lvalue of pointer-type. equivalent to `<lvalue>[0]`
+- `&+ <lvalue>` take the address of an lvalue
+- `&++ <lvalue>` take the absolute address of an lvalue (only useful when passing pointers to the ffi)
+
+```rust
+fn increment_in_place(x: *int): void {
+  *x += 1;
+}
+
+fn main(): int {
+  let foo = 0;
+  increment_in_place(&+foo);
+  return foo;
+} // -> Exits with exit code 1
+```
+
+
+
 
 ## Types
 
@@ -202,10 +243,10 @@ fn main(): int {
 }
 ```
 
-**Note:** You only need to free data you allocated. Objects that use ARC are freed auttomatically
+**Note:** You only need to free data you allocated. Objects that use ARC are freed automatically
 
 
-### A `structs`'s default memory layout
+### A structs's default memory layout
 As described above, yo auto-generated an initializer for every struct type you declare. Let's say we declare `Person`, as defined above:
 
 ```rust
@@ -228,15 +269,43 @@ The first field contains the object's retain count (in the lower 4 bytes) and a 
 
 ### Automatic Reference Counting
 By default, automatic reference counting is enabled for all structs.  
-You can disable ARC for a specific type via the `#[disable_metadata]` annotation.
+You can disable ARC for a specific type with the `#[disable_metadata]` annotation.
 
-Every object has a reference count, which represents the current number of references to that object. The runtime provides 2 functions for changing an object's reference count:
-- `runtime::retain(obj: id)` increases it by 1, indicating that a new reference to `obj` was created
-- `runtime::retain(obj: id)` decreases it by 1, indicating that an existing reference to `obj` has ended
+Every object has a reference count, which represents the current number of references to that object. The runtime provides two functions for manipulating an object's reference count:
+- `runtime::retain(obj: id): id` increases it by 1, indicating that a new reference to `obj` was created
+- `runtime::retain(obj: id): id` decreases it by 1, indicating that an existing reference to `obj` was destroyed
 
 When an object's reference count reaches 0, the runtime calls its `dealloc` method and frees it off the heap.
 
 The compiler generates a dealloc method for each type, which releases all references held by the object, but types can also implement their own `dealloc` method.
+
+
+
+## Standard Library
+The standard library is required for any yo program to compile. It implements fundamental types and data structures, like `String`, `Array`, `HashMap` and some others.  
+The stdlib sources can be found [here](https://github.com/lukaskollmer/yo/tree/master/stdlib).
+
+
+
+
+## FFI
+yo's standard library includes an experimental ffi, which allows calling C functions from yo:
+
+```rust
+use "ffi"
+```
+
+Note that this is extremely limited for now, basically it's just passing around integers of arbitrary sizes, the ffi doesn't (yet?) support structs or c-style arrays.
+
+
+
+## Roadmap
+
+In the future, i'd like to add:
+- OCaml-style pattern matching
+- Variant types (this could be implemented as enums with associated values)
+- Proper protocol support
+- Optimizations
 
 
 ## License
