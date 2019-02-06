@@ -133,7 +133,7 @@ fn main(): int {
 
 
 ### Variadic functions
-The `#[variadic]` annotations indicates that a function accepts a variable number of parameters. How the variadic arguments are passed depends on the type of the last parameter:
+The `#[variadic]` annotation indicates that a function accepts a variable number of parameters. How the variadic arguments are passed depends on the type of the last parameter:
 - `Array`: all additional arguments must be of type `id` (ie, complex objects)
 - `*i64`: all additional arguments must fit in a 64-bit integer
 
@@ -228,7 +228,7 @@ Yo differentiates between stack-allocated primitive types and heap-allocated com
 
 - `runtime::alloc(num_bytes: int): *int` allocates space on the heap and returns a pointer to the beginning of the allocated data
 - Accessing the data referenced by a pointer is possible via the subscript (see the example below)
-- `runtime::free(ptr: any)` frees the allocated heap space
+- `runtime::free(ptr: any): void` frees the allocated heap space
 
 **Example:** Allocating a C-String on the heap
 ```rust
@@ -261,8 +261,8 @@ The memory layout of an instance of `Person` is the following:
 | Offset | Description                                  |
 | :----- | :------------------------------------------- |
 | 0      | Runtime metadata                             |
-| 1      | Pointer to `name` (a heap-allocated string)  |
-| 2      | Value of `age`                               |
+| 8      | Pointer to `name` (a heap-allocated string)  |
+| 16     | Value of `age`                               |
 
 The first field contains the object's retain count (in the lower 4 bytes) and a pointer to the object's [metatype](https://github.com/lukaskollmer/yo/blob/master/stdlib/runtime/metatypes.yo) (the upper 4 bytes).
 
@@ -292,8 +292,23 @@ The stdlib sources can be found [here](https://github.com/lukaskollmer/yo/tree/m
 yo's standard library includes an experimental ffi, which allows calling C functions from yo:
 
 ```rust
-use "ffi"
+use "runtime";
+use "io";
+use "ffi";
+
+fn main(): int {
+    let ffi = FFI::new(#nil);
+    ffi.declareFunction("strcmp", FFIType.int32, 2, FFIType.pointer, FFIType.pointer);
+
+    let foo = "foo";
+    let bar = "bar";
+
+    io::printf("same: %n", @(ffi.invoke("strcmp", &++foo._backing, &++foo._backing))); // -> "0"
+    io::printf("same: %n", @(ffi.invoke("strcmp", &++foo._backing, &++bar._backing))); // -> "4"
+}
 ```
+
+Since yo strings internally use the same memory layout as C strings, they can be trivially passed back and forth.
 
 Note that this is extremely limited for now, basically it's just passing around integers of arbitrary sizes, the ffi doesn't (yet?) support structs or c-style arrays.
 
