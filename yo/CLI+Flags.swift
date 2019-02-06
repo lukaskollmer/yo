@@ -34,7 +34,7 @@ extension CLIOptions {
     
     static let heapSize = CLIOption<Int>(
         flag: "--heap-size",
-        defaultValue: Int(1 << 12),
+        defaultValue: Int(1 << 15),
         description: "Specify the size of the heap"
     )
     
@@ -71,4 +71,3 @@ extension CLIOptions {
     
     static let all: [CLIOptions] = [.help, .verbose, .checkHeapEmpty, .printInstructions, .printHeap, .heapSize, .stdlibPath, .printAST, .logAllCalls, .recordCallStats, .emitSignposts, .optimize]
 }
-
