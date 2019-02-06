@@ -22,7 +22,7 @@ impl runtime {
 
     // unsafely invoke a method
     #[variadic]
-    static fn msgSend(target: id, selector: String, argc: int, argv: int): any {
+    static fn msgSend(target: id, selector: String, argc: int, argv: *any): any {
         if target == 0 {
             return 0;
         }

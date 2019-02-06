@@ -31,13 +31,15 @@ impl FFI {
         }
     }
 
-    fn declareFunction(self: FFI, name: String, returnType: FFIType, parameterTypes: Array): void {
-        let functionHandle = ffi::declareFunction(name, returnType as int, parameterTypes.count(), parameterTypes._backing as *int, self.libHandle);
+    #[variadic]
+    fn declareFunction(self: FFI, name: String, returnType: FFIType, argc: int, parameterTypes: *any): void {
+        let functionHandle = ffi::declareFunction(name, returnType as int, argc, parameterTypes as *int, self.libHandle);
         self.functionHandles.insert(name, @(functionHandle));
+        runtime::free(parameterTypes);
     }
 
     #[variadic]
-    fn invoke(self: FFI, name: String, args: int): int {
+    fn invoke(self: FFI, name: String, args: *any): int {
         defer {
             runtime::free(args);
         }

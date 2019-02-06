@@ -5,8 +5,7 @@ use "std/string_builder";
 struct Array {
     _count: int,
     _allocatedLength: int,
-    // TODO make _backing `*int`?
-    _backing: int
+    _backing: *id
 }
 
 // TODO write tests for all of this!
@@ -15,7 +14,7 @@ struct Array {
 impl Array {
     // Create a new Array
     static fn new(): Array {
-        return Array::init(0, 10, runtime::alloc(10 * 8));
+        return Array::init(0, 10, runtime::alloc(10 * 8) as *id);
     }
 
 
@@ -42,7 +41,7 @@ impl Array {
 
     // Get the object at `index`
     fn get(self: Array, index: int): id {
-        return self._backing[self._normalizeIndexAndCheckBounds(index)] as id;
+        return self._backing[self._normalizeIndexAndCheckBounds(index)];
     }
 
 
@@ -234,7 +233,7 @@ impl Array {
     // Move to a smaller/larger backing
     // Also updates `_allocatedLength`
     fn _resizeBacking(self: Array, newSize: int): void {
-        let newBacking: int = runtime::alloc(newSize * 8);
+        let newBacking: *id = runtime::alloc(newSize * 8);
 
         runtime::copy_array(8, self._backing, 0, newBacking, 0, self._count);
 

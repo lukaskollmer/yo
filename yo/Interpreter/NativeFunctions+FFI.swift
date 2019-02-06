@@ -104,7 +104,10 @@ enum NativeFunctions_FFI: NativeFunctions {
         }
         
         
-        runtime["ffi", "invoke", .i64, [.int, .int]] = { interpreter in
+        // Parameters:
+        // - function handle
+        // - arguments
+        runtime["ffi", "invoke", .i64, [.int, .ref(.any)]] = { interpreter in
             let function = ffi_function_pool.get(id: interpreter.stack.peek())
             let argsPtr = interpreter.stack.peek(offset: -1) // Pointer to int array
             

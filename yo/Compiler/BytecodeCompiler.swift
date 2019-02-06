@@ -440,7 +440,7 @@ private extension BytecodeCompiler {
         }
         
         if function.signature.isVariadic {
-            guard [ASTType.int, .Array].contains(function.signature.parameters.last!.type) else {
+            guard [ASTType.ref(.any), .Array].contains(function.signature.parameters.last!.type) else {
                 fatalError("\(function.mangledName) declared as variadic, but the last parameter is neither `int` nor `Array`")
             }
         }
@@ -1321,7 +1321,7 @@ private extension BytecodeCompiler {
             
             let arrayLiteral = ASTArrayLiteral(
                 elements: Array(functionCall.arguments.suffix(numberOfVariadicArguments)),
-                kind: expectedType == .int ? .primitive : .complex
+                kind: expectedType == .ref(.any) ? .primitive : .complex
             )
             
             try handle(node: arrayLiteral)
@@ -1745,10 +1745,10 @@ private extension BytecodeCompiler {
                         name: ASTIdentifier(initializerName),
                         kind: .staticImpl("runtime"),
                         parameters: (0..<elements.count).map { ASTVariableDeclaration(identifier: ASTIdentifier("_\($0)"), type: .any) },
-                        returnType: .int
+                        returnType: .ref(.i64)
                     ),
                     body: [
-                        ASTVariableDeclaration(identifier: array, type: .int), // TODO i64
+                        ASTVariableDeclaration(identifier: array, type: .ref(.any)), // TODO i64
                         ASTAssignment(
                             target: array,
                             value: ASTFunctionCall(

@@ -104,7 +104,7 @@ class Runtime: NativeFunctions {
         // 1. function address
         // 2. argc
         // 3. argv (pointer to primitive array)
-        self["runtime", "_invoke", .any, [.int, .int, .int]] = { interpreter in
+        self["runtime", "_invoke", .any, [.int, .int, .ref(.any)]] = { interpreter in
             let address = interpreter.stack.peek()
             let argc = interpreter.stack.peek(offset: -1)
             let argv = interpreter.stack.peek(offset: -2)
