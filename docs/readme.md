@@ -17,7 +17,7 @@ fn main(): int {
 
 
 ## Table of Contents
-- [Syntax / Language Features](syntax--language-features)
+- [Syntax / Language Features](#syntax--language-features)
 - [Types](#types)
 - [Memory Management](#memory-management)
 - [Standard Library](#standard-library)
@@ -66,7 +66,7 @@ fn main(): int {
 ```
 
 There are two builtin identifiers:
-- `#nil`: a value describing the absence of a value
+- `#nil`: a value indicating the absence of a value
 - `#function`: evaluates to the name of the current function
 
 
