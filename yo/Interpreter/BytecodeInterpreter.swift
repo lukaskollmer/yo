@@ -341,17 +341,17 @@ class BytecodeInterpreter {
             }
             
         case .load:
-            stack.push(stack.getFrameElement(atIndex: immediate))
+            immediate |> stack.getFrameElement |> stack.push
             
         case .store:
             stack.pushFrame(index: immediate, value: stack.pop())
             
             
         case .push_fp:
-            stack.push(stack.actualIndex(for: stack.framePointer))
+            stack.framePointer |> stack.actualIndex |> stack.push
         
         case .addr_cvt2abs:
-            stack.pop() | heap.base.advanced(by:) | Int.init(bitPattern:) | stack.push
+            stack.pop() |> heap.base.advanced(by:) |> Int.init(bitPattern:) |> stack.push
             
             
         // Heap operations

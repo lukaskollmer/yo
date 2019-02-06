@@ -10,13 +10,17 @@ import Foundation
 
 
 
+infix operator |>: AdditionPrecedence
 
-func | <T, U>(lhs: T, rhs: (T) throws -> U) rethrows -> U {
+
+func |> <T, U>(lhs: T, rhs: (T) throws -> U) rethrows -> U {
     return try rhs(lhs)
 }
 
 
-
+func unwrap<T>(_ arg: Optional<T>) -> T {
+    return arg!
+}
 
 
 
