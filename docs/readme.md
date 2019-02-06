@@ -97,9 +97,8 @@ Define an enum like the following:
 enum Name {
     case1, case2, ...
 }
-
-For the time being, enums are implemented as integers, meaning that you can trivially pass them anywhere an integer is expected, simply by casting.
 ```
+For the time being, enums are implemented as integers, meaning that you can trivially pass them anywhere an integer is expected, simply by casting to `int`.
 
 
 ### Lambdas
