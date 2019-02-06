@@ -8,11 +8,11 @@ Yo is an interpreted, statically typed programming language with a rust-inspired
 ## Example
 
 ```rust
+use "runtime";
 use "io";
-use "std/string";
 
 fn main(): int {
-    io::print("hello world");
+    io::print("Hello World");
 }
 ```
 
