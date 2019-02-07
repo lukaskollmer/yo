@@ -428,7 +428,7 @@ fn main(): int {
 
 Since yo strings internally use the same memory layout as C strings, they can be trivially passed back and forth.
 
-Note that this is extremely limited for now, basically it's just passing around integers of arbitrary sizes, the ffi doesn't (yet?) support structs or c-style arrays.
+Note that this is extremely limited for now, basically it's just passing around integers of different sizes, the ffi doesn't (yet?) support structs or c-style arrays.
 
 
 
@@ -436,6 +436,8 @@ Note that this is extremely limited for now, basically it's just passing around 
 
 In the future, i'd like to add:
 - OCaml-style pattern matching
+- Named function arguments
+- Explicit (non-)mutability
 - Optionals
 - Dramatically improved parsing performance
 - Variant types (this could be implemented as enums with associated values)
