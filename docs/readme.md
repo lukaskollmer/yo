@@ -197,6 +197,7 @@ An incomplete list of annotations:
 | Annotation           | Scope           | Description                                                       |
 | :------------------- | :-------------- | :---------------------------------------------------------------- |
 | `disable_arc`        | function        | Disable automatic reference counting for a function               |
+| `disable_metadata`   | type            | Disable runtime metadata. This also disables ARC                  |
 | `static_initializer` | function        | The annotated function will be called before `main` is invoked    |
 | `static_cleanup`     | function        | The annotated function will be called after returning from `main` |
 | `variadic`           | function        | Tells the compiler to pack all non-fixed arguments into an array  |
@@ -382,7 +383,7 @@ The first field contains the object's retain count (in the lower 4 bytes) and a 
 
 ### Automatic Reference Counting
 By default, automatic reference counting is enabled for all structs.  
-You can disable ARC for a specific type with the `#[disable_metadata]` annotation.
+You can disable ARC for a specific type with the `#[disable_metadata]` annotation. Note that this only works as long as the object's static type remains unchanged. If the static type decays to `id`, the compiler and runtime have no way of knowing that the object doesn't support reference counting.
 
 Every object has a reference count, which represents the current number of references to that object. The runtime provides two functions for manipulating an object's reference count:
 - `runtime::retain(obj: id): id` increases it by 1, indicating that a new reference to `obj` was created
