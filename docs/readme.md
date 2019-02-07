@@ -339,7 +339,7 @@ If you want a namespace to group some related functions, you can declare an `imp
 Yo differentiates between stack-allocated primitive types and heap-allocated complex types.
 
 - `runtime::alloc(num_bytes: int): *int` allocates space on the heap and returns a pointer to the beginning of the allocated data
-- Accessing the data referenced by a pointer is possible via the subscript (see the example below)
+- Accessing the data referenced by a pointer is possible by subscripting (see the example below)
 - `runtime::free(ptr: any): void` frees the allocated heap space
 
 **Example:** Allocating a C-String on the heap
