@@ -387,7 +387,7 @@ You can disable ARC for a specific type with the `#[disable_metadata]` annotatio
 
 Every object has a reference count, which represents the current number of references to that object. The runtime provides two functions for manipulating an object's reference count:
 - `runtime::retain(obj: id): id` increases it by 1, indicating that a new reference to `obj` was created
-- `runtime::retain(obj: id): id` decreases it by 1, indicating that an existing reference to `obj` was destroyed
+- `runtime::release(obj: id): id` decreases it by 1, indicating that an existing reference to `obj` was destroyed
 
 When an object's reference count reaches 0, the runtime calls its `dealloc` method and frees it off the heap.
 
