@@ -79,11 +79,11 @@ fn main(): int {
 Builtin identifiers are prefixed with a `#`:
 - `#function`: evaluates to the name of the current function
 
-Other kinds of variables:
+**Other kinds of variables**
 - Static variables: declared globally and valid for the entire lifetime of your program
 - Constants: compile-time constants, limited to trivial types
 
-Note:
+**Note**
 - For both static and const variables, you're required to explicitly declare a type
 - Only static variables of ARC-enabled types are deallocated automatically, you have to manually free other non-primitive static variables
 - Constants behave similar to macros in C, as in that they're "pasted" into the ast whereever they're used
