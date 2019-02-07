@@ -76,11 +76,11 @@ fn main(): int {
 }
 ```
 
-Builtin identifiers are prefixed with a `#`:
+**Builtin identifiers:**
 - `#function`: evaluates to the name of the current function
 
 **Other kinds of variables**
-- Static variables: declared globally and valid for the entire lifetime of your program
+- Static variables: declared globally and valid for the entire lifetime of the program
 - Constants: compile-time constants, limited to trivial types
 
 **Note**
@@ -99,8 +99,8 @@ const EXIT_SUCCESS: i32 = 0;
 ### Conditional Statements
 - Yo has support for `if`, `while` and two types of `for` statements
 - Curly braces are always required
-- C-style `for` loops: `for let i = 0; i < 5; i += 1; { ... }`
-- iterating `for` loops: `for i in 0..<5 { ... }`
+- C-style `for` loops: `for <decl>; <cond>; <stmt>; { ... }`
+- iterating `for` loops: `for <ident> in <iterable> { ... }`
 
 
 
