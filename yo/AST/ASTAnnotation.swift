@@ -26,7 +26,7 @@ class ASTAnnotation {
         static let base_protocol: Element = "base_protocol"
         static let attribute_accessors: Element = "attribute_accessors"
         static let variadic: Element = "variadic"
-        static let pass_unchecked: Element = "pass_unchecked"
+        static let unchecked: Element = "unchecked"
         static let disable_metadata: Element = "disable_metadata"
         
         let key: String

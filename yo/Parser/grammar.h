@@ -37,7 +37,7 @@ const char *YO_GRAMMAR =
 
 " global_var    : \"static\" <ident> ':' <type> ('=' <expr>)?  ';' ; "  // TODO remove the type requirement?
 
-" const_decl    : \"const\" <ident> ':' <type> '=' <expr> ';' ; "
+" const_decl    : <annotation>* \"const\" <ident> ':' <type> '=' <expr> ';' ; "
 
 " struct_decl   : <annotation>* \"struct\" <ident> '{' <paramList>? '}' ; "
 

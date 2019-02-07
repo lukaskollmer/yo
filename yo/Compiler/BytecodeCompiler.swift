@@ -1303,7 +1303,7 @@ private extension BytecodeCompiler {
                 arg = arg.as(expectedType)
             }
             
-            if !functionSignature.hasAnnotation(.pass_unchecked) {
+            if !functionSignature.hasAnnotation(.unchecked) {
                 let argType = try guessType(ofExpression: arg)
                 guard argType.isCompatible(with: expectedType) else {
                     fatalError("cannot pass '\(argType)' to function expecting '\(expectedType)'")
@@ -2076,7 +2076,7 @@ private extension BytecodeCompiler {
     
     
     func guard_allConstantsHaveAValidType(_ constants: [ASTConstantDeclaration]) {
-        for constant in constants {
+        for constant in constants where !constant.annotations.contains(.unchecked) {
             guard try! constant.type.isTriviallyRepresentableAsInteger && self.guessType(ofExpression: constant.value).isTriviallyRepresentableAsInteger else {
                 fatalError("Constant '\(constant.identifier.value)' has unsupported type '\(constant.type)'")
             }

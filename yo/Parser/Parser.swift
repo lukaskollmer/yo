@@ -216,11 +216,15 @@ class Parser {
     
     
     
-    func parseConstantDeclaration(_ ast: mpc_ast_t) throws -> ASTConstantDeclaration {        
+    func parseConstantDeclaration(_ ast: mpc_ast_t) throws -> ASTConstantDeclaration {
+        let annotations = try parseAnnotations(ast)
+        let offset = annotations.count
+        
         return ASTConstantDeclaration(
-            identifier: try parseIdentifier(ast[1]),
-            type: try parseType(ast[3]),
-            value: try parseExpression(ast[5])
+            annotations: annotations.allElements,
+            identifier: try parseIdentifier(ast[offset + 1]),
+            type: try parseType(ast[offset + 3]),
+            value: try parseExpression(ast[offset + 5])
         )
     }
     
@@ -472,6 +476,13 @@ class Parser {
     }
     
     
+    
+    // TODO: Annotations: update the grammar so that multle annotations on the same declaration end up in a single node
+    func parseAnnotations(_ ast: mpc_ast_t) throws -> [ASTAnnotation] {
+        return try ast.lk_children
+            .prefix { $0.lk_tag == "annotation|>" }
+            .map(parseAnnotation)
+    }
     
     func parseAnnotation(_ ast: mpc_ast_t) throws -> ASTAnnotation {
         // TODO add support for non-boolean annotation elements!

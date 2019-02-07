@@ -30,24 +30,35 @@ fn main(): int {
 The full syntax is defined in [grammar.h](https://github.com/lukaskollmer/yo/blob/master/yo/Parser/grammar.h)
 
 ### Functions
-- Declare a function using the `fn` keyword
-- Every function is required to specify a return type
-- If the function body doesn't end with a return statement, it implicitly returns 0
-- Return from a function using the `return` keyword
-- Function parameters are declared using a `name: type` syntax
-- When calling a function, primititve types are passed by value, while complex types ([see below](#types)) are passed by reference
+Functions are declared using the `fn` keyword. Every function is required to specify a return type. Parameters are declared with a `name: type` syntax:
 
 ```rust
-// A function that takes 0 parameters and returns an integer
+// The main function is the program's entry point
 fn main(): int {
-    return 12;
+    return 0;
 }
 
-// A function that takes a single integer
-fn addOne(x: int): int {
+// A function that takes and returns an integer
+fn increment(x: int): int {
     return x + 1;
 }
 ```
+
+yo differentiates between three kinds of functions:
+- global functions: not bound to any specific namespace (like `main` and `increment` above)
+- static functions: bound to a type's namespace (like `io::print`, see below)
+- instance functions: called on an instance of a type (like `array.count()`)
+
+
+
+### Literals
+- String literals: `"Hello!"`
+- Integer literals: `18` (base 10), `0b10010` (base 2), `0x12` (base 16), `022` (base 8)
+- Double literals: `7.5`
+- Array literals (complex): `[expr, ...]` (arrays can only contain reference-counted objects)
+- Array literals (primitive): `{expr, ...}` (returns `*i64`)
+
+
 
 ### Variables
 - Use the `let` keyword to declare a variable
@@ -65,9 +76,24 @@ fn main(): int {
 }
 ```
 
-There are two builtin identifiers:
-- `#nil`: a value indicating the absence of a value
+Builtin identifiers are prefixed with a `#`:
 - `#function`: evaluates to the name of the current function
+
+Other kinds of variables:
+- Static variables: declared globally and valid for the entire lifetime of your program
+- Constants: compile-time constants, limited to trivial types
+
+Note:
+- For both static and const variables, you're required to explicitly declare a type
+- Only static variables of ARC-enabled types are deallocated automatically, you have to manually free other non-primitive static variables
+- Constants behave similar to macros in C, as in that they're "pasted" into the ast whereever they're used
+
+```rust
+static numbers: *i64 = {1, 2, 4, 8, 16};
+
+const EXIT_SUCCESS: i32 = 0;
+```
+
 
 
 ### Conditional Statements
@@ -101,6 +127,8 @@ enum Name {
 For the time being, enums are implemented as integers, meaning that you can trivially pass them anywhere an integer is expected, simply by casting to `int`.
 
 
+
+
 ### Lambdas
 Anonymous functions (lambdas) are declared using the `|| -> {}` syntax:
 
@@ -131,6 +159,7 @@ let f2: fn<(int, id): void> = |x, y: String| -> { ... };
 ```
 
 
+
 ### defer
 The `defer` statement allows delaying the execution of some code until just before the current scope is exited.
 
@@ -150,6 +179,15 @@ fn main(): int {
 ```
 
 
+### Annotations
+
+Type- and function declarations can be annotated using the `#[name]` syntax.  
+A list of all annotations can be found in [ASTAnnotation.swift](https://github.com/lukaskollmer/yo/blob/master/yo/AST/ASTAnnotation.swift)
+
+TODO: explain annotations
+
+
+
 ### Variadic functions
 The `#[variadic]` annotation indicates that a function accepts a variable number of parameters. How the variadic arguments are passed depends on the type of the last parameter:
 - `Array`: all additional arguments must be of type `id` (ie, complex objects)
@@ -162,6 +200,7 @@ fn format(fmt: String, args: Array): String;
 #[variadic]
 fn format(fmt: String, args: *i64): String;
 ```
+
 
 
 ### Working with pointers
@@ -198,11 +237,20 @@ let obj: id = @5;
 ```
 
 
+
 ### IO
 
 The `io` module defines some functions for printing strings (`io::print`), ints (`io::printi`) or doubles (`io::printd`) to stdout.  
 
-The `io` module also defines
+The `io` module also defines the `io::printf` function, which is yo's equivalent of C's `printf`. Note that you have to box primitive values passed to `io::printf`.
+
+`io::printf` format specifiers:
+| Specifier | Output                                 |
+| :-------- | :------------------------------------- |
+| `%n`      | A `Number` object's value              |
+| `%s`      | The contents of a `String` object      |
+| `%i       | The integer value of the passed object |
+
 
 
 
@@ -232,7 +280,6 @@ Instances of structs are allocated on the heap and are subject to automatic refe
 The yo compiler automatically creates an initializer for every type. For example, if you declare the type `Person` as seen in the example above, yo synthesises the following initializer:
 ```rust
 static fn init(name: String, age: int): Person {
-    // If arc is enabled, the first field contains metadata about the object
     let self = runtime::alloc(24) as Person;
 
     self[0] = runtime_type_metadata; // resolved at compile-time
@@ -249,8 +296,8 @@ You can declare a type's static and instance methods using the `impl` keyword. A
 ```rust
 impl Person {
     // Declare a static method using the `static` keyword
-    static fn new(name: String, age: int): Person {
-        ret Person::init(name, age, 1);
+    static fn me(): Person {
+        return Person::init("Lukas", 20);
     }
 
 
@@ -262,6 +309,9 @@ impl Person {
 ```
 
 If you want a namespace to group some related functions, you can declare an `impl` block for a nonexistent type and put your functions in there (That's how the [io](https://github.com/lukaskollmer/yo/blob/master/stdlib/io/main.yo) module is implemented).
+
+
+
 
 
 ## Memory Management
@@ -287,7 +337,8 @@ fn main(): int {
 **Note:** You only need to free data you allocated. Objects that use ARC are freed automatically
 
 
-### A structs's default memory layout
+
+### A structs' default memory layout
 As described above, yo auto-generated an initializer for every struct type you declare. Let's say we declare `Person`, as defined above:
 
 ```rust
@@ -308,6 +359,7 @@ The memory layout of an instance of `Person` is the following:
 The first field contains the object's retain count (in the lower 4 bytes) and a pointer to the object's [metatype](https://github.com/lukaskollmer/yo/blob/master/stdlib/runtime/metatypes.yo) (the upper 4 bytes).
 
 
+
 ### Automatic Reference Counting
 By default, automatic reference counting is enabled for all structs.  
 You can disable ARC for a specific type with the `#[disable_metadata]` annotation.
@@ -322,9 +374,13 @@ The compiler generates a dealloc method for each type, which releases all refere
 
 
 
+
+
 ## Standard Library
 The standard library is required for any yo program to compile. It implements fundamental types and data structures, like `String`, `Array`, `HashMap` and some others.  
 The stdlib sources can be found [here](https://github.com/lukaskollmer/yo/tree/master/stdlib).
+
+
 
 
 
@@ -338,7 +394,7 @@ use "io";
 use "ffi";
 
 fn main(): int {
-    let ffi = FFI::new(#nil);
+    let ffi = FFI::new(nil);
     ffi.declareFunction("strcmp", FFIType.int32, 2, FFIType.pointer, FFIType.pointer);
 
     let foo = "foo";
@@ -358,8 +414,9 @@ Note that this is extremely limited for now, basically it's just passing around 
 ## Roadmap
 
 In the future, i'd like to add:
-- Dramatically improved performance
 - OCaml-style pattern matching
+- Optionals
+- Dramatically improved parsing performance
 - Variant types (this could be implemented as enums with associated values)
 - Proper protocol support
 - An Optimizer

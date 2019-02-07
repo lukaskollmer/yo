@@ -10,11 +10,13 @@ import Foundation
 
 
 class ASTConstantDeclaration: ASTStatement {
+    let annotations: [ASTAnnotation.Element]
     let identifier: ASTIdentifier
     let type: ASTType
     let value: ASTExpression
     
-    init(identifier: ASTIdentifier, type: ASTType, value: ASTExpression) {
+    init(annotations: [ASTAnnotation.Element] = [], identifier: ASTIdentifier, type: ASTType, value: ASTExpression) {
+        self.annotations = annotations
         self.identifier = identifier
         self.type = type
         self.value = value
