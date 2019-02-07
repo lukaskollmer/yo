@@ -197,7 +197,7 @@ An incomplete list of annotations:
 | Annotation           | Scope           | Description                                                       |
 | :------------------- | :-------------- | :---------------------------------------------------------------- |
 | `disable_arc`        | function        | Disable automatic reference counting for a function               |
-| `disable_metadata`   | type            | Disable runtime metadata. This also disables ARC                  |
+| `disable_metadata`   | type            | Disable runtime metadata. This also disables ARC fot that type    |
 | `static_initializer` | function        | The annotated function will be called before `main` is invoked    |
 | `static_cleanup`     | function        | The annotated function will be called after returning from `main` |
 | `variadic`           | function        | Tells the compiler to pack all non-fixed arguments into an array  |
