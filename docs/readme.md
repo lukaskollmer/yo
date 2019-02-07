@@ -1,8 +1,6 @@
 # yo
 > the yo programming language
 
-View on GitHub: [lukaskollmer/yo](https://github.com/lukaskollmer/yo)
-
 <br>
 
 Yo is an interpreted, statically typed programming language with a rust-inspired syntax.
@@ -16,6 +14,7 @@ fn main(): int {
 }
 ```
 
+View on GitHub: [lukaskollmer/yo](https://github.com/lukaskollmer/yo)
 
 
 ## Table of Contents
