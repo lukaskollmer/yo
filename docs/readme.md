@@ -48,7 +48,7 @@ fn increment(x: int): int {
 yo differentiates between three kinds of functions:
 - global functions: not bound to any specific namespace (like `main` and `increment` above)
 - static functions: bound to a type's namespace (like `io::print`, see below)
-- instance functions: called on an instance of a type (like `array.count()`)
+- instance methods: called on an instance of a type (like `array.count()`)
 
 
 
@@ -79,7 +79,7 @@ fn main(): int {
 ```
 
 **Builtin identifiers:**
-- `#function`: evaluates to the name of the current function
+- `#function`: evaluates to the signature of the current function
 
 **Other kinds of variables**
 - Static variables: declared globally and valid for the entire lifetime of the program
@@ -192,7 +192,18 @@ fn main(): int {
 Type- and function declarations can be annotated using the `#[name]` syntax.  
 A list of all annotations can be found in [ASTAnnotation.swift](https://github.com/lukaskollmer/yo/blob/master/yo/AST/ASTAnnotation.swift)
 
-TODO: explain annotations
+An incomplete list of annotations:
+
+| Annotation           | Scope           | Description                                                       |
+| :------------------- | :-------------- | :---------------------------------------------------------------- |
+| `disable_arc`        | function        | Disable automatic reference counting for a function               |
+| `static_initializer` | function        | The annotated function will be called before `main` is invoked    |
+| `static_cleanup`     | function        | The annotated function will be called after returning from `main` |
+| `variadic`           | function        | Tells the compiler to pack all non-fixed arguments into an array  |
+| `unchecked`          | function, const | Disables type checking                                            |
+
+
+
 
 
 
