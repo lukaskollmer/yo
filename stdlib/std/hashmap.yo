@@ -3,7 +3,7 @@ use "std/string_builder";
 use "math";
 
 static _maxSizeIndex: int = 5;
-static _primes: int = {13, 23, 41, 71, 127, 421};
+static _primes: *i64 = {13, 23, 41, 71, 127, 421};
 static HashMapEmptySlotIndicator: any = 0;
 
 #[static_cleanup]

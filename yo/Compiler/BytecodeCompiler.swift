@@ -2171,7 +2171,7 @@ private extension BytecodeCompiler {
                 return .any // TODO is this the right choice? // UPDATE does it even matter? do we ever reach here?
                 
             } else if let arrayLiteral = expression as? ASTArrayLiteral {
-                return arrayLiteral.kind == .complex ? .Array : .int
+                return arrayLiteral.kind == .complex ? .Array : .ref(.i64)
                 
             } else if expression is ASTBooleanLiteral {
                 return .bool
