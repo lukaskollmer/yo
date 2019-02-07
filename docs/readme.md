@@ -57,6 +57,7 @@ yo differentiates between three kinds of functions:
 - Double literals: `7.5`
 - Array literals (complex): `[expr, ...]` (arrays can only contain reference-counted objects)
 - Array literals (primitive): `{expr, ...}` (returns `*i64`)
+- Number literals: `@5`, `@5.0`, `@(<expr>)`
 
 
 
@@ -99,8 +100,8 @@ const EXIT_SUCCESS: i32 = 0;
 ### Conditional Statements
 - Yo has support for `if`, `while` and two types of `for` statements
 - Curly braces are always required
-- C-style `for` loops: `for <decl>; <cond>; <stmt>; { ... }`
-- iterating `for` loops: `for <ident> in <iterable> { ... }`
+- C-style for-loops: `for <decl>; <cond>; <stmt>; { ... }`
+- Iterating for-loops: `for <ident> in <iterable> { ... }`
 
 
 
@@ -115,6 +116,12 @@ fn main(): int {
     let foo = Array::new();
 }
 ```
+
+
+### Casting
+An expression can be cast to another type with the `as` keyword. In most cases, the cast doesn't modify the value, with the exception of casting between ingeters and doubles.
+
+
 
 
 ### Enums
@@ -245,11 +252,12 @@ The `io` module defines some functions for printing strings (`io::print`), ints 
 The `io` module also defines the `io::printf` function, which is yo's equivalent of C's `printf`. Note that you have to box primitive values passed to `io::printf`.
 
 `io::printf` format specifiers:
+
 | Specifier | Output                                 |
-| :-------- | :------------------------------------- |
+| :-------: | :------------------------------------- |
 | `%n`      | A `Number` object's value              |
 | `%s`      | The contents of a `String` object      |
-| `%i       | The integer value of the passed object |
+| `%i`      | The integer value of the passed object |
 
 
 
