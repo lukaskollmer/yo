@@ -40,7 +40,7 @@ extension CLIOptions {
     
     static let stdlibPath = CLIOption<String>(
         flag: "--stdlib-path",
-        defaultValue: "/Users/lukas/Developer/yo/stdlib",
+        defaultValue: "./stdlib",
         description: "Path of the standard library"
     )
     
