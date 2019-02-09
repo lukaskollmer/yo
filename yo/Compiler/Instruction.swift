@@ -12,8 +12,6 @@ import Foundation
 typealias Instruction = Int
 typealias Immediate = Int32
 
-// An instruction is a 64-bit wide integer, with the opcode stored in the lowest byte, and the immediate stored in the upper 7 bytes
-
 
 // Wrapper struct that extracts data from an instruction
 struct InstructionDescriptor: CustomStringConvertible {
