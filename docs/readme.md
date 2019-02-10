@@ -132,8 +132,9 @@ enum Name {
     case1, case2, ...
 }
 ```
-For the time being, enums are implemented as integers, meaning that you can trivially pass them anywhere an integer is expected, simply by casting to `int`.
+Use the dot-syntax to refer to an enum case (`EnumName.caseName`).
 
+For the time being, enums are implemented as integers, meaning that you can trivially pass them anywhere an integer is expected, simply by casting to `int`.
 
 
 
@@ -434,15 +435,15 @@ Note that this is extremely limited for now, basically it's just passing around 
 
 ## Roadmap
 
-In the future, i'd like to add:
+Things i'd like to add in the future:
 - OCaml-style pattern matching
-- Named function arguments
+- Partial application
 - Explicit (non-)mutability
 - Optionals
 - Dramatically improved parsing performance
 - Variant types (this could be implemented as enums with associated values)
 - Proper protocol support
-- An Optimizer
+- Using LLVM as a backend to generate actual executables?
 
 
 ## License
