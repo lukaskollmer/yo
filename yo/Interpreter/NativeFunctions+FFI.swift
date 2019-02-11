@@ -76,7 +76,7 @@ enum NativeFunctions_FFI: NativeFunctions {
         // - #parameters
         // - parameter types (pointer to int array)
         // - lib handle
-        runtime["ffi", "declareFunction", .int, [.String, .int, .int, .ref(.int), .int]] = { interpreter in
+        runtime["ffi", "declareFunction", .int, [.String, .int, .int, .ptr(.int), .int]] = { interpreter in
             let symbol = getString(0, interpreter)
             let returnType = ffi_type_mapping[interpreter.stack.peek(offset: -1)]
             let argc = interpreter.stack.peek(offset: -2)
@@ -106,7 +106,7 @@ enum NativeFunctions_FFI: NativeFunctions {
         // Parameters:
         // - function handle
         // - arguments
-        runtime["ffi", "invoke", .i64, [.int, .ref(.any)]] = { interpreter in
+        runtime["ffi", "invoke", .i64, [.int, .ptr(.any)]] = { interpreter in
             let function = ffi_function_pool.get(id: interpreter.stack.peek())
             let argsPtr = interpreter.stack.peek(offset: -1) // Pointer to int array
             

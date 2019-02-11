@@ -855,7 +855,7 @@ class Parser {
             
             switch modifier {
             case "*":
-                return ASTType.ref(type)
+                return ASTType.ptr(type)
             default:
                 fatalError("unexpected type modifier '\(modifier)'")
             }

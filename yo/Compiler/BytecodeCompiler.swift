@@ -440,8 +440,8 @@ private extension BytecodeCompiler {
         }
         
         if function.signature.isVariadic {
-            guard [ASTType.ref(.any), .Array].contains(function.signature.parameters.last!.type) else {
-                fatalError("\(function.mangledName) declared as variadic, but the last parameter is neither `int` nor `Array`")
+            guard [ASTType.ptr(.any), .Array].contains(function.signature.parameters.last!.type) else {
+                fatalError("\(function.mangledName) declared as variadic, but the last parameter is neither `*any` nor `Array`")
             }
         }
         
@@ -682,7 +682,7 @@ private extension BytecodeCompiler {
         case .any:
             return (sizeof(.any), offset)
             
-        case .ref(let type):
+        case .ptr(let type):
             elementSize = type.size
             
         default:
@@ -1321,7 +1321,7 @@ private extension BytecodeCompiler {
             
             let arrayLiteral = ASTArrayLiteral(
                 elements: Array(functionCall.arguments.suffix(numberOfVariadicArguments)),
-                kind: expectedType == .ref(.any) ? .primitive : .complex
+                kind: expectedType == .ptr(.any) ? .primitive : .complex
             )
             
             try handle(node: arrayLiteral)
@@ -1745,10 +1745,10 @@ private extension BytecodeCompiler {
                         name: ASTIdentifier(initializerName),
                         kind: .staticImpl("runtime"),
                         parameters: (0..<elements.count).map { ASTVariableDeclaration(identifier: ASTIdentifier("_\($0)"), type: .any) },
-                        returnType: .ref(.i64)
+                        returnType: .ptr(.i64)
                     ),
                     body: [
-                        ASTVariableDeclaration(identifier: array, type: .ref(.any)), // TODO i64
+                        ASTVariableDeclaration(identifier: array, type: .ptr(.any)), // TODO i64
                         ASTAssignment(
                             target: array,
                             value: ASTFunctionCall(
@@ -2000,7 +2000,7 @@ private extension BytecodeCompiler {
         let target = pointerOperation.target
         
         // TODO this shortcut is probably wrong?
-        if op == .ref_absolute, case .ref(_) = try guessType(ofExpression: target) {
+        if op == .ref_absolute, case .ptr(_) = try guessType(ofExpression: target) {
             try handle(node: target)
             add(.addr_cvt2abs)
             return
@@ -2037,7 +2037,7 @@ private extension BytecodeCompiler {
             // TODO this is implemenyed twice (also in assignment target handling)
             if  let identifier = target as? ASTIdentifier,
                 let targetType = try? scope.type(of: identifier.value),
-                case .ref(let underlyingType) = targetType
+                case .ptr(let underlyingType) = targetType
             {
                 try handle(node: identifier) // pushes the address of the pointer on the stack
                 add(.push, 0)
@@ -2171,7 +2171,7 @@ private extension BytecodeCompiler {
                 return .any // TODO is this the right choice? // UPDATE does it even matter? do we ever reach here?
                 
             } else if let arrayLiteral = expression as? ASTArrayLiteral {
-                return arrayLiteral.kind == .complex ? .Array : .ref(.i64)
+                return arrayLiteral.kind == .complex ? .Array : .ptr(.i64)
                 
             } else if expression is ASTBooleanLiteral {
                 return .bool
@@ -2181,7 +2181,7 @@ private extension BytecodeCompiler {
                 
             } else if let arrayGetter = expression as? ASTArrayGetter {
                 let targetType = try guessType(ofExpression: arrayGetter.target)
-                if case .ref(let type) = targetType {
+                if case .ptr(let type) = targetType {
                     return type
                 } else {
                     return targetType
@@ -2220,9 +2220,9 @@ private extension BytecodeCompiler {
                 let targetType = try guessType(ofExpression: pointerOperation.target)
                 switch pointerOperation.operation {
                 case .ref, .ref_absolute:
-                    return .ref(targetType)
+                    return .ptr(targetType)
                 case .deref:
-                    guard case .ref(let underlyingType) = targetType else {
+                    guard case .ptr(let underlyingType) = targetType else {
                         fatalError("Cannot get underlying type for non-pointer type '\(targetType)'")
                     }
                     return underlyingType

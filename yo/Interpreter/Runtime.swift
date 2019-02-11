@@ -104,7 +104,7 @@ class Runtime: NativeFunctions {
         // 1. function address
         // 2. argc
         // 3. argv (pointer to primitive array)
-        self["runtime", "_invoke", .any, [.int, .int, .ref(.any)]] = { interpreter in
+        self["runtime", "_invoke", .any, [.int, .int, .ptr(.any)]] = { interpreter in
             let address = interpreter.stack.peek()
             let argc = interpreter.stack.peek(offset: -1)
             let argv = interpreter.stack.peek(offset: -2)
@@ -187,7 +187,7 @@ class Runtime: NativeFunctions {
             
         }
         
-        self["runtime", "sort", .void, [.ref(.any), .i64, .i64]] = { interpreter in
+        self["runtime", "sort", .void, [.ptr(.any), .i64, .i64]] = { interpreter in
             let address = interpreter.stack.peek()
             let count = interpreter.stack.peek(offset: -1)
             let elementSize = interpreter.stack.peek(offset: -2)
@@ -197,7 +197,7 @@ class Runtime: NativeFunctions {
         }
         
         
-        self["runtime", "sortf", .void, [.ref(.any), .i64, .i64, .function(returnType: .bool, parameterTypes: [.any, .any])]] = { interpreter in
+        self["runtime", "sortf", .void, [.ptr(.any), .i64, .i64, .function(returnType: .bool, parameterTypes: [.any, .any])]] = { interpreter in
             let address = interpreter.stack.peek()
             let count = interpreter.stack.peek(offset: -1)
             let elementSize = interpreter.stack.peek(offset: -2)
@@ -214,18 +214,18 @@ class Runtime: NativeFunctions {
             return Runtime.getString(atAddress: interpreter.stack.peek(), heap: interpreter.heap).hashValue
         }
         
-        self["runtime", "_strlen", .int, [.ref(.i8)]] = { interpreter in
+        self["runtime", "_strlen", .int, [.ptr(.i8)]] = { interpreter in
             return Runtime.strlen(address: interpreter.stack.peek(), heap: interpreter.heap)
         }
         
-        self["runtime", "_stringDebugDescription", .ref(.i8), [.String]] = { interpreter in
+        self["runtime", "_stringDebugDescription", .ptr(.i8), [.String]] = { interpreter in
             let string = Runtime.getString(0, interpreter)
             return Runtime.allocateBacking(forString: string.debugDescription, heap: interpreter.heap)
         }
         
         // MARK: IO
         
-        self["runtime", "_printc", .void, [.ref(.i8)]] = { interpreter in
+        self["runtime", "_printc", .void, [.ptr(.i8)]] = { interpreter in
             let address = interpreter.stack.peek()
             //let cString = interpreter.heap.base.advanced(by: address).assumingMemoryBound(to: Int8.self)
             let cString = interpreter.heap[ptr: address, Int8.self]
@@ -258,13 +258,13 @@ class Runtime: NativeFunctions {
             return Runtime.allocateBacking(forString: string, heap: interpreter.heap)
         }
         
-        self["runtime", "_char_to_string", .ref(.i8), [.i8]] = { interpreter in
+        self["runtime", "_char_to_string", .ptr(.i8), [.i8]] = { interpreter in
             let string = interpreter.stack.peek() |> UnicodeScalar.init |> unwrap |> Character.init |> String.init
             return Runtime.allocateBacking(forString: string, heap: interpreter.heap)
         }
         
         
-        self["runtime", "__format", .ref(.i8), [.String, .Array]] = { interpreter in
+        self["runtime", "__format", .ptr(.i8), [.String, .Array]] = { interpreter in
             let heap = interpreter.heap
             
             let format = Runtime.getString(atAddress: interpreter.stack.peek(), heap: heap)

@@ -29,7 +29,7 @@ enum NativeFunctions_IO: NativeFunctions {
             return Int(close(fd))
         }
         
-        runtime["io", "_read", .i32, [.i32, .ref(.i8), .i64]] = { interpreter in
+        runtime["io", "_read", .i32, [.i32, .ptr(.i8), .i64]] = { interpreter in
             let fd = Int32(interpreter.stack.peek())
             let buf_ptr = interpreter.stack.peek(offset: -1)
             let len = interpreter.stack.peek(offset: -2)

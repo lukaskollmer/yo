@@ -77,7 +77,7 @@ class AutoSynthesizedCodeGen {
         
         let typename = _struct.identifier.value
         let g_metatype = ASTIdentifier(value: SymbolMangling.mangleMetatypeTableName(forType: typename))
-        compiler.globals.append(ASTVariableDeclaration(identifier: g_metatype, type: .ref(.i64), isStatic: true)) // TODO is .int right? isn't this a pointer?
+        compiler.globals.append(ASTVariableDeclaration(identifier: g_metatype, type: .ptr(.i64), isStatic: true)) // TODO is .int right? isn't this a pointer?
         
         let l_metatype: ASTIdentifier = "l_metatype"
         
@@ -90,7 +90,7 @@ class AutoSynthesizedCodeGen {
                 annotations: [.static_initializer, .disable_arc]
             ),
             body: [
-                ASTVariableDeclaration(identifier: l_metatype, type: .ref(.i64)),
+                ASTVariableDeclaration(identifier: l_metatype, type: .ptr(.i64)),
                 
                 ASTAssignment(
                     target: l_metatype,
@@ -100,7 +100,7 @@ class AutoSynthesizedCodeGen {
                             ASTNumberLiteral(value: compiler.typeCache.sizeof(type: "Type"))
                         ],
                         unusedReturnValue: false
-                    ).as(.ref(.i64))
+                    ).as(.ptr(.i64))
                 ),
                 
                 ASTArraySetter(
