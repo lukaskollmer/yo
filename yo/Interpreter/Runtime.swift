@@ -100,6 +100,12 @@ class Runtime: NativeFunctions {
         }
         
         
+        self["runtime", "_get_alloc_size", .int, [.ptr(.any)]] = { interpreter in
+            let address = interpreter.stack.peek()
+            return interpreter.heap.allocations.first(where: {$0.address == address})!.size
+        }
+        
+        
         // arguments:
         // 1. function address
         // 2. argc
