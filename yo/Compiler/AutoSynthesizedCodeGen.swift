@@ -97,7 +97,7 @@ class AutoSynthesizedCodeGen {
                     value: ASTFunctionCall(
                         functionName: SymbolMangling.alloc,
                         arguments: [
-                            ASTNumberLiteral(value: compiler.typeCache.sizeof(type: "Type"))
+                            ASTNumberLiteral(compiler.typeCache.sizeof(type: "Type"))
                         ],
                         unusedReturnValue: false
                     ).as(.ptr(.i64))
@@ -105,8 +105,8 @@ class AutoSynthesizedCodeGen {
                 
                 ASTArraySetter(
                     target: l_metatype,
-                    offset: 0 as ASTNumberLiteral,
-                    value: ASTNumberLiteral(value: compiler.typeCache.index(ofType: typename))
+                    offset: ASTNumberLiteral(0),
+                    value: ASTNumberLiteral(compiler.typeCache.index(ofType: typename))
                 ),
                 
                 
@@ -117,13 +117,13 @@ class AutoSynthesizedCodeGen {
                 
                 ASTArraySetter(
                     target: l_metatype,
-                    offset: 1 as ASTNumberLiteral,
+                    offset: ASTNumberLiteral(1),
                     value: ASTNoop()
                 ),
                 
                 ASTArraySetter(
                     target: l_metatype,
-                    offset: 2 as ASTNumberLiteral,
+                    offset: ASTNumberLiteral(2),
                     value: ASTRawUnresolvedInstruction(instruction: .unresolved(.push, SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "__dealloc")))
                 ),
                 
@@ -147,7 +147,7 @@ class AutoSynthesizedCodeGen {
             body: [
                 // release the typename
                 ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
-                    ASTArrayGetter(target: g_metatype, offset: 1 as ASTNumberLiteral),
+                    ASTArrayGetter(target: g_metatype, offset: ASTNumberLiteral(1)),
                     ASTRawUnresolvedInstruction(operation: .release, immediate: kARCOperationPopAddressOffStack)
                 ]),
                 // free the metatype
@@ -196,7 +196,7 @@ class AutoSynthesizedCodeGen {
                         functionName: SymbolMangling.alloc,
                         //arguments: [ASTNumberLiteral(value: typeDeclaration.attributes.count + (typeDeclaration.isStruct ? 0 : 1))],
                         arguments: [
-                            ASTNumberLiteral(value: compiler.typeCache.sizeof(type: typename))
+                            ASTNumberLiteral(compiler.typeCache.sizeof(type: typename))
                         ],
                         unusedReturnValue: false)
                 ),
@@ -208,7 +208,7 @@ class AutoSynthesizedCodeGen {
                     // the lower 32 bits contain the retain count
                     ASTArraySetter(
                         target: _self,
-                        offset: 0 as ASTNumberLiteral,
+                        offset: ASTNumberLiteral(0),
                         value: {
                             // We have to push the address of the global, instead of loading the value at the address the global is pointing to
                             // This workaround is necessary because the type's metatype might still be uninitialized when an instance of the type
@@ -305,7 +305,7 @@ class AutoSynthesizedCodeGen {
         
         for attribute in structDeclaration.attributes {
             let attributeName = attribute.identifier.value
-            let offset = ASTNumberLiteral(value: compiler.typeCache.offset(ofMember: attributeName, inType: typename))
+            let offset = ASTNumberLiteral(compiler.typeCache.offset(ofMember: attributeName, inType: typename))
             
             // Generate a getter
             let getter = ASTFunctionDeclaration(

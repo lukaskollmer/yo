@@ -74,7 +74,7 @@ extension AutoSynthesizedCodeGen {
                 // Allocate space for the global variables
                 // Since this is the very first alloc call, we know for a fact that the address of the allocates heap space is 16
                 // We allocate twice the space, so that all globals have even addresses, which is important for the runtime to treat them as objects
-                ASTFunctionCall(functionName: SymbolMangling.alloc, arguments: [ASTNumberLiteral(value: globals.count * TypeCache.sizeof([.i64]))], unusedReturnValue: true),
+                ASTFunctionCall(functionName: SymbolMangling.alloc, arguments: [ASTNumberLiteral(globals.count * TypeCache.sizeof([.i64]))], unusedReturnValue: true),
                 
                 // Call all metatype initializers
                 ASTComposite(statements:
@@ -100,8 +100,8 @@ extension AutoSynthesizedCodeGen {
                         }()
                         
                         return ASTArraySetter(
-                            target: ASTNumberLiteral(value: 0).as(.ptr(.i8)), // beginning of heap // TODO turn this into 16 (or whetever the guaranteed globals table address is) and set by offset
-                            offset: ASTNumberLiteral(value: compiler._actualAddressOfGlobal(withIdentifier: global.identifier)!),
+                            target: ASTNumberLiteral(0).as(.ptr(.i8)), // beginning of heap // TODO turn this into 16 (or whetever the guaranteed globals table address is) and set by offset
+                            offset: ASTNumberLiteral(compiler._actualAddressOfGlobal(withIdentifier: global.identifier)!),
                             value: value
                         )
                     }
@@ -174,7 +174,7 @@ extension AutoSynthesizedCodeGen {
                 ASTFunctionCall(
                     functionName: SymbolMangling.free,
                     arguments: [
-                        ASTNumberLiteral(value: 16)
+                        ASTNumberLiteral(16)
                     ],
                     unusedReturnValue: true
                 )

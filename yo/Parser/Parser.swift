@@ -832,7 +832,7 @@ class Parser {
     func parseReturnStatement(_ ast: mpc_ast_t) throws -> ASTReturnStatement {
         // TODO make ASTReturnStatement.expression optional and create the empty return value in the compiler
         if ast[1] == _semicolon {
-            return ASTReturnStatement(expression: ASTNumberLiteral(value: 0).as(.any))
+            return ASTReturnStatement(expression: ASTNumberLiteral( 0).as(.any))
         }
         
         return ASTReturnStatement(expression: try parseExpression(ast[1]))
@@ -991,7 +991,7 @@ class Parser {
     
     func parseCharacterLiteral(_ ast: mpc_ast_t) throws -> ASTExpression {
         let character = ast.lk_content.ns.character(at: 1)
-        return ASTNumberLiteral(value: Int(character)).as(.i8)
+        return ASTNumberLiteral(Int(character)).as(.i8)
     }
     
     func parseRangeLiteral(_ ast: mpc_ast_t) throws -> ASTRangeLiteral {
@@ -1145,7 +1145,7 @@ class Parser {
             guard let value = Double(rawStringValue) else {
                 fatalError("Unable to process double literal '\(rawStringValue)'")
             }
-            return ASTNumberLiteral(value: value)
+            return ASTNumberLiteral(value)
         
         default:
             fatalError()
@@ -1162,7 +1162,7 @@ class Parser {
         }
         
         // `-` is the only unary prefix allowed for integer literals
-        return ASTNumberLiteral(value: hasUnaryPrefix ? -value : value)
+        return ASTNumberLiteral(hasUnaryPrefix ? -value : value)
     }
     
     

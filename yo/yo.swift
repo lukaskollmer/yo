@@ -62,9 +62,9 @@ enum yo {
         Profiling.recordEnd(event: .parseAST)
         
         // TODO optimize
-        if CLI.hasFlag(.optimize) {
-            ast = Optimizer().optimize(ast: ast)
-        }
+        //if CLI.hasFlag(.optimize) {
+        //    ast = Optimizer().optimize(ast: ast)
+        //}
         
         Profiling.recordStart(event: .compile)
         let instructions = try BytecodeCompiler().compile(ast: ast)

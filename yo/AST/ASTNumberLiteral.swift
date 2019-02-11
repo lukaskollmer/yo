@@ -9,7 +9,7 @@
 import Foundation
 
 
-class ASTNumberLiteral: ASTExpression, ExpressibleByIntegerLiteral {
+class ASTNumberLiteral: ASTExpression {
     let value: Int
     let type: ASTType
     
@@ -19,23 +19,10 @@ class ASTNumberLiteral: ASTExpression, ExpressibleByIntegerLiteral {
     }
     
     convenience init(_ value: Int) {
-        self.init(value: value)
-    }
-    
-    convenience init(_ value: Double) {
-        self.init(value: value)
-    }
-    
-    // TODO remove the init(value:) initializers
-    convenience init(value: Int) {
         self.init(value: value, type: .int)
     }
     
-    convenience init(value: Double) {
+    convenience init(_ value: Double) {
         self.init(value: value.unsafe_loadAsInt, type: .double)
-    }
-    
-    convenience required init(integerLiteral value: Int) {
-        self.init(value: value)
     }
 }

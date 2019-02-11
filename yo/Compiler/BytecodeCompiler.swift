@@ -466,7 +466,7 @@ private extension BytecodeCompiler {
             let functionBody: ASTComposite
             
             if !(function.body.statements.last is ASTReturnStatement) {
-                functionBody = ASTComposite(statements: function.body.statements + [ASTReturnStatement(expression: ASTNumberLiteral(value: 0).as(.any))])
+                functionBody = ASTComposite(statements: function.body.statements + [ASTReturnStatement(expression: ASTNumberLiteral(0).as(.any))])
             } else {
                 functionBody = function.body
             }
@@ -691,7 +691,7 @@ private extension BytecodeCompiler {
         }
         
         let offsetExpr = ASTBinaryOperation(
-            lhs: ASTNumberLiteral(value: elementSize),
+            lhs: ASTNumberLiteral(elementSize),
             operation: .mul,
             rhs: offset
         )
@@ -954,7 +954,7 @@ private extension BytecodeCompiler {
             
             let assignment = ASTArraySetter(
                 target: pointerOperation.target,
-                offset: ASTNumberLiteral(value: 0),
+                offset: ASTNumberLiteral(0),
                 value: rhs
             )
             try handle(node: assignment) // TODO what about arc ?!??!!!!!
@@ -1277,7 +1277,7 @@ private extension BytecodeCompiler {
             let fieldName = (functionCall.arguments[1] as! ASTIdentifier).value
             
             let offset = typeCache.offset(ofMember: fieldName, inType: typeName)
-            try handle(numberLiteral: ASTNumberLiteral(value: offset))
+            try handle(numberLiteral: ASTNumberLiteral(offset))
             
             return
             
@@ -1390,7 +1390,7 @@ private extension BytecodeCompiler {
                 try handle(stringLiteral: ASTStringLiteral(value: prettyFunctionName))
                 
             case .nil:
-                try handle(numberLiteral: ASTNumberLiteral(value: 0))
+                try handle(numberLiteral: ASTNumberLiteral(0))
             }
             
             return
@@ -1441,7 +1441,7 @@ private extension BytecodeCompiler {
             case .attribute(let caseName) = memberAccess.members[1],
             let caseIndex = typeCache.index(ofCase: caseName.value, inEnum: enumTypeName.value)
         {
-            return (ASTNumberLiteral(value: caseIndex), [._enum(enumTypeName.value)])
+            return (ASTNumberLiteral(caseIndex), [._enum(enumTypeName.value)])
         }
         
         var expr: ASTExpression!
@@ -1494,7 +1494,7 @@ private extension BytecodeCompiler {
                 
                 expr = ASTArrayGetter(
                     target: expr.as(.ptr(.i8)),
-                    offset: ASTNumberLiteral(value: typeCache.offset(ofMember: identifier.value, inType: currentTypename)),
+                    offset: ASTNumberLiteral(typeCache.offset(ofMember: identifier.value, inType: currentTypename)),
                     typeOfAccessedField: typeCache.type(ofMember: identifier.value, ofType: currentTypename)!
                 )
                 
@@ -1631,7 +1631,7 @@ private extension BytecodeCompiler {
         
         switch unary.operator {
         case .negate:
-            try handle(binop: ASTBinaryOperation(lhs: ASTNumberLiteral(value: -1), operation: .mul, rhs: unary.expression))
+            try handle(binop: ASTBinaryOperation(lhs: ASTNumberLiteral(-1), operation: .mul, rhs: unary.expression))
         
         case .bitwiseNot:
             try handle(node: unary.expression)
@@ -1760,7 +1760,7 @@ private extension BytecodeCompiler {
                             target: array,
                             value: ASTFunctionCall(
                                 functionName: SymbolMangling.alloc,
-                                arguments: [ASTNumberLiteral(value: elements.count * sizeof(.i64))], // TODO allow explicitly typed primitive array literals?
+                                arguments: [ASTNumberLiteral(elements.count * sizeof(.i64))], // TODO allow explicitly typed primitive array literals?
                                 unusedReturnValue: false
                             )
                         ),
@@ -1768,7 +1768,7 @@ private extension BytecodeCompiler {
                         ASTComposite(statements: (0..<elements.count).map { index in
                             ASTArraySetter(
                                 target: array,
-                                offset: ASTNumberLiteral(value: index),
+                                offset: ASTNumberLiteral(index),
                                 value: ASTIdentifier(value: "_\(index)")
                             )
                         }),
@@ -1873,7 +1873,7 @@ private extension BytecodeCompiler {
         
         let initCall = ASTFunctionCall(
             functionName: SymbolMangling.mangleInitializer(forType: "Number"),
-            arguments: [boxedExpression.expression, ASTNumberLiteral(value: _type).as(.any)],
+            arguments: [boxedExpression.expression, ASTNumberLiteral(_type).as(.any)],
             unusedReturnValue: false
         )
         
@@ -1995,7 +1995,7 @@ private extension BytecodeCompiler {
         let comparison = ASTComparison(
             lhs: implicitNonZeroComparison.expression,
             operation: .notEqual,
-            rhs: 0 as ASTNumberLiteral
+            rhs: ASTNumberLiteral(0)
         )
         
         try handle(comparison: comparison)
@@ -2275,11 +2275,11 @@ extension BytecodeCompiler {
             functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "msgSend"),
             arguments: [
                 target,   // The target of the method call
-                ASTStringLiteral(value: selector),          // selector
-                ASTNumberLiteral(value: arguments.count)    // argc
+                ASTStringLiteral(value: selector),  // selector
+                ASTNumberLiteral(arguments.count)   // argc
                 ]
-                + arguments                     // the actual arguments
-                + [0 as ASTNumberLiteral],      // 0 (unused, see below)
+                + arguments                 // the actual arguments
+                + [ASTNumberLiteral(0)],   // 0 (unused, see below)
             // Q: why do we append the unused 0?
             // A: `runtime::msgSend` is variadic, with a primitive array, meaning that there has to be at least one non-fixed argument\
             //    However, we have to handle the case where this is a method call that doesn't take any parameters
