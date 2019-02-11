@@ -287,6 +287,7 @@ extension BytecodeCompiler {
     }
     
     
+    // TODO turn this into "offset of global in globals table" and drop the `16 +`
     func _actualAddressOfGlobal(withIdentifier identifier: ASTIdentifier) -> Int? {
         guard let index = globals.index(where: { $0.identifier == identifier }) else {
             return nil
@@ -722,6 +723,8 @@ private extension BytecodeCompiler {
     
     
     func handle(arrayGetter: ASTArrayGetter) throws {
+        try guard_isSubscriptable(arrayGetter.target)
+        
         let (elementSize, offset) = try _adjustSubscriptOffset(target: arrayGetter.target, offset: arrayGetter.offset)
         
         try handle(node: offset)
@@ -732,14 +735,15 @@ private extension BytecodeCompiler {
     
     
     func handle(arraySetter: ASTArraySetter) throws {
+        try guard_isSubscriptable(arraySetter.target)
+        
         let offset = try _adjustSubscriptOffset(target: arraySetter.target, offset: arraySetter.offset).offsetExpression
         
         try handle(node: arraySetter.value)
         try handle(node: offset)
         try handle(node: arraySetter.target)
         
-        add(storeh_operation(forSize: sizeof(try guessType(ofExpression: arraySetter.value))))
-        //add(.storeh, sizeof(try guessType(ofExpression: arraySetter.value)))
+        add(storeh_operation(forSize: try arraySetter.typeOfWrittenValue?.size ?? sizeof(guessType(ofExpression: arraySetter.value))))
     }
 
     
@@ -931,13 +935,16 @@ private extension BytecodeCompiler {
         
         if
             let memberAccess = target as? ASTMemberAccess,
-            let (memberAccessGetterExpression, _) = try processMemberAccess(memberAccess: memberAccess) as? (ASTArrayGetter, [ASTType])
+            let (memberAccessGetterExpression, memberAccessTypes) = try processMemberAccess(memberAccess: memberAccess) as? (ASTArrayGetter, [ASTType])
         {
             // if we're assigning to some attribute, `memberAccessGetterExpression` is always an `ASTArrayGetter`
+            
+            
             let newAssignment = ASTArraySetter(
-                target: memberAccessGetterExpression.target.as(.any), // any to disable offset asjustments
+                target: memberAccessGetterExpression.target.as(.ptr(.i8)),
                 offset: memberAccessGetterExpression.offset,
-                value: rhs
+                value: rhs,
+                typeOfWrittenValue: memberAccessTypes.last!
             )
             
             try handle(node: newAssignment)
@@ -1486,7 +1493,7 @@ private extension BytecodeCompiler {
                 }
                 
                 expr = ASTArrayGetter(
-                    target: expr.as(.any),
+                    target: expr.as(.ptr(.i8)),
                     offset: ASTNumberLiteral(value: typeCache.offset(ofMember: identifier.value, inType: currentTypename)),
                     typeOfAccessedField: typeCache.type(ofMember: identifier.value, ofType: currentTypename)!
                 )
@@ -2074,12 +2081,21 @@ private extension BytecodeCompiler {
         }
     }
     
-    
     func guard_allConstantsHaveAValidType(_ constants: [ASTConstantDeclaration]) {
         for constant in constants where !constant.annotations.contains(.unchecked) {
             guard try! constant.type.isTriviallyRepresentableAsInteger && self.guessType(ofExpression: constant.value).isTriviallyRepresentableAsInteger else {
                 fatalError("Constant '\(constant.identifier.value)' has unsupported type '\(constant.type)'")
             }
+        }
+    }
+    
+    func guard_isSubscriptable(_ expr: ASTExpression) throws {
+        let type = try guessType(ofExpression: expr)
+        
+        switch type {
+        case .Array, .ptr(_): return
+        default:
+            fatalError("Type '\(type.typename)' cannot be subscripted")
         }
     }
 }
@@ -2180,6 +2196,10 @@ private extension BytecodeCompiler {
                 return try processMemberAccess(memberAccess: assignedValueMemberAccess).types.last!
                 
             } else if let arrayGetter = expression as? ASTArrayGetter {
+                if let type = arrayGetter.typeOfAccessedField {
+                    return type
+                }
+                
                 let targetType = try guessType(ofExpression: arrayGetter.target)
                 if case .ptr(let type) = targetType {
                     return type

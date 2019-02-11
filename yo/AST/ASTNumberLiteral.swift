@@ -18,6 +18,15 @@ class ASTNumberLiteral: ASTExpression, ExpressibleByIntegerLiteral {
         self.type = type
     }
     
+    convenience init(_ value: Int) {
+        self.init(value: value)
+    }
+    
+    convenience init(_ value: Double) {
+        self.init(value: value)
+    }
+    
+    // TODO remove the init(value:) initializers
     convenience init(value: Int) {
         self.init(value: value, type: .int)
     }

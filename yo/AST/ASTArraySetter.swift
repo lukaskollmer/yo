@@ -13,10 +13,12 @@ class ASTArraySetter: ASTStatement {
     let target: ASTExpression
     let offset: ASTExpression
     let value: ASTExpression
+    let typeOfWrittenValue: ASTType?
     
-    init(target: ASTExpression, offset: ASTExpression, value: ASTExpression) {
+    init(target: ASTExpression, offset: ASTExpression, value: ASTExpression, typeOfWrittenValue: ASTType? = nil) {
         self.target = target
         self.offset = offset
         self.value  = value
+        self.typeOfWrittenValue = typeOfWrittenValue
     }
 }

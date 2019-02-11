@@ -187,7 +187,7 @@ class AutoSynthesizedCodeGen {
             ),
             body: [
                 // declare self
-                ASTVariableDeclaration(identifier: _self, type: .any), // NOTE: don't use the current type. using any disables any offset adjustments the compiler might apply
+                ASTVariableDeclaration(identifier: _self, type: .ptr(.i8)), // NOTE: don't use the current type. using i8 disables any offset adjustments the compiler might apply
                 
                 // allocate space on the heap
                 ASTAssignment(
@@ -216,7 +216,8 @@ class AutoSynthesizedCodeGen {
                             let metatype_name = SymbolMangling.mangleMetatypeTableName(forType: typename)
                             let metatype_address = compiler._actualAddressOfGlobal(withIdentifier: ASTIdentifier(value: metatype_name))!
                             return ASTRawUnresolvedInstruction(operation: .push, immediate: metatype_address << 32)
-                        }()
+                        }(),
+                        typeOfWrittenValue: .i64
                     ),
                 
                 // go through the parameters and fill the attributes
@@ -224,19 +225,20 @@ class AutoSynthesizedCodeGen {
                     statements: structDeclaration.attributes.map { attribute -> ASTStatement in
                         return ASTArraySetter(
                             target: _self,
-                            offset: ASTNumberLiteral(value: compiler.typeCache.offset(ofMember: attribute.identifier.value, inType: typename)),
+                            offset: ASTNumberLiteral(compiler.typeCache.offset(ofMember: attribute.identifier.value, inType: typename)),
                             value: structDeclaration.hasMetadataDisabled || !compiler.typeCache.supportsArc(attribute.type)
                                 ? attribute.identifier
                                 : ASTArbitraryNodes(nodes_inferringTypeFromFirst: [
                                     attribute.identifier,
                                     ASTRawUnresolvedInstruction(operation: .retain, immediate: kARCOperationKeepAddressOnStack)
-                                ])
+                                ]),
+                            typeOfWrittenValue: attribute.type
                         )
                     }
                 ),
                 
                 // return the newly created object
-                ASTReturnStatement(expression: _self)
+                ASTReturnStatement(expression: _self.as(.any))
             ]
         )
         

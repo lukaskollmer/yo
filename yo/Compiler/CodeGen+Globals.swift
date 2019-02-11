@@ -100,7 +100,7 @@ extension AutoSynthesizedCodeGen {
                         }()
                         
                         return ASTArraySetter(
-                            target: ASTNumberLiteral(value: 0).as(.i8), // beginning of heap
+                            target: ASTNumberLiteral(value: 0).as(.ptr(.i8)), // beginning of heap // TODO turn this into 16 (or whetever the guaranteed globals table address is) and set by offset
                             offset: ASTNumberLiteral(value: compiler._actualAddressOfGlobal(withIdentifier: global.identifier)!),
                             value: value
                         )

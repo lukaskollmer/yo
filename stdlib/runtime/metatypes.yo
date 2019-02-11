@@ -12,11 +12,12 @@ struct Type {
 
 impl runtime {
     #[disable_arc]
-    static fn typeof(obj: any): Type {
+    static fn typeof(_obj: id): Type {
         // the upper 32 bit of an object's first field are a pointer to a pointer to the actual metatype
         // see the source code for more information TODO link to source code
-        let metatype_ptr = obj[0] >> 32;
-        return metatype_ptr[0] as Type;
+        let obj = _obj as *i64;
+        let metatype_ptr = (*obj >> 32) as *i64;
+        return *metatype_ptr as Type;
     }
 
 

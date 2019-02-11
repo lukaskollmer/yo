@@ -61,6 +61,7 @@ class TypeCache {
         return types.index { $0.identifier.value == typename }! // TODO don't force-unwrap
     }
     
+    // returns an attribute's offset in bytes
     func offset(ofMember member: String, inType typename: String) -> Int {
         guard let type = self.type(withName: typename) else {
             fatalError("type \(typename) doesn't exist")
