@@ -244,9 +244,6 @@ class Parser {
         case "stmt|stmt_fn_call|>":
             return try parseFunctionCall(ast[0], unusedReturnValue: true)
             
-        case "stmt|cond_stmt|if_stmt|>", "stmt|cond_stmt|while_stmt|>":
-            return try parseConditionalStatement(ast)
-            
         case "stmt|for_loop|>":
             return try parseForLoop(ast)
             
@@ -694,29 +691,6 @@ class Parser {
                 rhs: value
             )
         )
-    }
-    
-    
-    
-    
-    
-    func parseConditionalStatement(_ ast: mpc_ast_t) throws -> ASTConditionalStatement {
-        let kind: ASTConditionalStatement.Kind
-        
-        let condition = try parseCondition(ast[1])
-        let body = try parseComposite(ast[2])
-        
-        if ast[0].lk_content == "if" {
-            if ast.count == 4 { // 4 children -> has else branch
-                kind = .if(elseBranch: try parseComposite(ast[3][1]))
-            } else {
-                kind = .if(elseBranch: nil)
-            }
-        } else {
-            kind = .while
-        }
-        
-        return ASTConditionalStatement(condition: condition, body: body, kind: kind)
     }
     
     

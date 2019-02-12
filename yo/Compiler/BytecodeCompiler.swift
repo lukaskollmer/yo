@@ -334,9 +334,6 @@ private extension BytecodeCompiler {
                 try handle(assignment: ASTAssignment(target: variableDeclaration.identifier, value: initialValue))
             }
             
-        } else if let conditionalStatement = node as? ASTConditionalStatement {
-            try handle(conditionalStatement: conditionalStatement)
-            
         } else if let comparison = node as? ASTComparison {
             try handle(comparison: comparison)
             
@@ -763,111 +760,6 @@ private extension BytecodeCompiler {
         try handle(functionCall: call)
     }
     
-    
-    
-    
-    
-    
-    
-    func handle(conditionalStatement: ASTConditionalStatement) throws {
-        guard case .function(let functionName, _) = scope.type else {
-            fatalError("global if statement")
-        }
-        
-        // TODO implement
-        //if CodeGenOptimizer.canOptimizeToUseShortCircuitEvaluation(conditionalStatement.condition) {
-        //    let optimized = CodeGenOptimizer.transformToUseShortCircuitEvaluation(conditionalStatement)
-        //    try handle(conditionalStatement: optimized)
-        //    return
-        //}
-        
-        
-        let counter = conditionalStatementCounter.get()
-        let generateLabel: (String) -> String = { ".\(functionName)_ifwhile_\(counter)_\($0)" } // TOOD replace `ifwhile` w/ just if or while?
-        
-        let oldBreakDestination = breakDestination
-        let oldContinueDestination = continueDestination
-        
-        
-        // 1. handle the condition
-        // we only need a label for the condition if this is a while statement
-        switch conditionalStatement.kind {
-        case .while/*, .for*/:
-            add(label: generateLabel("cond"))
-            
-            // for loops are also while statements (at least for the time being?)
-            self.breakDestination = generateLabel("end")
-            self.continueDestination = generateLabel("cond")
-        default: break
-        }
-        
-        try handle(condition: conditionalStatement.condition)
-        
-        // 2. handle the jump to the body if the condition is true
-        // if the condition is false, we fall through to jump to the else branch (or the end, if there is no else branch)
-        add(.jump, unresolvedLabel: generateLabel("body"))
-        
-        // 3. handle the else jump
-        // if this is a while loop, we just jump to the end
-        // if this is an if statement that has an else branch, we jump there, otherwise to the end
-        add(.push, Constants.BooleanValues.true)
-        if case .if(let elseBranch) = conditionalStatement.kind, elseBranch != nil {
-            add(.jump, unresolvedLabel: generateLabel("else"))
-        } else {
-            add(.jump, unresolvedLabel: generateLabel("end"))
-        }
-        
-        
-        // 4. handle the body
-        add(label: generateLabel("body"))
-        try handle(composite: conditionalStatement.body)
-        
-        // depending on which kind of conditional statement this is, we jump to the end (if) the condition (while), or the increment (for)
-        add(.push, Constants.BooleanValues.true)
-        
-        switch conditionalStatement.kind {
-        case .while:
-            add(.jump, unresolvedLabel: generateLabel("cond"))
-            
-        //case .for:
-        //    //fatalError("ugh")
-        //    break // TODO
-            
-        case .if(_):
-            add(.jump, unresolvedLabel: generateLabel("end"))
-        }
-        
-        
-        // 5. if this is an if statement w/ an else branch, handle the else branch
-        if case .if(let elseBranch) = conditionalStatement.kind, let elseBranch_ = elseBranch {
-            add(label: generateLabel("else"))
-            try handle(node: elseBranch_)
-        }
-        
-        // 6. handle the end label
-        add(label: generateLabel("end"))
-        
-        if case .while = conditionalStatement.kind {
-            self.breakDestination = oldBreakDestination
-            self.continueDestination = oldContinueDestination
-        }
-    }
-    
-    func handle(breakStatement: ASTBreakStatement) throws {
-        guard let breakDestination = breakDestination else {
-            fatalError("ugh something went wrong")
-        }
-        
-        add(.ujump, unresolvedLabel: breakDestination)
-    }
-    
-    func handle(continueStatement: ASTContinueStatement) throws {
-        guard let continueDestination = continueDestination else {
-            fatalError("ugh sorry for that")
-        }
-        
-        add(.ujump, unresolvedLabel: continueDestination)
-    }
     
     
     func handle(assignment: ASTAssignment) throws {
