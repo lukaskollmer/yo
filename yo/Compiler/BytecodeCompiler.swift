@@ -63,6 +63,16 @@ class ConstantArrayLiteralsCache {
     }
 }
 
+
+struct ShortCircuitingJumpDestinations {
+    /// Jump destination if the condition evaluated to `x != 0`
+    let success: String?
+    
+    /// Jump destination if the condition evaluated to `x == 0`
+    let failure: String?
+}
+
+
 private var ASTDeferStatement_associatedIdentifierHandle: UInt8 = 0
 private extension ASTDeferStatement {
     var associatedIdentifier: ASTIdentifier! {
@@ -402,6 +412,9 @@ private extension BytecodeCompiler {
         
         } else if let whileStatement = node as? ASTWhileStatement {
             try handle(whileStatement: whileStatement)
+            
+        } else if let condition = node as? ASTCondition {
+            try handle(condition: condition)
             
         } else if let arbitraryNodes = node as? ASTArbitraryNodes {
             try arbitraryNodes.nodes.forEach(handle)
@@ -953,9 +966,6 @@ private extension BytecodeCompiler {
             ShouldNeverReachHere()
         }
         
-        let id = counter.get()
-        let makeLabel: (String) -> String = { ".\(functionName)_if_\(id)_\($0)" }
-        
         /*
          Q: How does this work?
          A: The generated instructions have the following structure:
@@ -980,32 +990,56 @@ private extension BytecodeCompiler {
          - `.if_end`
          */
         
-        var branches = ifStatement.branches
-        var hasElseBranch = false
+        let id = counter.get()
+        let makeLabel: (String) -> String = { ".\(functionName)_if_\(id)_\($0)" }
+        let makeBranchEntryPointLabel: (Int) -> String = { makeLabel("branch_\($0)") }
+        let makeConditionEntryPointLabel: (Int) -> String = { makeLabel("cond_\($0)") }
+        
+        let label_end = makeLabel("end")
+        
+        let hasElseBranch: Bool = {
+            if case ._else(_) = ifStatement.branches.last! {
+                return true
+            }
+            return false
+        }()
+        
+        var branches = Array(ifStatement.branches.enumerated())
         
         // 1. handle all conditions
-        for (index, branch) in branches.enumerated() {
+        for (index, branch) in branches {
+            let hasNextConditionBranch = index < branches.count - (hasElseBranch ? 2 : 1)
+            let label_currentBranchBody = makeBranchEntryPointLabel(index)
+            let label_shortCircuitingFailure =
+                hasNextConditionBranch
+                    ? makeConditionEntryPointLabel(index + 1)
+                    : (hasElseBranch
+                        ? makeBranchEntryPointLabel(index + 1)
+                        : label_end
+                    )
+            
+            let shortCircuitingJumpOptions = ShortCircuitingJumpDestinations(success: label_currentBranchBody, failure: label_shortCircuitingFailure)
+            
             switch branch {
             case ._if(let condition, _):
-                // The initial if statement
-                add(comment: "Initial if condition")
-                try handle(condition: condition)
-                add(.jump, unresolvedLabel: makeLabel("main_body"))
+                try handle(condition: condition, shortCircuitingJumpOptions)
+                add(.jump, unresolvedLabel: label_currentBranchBody)
                 
             case ._else_if(let condition, _):
-                add(comment: "if else #\(index) condition")
-                try handle(condition: condition)
-                add(.jump, unresolvedLabel: makeLabel("else_if_\(index)_body"))
+                add(label: makeConditionEntryPointLabel(index))
+                try handle(condition: condition, shortCircuitingJumpOptions)
+                add(.jump, unresolvedLabel: label_currentBranchBody)
             
             case ._else(_):
-                hasElseBranch = true
+                // pass
+                break
             }
         }
         
         
         // if the if statement doesn't have an else branch, there's nothing to fall through to
         if !hasElseBranch {
-            add(.ujump, unresolvedLabel: makeLabel("end"))
+            add(.ujump, unresolvedLabel: label_end)
         } else {
             // if the if statement does have an else branch, we need to swap the first and last branch
             // bc we want the else branch first and the "main" branch last
@@ -1013,26 +1047,17 @@ private extension BytecodeCompiler {
         }
         
         // 2. handle all bodies
-        for (index, branch) in branches.enumerated() {
+        for (index, branch) in branches {
             switch branch {
-            case ._if(_, let body):
-                add(label: makeLabel("main_body"))
+            case ._if(_, let body), ._else_if(_, let body), ._else(let body):
+                add(label: makeBranchEntryPointLabel(index))
                 try handle(composite: body)
-                add(.ujump, unresolvedLabel: makeLabel("end"))
-                
-            case ._else_if(_, let body):
-                add(label: makeLabel("else_if_\(index)_body"))
-                try handle(composite: body)
-                add(.ujump, unresolvedLabel: makeLabel("end"))
-                
-            case ._else(let body):
-                // no label needed since we simply fall through (see above)
-                try handle(composite: body)
-                add(.ujump, unresolvedLabel: makeLabel("end"))
             }
+            
+            add(.ujump, unresolvedLabel: label_end)
         }
         
-        add(label: makeLabel("end"))
+        add(label: label_end)
         
     }
     
@@ -1855,12 +1880,12 @@ private extension BytecodeCompiler {
     
     
     
-    func handle(condition: ASTCondition) throws {
+    func handle(condition: ASTCondition, _ shortCircuitingJumpDestinations: ShortCircuitingJumpDestinations? = nil) throws {
         if let comparison = condition as? ASTComparison {
             try handle(comparison: comparison)
             
         } else if let binaryCondition = condition as? ASTBinaryCondition {
-            try handle(binaryCondition: binaryCondition)
+            try handle(binaryCondition: binaryCondition, shortCircuitingJumpDestinations)
             
         } else if let implicitNonZeroComparison = condition as? ASTImplicitNonZeroComparison {
             try handle(implicitNonZeroComparison: implicitNonZeroComparison)
@@ -1911,38 +1936,59 @@ private extension BytecodeCompiler {
     }
     
     
-    func handle(binaryCondition: ASTBinaryCondition) throws {
-        try handle(node: binaryCondition.lhs)
-        try handle(node: binaryCondition.rhs)
-        
-        // the last two values on the stack are now one of these options:
-        // 1, 1   (lhs: true  | rhs: true )
-        // 1, 0   (lhs: true  | rhs: false)
-        // 0, 1   (lhs: false | rhs: true )
-        // 0, 0   (lhs: false | rhs: false)
-        
-        // we now add the last two entries on the stack
-        // if the result is 2, both are true
-        // if the result is 1, one of them is true
-        // if the result is  0, both are false
-        
-        add(.add)
-        
-        // depending on the comparison operator (&& or ||) we now compare the sum
-        // with the expected result
-        
-        switch binaryCondition.operator {
-        case .and:
-            // both need to be true
-            add(.push, 2)
-            add(.eq)
+    func handle(binaryCondition: ASTBinaryCondition, _ shortCircuitingJumpDestinations: ShortCircuitingJumpDestinations?) throws {
+        if let destinations = shortCircuitingJumpDestinations {
+            switch binaryCondition.operator {
+            case .and: // both need to be true
+                try handle(condition: binaryCondition.lhs, destinations)
+                if let dest_failure = destinations.failure {
+                    add(.lnot)
+                    add(.jump, unresolvedLabel: dest_failure)
+                }
+                try handle(condition: binaryCondition.rhs, destinations)
+                
+            case .or: // at least one needs to be true
+                try handle(condition: binaryCondition.lhs, destinations)
+                if let dest_success = destinations.success {
+                    add(.jump, unresolvedLabel: dest_success)
+                }
+                try handle(condition: binaryCondition.rhs, destinations)
+            }
+        } else {
+            // No short circuiting
             
-        case .or:
-            // at least one needs to be true
-            // make sure the sum is greater than ot equal to 1
-            add(.push, 1)
-            add(.lt)
-            add(.lnot)
+            try handle(node: binaryCondition.lhs)
+            try handle(node: binaryCondition.rhs)
+            
+            // the last two values on the stack are now one of these options:
+            // 1, 1   (lhs: true  | rhs: true )
+            // 1, 0   (lhs: true  | rhs: false)
+            // 0, 1   (lhs: false | rhs: true )
+            // 0, 0   (lhs: false | rhs: false)
+            
+            // we now add the last two entries on the stack
+            // if the result is 2, both are true
+            // if the result is 1, one of them is true
+            // if the result is 0, both are false
+            
+            add(.add)
+            
+            // depending on the comparison operator (&& or ||) we now compare the sum
+            // with the expected result
+            
+            switch binaryCondition.operator {
+            case .and:
+                // both need to be true
+                add(.push, 2)
+                add(.eq)
+                
+            case .or:
+                // at least one needs to be true
+                // make sure the sum is greater than ot equal to 1
+                add(.push, 1)
+                add(.lt)
+                add(.lnot)
+            }
         }
     }
     
