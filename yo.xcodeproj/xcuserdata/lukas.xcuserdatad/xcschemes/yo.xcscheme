@@ -92,7 +92,7 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--print-instructions"
-            isEnabled = "NO">
+            isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--print-heap"
@@ -111,7 +111,7 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "/Users/lukas/Developer/yo/temp/main_demo.yo"
+            argument = "/Users/lukas/Developer/yo/temp/main_10.yo"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>

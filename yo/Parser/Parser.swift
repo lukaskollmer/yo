@@ -259,6 +259,15 @@ class Parser {
         case "stmt|if_stmt|>":
             return try parseIfStatement(ast)
             
+        case "stmt|while_stmt|>":
+            return try parseWhileStatement(ast)
+        
+        case "stmt|break_stmt|>":
+            return ASTBreakStatement()
+        
+        case "stmt|continue_stmt|>":
+            return ASTContinueStatement()
+            
         default:
             fatalError("unexpected statement \(ast)")
         }
@@ -1085,7 +1094,7 @@ class Parser {
             fatalError("only 'true' and 'false' are valid boolean literals, idiot")
         }
         
-        return ASTBooleanLiteral(value: value)
+        return ASTBooleanLiteral(value)
     }
     
     

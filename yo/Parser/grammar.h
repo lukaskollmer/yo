@@ -149,6 +149,9 @@ const char *YO_GRAMMAR =
 " else_if_stmt  : \"else\" \"if\" <cond> <composite> ;                      "
 " else_stmt     :  \"else\" <composite> ;                                   "
 
+" break_stmt    : \"break\"    ';' ;"
+" continue_stmt : \"continue\" ';' ;"
+
 " while_stmt    : \"while\" <cond> <composite> ;    "
 
 " for_loop_target   : <range> ; "
@@ -162,6 +165,8 @@ const char *YO_GRAMMAR =
 " defer_block   : \"defer\" <composite> ;   "
 
 " stmt          : <ret>             "
+"               | <break_stmt>      "
+"               | <continue_stmt>   "
 "               | <composite>       "
 "               | <assignment>      "
 "               | <var_decl>        "

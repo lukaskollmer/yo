@@ -87,6 +87,8 @@ static BOOL shouldEmitSignposts;
     rule(else_if_stmt);
     rule(else_stmt);
     rule(while_stmt);
+    rule(break_stmt);
+    rule(continue_stmt);
     
     rule(comp_op);
     rule(bin_cond_op);
@@ -127,7 +129,7 @@ static BOOL shouldEmitSignposts;
               expr_list, subscript, var_access, static_target, call_target, fn_call, array_literal,
               boxed_expr, range, binop_mul, binop_add, unary, lambda, typecast, lvalue, pointer_op, lexpr, expr,
               ret, var_decl, in_place_binop, assignment, stmt_fn_call,
-              comp_op, bin_cond_op, bin_cond, comp, lcond, cond, if_stmt, else_if_stmt, else_stmt, while_stmt, for_loop_target, for_loop,
+              comp_op, bin_cond_op, bin_cond, comp, lcond, cond, if_stmt, else_if_stmt, else_stmt, break_stmt, continue_stmt, while_stmt, for_loop_target, for_loop,
               asm_stmt, defer_block, stmt, composite, paramList,
               import, protocol, enum_decl, function_signature, annotation, function, topLevelStatement, program, NULL);
     

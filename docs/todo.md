@@ -82,3 +82,8 @@
  - [ ] add a `...` spread operator for passing an array to a variadic function
        basically, what this should do is pass the array as is, w/out creating a new array containing the non-fixed elements
        would only work if there is only 1 non-fixed element, which is an array (primitive or complex)
+
+
+**types**
+- have `*type` be a pointer to a single value of `type`
+- have `*[type]` be a pointer to an array of `type` values
