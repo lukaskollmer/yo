@@ -1082,7 +1082,7 @@ private extension BytecodeCompiler {
                 (scope.parameters + scope.localVariables)
                     .map { $0.identifier }
                     .intersection(with: lambda.accessedIdentifiersFromOutsideScope)
-            
+            noop()
             if accessedIdentifiersFromOutsideScope.isEmpty {
                 // "pure" lambda
                 let lambdaFunctionName = ASTIdentifier(value: "__\(functionName)_lambda_invoke_\(counter.get())")

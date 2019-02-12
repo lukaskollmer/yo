@@ -20,6 +20,6 @@ class ASTWhileStatement: ASTStatement {
     
     
     var accessedIdentifiers: [ASTIdentifier] {
-        return body.accessedIdentifiers
+        return condition.accessedIdentifiers + body.accessedIdentifiers
     }
 }

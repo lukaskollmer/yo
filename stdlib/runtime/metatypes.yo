@@ -37,9 +37,9 @@ impl runtime {
             runtime::fatalError(String::format("Unable to invoke %s: unrecognized selector", selector));
         }
 
-        // io::printf("You really shouldn't be doing this (%s)", selector);
+        //io::printf("You really shouldn't be doing this (%s)", selector);
 
-        let argv_with_self = runtime::alloc((argc + 1) * 8);
+        let argv_with_self = runtime::alloc((argc + 1) * 8) as *i64;
         argv_with_self[0] = target;
         if argc > 0 {
             runtime::copy_array(8, argv, 0, argv_with_self, 1, argc);

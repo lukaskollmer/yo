@@ -55,7 +55,6 @@ class ASTBinaryOperation: ASTExpression {
     
     
     var accessedIdentifiers: [ASTIdentifier] {
-        //let foo = [lhs, rhs]; let bar = foo.accessedIdentifiers; return bar
         return [lhs, rhs].accessedIdentifiers
     }
 }

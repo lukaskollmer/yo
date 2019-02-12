@@ -44,8 +44,7 @@ class ASTComposite: ASTStatement, ExpressibleByArrayLiteral {
             }
         }
         
-        // func bc closures can't be recursive
-        func fn(statement: ASTStatement) -> [ASTVariableDeclaration] {
+        return statements.lk_flatMap { statement in
             if let decl = statement as? ASTVariableDeclaration {
                 return [decl]
                 
@@ -66,23 +65,10 @@ class ASTComposite: ASTStatement, ExpressibleByArrayLiteral {
                         return body.getLocalVariables(recursive: recursive)
                     }
                 }
-                
-                
-//                var vars = [ASTIdentifier]()
-//
-//                for branch in ifStatement.branches {
-//                    switch branch {
-//                    case ._if(_, let body), ._else_if(_, let body), ._else(let body):
-//                        vars += body.getLocalVariables(recursive: recursive)
-//                    }
-//                    return vars
-//                }
             }
             
             return []
         }
-        
-        return statements.lk_flatMap(fn)
     }
 
 }

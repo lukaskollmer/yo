@@ -24,6 +24,5 @@ class ASTFunctionCall: ASTExpression & ASTStatement {
     
     var accessedIdentifiers: [ASTIdentifier] {
         return arguments.appending(ASTIdentifier(functionName)).accessedIdentifiers
-        //return [functionName] + arguments.accessedIdentifiers
     }
 }

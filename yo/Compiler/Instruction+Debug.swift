@@ -28,6 +28,7 @@ extension String {
 }
 
 
+// TODO is this actually used anywhere?
 extension Array where Element == Instruction {
     var fancyDescription: String {
         var desc = [String]()

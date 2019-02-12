@@ -257,11 +257,16 @@ class Runtime: NativeFunctions {
         }
         
         
-        self["runtime", "itoa", .String, [.i64, .int]] = { interpreter in
+        self["runtime", "itoa", .ptr(.i8), [.i64, .int]] = { interpreter in
             let value = interpreter.stack.peek()
             let base = interpreter.stack.peek(offset: -1)
             let string = String(value, radix: base)
             return Runtime.allocateBacking(forString: string, heap: interpreter.heap)
+        }
+        
+        self["runtime", "_double_to_string", .ptr(.i8), [.double]] = { interpreter in
+            let value = interpreter.stack.peek().unsafe_loadAsDouble
+            return Runtime.allocateBacking(forString: String(value), heap: interpreter.heap)
         }
         
         self["runtime", "_char_to_string", .ptr(.i8), [.i8]] = { interpreter in

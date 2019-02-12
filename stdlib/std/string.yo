@@ -62,7 +62,7 @@ impl String {
     }
 
     fn isEqualTo(self: String, other: id): bool {
-        // Make sure borh are strings
+        // Make sure both are strings
         if runtime::typeof(self) != runtime::typeof(other) {
             return false;
         }
@@ -105,7 +105,11 @@ impl String {
             if nextCharIsFormatToken {
                 if char == 'i' {
                     // int // TODO differentiate between {i|u}(8|16|32|64)
-                    text.append(runtime::itoa(args[arg_index], 10));
+                    text.append(String::init(runtime::itoa(args[arg_index], 10)));
+                } else if char == 'c' {
+                    text.append(String::init(runtime::_char_to_string(args[arg_index])));
+                } else if char == 'd' {
+                    text.append(String::init(runtime::_double_to_string(args[arg_index])));
                 } else if char == 'b' {
                     // bool
                     let value = args[arg_index] as bool;
