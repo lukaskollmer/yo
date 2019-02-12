@@ -2052,10 +2052,11 @@ private extension BytecodeCompiler {
         }
         
         if scope.contains(identifier: selfName), case .complex(let self_type) = try! scope.type(of: selfName), typeCache.type(self_type, hasMember: identifier.value) {
-            let memberAccess: ASTMemberAccess = [.initial_identifier(.init(value: selfName)), .attribute(name: identifier)]
-            
             return (
-                memberAccess,
+                ASTMemberAccess(members: [
+                    .initial_identifier(.init(selfName)),
+                    .attribute(name: identifier)
+                ]),
                 ASTType.complex(name: self_type),
                 typeCache.type(ofMember: identifier.value, ofType: self_type)!
             )

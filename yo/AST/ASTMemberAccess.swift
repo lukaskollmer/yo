@@ -9,7 +9,7 @@
 import Foundation
 
 
-class ASTMemberAccess: ASTExpression, ASTStatement, ExpressibleByArrayLiteral {
+class ASTMemberAccess: ASTExpression, ASTStatement {
     enum Kind {
         case initial_identifier(ASTIdentifier)
         case initial_functionCall(ASTFunctionCall)
@@ -24,8 +24,7 @@ class ASTMemberAccess: ASTExpression, ASTStatement, ExpressibleByArrayLiteral {
         self.members = members
     }
     
-    convenience required init(arrayLiteral elements: Kind...) {
-        self.init(members: elements)
+    
     var accessedIdentifiers: [ASTIdentifier] {
         return members.lk_flatMap {
             switch $0 {
