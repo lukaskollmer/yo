@@ -19,4 +19,9 @@ class ASTAssignment: ASTStatement {
         self.value = value
         self.shouldRetainAssignedValueIfItIsAnObject = shouldRetainAssignedValueIfItIsAnObject
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return [target, value].accessedIdentifiers
+    }
 }

@@ -21,4 +21,9 @@ class ASTForLoop: ASTStatement {
         self.target = target
         self.body = body
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return body.accessedIdentifiers
+    }
 }

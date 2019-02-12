@@ -15,4 +15,9 @@ class ASTInlineBooleanExpression: ASTExpression {
     init(condition: ASTCondition) {
         self.condition = condition
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return condition.accessedIdentifiers
+    }
 }

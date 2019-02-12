@@ -17,4 +17,8 @@ class ASTStaticMemberGetter: ASTExpression {
         self.typename = typename
         self.memberName = memberName
     }
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return []
+    }
 }

@@ -42,6 +42,12 @@ class ASTIdentifier: ASTExpression, Hashable, ExpressibleByStringLiteral, Custom
     static func == (lhs: ASTIdentifier, rhs: ASTIdentifier) -> Bool {
         return lhs.value == rhs.value && lhs.isBuiltin == rhs.isBuiltin
     }
+    
+    
+    // TODO: this is the great conundrum. does an identifier access itself?
+    var accessedIdentifiers: [ASTIdentifier] {
+        return [self]
+    }
 }
 
 extension ASTIdentifier {

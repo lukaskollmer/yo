@@ -17,4 +17,9 @@ class ASTEnumDeclaration: ASTStatement {
         self.name = name
         self.cases = cases
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return []
+    }
 }

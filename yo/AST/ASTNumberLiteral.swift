@@ -25,4 +25,9 @@ class ASTNumberLiteral: ASTExpression {
     convenience init(_ value: Double) {
         self.init(value: value.unsafe_loadAsInt, type: .double)
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return []
+    }
 }

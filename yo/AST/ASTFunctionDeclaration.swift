@@ -19,6 +19,10 @@ class ASTFunctionDeclaration: ASTStatement {
     }
     
     
+    var accessedIdentifiers: [ASTIdentifier] {
+        fatalError() // Not really useful, right?
+    }
+    
     var mangledName: String {
         let name = signature.name.value
         switch signature.kind {

@@ -9,4 +9,8 @@
 import Foundation
 
 
-class ASTNoop: ASTStatement & ASTExpression {}
+class ASTNoop: ASTStatement & ASTExpression {
+    var accessedIdentifiers: [ASTIdentifier] {
+        return []
+    }
+}

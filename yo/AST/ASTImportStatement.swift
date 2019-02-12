@@ -15,4 +15,9 @@ class ASTImportStatement: ASTStatement {
     init(moduleName: String) {
         self.moduleName = moduleName
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return []
+    }
 }

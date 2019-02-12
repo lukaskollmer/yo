@@ -21,4 +21,14 @@ class ASTIfStatement: ASTStatement {
     init(branches: [ASTIfStatement.Branch]) {
         self.branches = branches
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return branches.lk_flatMap {
+            switch $0 {
+            case ._if(_, let body), ._else_if(_, let body), ._else(let body):
+                return body.accessedIdentifiers
+            }
+        }
+    }
 }

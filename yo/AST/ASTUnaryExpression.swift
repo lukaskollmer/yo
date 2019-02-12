@@ -24,4 +24,9 @@ class ASTUnaryExpression: ASTExpression {
         self.expression = expression
         self.operator = `operator`
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return expression.accessedIdentifiers
+    }
 }

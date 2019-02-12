@@ -30,6 +30,10 @@ class ASTBinaryCondition: ASTCondition {
         self.operator = `operator`
         self.rhs = rhs
     }
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return [lhs, rhs].accessedIdentifiers
+    }
 }
 
 
@@ -52,6 +56,11 @@ class ASTComparison: ASTCondition {
         self.operation = operation
         self.rhs = rhs
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return [lhs, rhs].accessedIdentifiers
+    }
 }
 
 
@@ -66,5 +75,10 @@ class ASTImplicitNonZeroComparison: ASTCondition {
     
     init(expression: ASTExpression) {
         self.expression = expression
+    }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return expression.accessedIdentifiers
     }
 }

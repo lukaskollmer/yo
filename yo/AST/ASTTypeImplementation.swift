@@ -19,4 +19,9 @@ class ASTTypeImplementation: ASTStatement {
         self.protocols = protocols
         self.functions = functions
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return []
+    }
 }

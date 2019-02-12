@@ -27,4 +27,9 @@ class ASTArbitraryNodes: ASTStatement & ASTExpression {
         self.nodes = nodes
         self.typeInferenceHelper = typeInferenceHelper
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return nodes.lk_flatMap { $0.accessedIdentifiers }
+    }
 }

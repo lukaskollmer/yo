@@ -15,4 +15,9 @@ class ASTStringLiteral: ASTExpression {
     init(value: String) {
         self.value = value
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return []
+    }
 }

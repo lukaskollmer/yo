@@ -9,4 +9,8 @@
 import Foundation
 
 
-class ASTContinueStatement: ASTStatement {}
+class ASTContinueStatement: ASTStatement {
+    var accessedIdentifiers: [ASTIdentifier] {
+        return []
+    }
+}

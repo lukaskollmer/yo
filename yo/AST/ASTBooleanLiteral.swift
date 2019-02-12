@@ -13,7 +13,12 @@ class ASTBooleanLiteral: ASTExpression {
     
     let value: Bool
     
-    init(value: Bool) {
+    init(_ value: Bool) {
         self.value = value
+    }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return []
     }
 }

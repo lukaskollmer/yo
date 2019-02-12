@@ -496,7 +496,7 @@ private extension BytecodeCompiler {
         // 2. handle all statements
         // 3. insert `runtime::release` calls for all non-primitive variables declared in the composite
         let hasReturnStatement = composite.statements.any { $0 is ASTReturnStatement }
-        var localVariables = composite.statements.getLocalVariables(recursive: false)
+        var localVariables = composite.getLocalVariables(recursive: false)
         
         guard_noDuplicates(localVariables)
         
@@ -585,7 +585,7 @@ private extension BytecodeCompiler {
                 try deferHandles.forEach { try release(expression: $0.identifier) }
                 
                 // This does not include any potential defer handles
-                let localVariables = composite.statements.getLocalVariables(recursive: false)
+                let localVariables = composite.getLocalVariables(recursive: false)
                 
                 try localVariables
                     .filter { typeCache.supportsArc($0.type) }

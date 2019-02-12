@@ -25,10 +25,27 @@ typealias AST = [ASTNode]
 protocol ASTNode: class, CustomStringConvertible {
     /// position in the original source code
     //var sourceCodeLocation: SourceCodeLocation { get } // TODO
+    // Get all identifiers accessed by this node or its child nodes
+    var accessedIdentifiers: [ASTIdentifier] { get }
 }
 
 protocol ASTStatement: ASTNode {}
+
 protocol ASTExpression: ASTNode {}
+
+
+
+extension Array where Element == ASTStatement {
+    var accessedIdentifiers: [ASTIdentifier] {
+        return self.lk_flatMap { $0.accessedIdentifiers }
+    }
+}
+
+extension Array where Element == ASTExpression {
+    var accessedIdentifiers: [ASTIdentifier] {
+        return self.lk_flatMap { $0.accessedIdentifiers }
+    }
+}
 
 
 // MARK: Node+Debug

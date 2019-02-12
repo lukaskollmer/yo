@@ -21,4 +21,9 @@ class ASTConstantDeclaration: ASTStatement {
         self.type = type
         self.value = value
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return value.accessedIdentifiers
+    }
 }

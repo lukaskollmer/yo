@@ -19,4 +19,9 @@ class ASTArrayGetter: ASTExpression {
         self.offset = offset
         self.typeOfAccessedField = typeOfAccessedField
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return [target, offset].accessedIdentifiers
+    }
 }

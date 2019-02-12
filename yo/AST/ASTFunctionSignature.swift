@@ -40,4 +40,9 @@ class ASTFunctionSignature: ASTStatement, FunctionSignature {
         self.isUnsafe = isUnsafe
     }
     
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return []
+    }
+    
 }

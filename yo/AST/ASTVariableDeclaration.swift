@@ -22,6 +22,12 @@ class ASTVariableDeclaration: ASTStatement, Equatable {
         self.isStatic = isStatic
     }
     
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return initialValue?.accessedIdentifiers ?? []
+    }
+    
+    
     // TODO there's a case to be made that this should look only at the identifier and ignore the type
     static func == (lhs: ASTVariableDeclaration, rhs: ASTVariableDeclaration) -> Bool {
         return lhs.identifier == rhs.identifier && lhs.type == rhs.type
@@ -29,6 +35,7 @@ class ASTVariableDeclaration: ASTStatement, Equatable {
 }
 
 
+/*
 // Array<ASTStatement> + local variables
 extension Array where Element == ASTStatement {
     
@@ -51,7 +58,10 @@ extension Array where Element == ASTStatement {
             } else if let composite = statement as? ASTComposite {
                 return composite.statements.getLocalVariables(recursive: true)
                 
-            } else if let conditional = statement as? ASTConditionalStatement {
+            } else if let whileStatement = statement as? ASTWhileStatement {
+                return whileStatement.condition.getAccessedIdentifiers() + whileStatement.body.getAccessedIdentifiers()
+                
+        
                 var conditionalVariableDecls = conditional.body.statements.getLocalVariables(recursive: true)
                 
                 if case .if(let elseBranch) = conditional.kind, elseBranch != nil {
@@ -67,3 +77,4 @@ extension Array where Element == ASTStatement {
         return self.lk_flatMap(fn)
     }
 }
+*/

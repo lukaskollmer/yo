@@ -21,4 +21,9 @@ class ASTArraySetter: ASTStatement {
         self.value  = value
         self.typeOfWrittenValue = typeOfWrittenValue
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return [target, offset, value].accessedIdentifiers
+    }
 }

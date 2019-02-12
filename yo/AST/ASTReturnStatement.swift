@@ -15,4 +15,9 @@ class ASTReturnStatement: ASTStatement {
     init(expression: ASTExpression) {
         self.expression = expression
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return expression.accessedIdentifiers
+    }
 }

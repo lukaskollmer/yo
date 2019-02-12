@@ -22,4 +22,9 @@ class ASTArrayLiteral: ASTExpression {
         self.elements = elements
         self.kind = kind
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return elements.accessedIdentifiers
+    }
 }

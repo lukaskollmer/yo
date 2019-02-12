@@ -9,4 +9,8 @@
 import Foundation
 
 
-class ASTBreakStatement: ASTStatement {}
+class ASTBreakStatement: ASTStatement {
+    var accessedIdentifiers: [ASTIdentifier] {
+        return []
+    }
+}

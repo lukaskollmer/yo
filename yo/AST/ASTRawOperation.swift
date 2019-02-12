@@ -20,4 +20,9 @@ class ASTRawUnresolvedInstruction: ASTStatement & ASTExpression {
     init(operation: Operation, immediate: Int) {
         self.instruction = .operation(operation, immediate)
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return []
+    }
 }

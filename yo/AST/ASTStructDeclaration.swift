@@ -26,4 +26,9 @@ class ASTStructDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated {
         self.identifier = identifier
         self.attributes = attributes
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return []
+    }
 }

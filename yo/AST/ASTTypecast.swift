@@ -17,6 +17,11 @@ class ASTTypecast: ASTExpression {
         self.expression = expression
         self.type = type
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return expression.accessedIdentifiers
+    }
 }
 
 extension ASTExpression {

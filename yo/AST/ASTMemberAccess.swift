@@ -26,5 +26,18 @@ class ASTMemberAccess: ASTExpression, ASTStatement, ExpressibleByArrayLiteral {
     
     convenience required init(arrayLiteral elements: Kind...) {
         self.init(members: elements)
+    var accessedIdentifiers: [ASTIdentifier] {
+        return members.lk_flatMap {
+            switch $0 {
+            case .initial_identifier(let identifier):
+                return [identifier]
+            case .initial_functionCall(let functionCall):
+                return functionCall.accessedIdentifiers
+            case .attribute(name: _):
+                return []
+            case .functionCall(name: _, let arguments, unusedReturnValue: _):
+                return arguments.accessedIdentifiers
+            }
+        }
     }
 }

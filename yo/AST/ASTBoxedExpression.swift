@@ -15,4 +15,9 @@ class ASTBoxedExpression: ASTExpression {
     init(expression: ASTExpression) {
         self.expression = expression
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return expression.accessedIdentifiers
+    }
 }

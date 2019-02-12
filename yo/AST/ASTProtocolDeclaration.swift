@@ -22,6 +22,11 @@ class ASTProtocolDeclaration: ASTStatement, ASTTypeThatCanBeAnnotated {
         self.functionsWithoutDefaultImplementation = functionsWithoutDefaultImplementation
         self.annotations = annotations
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return []
+    }
 }
 
 extension ASTProtocolDeclaration: Hashable {

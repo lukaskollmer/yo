@@ -22,4 +22,9 @@ class ASTPointerOperation: ASTExpression {
         self.operation = operation
         self.target = target
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return target.accessedIdentifiers
+    }
 }

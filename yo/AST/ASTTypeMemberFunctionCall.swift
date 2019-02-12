@@ -23,4 +23,9 @@ class ASTTypeMemberFunctionCall: ASTExpression & ASTStatement {
         self.arguments = arguments
         self.unusedReturnValue = unusedReturnValue
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return arguments.appending(target).accessedIdentifiers
+    }
 }

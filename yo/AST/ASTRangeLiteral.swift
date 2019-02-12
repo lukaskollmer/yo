@@ -24,4 +24,9 @@ class ASTRangeLiteral: ASTExpression {
         self.end = end
         self.kind = kind
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return [start, end].accessedIdentifiers
+    }
 }

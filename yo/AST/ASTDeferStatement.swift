@@ -15,4 +15,9 @@ class ASTDeferStatement: ASTStatement {
     init(body: ASTComposite) {
         self.body = body
     }
+    
+    
+    var accessedIdentifiers: [ASTIdentifier] {
+        return body.accessedIdentifiers
+    }
 }
