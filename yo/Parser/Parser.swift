@@ -265,6 +265,14 @@ class Parser {
     }
     
     
+    func parseWhileStatement(_ ast: mpc_ast_t) throws -> ASTWhileStatement {
+        return ASTWhileStatement(
+            condition: try parseCondition(ast[1]),
+            body: try parseComposite(ast[2])
+        )
+    }
+    
+    
     func parseIfStatement(_ ast: mpc_ast_t) throws -> ASTIfStatement {
         var branches = [ASTIfStatement.Branch]()
         
@@ -789,14 +797,13 @@ class Parser {
             
             let body = try parseComposite(ast[5])
             
-            return [
+            return ASTComposite(statements: [
                 initialization,
-                ASTConditionalStatement(
+                ASTWhileStatement(
                     condition: condition,
-                    body: body.appending(statements: [increment]),
-                    kind: .while
+                    body: body.appending(statements: [increment])
                 )
-            ] as ASTComposite
+            ])
         }
     }
     

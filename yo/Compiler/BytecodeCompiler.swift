@@ -406,6 +406,9 @@ private extension BytecodeCompiler {
             
         } else if let ifStatement = node as? ASTIfStatement {
             try handle(ifStatement: ifStatement)
+        
+        } else if let whileStatement = node as? ASTWhileStatement {
+            try handle(whileStatement: whileStatement)
             
         } else if let arbitraryNodes = node as? ASTArbitraryNodes {
             try arbitraryNodes.nodes.forEach(handle)
@@ -857,6 +860,55 @@ private extension BytecodeCompiler {
         }
         
     }
+    
+    
+    
+    
+    
+    
+    // Conditional statement handling
+    
+    
+    func handle(breakStatement: ASTBreakStatement) throws {
+        fatalError() // TODO implement
+    }
+    
+    func handle(continueStatement: ASTContinueStatement) throws {
+        fatalError() // TODO implement
+    }
+    
+    
+    
+    func handle(whileStatement: ASTWhileStatement) throws {
+        // How does this work?
+        // the code `while <cond> <body>` becomes the following asm:
+        // cond:
+        // <cond>
+        
+        // TODO what if the condition is an implicit nonzero check and the value we're checking is the refcounted result of a function call? in that case we'd need to insert a release statement
+        
+        let id = counter.get()
+        let makeLabel: (String) -> String = { ".\(self.scope.functionName!)_while_\(id)_\($0)" }
+        
+        let label_cond = makeLabel("cond")
+        //let label_body = makeLabel("body")
+        let label_end  = makeLabel("end")
+        
+        // Handle the condition
+        add(label: label_cond)
+        try handle(condition: whileStatement.condition)
+        add(.lnot) // Negate the result of the condition
+        // If the top elent on the stack is 1 (ie, if the result of the condition was 0), we jump to `label_end`
+        // Otherwise, fallthrough to the body
+        add(.jump, unresolvedLabel: label_end)
+        
+        // Handle the body
+        try handle(composite: whileStatement.body)
+        add(.ujump, unresolvedLabel: label_cond)
+        
+        add(label: label_end)
+    }
+    
     
     
     func handle(forLoop: ASTForLoop) throws {
