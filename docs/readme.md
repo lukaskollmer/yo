@@ -222,6 +222,17 @@ fn format(fmt: String, args: Array): String;
 fn format(fmt: String, args: *i64): String;
 ```
 
+Use the spread operator (`...`) to pass an expression of type `Array` or `*any` as a function's variadic arguments:
+```rust
+let args = {true, false};
+io::printf2("%b %b", ...args);
+
+// Equivalent to the above:
+io::printf2("%b %b", true, false);
+```
+
+(Note that in the example above, `io::format2` would still free the variadic argument, turning `args` into a dangling pointer)
+
 
 
 ### Working with pointers

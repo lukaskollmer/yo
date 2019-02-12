@@ -1269,16 +1269,25 @@ private extension BytecodeCompiler {
         
         // handle variadic arguments
         if isVariadic {
-            // we can safely assume that `expectedType` is either `int` or `Array`
+            // we can safely assume that `expectedType` is either `.ptr(.any)` or `Array`
             let expectedType = functionSignature.parameterTypes.last!
             let numberOfVariadicArguments = functionCall.arguments.count - numberOfFixedArguments
             
-            let arrayLiteral = ASTArrayLiteral(
-                elements: Array(functionCall.arguments.suffix(numberOfVariadicArguments)),
-                kind: expectedType == .ptr(.any) ? .primitive : .complex
-            )
+            if let spreadExpression = functionCall.arguments[safe: numberOfFixedArguments] as? ASTSpreadExpression {
+                // Pass the spread expression directly, instead of turning it into an array
+                let argType = try guessType(ofExpression: spreadExpression)
+                guard argType.isCompatible(with: expectedType) else {
+                    fatalError("Cannot pass spread expression of type '\(argType)' to variadic function expecting '\(expectedType)'")
+                }
+                try handle(node: spreadExpression.expression)
             
-            try handle(node: arrayLiteral)
+            } else {
+                let arrayLiteral = ASTArrayLiteral(
+                    elements: Array(functionCall.arguments.suffix(numberOfVariadicArguments)),
+                    kind: expectedType == .ptr(.any) ? .primitive : .complex
+                )
+                try handle(node: arrayLiteral)
+            }
         }
         
         //
@@ -2195,6 +2204,8 @@ private extension BytecodeCompiler {
                     }
                     return underlyingType
                 }
+            } else if let spreadExpression = expression as? ASTSpreadExpression {
+                return try guessType(ofExpression: spreadExpression.expression)
             }
             
             // We seem to hit this error pretty often (/always?) when encountering an undefined identifier

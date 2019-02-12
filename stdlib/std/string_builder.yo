@@ -19,7 +19,7 @@ impl StringBuilder {
 
     #[variadic]
     fn append_format(self: StringBuilder, format: String, args: Array): void {
-        let formatted = String::format_v(format, args);
+        let formatted = String::format(format, ...args);
         self.append(formatted);
     }
 

@@ -76,6 +76,8 @@ const char *YO_GRAMMAR =
 
 " unary         : ('-' | '~' | '!') <expr> ; "
 
+" varargs_spread : \"...\" <expr> ;"
+
 
 // TODO is the second one faster?
 " lambda        : '|' (<ident> (':' <type>)? (',' <ident> (':' <type>)?)*)? '|' \"->\" <composite> ; "
@@ -90,6 +92,7 @@ const char *YO_GRAMMAR =
 
 // Basically, all of these are rvalues
 " lexpr         : <boolean>         "
+"               | <varargs_spread>  "
 "               | <pointer_op>      "
 "               | <lambda>          "
 "               | '(' <expr>  ')'   "

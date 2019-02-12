@@ -16,20 +16,12 @@ impl io {
     }
 
     #[variadic]
-    static fn printf(format: String, args: Array): void {
-        io::printf_v(format, args);
+    static fn printf2(format: String, args: *any): void {
+        io::print(String::format2(format, ...args));
     }
 
-    static fn printf_v(format: String, args: Array): void {
-        // TODO call description for non-string args passed as '%s'
-        // This probably means that we need to parse the format string here insted of in Runtime.swift
-        //args = args.map(|element| -> {
-        //    val metatype = runtime::typeof(element);
-        //    if metatype.name.isEqualToString("String") {
-        //        ret element;
-        //    }
-        //    ret Object::description(element);
-        //});
-        io::print(String::format_v(format, args));
+    #[variadic]
+    static fn printf(format: String, args: Array): void {
+        io::print(String::format(format, ...args));
     }
 }

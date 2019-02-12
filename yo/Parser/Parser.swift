@@ -970,6 +970,9 @@ class Parser {
         case "lexpr|pointer_op|>":
             return try parsePointerOperation(ast)
             
+        case "lexpr|varargs_spread|>":
+            return try parseVarargsSpreadExpression(ast)
+            
             
         default:
             fatalError("unexpected expression \(ast)")
@@ -1017,6 +1020,12 @@ class Parser {
             operation: operation,
             target: try parseExpression(ast.lk_children[1])
         )
+    }
+    
+    
+    
+    func parseVarargsSpreadExpression(_ ast: mpc_ast_t) throws -> ASTSpreadExpression {
+        return ASTSpreadExpression(expression: try parseExpression(ast[1]))
     }
     
     

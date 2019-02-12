@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		8001BC8220B6CF8500B55D00 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8001BC8120B6CF8500B55D00 /* main.swift */; };
 		801A3B402211DC0C0029B70E /* ASTWhileStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 801A3B3F2211DC0C0029B70E /* ASTWhileStatement.swift */; };
+		801A3B422212FBE10029B70E /* ASTSpreadExpression.swift in Sources */ = {isa = PBXBuildFile; fileRef = 801A3B412212FBE10029B70E /* ASTSpreadExpression.swift */; };
 		8030A6612136DB8B00AC0596 /* ASTRangeLiteral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8030A6602136DB8B00AC0596 /* ASTRangeLiteral.swift */; };
 		8030A6632136E14300AC0596 /* ASTForLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8030A6622136E14300AC0596 /* ASTForLoop.swift */; };
 		803BEDCB211753D5009DC37A /* Buffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803BEDCA211753D5009DC37A /* Buffer.swift */; };
@@ -159,6 +160,7 @@
 		8001BC7E20B6CF8500B55D00 /* yo */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = yo; sourceTree = BUILT_PRODUCTS_DIR; };
 		8001BC8120B6CF8500B55D00 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		801A3B3F2211DC0C0029B70E /* ASTWhileStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTWhileStatement.swift; sourceTree = "<group>"; };
+		801A3B412212FBE10029B70E /* ASTSpreadExpression.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTSpreadExpression.swift; sourceTree = "<group>"; };
 		8030A6602136DB8B00AC0596 /* ASTRangeLiteral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTRangeLiteral.swift; sourceTree = "<group>"; };
 		8030A6622136E14300AC0596 /* ASTForLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASTForLoop.swift; sourceTree = "<group>"; };
 		803BEDCA211753D5009DC37A /* Buffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Buffer.swift; sourceTree = "<group>"; };
@@ -508,6 +510,7 @@
 				806227D121FB2BBF00594671 /* ASTPointerOperation.swift */,
 				80963A4621FF1CB600142FE4 /* ASTConstantDeclaration.swift */,
 				801A3B3F2211DC0C0029B70E /* ASTWhileStatement.swift */,
+				801A3B412212FBE10029B70E /* ASTSpreadExpression.swift */,
 			);
 			path = AST;
 			sourceTree = "<group>";
@@ -604,6 +607,7 @@
 				806D73642131AFB1003D3902 /* CallStatRecorder.swift in Sources */,
 				80D82C8120F0F37500EB340D /* ffi_i386.c in Sources */,
 				80D82C8220F0F37500EB340D /* dlmalloc.c in Sources */,
+				801A3B422212FBE10029B70E /* ASTSpreadExpression.swift in Sources */,
 				80D82C7E20F0F37500EB340D /* ffi64_x86_64.c in Sources */,
 				80D82C8320F0F37500EB340D /* java_raw_api.c in Sources */,
 				80D82C7C20F0F37500EB340D /* types.c in Sources */,
