@@ -176,6 +176,10 @@ extension Sequence {
 
 extension Array {
     
+    func appending(_ newElement: Element) -> [Element] {
+        return self + [newElement]
+    }
+    
     // TODO move this to Sequence?
     func lk_flatMap<T>(_ block: (Element) throws -> [T]) rethrows -> [T] {
         return try self.reduce(into: []) { $0.append(contentsOf: try block($1)) }

@@ -11,8 +11,8 @@ import Foundation
 
 enum SymbolMangling {
     
-    static let alloc   = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "alloc")
-    static let free    = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "free")
+    static let alloc = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "alloc")
+    static let free  = SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "free")
     
     static func mangleStaticMember(ofType typename: String, memberName: String) -> String {
         return typename + "_S" + memberName

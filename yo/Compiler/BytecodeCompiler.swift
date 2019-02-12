@@ -84,11 +84,8 @@ private let ReservedIdentifiers: [ASTIdentifier] = ["nil"]
 class BytecodeCompiler {
     
     private var instructions = [UnresolvedInstruction]()
-    private var conditionalStatementCounter = Counter()
-    private var lambdaCounter = Counter()
-    private var forLoopCounter = Counter()
+    private var counter = Counter() // TODO use something that generates random 5 (or longer) letter strings instead? there's no actual benefit to having increasing counter values, using random strings would make clear thet the values have no intrinsic meaning
     private let constantArrayLiteralsCache = ConstantArrayLiteralsCache()
-    private var counter = Counter()
     
     
     // Scope info
@@ -106,10 +103,6 @@ class BytecodeCompiler {
     // (the one generating initializers, dealloc functions, getters and setters) with only the lambda's ast, as opposed to
     // the beginning of the compilation process where we just shove the entire ast we got to the codegen thing
     private(set) var baseProtocols: [ASTProtocolDeclaration]!
-    
-    // TODO properly implement these
-    private var breakDestination: String?
-    private var continueDestination: String?
     
     init() {
         // fill the functions table w/ all native functions
@@ -254,23 +247,23 @@ extension BytecodeCompiler {
         let previousScope = scope
         scope = newScope
         
-        let retval = try block()
+        defer {
+            scope = previousScope
+        }
         
-        scope = previousScope
-        
-        return retval
+        return try block()
     }
     
     
     func withUnsafeBlock<T>(block: () throws -> T) rethrows -> T {
         let oldValue = scope.isUnsafe
-        
         scope.isUnsafe = true
-        let retval = try block()
         
-        scope.isUnsafe = oldValue
+        defer {
+            scope.isUnsafe = oldValue
+        }
         
-        return retval
+        return try block()
     }
     
     
@@ -279,7 +272,7 @@ extension BytecodeCompiler {
     }
     
     func currentScopeHasAnnotation(_ annotation: ASTAnnotation.Element) -> Bool {
-        guard case .function(let functionName, _) = scope.type else {
+        guard let functionName = scope.functionName else {
             return false
         }
         
@@ -436,8 +429,9 @@ private extension BytecodeCompiler {
     // MARK: Handle Statements
     
     func handle(function: ASTFunctionDeclaration) throws {
-        guard function.body.statements.getLocalVariables(recursive: true).intersection(with: function.signature.parameters).isEmpty else {
-            fatalError("local variable cannot (yet?) shadow parameter")
+        guard function.body.getLocalVariables(recursive: true).intersection(with: function.signature.parameters).isEmpty else {
+            // TODO this check is stupid. what if a local variable is declared w/ the same identifier, but a different type!
+            fatalError("local variable cannot (yet?) shadow parameters")
         }
         
         if function.signature.isVariadic {
@@ -912,7 +906,7 @@ private extension BytecodeCompiler {
     
     
     func handle(forLoop: ASTForLoop) throws {
-        let forLoopId = forLoopCounter.get()
+        let forLoopId = counter.get()
         
         let l_target   = ASTIdentifier(value: "%_target_\(forLoopId)")
         let l_iterator = ASTIdentifier(value: "%_iterator_\(forLoopId)")
@@ -930,18 +924,21 @@ private extension BytecodeCompiler {
                 value: msgSend(target: l_target, selector: "iterator", arguments: [], unusedReturnValue: false)
             ),
             
-            ASTConditionalStatement(
+            
+            ASTWhileStatement(
                 condition: ASTComparison(
                     lhs: msgSend(target: l_iterator, selector: "hasNext", arguments: [], unusedReturnValue: false).as(.bool),
                     operation: .equal,
-                    rhs: ASTBooleanLiteral(value: true)
+                    rhs: ASTBooleanLiteral(true)
                 ),
                 body: [
-                    ASTVariableDeclaration(identifier: identifier, type: type),
-                    ASTAssignment(target: identifier, value: msgSend(target: l_iterator, selector: "next", arguments: [], unusedReturnValue: false).as(type)),
-                    forLoop.body // we can't append this, but instead have include it as a sub-composite (why? what if the body is unsafe? we'd ignore that)
-                ],
-                kind: .while
+                    ASTVariableDeclaration(
+                        identifier: identifier,
+                        type: type,
+                        initialValue: msgSend(target: l_iterator, selector: "next", arguments: [], unusedReturnValue: false).as(type)
+                    ),
+                    forLoop.body // It's important this is included as a sub-composite. why? what if the body is unsafe?
+                ]
             )
         ]
         
@@ -952,12 +949,12 @@ private extension BytecodeCompiler {
     
     
     func handle(ifStatement: ASTIfStatement) throws {
-        guard case .function(let functionName, _) = scope.type else {
+        guard let functionName = scope.functionName else {
             ShouldNeverReachHere()
         }
         
-        let counter = self.conditionalStatementCounter.get()
-        let makeLabel: (String) -> String = { ".\(functionName)_if_\(counter)_\($0)" }
+        let id = counter.get()
+        let makeLabel: (String) -> String = { ".\(functionName)_if_\(id)_\($0)" }
         
         /*
          Q: How does this work?
@@ -1021,6 +1018,7 @@ private extension BytecodeCompiler {
             case ._if(_, let body):
                 add(label: makeLabel("main_body"))
                 try handle(composite: body)
+                add(.ujump, unresolvedLabel: makeLabel("end"))
                 
             case ._else_if(_, let body):
                 add(label: makeLabel("else_if_\(index)_body"))
@@ -1040,6 +1038,11 @@ private extension BytecodeCompiler {
     
     
     
+    
+    
+    
+    
+    // Lambdas
     
     
     
@@ -1066,7 +1069,7 @@ private extension BytecodeCompiler {
                 fatalError("cannot assign a lambda to a non-function type value") // TODO better wording
             }
             
-            guard case .function(let functionName, _) = scope.type else {
+            guard let functionName = scope.functionName else {
                 fatalError("using lambda outside a function")
             }
             
@@ -1082,7 +1085,7 @@ private extension BytecodeCompiler {
             
             if accessedIdentifiersFromOutsideScope.isEmpty {
                 // "pure" lambda
-                let lambdaFunctionName = ASTIdentifier(value: "__\(functionName)_lambda_invoke_\(lambdaCounter.get())")
+                let lambdaFunctionName = ASTIdentifier(value: "__\(functionName)_lambda_invoke_\(counter.get())")
                 
                 let fn = ASTFunctionDeclaration(
                     signature: ASTFunctionSignature(
@@ -1108,7 +1111,7 @@ private extension BytecodeCompiler {
                 
                 let importedVariables: [ASTVariableDeclaration] = try accessedIdentifiersFromOutsideScope.map { .init(identifier: $0, type: try guessType(ofExpression: $0)) }
                 
-                let typename = "__\(functionName)_lambda_literal_\(lambdaCounter.get())"
+                let typename = "__\(functionName)_lambda_literal_\(counter.get())"
                 let invoke_functionPtr = ASTIdentifier(value: SymbolMangling.mangleInstanceMember(ofType: typename, memberName: "invoke"))
                 
                 // the lambda type, as a function pointer that includes the lambda itself as first parameter

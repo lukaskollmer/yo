@@ -30,13 +30,7 @@ struct Scope {
     let localVariables: [ASTVariableDeclaration]
     
     
-    init(type: ScopeType) {
-        self.type = type
-        self.parameters = []
-        self.localVariables = []
-    }
-    
-    init(type: ScopeType, parameters: [ASTVariableDeclaration], localVariables: [ASTVariableDeclaration] = [], isUnsafe: Bool = false) {
+    init(type: ScopeType, parameters: [ASTVariableDeclaration] = [], localVariables: [ASTVariableDeclaration] = [], isUnsafe: Bool = false) {
         self.type = type
         self.parameters = parameters
         self.localVariables = localVariables
@@ -55,6 +49,16 @@ struct Scope {
     
     var size: Int {
         return symbols.count
+    }
+    
+    
+    var functionName: String? {
+        switch type {
+        case .global:
+            return nil
+        case .function(let name, _):
+            return name
+        }
     }
     
     
