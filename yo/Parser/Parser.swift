@@ -722,6 +722,13 @@ class Parser {
         
         
         switch ast.lk_tag.hasSuffix {
+        case "lcond|>":
+            guard ast[0] == _openingParentheses && ast.lk_children.last! == _closingParentheses else {
+                fatalError("something went wrong?")
+            }
+            // A condition wrapped in parentheses
+            return try parseCondition(ast[1])
+            
         case "cond|>" where ast[1].lk_tag.hasPrefix("bin_cond_op"):
             // lcond, followed by potential binary condition(s)
             // since we already have a couple of checks above, there's a chance that we're always dealing w/ a binary condition when we reach here !?

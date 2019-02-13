@@ -139,8 +139,9 @@ const char *YO_GRAMMAR =
 
 // a part of a condition that can evaluate to true
 //" lcond         : '(' <cond> ')'  " // TODO this breaks expressions wrapped in parentheses (`if (7-1) >= 5 ...`)
-" lcond         : <comp>    "
-"               | <expr> ;  "
+" lcond         : <comp>          "
+"               | '(' <cond> ')'  "
+"               | <expr> ;        "
 
 //" cond          : <bin_cond>    "
 //"               | <lcond> ; "
