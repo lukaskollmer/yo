@@ -1870,7 +1870,7 @@ private extension BytecodeCompiler {
     
     
     func handle(booleanLiteral: ASTBooleanLiteral) throws {
-        add(.push, booleanLiteral.value ? 1 : 0)
+        add(.push, booleanLiteral.value ? Constants.BooleanValues.true : Constants.BooleanValues.false)
     }
     
     

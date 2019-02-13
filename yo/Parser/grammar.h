@@ -137,8 +137,7 @@ const char *YO_GRAMMAR =
 
 " comp          : <expr> <comp_op> <expr> ; " // TODO expr or lexpr?
 
-// a part of a condition that can evaluate to true
-//" lcond         : '(' <cond> ')'  " // TODO this breaks expressions wrapped in parentheses (`if (7-1) >= 5 ...`)
+// a part of a condition that can evaluate to true or false
 " lcond         : <comp>          "
 "               | '(' <cond> ')'  "
 "               | <expr> ;        "
