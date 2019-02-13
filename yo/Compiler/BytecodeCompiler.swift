@@ -64,12 +64,15 @@ class ConstantArrayLiteralsCache {
 }
 
 
-struct ShortCircuitingJumpDestinations {
+struct ShortCircuitEvaluationOptions {
     /// Jump destination if the condition evaluated to `x != 0`
-    let success: String?
+    let successDestination: String?
     
     /// Jump destination if the condition evaluated to `x == 0`
-    let failure: String?
+    let failureDestination: String?
+    
+    /// Function to generate labels for the scope
+    let makeLabelFn: (String) -> String
 }
 
 
@@ -1018,7 +1021,11 @@ private extension BytecodeCompiler {
                         : label_end
                     )
             
-            let shortCircuitingJumpOptions = ShortCircuitingJumpDestinations(success: label_currentBranchBody, failure: label_shortCircuitingFailure)
+            let shortCircuitingJumpOptions = ShortCircuitEvaluationOptions(
+                successDestination: label_currentBranchBody,
+                failureDestination: label_shortCircuitingFailure,
+                makeLabelFn: makeLabel
+            )
             
             switch branch {
             case ._if(let condition, _):
@@ -1880,12 +1887,12 @@ private extension BytecodeCompiler {
     
     
     
-    func handle(condition: ASTCondition, _ shortCircuitingJumpDestinations: ShortCircuitingJumpDestinations? = nil) throws {
+    func handle(condition: ASTCondition, _ shortCircuitEvaluationOptions: ShortCircuitEvaluationOptions? = nil) throws {
         if let comparison = condition as? ASTComparison {
             try handle(comparison: comparison)
             
         } else if let binaryCondition = condition as? ASTBinaryCondition {
-            try handle(binaryCondition: binaryCondition, shortCircuitingJumpDestinations)
+            try handle(binaryCondition: binaryCondition, shortCircuitEvaluationOptions)
             
         } else if let implicitNonZeroComparison = condition as? ASTImplicitNonZeroComparison {
             try handle(implicitNonZeroComparison: implicitNonZeroComparison)
@@ -1936,23 +1943,44 @@ private extension BytecodeCompiler {
     }
     
     
-    func handle(binaryCondition: ASTBinaryCondition, _ shortCircuitingJumpDestinations: ShortCircuitingJumpDestinations?) throws {
-        if let destinations = shortCircuitingJumpDestinations {
+    func handle(binaryCondition: ASTBinaryCondition, _ shortCircuitEvaluationOptions: ShortCircuitEvaluationOptions?) throws {
+        if let options = shortCircuitEvaluationOptions {
+            // Short circuit evaluation
+            
+            // Problem: if the condition is also a binary condition, we need to make adjust the jump destinations
+            
+            let label_rhsCond = options.makeLabelFn("sce_rhs_cond_\(counter.get())")
+            
+            let adjustedLhsOptions: ShortCircuitEvaluationOptions
+            if binaryCondition.lhs is ASTBinaryCondition {
+                let selfIsAnd = binaryCondition.operator == .and
+                
+                adjustedLhsOptions = ShortCircuitEvaluationOptions(
+                    successDestination: selfIsAnd ? label_rhsCond : options.failureDestination,
+                    failureDestination: selfIsAnd ? options.failureDestination : label_rhsCond,
+                    makeLabelFn: options.makeLabelFn
+                )
+            } else {
+                adjustedLhsOptions = options
+            }
+            
             switch binaryCondition.operator {
             case .and: // both need to be true
-                try handle(condition: binaryCondition.lhs, destinations)
-                if let dest_failure = destinations.failure {
+                try handle(condition: binaryCondition.lhs, adjustedLhsOptions)
+                if let dest_failure = options.failureDestination {
                     add(.lnot)
                     add(.jump, unresolvedLabel: dest_failure)
                 }
-                try handle(condition: binaryCondition.rhs, destinations)
+                add(label: label_rhsCond)
+                try handle(condition: binaryCondition.rhs, options)
                 
             case .or: // at least one needs to be true
-                try handle(condition: binaryCondition.lhs, destinations)
-                if let dest_success = destinations.success {
+                try handle(condition: binaryCondition.lhs, adjustedLhsOptions)
+                if let dest_success = options.successDestination {
                     add(.jump, unresolvedLabel: dest_success)
                 }
-                try handle(condition: binaryCondition.rhs, destinations)
+                add(label: label_rhsCond)
+                try handle(condition: binaryCondition.rhs, options)
             }
         } else {
             // No short circuiting
