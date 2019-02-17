@@ -908,18 +908,26 @@ private extension BytecodeCompiler {
         let makeLabel: (String) -> String = { ".\(self.scope.functionName!)_while_\(id)_\($0)" }
         
         let label_cond = makeLabel("cond")
-        //let label_body = makeLabel("body")
+        let label_body = makeLabel("body")
         let label_end  = makeLabel("end")
         
         // Handle the condition
         add(label: label_cond)
-        try handle(condition: whileStatement.condition)
+        try handle(
+            condition: whileStatement.condition,
+            ShortCircuitEvaluationOptions(
+                successDestination: label_body,
+                failureDestination: label_end,
+                makeLabelFn: makeLabel
+            )
+        )
         add(.lnot) // Negate the result of the condition
         // If the top elent on the stack is 1 (ie, if the result of the condition was 0), we jump to `label_end`
         // Otherwise, fallthrough to the body
         add(.jump, unresolvedLabel: label_end)
         
         // Handle the body
+        add(label: label_body)
         try handle(composite: whileStatement.body)
         add(.ujump, unresolvedLabel: label_cond)
         
