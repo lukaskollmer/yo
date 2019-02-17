@@ -566,7 +566,7 @@ private extension BytecodeCompiler {
                     unusedReturnValue: false
                 )
             )
-            try handle(node: assignment)
+            try handle(assignment: assignment, shouldReleaseOldValueIfApplicable: false)
         }
         
         
@@ -946,15 +946,17 @@ private extension BytecodeCompiler {
         let type = forLoop.type ?? .int
         
         let composite: ASTComposite = [
-            ASTVariableDeclaration(identifier: l_target, type: .id),
-            ASTVariableDeclaration(identifier: l_iterator, type: .id),
-            
-            ASTAssignment(target: l_target, value: forLoop.target),
-            ASTAssignment(
-                target: l_iterator,
-                value: msgSend(target: l_target, selector: "iterator", arguments: [], unusedReturnValue: false, expectedReturnType: .id)
+            ASTVariableDeclaration(
+                identifier: l_target,
+                type: .id,
+                initialValue: forLoop.target
             ),
             
+            ASTVariableDeclaration(
+                identifier: l_iterator,
+                type: .id,
+                initialValue: msgSend(target: l_target, selector: "iterator", arguments: [], unusedReturnValue: false, expectedReturnType: .id)
+            ),
             
             ASTWhileStatement(
                 condition: ASTComparison(
@@ -1129,7 +1131,7 @@ private extension BytecodeCompiler {
                 (scope.parameters + scope.localVariables)
                     .map { $0.identifier }
                     .intersection(with: lambda.accessedIdentifiersFromOutsideScope)
-            noop()
+            
             if accessedIdentifiersFromOutsideScope.isEmpty {
                 // "pure" lambda
                 let lambdaFunctionName = ASTIdentifier(value: "__\(functionName)_lambda_invoke_\(counter.get())")
