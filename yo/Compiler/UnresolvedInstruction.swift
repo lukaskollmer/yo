@@ -84,35 +84,32 @@ extension Array where Element == UnresolvedInstruction {
     
     func finalized() -> InstructionFinalizationResult {
         // TODO move withArrayLiteralsResolved back into finalized?
-        var procedureEntryAddresses = [Int: String]()
+        
+        
+        let procedureEntryAddresses = self.enumerated().reduce(into: [Int: String]()) { (acc, arg1) in
+            if case .label(let label) = arg1.element {
+                acc[arg1.offset] = label
+            }
+        }
+        
+        let noop = Operation.noop.encode()
+        
         let instructions: [Instruction] = self.enumerated().map { index, instruction in
             switch instruction {
             case .operation(let operation, let immediate):
                 return operation.encode(withImmediate: immediate)
             case .unresolved(let operation, let label):
-                return operation.encode(withImmediate: getAddress(ofLabel: label))
-            case .label(let label):
-                procedureEntryAddresses[index] = label
-                return 0
-            case .comment(_):
-                return 0
+                return operation.encode(withImmediate: procedureEntryAddresses[reverse: label]!)
             case .raw(let value):
                 return value
+            case .label(_), .comment(_):
+                return noop
             case .arrayLiteral(_):
                 fatalError() // should never reach here
             }
         }
         
         return InstructionFinalizationResult(instructions: instructions, procedureEntryAddresses: procedureEntryAddresses)
-    }
-    
-    func getAddress(ofLabel label: String) -> Index {
-        return self.index { instruction in
-            if case .label(let name) = instruction {
-                return name == label
-            }
-            return false
-        }!
     }
     
     
