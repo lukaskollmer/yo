@@ -14,8 +14,8 @@ import Foundation
 // - in the lower 32 bits: the object's
 
 
-private struct ObjectMetadataAccessor {
-    private enum Flags: Int, CaseIterable {
+struct ObjectMetadataAccessor {
+    enum Flags: Int, CaseIterable {
         case isDeallocating = 1
         case isMarkedForRelease
         
@@ -26,7 +26,6 @@ private struct ObjectMetadataAccessor {
     
     static let retainCountMask = Int(UInt32.max >> (Flags.allCases.count + 1))
     
-    //let contents: UnsafeMutablePointer<Int>
     let address: Int
     let heap: Heap
     
@@ -81,17 +80,28 @@ private struct ObjectMetadataAccessor {
 
 
 enum ARC {
-    static func isObject(_ address: Int, _ heap: Heap) -> Bool {
-        return address != 0 && address % 16 == 0 && heap[_64: address] != 0
+    static func isObject(_ address: Int, _ interpreter: BytecodeInterpreter) -> Bool {
+        return address != 0 && address % 16 == 0 && interpreter.heap[_64: address] != 0
     }
     
+    
+    static func getRetainCount(_ address: Int, _ interpreter: BytecodeInterpreter) -> Int {
+        guard isObject(address, interpreter) else {
+            return 0
+        }
+        
+        return ObjectMetadataAccessor(address: address, heap: interpreter.heap).retainCount
+    }
+    
+    
+    
     @discardableResult
-    static func retain(_ address: Int, heap: Heap) -> Int {
-        guard isObject(address, heap) else {
+    static func retain(_ address: Int, _ interpreter: BytecodeInterpreter) -> Int {
+        guard isObject(address, interpreter) else {
             return address
         }
         
-        var metadata = ObjectMetadataAccessor(address: address, heap: heap)
+        var metadata = ObjectMetadataAccessor(address: address, heap: interpreter.heap)
         
         // TODO don't retain if the object is being deallocated? // THIS IS IMPORTANT
         
@@ -101,16 +111,35 @@ enum ARC {
             return address
         }
         
-        heap[address] += 1
+        interpreter.heap[address] += 1
         return address
     }
     
     
     @discardableResult
-    static func release(_ address: Int, interpreter: BytecodeInterpreter) -> Int {
+    static func markForRelease(_ address: Int, _ interpreter: BytecodeInterpreter) -> Int {
+        guard isObject(address, interpreter) else {
+            return address
+        }
+        
+        var metadata = ObjectMetadataAccessor(address: address, heap: interpreter.heap)
+        metadata.isMarkedForRelease = true
+        
+        return address
+    }
+    
+    static func isMarkedForRelease(_ address: Int, interpreter: BytecodeInterpreter) -> Int {
+        return ObjectMetadataAccessor(address: address, heap: interpreter.heap).isMarkedForRelease
+            ? Constants.BooleanValues.true
+            : Constants.BooleanValues.false
+    }
+    
+    
+    @discardableResult
+    static func release(_ address: Int, _ interpreter: BytecodeInterpreter) -> Int {
         let heap = interpreter.heap
         
-        guard isObject(address, heap) else {
+        guard isObject(address, interpreter) else {
             return address
         }
         
@@ -135,11 +164,12 @@ enum ARC {
             _ = interpreter.call(address: dealloc_fn_address, arguments: [address])
             
             heap.free(address: address)
+            
+            return 0
         } else {
             heap[address] -= 1
+            return address
         }
-        
-        return address
     }
 }
 
@@ -150,7 +180,6 @@ class NativeFunctions_MemoryManagement: NativeFunctions {
         
         // MARK: Memory allocation
         
-        // TODO make this return .ptr(.any) or something like that, so that the callee is forced to cast the return value
         runtime["runtime", "alloc", .ptr(.any), [.int]] = { interpreter in
             let size = interpreter.stack.peek()
             return interpreter.heap.alloc(size: size)
@@ -166,22 +195,18 @@ class NativeFunctions_MemoryManagement: NativeFunctions {
         // MARK: Reference Counting
         
         
-        runtime["runtime", "getRetainCount", .i64, [.any]] = { interpreter in
-            return ObjectMetadataAccessor(address: interpreter.stack.peek(), heap: interpreter.heap).retainCount
+        func wrap(_ fn: @escaping (Int, BytecodeInterpreter) -> Int) -> (BytecodeInterpreter) -> Int {
+            return { (interpreter: BytecodeInterpreter) -> Int in
+                let address = interpreter.stack.peek()
+                return fn(address, interpreter)
+            }
         }
         
-        runtime["runtime", "markForRelease", .i64, [.any]] = { interpreter in
-            var metadata = ObjectMetadataAccessor(address: interpreter.stack.peek(), heap: interpreter.heap)
-            metadata.isMarkedForRelease = true
-            return 0
-        }
-        
-        runtime["runtime", "retain", .any, [.any]] = { interpreter in
-            return ARC.retain(interpreter.stack.peek(), heap: interpreter.heap)
-        }
-        
-        runtime["runtime", "release", .any, [.any]] = { interpreter in
-            return ARC.release(interpreter.stack.peek(), interpreter: interpreter)
-        }
+        runtime["runtime", "retain",  .any,  [.any]] = wrap(ARC.retain)
+        runtime["runtime", "release", .void, [.any]] = wrap(ARC.release)
+
+        runtime["runtime", "getRetainCount",     .i64, [.any]] = wrap(ARC.getRetainCount)
+        runtime["runtime", "markForRelease",     .i64, [.any]] = wrap(ARC.markForRelease)
+        runtime["runtime", "isMarkedForRelease", .i64, [.any]] = wrap(ARC.isMarkedForRelease)
     }
 }

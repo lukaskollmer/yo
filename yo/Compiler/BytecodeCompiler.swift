@@ -337,7 +337,14 @@ private extension BytecodeCompiler {
         } else if let variableDeclaration = node as? ASTVariableDeclaration {
             guard_identifierIsLegal(variableDeclaration.identifier)
             if let initialValue = variableDeclaration.initialValue {
-                try handle(assignment: ASTAssignment(target: variableDeclaration.identifier, value: initialValue))
+                try handle(
+                    assignment: ASTAssignment(
+                        target: variableDeclaration.identifier,
+                        value: initialValue
+                    ),
+                    shouldReleaseOldValueIfApplicable: false,
+                    shouldRetainNewValueIfApplicable: true
+                )
             }
             
         } else if let comparison = node as? ASTComparison {
@@ -609,66 +616,65 @@ private extension BytecodeCompiler {
                 
                 for statement in composite.statements {
                     if let deferBlock = statement as? ASTDeferStatement {
+                        guard arcEnabledInCurrentScope else {
+                            fatalError("defer statements require ARC")
+                        }
                         try handleDeferStatement(deferBlock)
                         continue
                     }
                     
                     if arcEnabledInCurrentScope, let returnStatement = statement as? ASTReturnStatement {
+                        // returning in an arc-enabled scope
+                        // what we have to do now:
+                        // 1. evaluate the return value
+                        // 2. release all defer handles
+                        // 3. release all local variables and parameters
+                        // 4. mark the return value as released
+                        // 5. return
                         
-                        let returnedLocalIdentifier: ASTIdentifier?
                         
-                        if let _returnedLocalIdentifier = returnStatement.expression as? ASTIdentifier,
-                            scope.contains(identifier: _returnedLocalIdentifier.value),
-                            case let type = try scope.type(of: _returnedLocalIdentifier.value),
-                            typeCache.supportsArc(type)
-                        {
-                            returnedLocalIdentifier = _returnedLocalIdentifier
-                        } else {
-                            returnedLocalIdentifier = nil
-                        }
-                        
-                        let storeRetval = ASTAssignment(
-                            target: retval_temp_storage.identifier,
-                            value: returnStatement.expression,
-                            shouldRetainAssignedValueIfItIsAnObject: false
+                        try handle(
+                            assignment: ASTAssignment(
+                                target: retval_temp_storage.identifier,
+                                value: returnStatement.expression
+                            ),
+                            shouldReleaseOldValueIfApplicable: false
                         )
                         
-                        try handle(assignment: storeRetval)
-                        
                         // Release all defer handles
-                        // We can't use rhe `deferHandles` array from above since this might very well be a nested scope
-                        for deferHandle in scope.localVariables.filter({ $0.type == DeferHandleType }) {
-                            if deferHandle != retval_temp_storage && (returnedLocalIdentifier == nil || deferHandle.identifier != returnedLocalIdentifier!) {
-                                try release(expression: deferHandle.identifier)
-                            }
+                        try scope.localVariables
+                            .filter { $0.type == DeferHandleType && $0 != retval_temp_storage }
+                            .forEach { try release(expression: $0.identifier) }
+                        
+                        
+                        // Release all other refcounted parameters and local variables
+                        try (scope.parameters + scope.localVariables)
+                            .filter { $0 != retval_temp_storage && $0.type != DeferHandleType && typeCache.supportsArc($0.type) }
+                            .forEach { try release(expression: $0.identifier) }
+                        
+                        
+                        
+                        guard try guessType(ofExpression: returnStatement.expression).isCompatible(with: returnType) else {
+                            print(returnType, try! guessType(ofExpression: returnStatement.expression))
+                            fatalError()
                         }
                         
-                        
-                        if arcEnabledInCurrentScope {
-                            try (scope.parameters + scope.localVariables)
-                                .filter { $0 != retval_temp_storage }
-                                .filter { $0.type != DeferHandleType }
-                                .filter { returnedLocalIdentifier == nil || $0.identifier != returnedLocalIdentifier! }
-                                .forEach { variable in
-                                    let type = try scope.type(of: variable.identifier.value)
-                                    if typeCache.supportsArc(type) {
-                                        try release(expression: variable.identifier)
-                                    }
-                                }
-                            
-                            if let returnedLocalIdentifier = returnedLocalIdentifier {
-                                try call(SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "markForRelease"), arguments: [returnedLocalIdentifier])
-                            }
+                        if typeCache.supportsArc(retval_temp_storage.type) {
+                            try call(
+                                SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "markForRelease"),
+                                arguments: [retval_temp_storage.identifier],
+                                unusedReturnValue: true
+                            )
                         }
                         
-                        try handle(return: ASTReturnStatement(expression: retval_temp_storage.identifier))
+                        try handle(node: ASTReturnStatement(expression: retval_temp_storage.identifier))
+                        
                         
                     } else {
                         try handle(node: statement)
                     }
                 }
             }
-            
         }
     }
     
@@ -775,7 +781,7 @@ private extension BytecodeCompiler {
     
     
     
-    func handle(assignment: ASTAssignment) throws {
+    func handle(assignment: ASTAssignment, shouldReleaseOldValueIfApplicable: Bool = true, shouldRetainNewValueIfApplicable: Bool = true) throws {
         let lhsType = try guessType(ofExpression: assignment.target)
         
         var rhs: ASTExpression = assignment.value
@@ -790,7 +796,8 @@ private extension BytecodeCompiler {
             fatalError("cannot assign value of type `\(rhsType)` to `\(lhsType)`")
         }
         
-        let shouldArcLhs = assignment.shouldRetainAssignedValueIfItIsAnObject && arcEnabledInCurrentScope && typeCache.supportsArc(lhsType)
+        let shouldReleaseOldValue = shouldReleaseOldValueIfApplicable && arcEnabledInCurrentScope && typeCache.supportsArc(lhsType)
+        let shouldRetainNewValue  = shouldRetainNewValueIfApplicable  && arcEnabledInCurrentScope && typeCache.supportsArc(rhsType)
         
         var target: ASTExpression = assignment.target
         
@@ -812,19 +819,19 @@ private extension BytecodeCompiler {
                     fatalError() // should never reach here
                 }
                 
-                if !shouldArcLhs {
-                    try handle(node: rhs)
-                    try store()
-                    return
+
+                try handle(node: rhs)
+                
+                if shouldReleaseOldValue {
+                    try release(expression: targetIdentifier)
                 }
                 
-                // TODO what about lambdas? (they're encoded as ASTType.function)
-                // TODO there's no need to release the olf value if this is the initial assignment
-                try handle(node: rhs)
-                try release(expression: targetIdentifier)
                 try store()
-                //add(.store, try scope.index(of: targetIdentifier.name))
-                try retain(expression: targetIdentifier)
+                
+                if shouldRetainNewValue {
+                    try retain(expression: targetIdentifier)
+                }
+                
                 return
             
             } else if let implicitSelfAccess = processPotentialImplicitSelfAccess(identifier: targetIdentifier) {
@@ -937,13 +944,13 @@ private extension BytecodeCompiler {
             ASTAssignment(target: l_target, value: forLoop.target),
             ASTAssignment(
                 target: l_iterator,
-                value: msgSend(target: l_target, selector: "iterator", arguments: [], unusedReturnValue: false)
+                value: msgSend(target: l_target, selector: "iterator", arguments: [], unusedReturnValue: false, expectedReturnType: .id)
             ),
             
             
             ASTWhileStatement(
                 condition: ASTComparison(
-                    lhs: msgSend(target: l_iterator, selector: "hasNext", arguments: [], unusedReturnValue: false).as(.bool),
+                    lhs: msgSend(target: l_iterator, selector: "hasNext", arguments: [], unusedReturnValue: false, expectedReturnType: .bool),
                     operation: .equal,
                     rhs: ASTBooleanLiteral(true)
                 ),
@@ -951,7 +958,7 @@ private extension BytecodeCompiler {
                     ASTVariableDeclaration(
                         identifier: identifier,
                         type: type,
-                        initialValue: msgSend(target: l_iterator, selector: "next", arguments: [], unusedReturnValue: false).as(type)
+                        initialValue: msgSend(target: l_iterator, selector: "next", arguments: [], unusedReturnValue: false, expectedReturnType: type)
                     ),
                     forLoop.body // It's important this is included as a sub-composite. why? what if the body is unsafe?
                 ]
@@ -1495,7 +1502,7 @@ private extension BytecodeCompiler {
                 
                 if !typeCache.typeExists(withName: currentTypename) {
                     if currentTypename == "id" && scope.isUnsafe {
-                        expr = msgSend(target: expr, selector: functionName.value, arguments: arguments, unusedReturnValue: unusedReturnValue)
+                        expr = msgSend(target: expr, selector: functionName.value, arguments: arguments, unusedReturnValue: unusedReturnValue, expectedReturnType: .id) // TODO expecting id could/will backfire dramatically
                         currentType = .id
                         
                     } else {
@@ -1801,10 +1808,10 @@ private extension BytecodeCompiler {
                 ),
                 body: [
                     // create the array
-                    ASTVariableDeclaration(identifier: array, type: .Array),
-                    ASTAssignment(
-                        target: array,
-                        value: ASTFunctionCall(
+                    ASTVariableDeclaration(
+                        identifier: array,
+                        type: .Array,
+                        initialValue: ASTFunctionCall(
                             functionName: SymbolMangling.mangleStaticMember(ofType: "Array", memberName: "new"),
                             arguments: [],
                             unusedReturnValue: false
@@ -2303,21 +2310,21 @@ private extension BytecodeCompiler {
 
 
 extension BytecodeCompiler {
-    func msgSend(target: ASTExpression, selector: String, arguments: [ASTExpression], unusedReturnValue: Bool) -> ASTExpression {
+    func msgSend(target: ASTExpression, selector: String, arguments: [ASTExpression], unusedReturnValue: Bool, expectedReturnType: ASTType) -> ASTExpression {
+        let args = [
+            target,
+            ASTStringLiteral(value: selector),
+            ASTNumberLiteral(arguments.count)
+        ] + (!arguments.isEmpty ? arguments : [ASTNumberLiteral(0)])
+        // Q: why do we append a 0 if arguments is empty?
+        // A: runtime::msgSend is variadic, with a primitive array, meaning that there has to be at least one non-fixed argument\
+        //    However, we have to handle the case where this is a method call that doesn't take any parameters
+        
         return ASTFunctionCall(
             functionName: SymbolMangling.mangleStaticMember(ofType: "runtime", memberName: "msgSend"),
-            arguments: [
-                target,   // The target of the method call
-                ASTStringLiteral(value: selector),  // selector
-                ASTNumberLiteral(arguments.count)   // argc
-                ]
-                + arguments                 // the actual arguments
-                + [ASTNumberLiteral(0)],   // 0 (unused, see below)
-            // Q: why do we append the unused 0?
-            // A: `runtime::msgSend` is variadic, with a primitive array, meaning that there has to be at least one non-fixed argument\
-            //    However, we have to handle the case where this is a method call that doesn't take any parameters
+            arguments: args,
             unusedReturnValue: unusedReturnValue
-        ).as(.id) // TODO is .id the right choice? does that work w/ the existing arc implementation?
+        ).as(expectedReturnType)
     }
 }
 
@@ -2325,13 +2332,13 @@ extension BytecodeCompiler {
 
 extension BytecodeCompiler {
     func retain(expression: ASTExpression) throws {
-        add(comment: "retain \((expression as? ASTIdentifier)?.value ?? String(describing: expression)) (\(try guessType(ofExpression: expression)))")
+        add(comment: "retain \((expression as? ASTIdentifier)?.value ?? String(describing: expression)) [\(try guessType(ofExpression: expression))]")
         try handle(node: expression)
         add(.retain, kARCOperationPopAddressOffStack)
     }
     
     func release(expression: ASTExpression) throws {
-        add(comment: "release \((expression as? ASTIdentifier)?.value ?? String(describing: expression)) (\(try guessType(ofExpression: expression)))")
+        add(comment: "release \((expression as? ASTIdentifier)?.value ?? String(describing: expression)) [\(try guessType(ofExpression: expression))]")
         try handle(node: expression)
         add(.release, kARCOperationPopAddressOffStack)
     }

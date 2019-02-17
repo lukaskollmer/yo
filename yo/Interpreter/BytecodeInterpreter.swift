@@ -461,13 +461,13 @@ class BytecodeInterpreter {
         
         // ARC
         case .retain:
-            ARC.retain(stack.peek(), heap: heap)
+            ARC.retain(stack.peek(), self)
             if immediate == kARCOperationPopAddressOffStack {
                 stack.pop()
             }
         
         case .release:
-            ARC.release(stack.peek(), interpreter: self)
+            ARC.release(stack.peek(), self)
             if immediate == kARCOperationPopAddressOffStack {
                 stack.pop()
             }

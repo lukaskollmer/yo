@@ -183,7 +183,7 @@ class AutoSynthesizedCodeGen {
                 kind: .staticImpl(typename),
                 parameters: structDeclaration.attributes,
                 returnType: _selfType,
-                annotations: []
+                annotations: [.disable_arc]
             ),
             body: [
                 // declare self
@@ -215,7 +215,10 @@ class AutoSynthesizedCodeGen {
                             // is created (ie we create Strings which we put in metatypes, but there's no guarantee that the string metatype has already been created)
                             let metatype_name = SymbolMangling.mangleMetatypeTableName(forType: typename)
                             let metatype_address = compiler._actualAddressOfGlobal(withIdentifier: ASTIdentifier(value: metatype_name))!
-                            return ASTRawUnresolvedInstruction(operation: .push, immediate: metatype_address << 32)
+                            return ASTRawUnresolvedInstruction(
+                                operation: .push,
+                                immediate: (metatype_address << 32) | ObjectMetadataAccessor.Flags.isMarkedForRelease.mask | 1
+                            )
                         }(),
                         typeOfWrittenValue: .i64
                     ),

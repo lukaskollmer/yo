@@ -121,9 +121,7 @@ impl String {
                 } else if char == '@' {
                     // id
                     let obj = args[arg_index] as id;
-                    runtime::retain(obj);
                     text.append(Object::description(obj));
-                    runtime::release(obj);
                 } else {
                     runtime::fatalError("invalid format specifier");
                 }

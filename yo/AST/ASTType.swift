@@ -147,6 +147,8 @@ indirect enum ASTType: Equatable, CustomStringConvertible {
     }
     
     
+    // returns true if `self` can be trivially cast to / represented as `other`
+    // like, an i32 would fit in an i64, etc
     func isCompatible(with other: ASTType) -> Bool {
         let both = [self, other]
         

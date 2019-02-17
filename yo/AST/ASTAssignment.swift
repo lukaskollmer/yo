@@ -12,12 +12,10 @@ import Foundation
 class ASTAssignment: ASTStatement {
     let target: ASTExpression
     let value: ASTExpression
-    let shouldRetainAssignedValueIfItIsAnObject: Bool
     
-    init(target: ASTExpression, value: ASTExpression, shouldRetainAssignedValueIfItIsAnObject: Bool = true) {
+    init(target: ASTExpression, value: ASTExpression) {
         self.target = target
         self.value = value
-        self.shouldRetainAssignedValueIfItIsAnObject = shouldRetainAssignedValueIfItIsAnObject
     }
     
     

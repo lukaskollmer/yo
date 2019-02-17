@@ -19,7 +19,6 @@ impl Array {
 
 
     // Add an object to the array
-    // TODO make `object` id and require it to be a heap allocated instance
     fn append(self: Array, object: id): int {
         if self._count == self._allocatedLength {
             // array is full, we need to switch to a bigger backing
@@ -40,6 +39,7 @@ impl Array {
 
 
     // Get the object at `index`
+    #[disable_arc]
     fn get(self: Array, index: int): id {
         return self._backing[self._normalizeIndexAndCheckBounds(index)];
     }

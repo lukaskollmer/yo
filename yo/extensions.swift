@@ -256,6 +256,24 @@ extension String {
 }
 
 
+extension Array {
+    func filter_keepAll(_ predicate: (Element) throws -> Bool) rethrows -> (included: [Element], excluded: [Element]) {
+        var included = [Element]()
+        var excluded = [Element]()
+        
+        for element in self {
+            if try predicate(element) {
+                included.append(element)
+            } else {
+                excluded.append(element)
+            }
+        }
+        
+        return (included, excluded)
+    }
+}
+
+
 extension Array where Element: Equatable {
     func intersection(with otherArray: [Element]) -> [Element] {
         return self.filter(otherArray.contains)

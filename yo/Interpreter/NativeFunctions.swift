@@ -18,12 +18,12 @@ extension NativeFunctions {
     
     static func retain(offset: Int, interpreter: BytecodeInterpreter) {
         let address = interpreter.stack.peek(offset: offset)
-        ARC.retain(address, heap: interpreter.heap)
+        ARC.retain(address, interpreter)
     }
     
     static func release(offset: Int, interpreter: BytecodeInterpreter) {
         let address = interpreter.stack.peek(offset: offset)
-        ARC.release(address, interpreter: interpreter)
+        ARC.release(address, interpreter)
     }
     
     static func number_getIntValue(address: Int, heap: Heap) -> Int {
