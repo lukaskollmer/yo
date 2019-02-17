@@ -13,7 +13,7 @@
 
 
 const char *YO_GRAMMAR =
-" ident         : /#?[a-zA-Z_][a-zA-Z0-9_]*/ ;  "
+" ident         : /#?[a-zA-Z_][a-zA-Z0-9_']*/ ;  "
 " boolean       : (\"true\" | \"false\") ;      "
 
 " number        : <number_double> "
