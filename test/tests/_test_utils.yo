@@ -1,0 +1,13 @@
+impl _test {
+    static fn assert_bool(expected: bool, actual: bool): void {
+        if expected != actual {
+            runtime::fatalError(#nil);
+        }
+    }
+
+    static fn assert_i64(expected: i64, actual: i64): void {
+        if expected != actual {
+            runtime::fatalError(#nil);
+        }
+    }
+}
