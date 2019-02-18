@@ -1198,7 +1198,7 @@ class Parser {
     
     
     func parseBoxedExpression(_ ast: mpc_ast_t) throws -> ASTBoxedExpression {
-        return ASTBoxedExpression(expression: try parseExpression(ast[1]))
+        return ASTBoxedExpression(expression: try parseExpression(ast[ast.count == 4 ? 2 : 1]))
     }
     
     

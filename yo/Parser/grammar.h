@@ -65,7 +65,7 @@ const char *YO_GRAMMAR =
 "               | '[' <expr_list> ']'   "
 "               | '{' <expr_list> '}' ; "
 
-" boxed_expr    : '@' <expr> ; " // TODO use lexpr instead to have "stronger" binding? everything else would require parentheses
+" boxed_expr    : '@' ( (<boolean> | <number> | <character>) | '(' <expr> ')' ) ; "
 
 " range         : <lexpr> (\"...\" | \"..<\") <lexpr> ; "
 

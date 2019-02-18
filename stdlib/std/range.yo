@@ -50,7 +50,7 @@ impl Range {
         } else {
             rangeType = "..<";
         }
-        return String::format("<Range %n%s%n>", @self.start, rangeType, @self.end);
+        return String::format("<Range %n%s%n>", @(self.start), rangeType, @(self.end));
     }
 }
 
