@@ -182,34 +182,77 @@ static BOOL shouldEmitSignposts;
 
 
 // Pre-process the input string
-// TODO:
-// - [ ] replace all lines that only contain a comment w/ an empty line
-// - [ ] trim all line comments that are at the end of a line which also contains something else before the comment
-// - [ ] replace all inline block comments w/ the appropriate number of whitespace
+// TODO: replace all inline block comments w/ the appropriate number of whitespace
 // It's important that removing the comments does not change the line/column info!
 - (NSString *)preprocessInput:(NSString *)input {
-    return [self stringByRemovingCommentsInString:input];
+    NSArray *lines = [input componentsSeparatedByString:@"\n"];
+    
+    lines = [lines lk_mapUsingBlock:^NSString *(NSString *line) {
+        return [[self stringByRemovingCommentsInString:line] lk_stringByTrimmingTrailingWhitespace];
+    }];
+    
+    return [lines componentsJoinedByString:@"\n"];
 }
 
 
 
-
-
-- (NSString *)stringByRemovingCommentsInString:(NSString *)string {
-    NSMutableArray *retval = [NSMutableArray array];
+- (NSString *)stringByRemovingCommentsInString:(NSString *)line {
+    NSInteger length = [line length];
+    NSCharacterSet *whitespace = [NSCharacterSet whitespaceCharacterSet];
     
-    for (NSString *line in [string componentsSeparatedByString:@"\n"]) {
-        NSString *lineWithWhitespaceTrimmed = [line stringByTrimmingWhitespace];
-        
-        if (![lineWithWhitespaceTrimmed hasPrefix:@"//"]) {
-            [retval addObject:line];
-        } else {
-            [retval addObject:@""]; // insert an empty line instead of the comment to make sure line numbers stay the same
-        }
-        
+    if (length == 0 || [line lk_allCharactersInCharacterSet:whitespace]) {
+        return @"";
     }
     
-    return [retval componentsJoinedByString:@"\n"];
+    
+    BOOL onlyWhitespaceSoFar = YES;
+    BOOL inStringLiteral = NO;
+    BOOL escapeNextCharacter = NO;
+    __block NSInteger inlineCommentStartIndex = -1;
+    
+    __auto_type isParsingInlineComment = ^BOOL() {
+        return inlineCommentStartIndex > -1;
+    };
+    
+    for (NSInteger i = 0; i < length; i++) {
+        unichar c = [line characterAtIndex:i];
+        
+        // Check for beginning-of-line comments
+        if (onlyWhitespaceSoFar) {
+            if (i < length - 3 && c == '/' && [line characterAtIndex:i + 1] == '/') {
+                return @"";
+            }
+            onlyWhitespaceSoFar = [whitespace characterIsMember:c];
+        }
+        
+        // Check for end-of-line comments
+        // The only caveat here is excluding slashes in string literals
+        
+        if (!escapeNextCharacter && !isParsingInlineComment() && c == '"') {
+            inStringLiteral = !inStringLiteral;
+        }
+        
+        if (!inStringLiteral && i < length - 1) {
+            unichar nextChar = [line characterAtIndex:i + 1];
+            if (c == '/') {
+                if (nextChar == '/' && !isParsingInlineComment()) {
+                    return [line substringToIndex:i];
+                } else if (nextChar == '*') {
+                    inlineCommentStartIndex = i;
+                }
+            } else if (c == '*' && isParsingInlineComment() && nextChar == '/') {
+                NSRange inlineCommentRange = NSMakeRange(inlineCommentStartIndex, i - inlineCommentStartIndex + 2);
+                NSString *replacement = [NSString lk_stringByRepeatingCharacter:' ' count:inlineCommentRange.length];
+                line = [line stringByReplacingCharactersInRange:inlineCommentRange withString:replacement];
+                
+                inlineCommentStartIndex = -1;
+                i += 1;
+            }
+        }
+        
+        escapeNextCharacter = !escapeNextCharacter && c == '\\';
+    }
+    
+    return line;
 }
-
 @end
