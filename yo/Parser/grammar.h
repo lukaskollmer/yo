@@ -110,12 +110,15 @@ const char *YO_GRAMMAR =
 //"               | <var_access> ( ('[' <expr> ']') | ('('<expr_list>?')') )?    "
 
 
+// " expr_2        : <typecast>    "
 " expr          : <typecast>    "
 "               | <range>       "
 "               | <binop_add>   "
 "               | <binop_mul>   "
 "               | <boxed_expr>  "
 "               | \"nil\" ;     "
+
+//" expr          : <cond> ; "
 
 " ret           : \"return\" <expr>? ';' ; "
 
@@ -135,11 +138,13 @@ const char *YO_GRAMMAR =
 
 " bin_cond      : <lcond> <bin_cond_op> <cond> ; "
 
+//" comp          : <expr_2> <comp_op> <expr_2> ; " // TODO expr or lexpr?
 " comp          : <expr> <comp_op> <expr> ; " // TODO expr or lexpr?
 
 // a part of a condition that can evaluate to true or false
 " lcond         : <comp>          "
 "               | '(' <cond> ')'  "
+//"               | <expr_2> ;        "
 "               | <expr> ;        "
 
 //" cond          : <bin_cond>    "

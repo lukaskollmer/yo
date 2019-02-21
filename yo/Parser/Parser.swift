@@ -918,6 +918,7 @@ class Parser {
             return try parseVariableAccess(ast)
             
         case "expr|typecast|>":
+        //case "typecast|>":
             return try parseTypecast(ast)
             
         case "lexpr|string|regex":
@@ -927,6 +928,7 @@ class Parser {
             return try parseArrayLiteral(ast)
             
         case "expr|boxed_expr|>":
+        //case "boxed_expr|>":
             return try parseBoxedExpression(ast)
             
         case "lexpr|>" where ast.count == 3 && ast[0] == _openingParentheses && ast[2] == _closingParentheses:
@@ -969,9 +971,11 @@ class Parser {
             }
             
         case "expr|range|>":
+        //case "range|>":
             return try parseRangeLiteral(ast)
             
         case "expr|character|regex":
+        //case "character|regex":
             return try parseCharacterLiteral(ast)
             
         case "lexpr|pointer_op|>":
