@@ -93,7 +93,7 @@ public:
         Instance    // A type instance method
     };
     
-    std::string Name;
+    std::string Name; // TODO make this an identifier?
     FunctionKind Kind;
     std::string Typename; // Only relevant if Kind != Global
     std::vector<std::shared_ptr<VariableDecl>> Parameters;
@@ -156,6 +156,8 @@ class Identifier : public Expr {
 public:
     const std::string Value;
     Identifier(std::string Value) : Expr(NodeKind::Identifier), Value(Value) {}
+    
+    operator std::string () { return Value; }
 };
 
 

@@ -29,6 +29,8 @@ add_executable(yo
         src/TypeInfo.cpp
         src/Mangling.h
         src/Mangling.cpp
+        src/Scope.h
+        src/Scope.cpp
         src/IRGen.h
         src/IRGen.cpp
         src/JIT.h

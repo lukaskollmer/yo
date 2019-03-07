@@ -24,12 +24,11 @@
 
 #include "Mangling.h"
 
-#define Parser_test
-
-static llvm::LLVMContext C;
 
 int main(int argc, const char * argv[], const char *const *envp) {
-#ifdef Parser_test
+    //cl::Init(argc, argv);
+    
+    
     std::ifstream File("/Users/lukas/Developer/yo/temp/program.yo");
     std::ostringstream Contents;
     Contents << File.rdbuf();
@@ -51,15 +50,9 @@ int main(int argc, const char * argv[], const char *const *envp) {
     
     std::cout << Ast[0]->Description() << std::endl;
     
-#else
-    cl::Init(argc, argv);
     
-    Parser P;
-    auto A = P.ParseFile(cl::InputFilename);
-    
-    
-    irgen::IRGenerator Codegen(C, "main");
-    Codegen.Codegen(A);
+    irgen::IRGenerator Codegen("main");
+    Codegen.Codegen(Ast);
     
     auto M = Codegen.GetModule();
     
@@ -72,6 +65,5 @@ int main(int argc, const char * argv[], const char *const *envp) {
     std::cout << "Retval: " << retval << std::endl;
     
     return EXIT_SUCCESS;
-#endif
 }
 
