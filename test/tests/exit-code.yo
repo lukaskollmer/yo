@@ -1,5 +1,0 @@
-// exit-code: 12
-
-fn main(): int {
-    return 12;
-}
