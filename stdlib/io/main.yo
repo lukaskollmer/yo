@@ -1,0 +1,27 @@
+// io module
+
+use "std/string";
+
+impl io {
+    static fn printi(arg: int): void {
+        runtime::_printi(arg);
+    }
+
+    static fn printd(arg: double): void {
+        runtime::_printd(arg);
+    }
+
+    static fn print(arg: String): void {
+        runtime::_printc(arg._backing);
+    }
+
+    #[variadic]
+    static fn printf2(format: String, args: *any): void {
+        io::print(String::format2(format, ...args));
+    }
+
+    #[variadic]
+    static fn printf(format: String, args: Array): void {
+        io::print(String::format(format, ...args));
+    }
+}

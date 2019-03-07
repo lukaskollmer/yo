@@ -1,0 +1,146 @@
+use "std/array";
+
+
+struct String {
+    _backing: *i8
+}
+
+impl String {
+    fn length(self: String): int {
+        return runtime::_strlen(self._backing);
+    }
+
+
+    fn appending(self: String, other: String): String {
+        return String::format("%s%s", self, other);
+        //val self_length = self.length();
+        //val other_length = other.length();
+        //val newLength: int = self_length + other_length;
+
+        //val newBacking: int = runtime::alloc(newLength + 1);
+        //newBacking[0] = newLength;
+
+        //runtime::copy_array(self._backing, 1, newBacking, 1, self_length);
+        //runtime::copy_array(other._backing, 1, newBacking, self_length + 1, other_length);
+
+        //ret String::init(newBacking);
+
+    }
+
+    fn copy(self: String): String {
+        return String::format("%s", self);
+        //val length = self.length() + 1;
+
+        //val newBacking = runtime::alloc(length);
+        //runtime::copy_array(self._backing, 0, newBacking, 0, length);
+
+        //ret String::init(newBacking);
+    }
+
+    fn hashValue(self: String): int {
+        return runtime::_hashString(self);
+    }
+
+
+    fn isEqualToString(self: String, other: String): bool {
+        if self as i64 == other as i64 {
+            return true;
+        }
+
+        if self.length() != other.length() {
+            return false;
+        }
+
+        //for i in 0..<self.length() {
+        let length = self.length();
+        for let i = 0; i < length; i += 1; {
+            if self._backing[i] != other._backing[i] {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    fn isEqualTo(self: String, other: id): bool {
+        // Make sure both are strings
+        if runtime::typeof(self) != runtime::typeof(other) {
+            return false;
+        }
+        return self.isEqualToString(other);
+    }
+
+
+    fn description(self: String): String {
+        return self;
+    }
+
+    fn debugDescription(self: String): String {
+        return String::init(runtime::_stringDebugDescription(self));
+    }
+
+
+    fn dealloc(self: String): void {
+        runtime::free(self._backing as int);
+    }
+
+
+    #[variadic]
+    static fn format(format: String, args: Array): String {
+        return String::init(runtime::__format(format, args));
+    }
+
+
+    // Note: compared to `String::format`, this is probably significantly slower
+    #[variadic]
+    static fn format2(format: String, args: *any): String {
+        let formatLength = format.length();
+
+        let text = StringBuilder::new();
+
+        let nextCharIsFormatToken = false;
+        let arg_index = 0;
+
+        for let i = 0; i < formatLength; i += 1; {
+            let char = format._backing[i];
+            if nextCharIsFormatToken {
+                if char == 'i' {
+                    // int // TODO differentiate between {i|u}(8|16|32|64)
+                    text.append(String::init(runtime::itoa(args[arg_index], 10)));
+                } else if char == 'c' {
+                    text.append(String::init(runtime::_char_to_string(args[arg_index])));
+                } else if char == 'd' {
+                    text.append(String::init(runtime::_double_to_string(args[arg_index])));
+                } else if char == 'b' {
+                    // bool
+                    let value = args[arg_index] as bool;
+                    if value {
+                        text.append("true");
+                    } else {
+                        text.append("false");
+                    }
+                } else if char == '@' {
+                    // id
+                    let obj = args[arg_index] as id;
+                    text.append(Object::description(obj));
+                } else {
+                    runtime::fatalError("invalid format specifier");
+                }
+                arg_index += 1;
+
+            } else if char != '%' {
+                // TODO this is just an awful awful temporary hack
+                text.append(String::init(runtime::_char_to_string(char)));
+            }
+
+            if char == '%' {
+                nextCharIsFormatToken = true;
+            } else {
+                nextCharIsFormatToken = false;
+            }
+        }
+
+        runtime::free(args);
+        return text.stringValue();
+    }
+
+}

@@ -1,0 +1,54 @@
+// runtime/metatypes
+
+use "std/string";
+
+#[disable_metadata]
+struct Type {
+    id: int,
+    name: String,
+    dealloc_fn: int
+}
+
+
+impl runtime {
+    #[disable_arc]
+    static fn typeof(_obj: id): Type {
+        // the upper 32 bit of an object's first field are a pointer to a pointer to the actual metatype
+        // see the source code for more information TODO link to source code
+        let obj = _obj as *i64;
+        let metatype_ptr = (*obj >> 32) as *i64;
+        return *metatype_ptr as Type;
+    }
+
+
+    // unsafely invoke a method
+    #[variadic]
+    static fn msgSend(target: any, selector: String, argc: int, argv: *any): any {
+        if target == 0 {
+            return 0;
+        }
+
+        let type = runtime::typeof(target);
+        selector = String::format("%s_I%s", type.name, selector);
+
+        let addr = runtime::_lookupAddress(selector);
+
+        if addr == -1 {
+            runtime::fatalError(String::format("Unable to invoke %s: unrecognized selector", selector));
+        }
+
+        //io::printf("You really shouldn't be doing this (%s)", selector);
+
+        let argv_with_self = runtime::alloc((argc + 1) * 8) as *i64;
+        argv_with_self[0] = target;
+        if argc > 0 {
+            runtime::copy_array(8, argv, 0, argv_with_self, 1, argc);
+        }
+        runtime::free(argv);
+
+        let retval = runtime::_invoke(addr, argc + 1, argv_with_self);
+        runtime::free(argv_with_self);
+
+        return retval;
+    }
+}

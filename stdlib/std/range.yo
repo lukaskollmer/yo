@@ -1,0 +1,70 @@
+// std/range
+
+use "std/iterable";
+
+struct RangeIterator {
+    current: int,
+    end: int
+}
+
+impl RangeIterator: Iterator {
+    fn hasNext(self: RangeIterator): bool {
+        if self.current <= self.end {
+            return true;
+        }
+        return false;
+    }
+
+    fn next(self: RangeIterator): any {
+        let value = self.current;
+        self.current += 1;
+        return value;
+    }
+}
+
+enum RangeType {
+    Inclusive,
+    Exclusive
+}
+
+
+struct Range {
+    start: int,
+    end: int,
+    type: RangeType
+}
+
+impl Range {
+    static fn inclusive(start: int, end: int): Range {
+        return Range::init(start, end, RangeType.Inclusive);
+    }
+
+    static fn exclusive(start: int, end: int): Range {
+        return Range::init(start, end, RangeType.Exclusive);
+    }
+
+    fn description(self: Range): String {
+        let rangeType: String;
+        if self.type == RangeType.Inclusive {
+            rangeType = "...";
+        } else {
+            rangeType = "..<";
+        }
+        return String::format("<Range %n%s%n>", @(self.start), rangeType, @(self.end));
+    }
+}
+
+
+impl Range: Iterable {
+    fn iterator(self: Range): RangeIterator {
+        let start = self.start;
+        let end = self.end;
+
+        if self.type == RangeType.Exclusive {
+            end -= 1;
+        }
+
+        return RangeIterator::init(start, end);
+    }
+
+}

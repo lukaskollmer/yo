@@ -1,0 +1,49 @@
+use "runtime";
+use "std/string";
+use "std/hashmap";
+
+enum FFIType {
+    void,
+    uint8, int8, uint16, int16, uint32, int32, uint64, int64,
+    float, double,
+    pointer,
+    complex_float, complex_double, complex_longdouble, longdouble
+}
+
+
+struct FFI {
+    libHandle: int,
+    functionHandles: HashMap
+}
+
+impl FFI {
+    static fn new(path: String): FFI {
+        let handle = 0;
+        if path {
+            handle = ffi::dlopen(path);
+        }
+        return FFI::init(handle, HashMap::new());
+    }
+
+    fn dealloc(self: FFI): void {
+        if self.libHandle {
+            ffi::dlclose(self.libHandle);
+        }
+    }
+
+    #[variadic]
+    fn declareFunction(self: FFI, name: String, returnType: FFIType, argc: int, parameterTypes: *any): void {
+        let functionHandle = ffi::declareFunction(name, returnType as int, argc, parameterTypes as *int, self.libHandle);
+        self.functionHandles.insert(name, @(functionHandle));
+        runtime::free(parameterTypes);
+    }
+
+    #[variadic]
+    fn invoke(self: FFI, name: String, args: *any): int {
+        defer {
+            runtime::free(args);
+        }
+        let boxedHandle: Number = self.functionHandles.get(name);
+        return ffi::invoke(boxedHandle.intValue(), args);
+    }
+}

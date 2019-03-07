@@ -1,0 +1,16 @@
+// std/iterable
+
+protocol Iterable {
+    fn iterator(self: Self): Iterator;
+}
+
+protocol Iterator {
+    fn hasNext(self: Self): bool {
+        runtime::fatalError("needs custom implementation");
+        return false;
+    }
+    fn next(self: Self): any {
+        runtime::fatalError("needs custom implementation");
+        return 0;
+    }
+}

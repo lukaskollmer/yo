@@ -1,0 +1,29 @@
+use "std/string";
+
+struct StringBuilder {
+    _string: String
+}
+
+impl StringBuilder {
+    static fn new(): StringBuilder {
+        return StringBuilder::init(0 as String);
+    }
+
+    fn append(self: StringBuilder, otherString: String): void {
+        if self._string == 0 {
+            self._string = otherString.copy();
+            return;
+        }
+        self._string = self._string.appending(otherString);
+    }
+
+    #[variadic]
+    fn append_format(self: StringBuilder, format: String, args: Array): void {
+        let formatted = String::format(format, ...args);
+        self.append(formatted);
+    }
+
+    fn stringValue(self: StringBuilder): String {
+        return self._string.copy();
+    }
+}
