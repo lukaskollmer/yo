@@ -16,3 +16,6 @@ yo.xcodeproj/
 
 # Other
 temp/
+yo.build/
+Debug/
+a.out

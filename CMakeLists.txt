@@ -13,6 +13,28 @@ add_definitions(${LLVM_DEFINITIONS})
 
 # TODO split this up into proper subfolders and shit
 add_executable(yo
+        src/CommandLine.h
+        src/CommandLine.cpp
+        src/CharacterSet.h
+        src/CharacterSet.cpp
+        src/Token.h
+        src/Token.cpp
+        src/Lexer.h
+        src/Lexer.cpp
+        src/AST.h
+        src/AST.cpp
+        src/Parser.h
+        src/Parser.cpp
+        src/TypeInfo.h
+        src/TypeInfo.cpp
+        src/Mangling.h
+        src/Mangling.cpp
+        src/IRGen.h
+        src/IRGen.cpp
+        src/JIT.h
+        src/JIT.cpp
+        src/util.h
+        src/util.cpp
         src/main.cpp
 )
 
