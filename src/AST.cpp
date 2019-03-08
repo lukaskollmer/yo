@@ -56,7 +56,7 @@ inline constexpr unsigned INDENT_SIZE = 2;
 
 
 template <typename T>
-std::string ast::ast_description(std::vector<std::shared_ptr<T>> _Nodes) {
+std::string ast_description(std::vector<std::shared_ptr<T>> _Nodes) {
     std::vector<std::shared_ptr<T>> Nodes(_Nodes.begin(), _Nodes.end());
     
     std::string Desc = util::typeinfo::LKTypeInfo<T>::Name;
@@ -73,6 +73,11 @@ std::string ast::ast_description(std::vector<std::shared_ptr<T>> _Nodes) {
     Desc += "]";
     
     return Desc;
+}
+
+
+std::string ast::Description(AST &Ast) {
+    return ast_description(Ast);
 }
 
 
@@ -119,13 +124,22 @@ struct AttributeDescription {
 using Mirror = std::vector<AttributeDescription>;
 
 
-Mirror Reflect(FunctionDecl *FD) {
+Mirror Reflect(FunctionSignature *Signature) {
     return {
-        { "name", FD->Name },
-        { "kind", FD->Kind },
-        { "returnType", FD->ReturnType },
-        { "body", FD->Body }
+        { "name", Signature->Name },
+        { "kind", Signature->Kind },
+        { "returnType", Signature->ReturnType },
     };
+}
+
+Mirror Reflect(ExternFunctionDecl *EFD) {
+    return Reflect(static_cast<FunctionSignature *>(EFD));
+}
+
+Mirror Reflect(FunctionDecl *FD) {
+    auto M = Reflect(static_cast<FunctionSignature *>(FD));
+    M.push_back({ "body", FD->Body });
+    return M;
 }
 
 Mirror Reflect(Composite *C) {
@@ -147,18 +161,18 @@ Mirror Reflect(NumberLiteral *Number) {
 }
 
 Mirror Reflect(Node *Node) {
-    if (auto FD = dynamic_cast<FunctionDecl *>(Node)) {
-        return Reflect(FD);
-    } else if (auto C = dynamic_cast<Composite *>(Node)) {
-        return Reflect(C);
-    } else if (auto Return = dynamic_cast<ReturnStmt *>(Node)) {
-        return Reflect(Return);
-    } else if (auto Number = dynamic_cast<NumberLiteral *>(Node)) {
-        return Reflect(Number);
-    }
+#define HANDLE(T) if (auto X = dynamic_cast<T*>(Node)) return Reflect(X);
+    
+    HANDLE(FunctionDecl)
+    HANDLE(Composite)
+    HANDLE(ReturnStmt)
+    HANDLE(NumberLiteral)
+    HANDLE(ExternFunctionDecl)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;
+
+#undef HANDLE
 }
 
 

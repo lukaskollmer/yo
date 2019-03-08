@@ -21,8 +21,8 @@ class TopLevelStmt;
 
 using AST = std::vector<std::shared_ptr<TopLevelStmt>>;
 
-template <typename T>
-std::string ast_description(std::vector<std::shared_ptr<T>> _Nodes);
+
+std::string Description(AST &Ast);
 
 
 class Expr;
