@@ -28,6 +28,7 @@ static std::map<Token::TokenKind, std::string> TokenStringMappings = {
     
     ENTRY(Return)
     ENTRY(Fn)
+    ENTRY(Extern)
     
 #undef ENTRY
 };

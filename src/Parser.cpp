@@ -39,13 +39,14 @@ AST Parser::Parse(TokenList Tokens) {
 std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
     switch (CurrentToken().getKind()) {
         case TK::Fn: return ParseFunctionDecl();
-        //default: std::cout << "Unhandled Top Level Token: " << CurrentToken() << std::endl; throw;
+        case TK::Extern: return ParseExternFunctionDecl();
         default: unhandled_token(CurrentToken());
     }
 }
 
 
-std::shared_ptr<FunctionDecl> Parser::ParseFunctionDecl() {
+
+void Parser::ParseFunctionSignatureInto(std::shared_ptr<FunctionSignature> S) {
     assert_current_token_and_consume(TK::Fn);
     auto FD = std::make_shared<FunctionDecl>();
     

@@ -38,7 +38,7 @@ public:
         Node, Expr, Stmt, TopLevelStmt, LocalStmt,
         
         // Top Level Statements
-        FunctionDecl,
+        FunctionDecl, ExternFunctionDecl,
         
         // Local Statements
         ReturnStmt, Composite, VariableDecl,
@@ -109,6 +109,11 @@ public:
     FunctionDecl() : TopLevelStmt(NodeKind::FunctionDecl), FunctionSignature() {}
 };
 
+
+class ExternFunctionDecl : public TopLevelStmt, public FunctionSignature {
+public:
+    ExternFunctionDecl() : TopLevelStmt(NodeKind::ExternFunctionDecl), FunctionSignature() {}
+};
 
 
 class Composite : public LocalStmt {

@@ -35,7 +35,7 @@ public:
         
         // Keywords
         Return,
-        Fn,
+        Fn, Extern,
     };
     
     union TokenData {

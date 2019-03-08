@@ -40,6 +40,7 @@ static std::map<std::string, Token::TokenKind> TokenKindMappings = {
     // Keywords
     { "fn",     Token::TokenKind::Fn     },
     { "return", Token::TokenKind::Return },
+    { "extern", Token::TokenKind::Extern },
 };
 
 

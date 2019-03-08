@@ -88,6 +88,9 @@ void IRGenerator::RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignatu
 #define HANDLE(node, T) \
 if (auto X = std::dynamic_pointer_cast<ast::T>(node)) return Codegen(X);
 
+#define IGNORE(node, T) \
+if (std::dynamic_pointer_cast<ast::T>(node)) return nullptr;
+
 #define unhandled_node(node) \
 { std::cout << "[IRGenerator::Codegen] Unhandled Node: " << util::typeinfo::GetTypename(*(node)) << std::endl; \
 throw; }
@@ -103,6 +106,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Node> Node) {
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
     HANDLE(TLS, FunctionDecl)
+    IGNORE(TLS, ExternFunctionDecl)
     
     unhandled_node(TLS)
 }
@@ -121,6 +125,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr) {
 }
 
 #undef HANDLE
+#undef IGNORE
 #undef unhandled_node
 
 
