@@ -61,12 +61,15 @@ private:
     llvm::Value *Codegen(std::shared_ptr<ast::FunctionDecl>, bool MangleName = true);
     llvm::Value *Codegen(std::shared_ptr<ast::Composite>);
     llvm::Value *Codegen(std::shared_ptr<ast::ReturnStmt>);
+    llvm::Value *Codegen(std::shared_ptr<ast::FunctionCall>);
     
     llvm::Value *Codegen(std::shared_ptr<ast::NumberLiteral>);
     
     
     // Types
     llvm::Type *GetLLVMType(TypeInfo *TI);
+    
+    bool TypecheckAndApplyTrivialCastIfPossible(llvm::Value **V, llvm::Type *DestType);
 };
 
 

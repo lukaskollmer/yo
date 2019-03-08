@@ -57,6 +57,8 @@ void IRGenerator::Preflight(ast::AST &Ast) {
     for (auto &Node : Ast) {
         if (auto FunctionDecl = std::dynamic_pointer_cast<ast::FunctionDecl>(Node)) {
             RegisterFunctionSignature(FunctionDecl);
+        } else if (auto ExternFunctionDecl = std::dynamic_pointer_cast<ast::ExternFunctionDecl>(Node)) {
+            RegisterFunctionSignature(ExternFunctionDecl, false);
         }
     }
 }
@@ -114,6 +116,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LocalStmt> LocalStmt) {
     HANDLE(LocalStmt, Composite)
+    HANDLE(LocalStmt, FunctionCall)
     
     unhandled_node(LocalStmt);
 }
@@ -192,6 +195,38 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> Number) {
 }
 
 
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call) {
+    llvm::Function *F;
+    
+    if (auto Ident = std::dynamic_pointer_cast<ast::Identifier>(Call->Target)) {
+        F = M->getFunction(MangleFunctionName(Ident->Value));
+        if (!F) {
+            F = M->getFunction(Ident->Value);
+        }
+        if (!F) {
+            LKFatalError("Unable to find function named '%s'", Ident->Value.c_str());
+        }
+    } else {
+        throw;
+    }
+    
+    auto FT = F->getFunctionType();
+    
+    std::vector<llvm::Value *> Args;
+    
+    for (auto I = 0; I < Call->Arguments.size(); I++) {
+        auto ExpectedType = FT->getParamType(I);
+        auto V = Codegen(Call->Arguments[I]);
+        if (!TypecheckAndApplyTrivialCastIfPossible(&V, ExpectedType)) {
+            outs() << "Type mismatch: Cannot pass expression of type " << V->getType() << " to function '" << F->getName() << "' expecting " << ExpectedType << "\n";
+            throw;
+        }
+        Args.push_back(V);
+    }
+    
+    return Builder.CreateCall(F, Args);
+}
+
 
 #pragma mark - Types
 
@@ -223,4 +258,19 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
     
     throw;
 #undef HANDLE
+}
+
+
+
+
+bool IRGenerator::TypecheckAndApplyTrivialCastIfPossible(llvm::Value **V, llvm::Type *DestType) {
+    auto SrcTy = (*V)->getType();
+    
+    if (SrcTy == DestType) return true;
+    
+    if (DestType->isIntegerTy() && (*V)->getValueID() == llvm::Value::ValueTy::ConstantIntVal) {
+        *V = Builder.CreateIntCast(*V, DestType, true); // TODO add support for signed/unsigned types
+        return true;
+    }
+    return false;
 }

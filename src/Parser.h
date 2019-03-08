@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <vector>
+#include <initializer_list>
 
 #include "TypeInfo.h"
 #include "Token.h"
@@ -29,9 +30,15 @@ private:
     inline Token &CurrentToken() { return *Tokens[Position]; }
     inline Token &NextToken() { return *Tokens[++Position]; }
     
-    inline Token::TokenKind CurrentTokenKind() { return CurrentToken().getKind(); }
-    
-    inline Token &Peek(uint64_t Offset = 1) { return *Tokens[Position + Offset]; }
+    inline Token::TokenKind CurrentTokenKind() {
+        return CurrentToken().getKind();
+    }
+    inline const Token &Peek(uint64_t Offset = 1) {
+        return *Tokens[Position + Offset];
+    }
+    inline const Token::TokenKind &PeekKind(uint64_t Offset = 1) {
+        return Peek(Offset).getKind();
+    }
     inline void Consume(uint64_t Count = 1) { Position += Count; }
     
     void assert_current_token(Token::TokenKind Expected) {
@@ -48,6 +55,16 @@ private:
         } else {
             Consume();
         }
+    }
+    
+    
+    void assert_current_token_either(std::vector<Token::TokenKind> TokenKinds) {
+        auto Current = CurrentTokenKind();
+        for (auto &TK : TokenKinds) {
+            if (TK == Current) return;
+        }
+        throw;
+        //std::cout << "[assert_current_]" << std::endl;
     }
     
     std::shared_ptr<ast::TopLevelStmt> ParseTopLevelStmt();
@@ -67,6 +84,7 @@ private:
     std::shared_ptr<ast::ReturnStmt> ParseReturnStmt();
     
     std::shared_ptr<ast::Expr> ParseExpression();
+    std::vector<std::shared_ptr<ast::Expr>> ParseExpressionList(Token::TokenKind Delimiter);
     std::shared_ptr<ast::Identifier> ParseIdentifier();
     
     

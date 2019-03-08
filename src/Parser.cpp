@@ -27,6 +27,7 @@ AST Parser::Parse(TokenList Tokens) {
     
     AST Ast;
     while (Position < Tokens.size() && CurrentToken().getKind() != TK::EOF_) {
+        std::cout << CurrentToken() << std::endl;
         Ast.push_back(ParseTopLevelStmt());
     }
     
@@ -48,16 +49,34 @@ std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
 
 void Parser::ParseFunctionSignatureInto(std::shared_ptr<FunctionSignature> S) {
     assert_current_token_and_consume(TK::Fn);
-    auto FD = std::make_shared<FunctionDecl>();
     
-    FD->Name = ParseIdentifier()->Value;
+    S->Name = ParseIdentifier()->Value;
     assert_current_token_and_consume(TK::OpeningParens);
     
-    FD->Parameters = ParseParameterList();
+    S->Parameters = ParseParameterList();
     assert_current_token_and_consume(TK::ClosingParens);
     assert_current_token_and_consume(TK::Colon);
     
-    FD->ReturnType = ParseType();
+    S->ReturnType = ParseType();
+}
+
+
+
+std::shared_ptr<ExternFunctionDecl> Parser::ParseExternFunctionDecl() {
+    assert_current_token_and_consume(TK::Extern);
+    
+    auto EFD = std::make_shared<ExternFunctionDecl>();
+    ParseFunctionSignatureInto(EFD);
+    
+    assert_current_token_and_consume(TK::Semicolon);
+    
+    return EFD;
+}
+
+std::shared_ptr<FunctionDecl> Parser::ParseFunctionDecl() {
+    auto FD = std::make_shared<FunctionDecl>();
+    
+    ParseFunctionSignatureInto(FD);
     assert_current_token(TK::OpeningCurlyBraces);
     
     FD->Body = ParseComposite();
@@ -128,6 +147,20 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
         return ParseReturnStmt();
     }
     
+    if (CurrentTokenKind() == TK::Identifier && PeekKind(1) == TK::OpeningParens) {
+        // Function Call
+        auto Target = ParseIdentifier();
+        assert_current_token_and_consume(TK::OpeningParens);
+        
+        auto Arguments = ParseExpressionList(TK::ClosingParens);
+        assert_current_token_and_consume(TK::ClosingParens);
+        
+        if (CurrentTokenKind() == TK::Semicolon) {
+            Consume();
+            return std::make_shared<FunctionCall>(Target, Arguments, true);
+        }
+    }
+    
     unhandled_token(CurrentToken())
 }
 
@@ -160,6 +193,15 @@ static std::vector<Token::TokenKind> BinopOperators = {
 
 
 
+// Tokens that, if they appear on their own, mark the end of an expression
+static std::vector<TK> ExpressionDelimitingTokens = {
+    TK::ClosingParens
+};
+
+
+bool IsExprDelimitingToken(TK Token) {
+    return util::vector::contains(ExpressionDelimitingTokens, Token);
+}
 
 std::shared_ptr<Expr> Parser::ParseExpression() {
     std::shared_ptr<Expr> E;
@@ -168,6 +210,9 @@ std::shared_ptr<Expr> Parser::ParseExpression() {
         E = ParseNumberLiteral();
     }
     
+    if (IsExprDelimitingToken(CurrentTokenKind())) {
+        return E;
+    }
     
     if (CurrentTokenKind() == TK::Semicolon) {
         return E;
@@ -175,6 +220,24 @@ std::shared_ptr<Expr> Parser::ParseExpression() {
     
 
     unhandled_token(CurrentToken())
+}
+
+
+// Parses a (potentially empty) list of expressions separated by commas, until Delimiter is reached
+// The delimiter is not consumed
+std::vector<std::shared_ptr<Expr>> Parser::ParseExpressionList(Token::TokenKind Delimiter) {
+    if (CurrentTokenKind() == Delimiter) return {};
+    
+    std::vector<std::shared_ptr<Expr>> Expressions;
+    
+    do {
+        Expressions.push_back(ParseExpression());
+        assert_current_token_either({TK::Comma, Delimiter});
+        if (CurrentTokenKind() == TK::Comma) Consume();
+    } while (CurrentTokenKind() != Delimiter);
+    
+    assert_current_token(Delimiter);
+    return Expressions;
 }
 
 

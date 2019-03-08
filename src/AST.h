@@ -47,7 +47,7 @@ public:
         NumberLiteral, StringLiteral, ArrayLiteral,
         
         // Expressions
-        Identifier,
+        Identifier, FunctionCall,
         
     };
     
@@ -174,6 +174,17 @@ public:
     explicit NumberLiteral(uint64_t Value) : Expr(NodeKind::NumberLiteral), Value(Value) {}
 };
 
+
+
+class FunctionCall : public Expr, public LocalStmt {
+public:
+    std::shared_ptr<Expr> Target;
+    std::vector<std::shared_ptr<Expr>> Arguments;
+    bool UnusedReturnValue;
+    
+    FunctionCall(std::shared_ptr<Expr> Target, std::vector<std::shared_ptr<Expr>> Arguments, bool UnusedReturnValue)
+    : Expr(NodeKind::FunctionCall), LocalStmt(NodeKind::FunctionCall), Target(Target), Arguments(Arguments), UnusedReturnValue(UnusedReturnValue) {}
+};
 
 
 

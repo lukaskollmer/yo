@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <ostream>
 
 
 using LKInteger = std::int64_t;
@@ -109,22 +110,26 @@ namespace util::typeinfo {
 }
 
 
+namespace util {
+    [[noreturn]]
+    inline void fail(std::ostream &OS) {
+        OS << std::flush;
+        std::exit(EXIT_FAILURE);
+    }
+}
 
+
+
+namespace util::vector {
+    template <typename T>
+    inline bool contains(std::vector<T> &Vector, T &Element) {
+        return std::find(Vector.begin(), Vector.end(), Element) != Vector.end();
+    }
+}
 
 
 // TODO move all these to a cpp file
 namespace util {
-    
-    namespace vector {
-        template <typename T>
-        bool contains(const std::vector<T> &Vector, const T &Element) {
-            for (auto &X : Vector) {
-                if (X == Element) return true;
-            }
-            return false;
-        }
-    }
-    
     /*template <typename T>
     int vector_first_index_where(std::vector<T> &Vector, const std::function<bool(T)> &Fn) {
         auto idx = 0;

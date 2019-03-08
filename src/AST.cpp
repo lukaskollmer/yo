@@ -15,6 +15,13 @@
 #include <strstream>
 #include <map>
 
+
+
+// TODO
+// Some node kinds always fit on a single line (identifiers, numbers, maybe some other literals?). Implement that!
+
+
+
 using namespace ast;
 
 std::string FunctionKindToString(FunctionSignature::FunctionKind Kind) {
@@ -160,6 +167,20 @@ Mirror Reflect(NumberLiteral *Number) {
     };
 }
 
+Mirror Reflect(Identifier *Ident) {
+    return {
+        { "value", Ident->Value }
+    };
+}
+
+Mirror Reflect(FunctionCall *Call) {
+    return {
+        { "Target", Call->Target },
+        { "UnusedReturnValue", Call->UnusedReturnValue },
+        { "Arguments", Call->Arguments }
+    };
+}
+
 Mirror Reflect(Node *Node) {
 #define HANDLE(T) if (auto X = dynamic_cast<T*>(Node)) return Reflect(X);
     
@@ -168,6 +189,8 @@ Mirror Reflect(Node *Node) {
     HANDLE(ReturnStmt)
     HANDLE(NumberLiteral)
     HANDLE(ExternFunctionDecl)
+    HANDLE(FunctionCall)
+    HANDLE(Identifier)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;
