@@ -28,6 +28,7 @@ enum class PrecedenceGroup : uint8_t {
     // Casting,
     Addition,
     Multiplication,
+    Bitshift,
 };
 
 
@@ -106,4 +107,7 @@ private:
     
     std::shared_ptr<ast::NumberLiteral> ParseNumberLiteral();
     
+    
+    // NOTE: this only pars
+    ast::BinaryOperation::Operation ParseBinopOperator();
 };

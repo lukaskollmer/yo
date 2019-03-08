@@ -16,6 +16,9 @@ using namespace ast;
 using TK = Token::TokenKind;
 
 
+#define save_pos(name) auto name = Position;
+#define restore_pos(name) Position = name;
+
 // How does the parser work?
 //
 // Position always points to the current token.
@@ -179,7 +182,7 @@ std::shared_ptr<ReturnStmt> Parser::ParseReturnStmt() {
 
 
 std::shared_ptr<Identifier> Parser::ParseIdentifier() {
-    assert_current_token(TK::Identifier);
+    if (CurrentTokenKind() != TK::Identifier) return nullptr;
     auto R = std::make_shared<Identifier>(CurrentToken().getData().s);
     Consume();
     return R;
@@ -223,13 +226,77 @@ static TokenSet BinopOperatorTokens = {
     TK::Plus, TK::Minus, TK::Asterisk, TK::ForwardSlash, TK::PercentageSign
 };
 
-static MappedTokenSet<ast::BinaryOperation::Operation> BinopTokenMapping = {
+
+
+
+// The initial tokens of all binop operators
+static TokenSet BinopOperatorStartTokens = {
+    TK::Plus, TK::Minus, TK::Asterisk, TK::ForwardSlash, TK::PercentageSign,
+    TK::Ampersand, TK::Pipe, TK::Circumflex, TK::LessThanSign, TK::GreaterSign
+};
+
+
+
+
+static MappedTokenSet<ast::BinaryOperation::Operation> SingleTokenBinopOperatorTokenMapping = {
     { TK::Plus,           BinaryOperation::Operation::Add },
     { TK::Minus,          BinaryOperation::Operation::Sub },
     { TK::Asterisk,       BinaryOperation::Operation::Mul },
     { TK::ForwardSlash,   BinaryOperation::Operation::Div },
     { TK::PercentageSign, BinaryOperation::Operation::Mod },
+    { TK::Ampersand,      BinaryOperation::Operation::And },
+    { TK::Pipe,           BinaryOperation::Operation::Or  },
+    { TK::Circumflex,     BinaryOperation::Operation::Xor }
 };
+
+
+ast::BinaryOperation::Operation Parser::ParseBinopOperator() {
+    auto T = CurrentTokenKind();
+    if (!BinopOperatorStartTokens.Contains(T)) throw;
+    
+    if (SingleTokenBinopOperatorTokenMapping.Contains(T)) {
+        Consume();
+        return SingleTokenBinopOperatorTokenMapping[T];
+    }
+    
+    if (T == TK::LessThanSign && PeekKind() == TK::LessThanSign) {
+        Consume(2);
+        return BinaryOperation::Operation::Shl;
+    }
+    
+    if (T == TK::GreaterSign && PeekKind() == TK::GreaterSign) {
+        Consume(2);
+        return BinaryOperation::Operation::Shr;
+    }
+    
+    // should never reach here
+    throw;
+}
+
+
+
+
+
+PrecedenceGroup GetOperatorPrecedenceGroup(BinaryOperation::Operation Op) {
+    switch (Op) {
+    case BinaryOperation::Operation::Add:
+    case BinaryOperation::Operation::Sub:
+    case BinaryOperation::Operation::Or:
+    case BinaryOperation::Operation::Xor:
+        return PrecedenceGroup::Addition;
+    case BinaryOperation::Operation::Mul:
+    case BinaryOperation::Operation::Div:
+    case BinaryOperation::Operation::Mod:
+    case BinaryOperation::Operation::And:
+        return PrecedenceGroup::Multiplication;
+    case BinaryOperation::Operation::Shl:
+    case BinaryOperation::Operation::Shr:
+        return PrecedenceGroup::Bitshift;
+    }
+    
+    throw;
+}
+
 
 
 
@@ -237,26 +304,6 @@ static MappedTokenSet<ast::BinaryOperation::Operation> BinopTokenMapping = {
 static TokenSet ExpressionDelimitingTokens = {
     TK::ClosingParens, TK::Semicolon, TK::Comma,
 };
-
-
-
-
-
-
-PrecedenceGroup BinaryOperator_GetPrecedenceGroup(BinaryOperation::Operation Op) {
-    switch (Op) {
-    case BinaryOperation::Operation::Add:
-    case BinaryOperation::Operation::Sub:
-        return PrecedenceGroup::Addition;
-    case BinaryOperation::Operation::Mul:
-    case BinaryOperation::Operation::Div:
-    case BinaryOperation::Operation::Mod:
-        return PrecedenceGroup::Multiplication;
-    }
-    
-    throw;
-}
-
 
 
 std::shared_ptr<Expr> Parser::ParseExpression(std::shared_ptr<Expr> Context, PrecedenceGroup PrecedenceGroupConstraint) {
@@ -283,16 +330,16 @@ std::shared_ptr<Expr> Parser::ParseExpression(std::shared_ptr<Expr> Context, Pre
         E = std::make_shared<FunctionCall>(E, Arguments, false);
     }
     
-    while (E && BinopTokenMapping.Contains(CurrentTokenKind())) {
-        auto Op = BinopTokenMapping[CurrentTokenKind()];
-        auto Op_Precedence = BinaryOperator_GetPrecedenceGroup(Op);
+    while (BinopOperatorStartTokens.Contains(CurrentTokenKind())) {
+        save_pos(fallback)
+        auto Op = ParseBinopOperator();
+        auto Op_Precedence = GetOperatorPrecedenceGroup(Op);
         
         if (Op_Precedence > PrecedenceGroupConstraint) {
-            Consume();
-            
             auto RHS = ParseExpression(nullptr, Op_Precedence);
             E = std::make_shared<BinaryOperation>(Op, E, RHS);
         } else {
+            restore_pos(fallback)
             return E;
         }
     }

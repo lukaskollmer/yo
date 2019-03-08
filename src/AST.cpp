@@ -39,6 +39,11 @@ std::string BinopOperationToString(BinaryOperation::Operation Op) {
     case BinaryOperation::Operation::Mul: return "mul";
     case BinaryOperation::Operation::Div: return "div";
     case BinaryOperation::Operation::Mod: return "mod";
+    case BinaryOperation::Operation::And: return "and";
+    case BinaryOperation::Operation::Or:  return "or";
+    case BinaryOperation::Operation::Xor: return "xor";
+    case BinaryOperation::Operation::Shl: return "shl";
+    case BinaryOperation::Operation::Shr: return "shr";
     }
 }
 
@@ -61,6 +66,9 @@ std::string NodeKindToString(Node::NodeKind Kind) {
     CASE(StringLiteral)
     CASE(ArrayLiteral)
     CASE(Identifier)
+    CASE(ExternFunctionDecl)
+    CASE(FunctionCall)
+    CASE(BinaryOperation)
     }
 #undef CASE
 }
