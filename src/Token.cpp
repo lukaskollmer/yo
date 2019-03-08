@@ -36,6 +36,9 @@ std::string TokenKindToString(Token::TokenKind Kind) {
         CASE(Circumflex)
         CASE(LessThanSign)
         CASE(GreaterSign)
+        CASE(Let)
+        CASE(Ampersand)
+        CASE(Pipe)
     }
 #undef CASE
 }

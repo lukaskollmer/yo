@@ -36,8 +36,8 @@ public:
         Ampersand, Pipe, Circumflex, LessThanSign, GreaterSign,
         
         // Keywords
-        Return,
         Fn, Extern,
+        Let, Return,
     };
     
     union TokenData {

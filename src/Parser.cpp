@@ -150,6 +150,10 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
         return ParseReturnStmt();
     }
     
+    if (CurrentTokenKind() == TK::Let) {
+        return ParseVariableDecl();
+    }
+    
     if (CurrentTokenKind() == TK::Identifier && PeekKind(1) == TK::OpeningParens) {
         // Function Call
         auto Target = ParseIdentifier();
@@ -178,6 +182,28 @@ std::shared_ptr<ReturnStmt> Parser::ParseReturnStmt() {
 }
 
 
+
+std::shared_ptr<VariableDecl> Parser::ParseVariableDecl() {
+    assert_current_token_and_consume(TK::Let);
+    
+    auto Identifier = ParseIdentifier();
+    auto Type = TypeInfo::Unresolved;
+    std::shared_ptr<Expr> InitialValue;
+    
+    if (CurrentTokenKind() == TK::Colon) {
+        Consume();
+        Type = ParseType();
+    }
+    
+    if (CurrentTokenKind() == TK::EqualsSign) {
+        Consume();
+        InitialValue = ParseExpression();
+    }
+    
+    assert_current_token_and_consume(TK::Semicolon);
+    
+    return std::make_shared<VariableDecl>(Identifier, Type, InitialValue);
+}
 
 
 

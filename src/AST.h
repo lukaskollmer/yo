@@ -139,7 +139,7 @@ public:
 
 
 
-class VariableDecl : LocalStmt {
+class VariableDecl : public LocalStmt {
 public:
     std::shared_ptr<Identifier> Name; // TODO does something like this really warrant a pointer?
     TypeInfo *Type;

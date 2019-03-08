@@ -209,6 +209,14 @@ Mirror Reflect(BinaryOperation *Binop) {
     };
 }
 
+Mirror Reflect(VariableDecl *Decl) {
+    return {
+        { "name", Decl->Name },
+        { "type", Decl->Type },
+        { "initial value", Decl->InitialValue }
+    };
+}
+
 Mirror Reflect(Node *Node) {
 #define HANDLE(T) if (auto X = dynamic_cast<T*>(Node)) return Reflect(X);
     
@@ -220,6 +228,7 @@ Mirror Reflect(Node *Node) {
     HANDLE(FunctionCall)
     HANDLE(Identifier)
     HANDLE(BinaryOperation)
+    HANDLE(VariableDecl)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;

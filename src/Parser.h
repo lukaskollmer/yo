@@ -99,6 +99,7 @@ private:
     
     std::shared_ptr<ast::LocalStmt> ParseLocalStmt();
     std::shared_ptr<ast::ReturnStmt> ParseReturnStmt();
+    std::shared_ptr<ast::VariableDecl> ParseVariableDecl();
     
     std::shared_ptr<ast::Expr> ParseExpression(std::shared_ptr<ast::Expr> Context = nullptr, PrecedenceGroup CurrentPrecedenceGroup = PrecedenceGroup::Initial);
     std::vector<std::shared_ptr<ast::Expr>> ParseExpressionList(Token::TokenKind Delimiter);

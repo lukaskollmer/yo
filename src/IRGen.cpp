@@ -117,6 +117,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LocalStmt> LocalStmt) {
     HANDLE(LocalStmt, Composite)
     HANDLE(LocalStmt, FunctionCall)
+    HANDLE(LocalStmt, VariableDecl)
     
     unhandled_node(LocalStmt);
 }
@@ -166,6 +167,55 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
 
 
 
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::VariableDecl> Decl) {
+    llvm::Type *Type = nullptr;
+    llvm::Value *InitialValue = nullptr;
+    
+    if (Decl->Type) {
+        Type = GetLLVMType(Decl->Type);
+    } else {
+        // If no type is specified, there _has_ to be an initial value
+        assert(Decl->InitialValue);
+    }
+    
+    if (auto InitialValueExpr = Decl->InitialValue) {
+        InitialValue = Codegen(InitialValueExpr);
+        if (!Type) {
+            Type = InitialValue->getType();
+        }
+    }
+    
+    assert(Type);
+    
+    auto Alloca = Builder.CreateAlloca(Type);
+    Alloca->setName(Decl->Name->Value);
+    
+    auto Binding = ValueBinding([this, Alloca] () {
+        return Builder.CreateLoad(Alloca);
+    }, [=] (llvm::Value *V) {
+        if (!TypecheckAndApplyTrivialCastIfPossible(&V, Type)) {
+            llvm::outs() << "Type mismatch: cannot assign value of type " << V->getType() << " to variable of type " << Type << "\n";
+            throw;
+        }
+        Builder.CreateStore(V, Alloca);
+    });
+    
+    Scope.Insert(Decl->Name->Value, Type, Binding);
+    
+    if (InitialValue) {
+        Binding.Write(InitialValue);
+    }
+    
+    return Alloca;
+}
+
+
+
+
+
+
+
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> Composite) {
     auto M = Scope.GetMarker();
     
@@ -192,6 +242,12 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> Composite) {
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ReturnStmt> ReturnStmt) {
     return Builder.CreateRet(Codegen(ReturnStmt->Expression));
 }
+
+
+
+
+
+
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> Number) {

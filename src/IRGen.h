@@ -62,6 +62,7 @@ private:
     llvm::Value *Codegen(std::shared_ptr<ast::Composite>);
     llvm::Value *Codegen(std::shared_ptr<ast::ReturnStmt>);
     llvm::Value *Codegen(std::shared_ptr<ast::FunctionCall>);
+    llvm::Value *Codegen(std::shared_ptr<ast::VariableDecl>);
     
     llvm::Value *Codegen(std::shared_ptr<ast::NumberLiteral>);
     llvm::Value *Codegen(std::shared_ptr<ast::BinaryOperation>);

@@ -66,6 +66,10 @@ bool TypeInfo::Equals(const TypeInfo *Other) const {
 }
 
 std::string TypeInfo::Str() const {
+    if (this == TypeInfo::Unresolved) {
+        // We have to check this one first since `this` is a nullpointer for unresolved // TODO: don't map unresolved to the nullpointer
+        return "<unresolved>";
+    }
     if (this->Kind == Kind::Primitive || this->Kind == Kind::Complex) {
         return this->Data.Name;
     }
