@@ -30,7 +30,6 @@ AST Parser::Parse(TokenList Tokens) {
     
     AST Ast;
     while (Position < Tokens.size() && CurrentToken().getKind() != TK::EOF_) {
-        std::cout << CurrentToken() << std::endl;
         Ast.push_back(ParseTopLevelStmt());
     }
     

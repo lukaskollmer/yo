@@ -33,7 +33,7 @@ auto TypeInfo::i8_ptr = TypeInfo::MakePointer(TypeInfo::i8);
 std::vector<TypeInfo *> TypeInfo::PrimitiveTypes = {
     TypeInfo::i8, TypeInfo::i16, TypeInfo::i32, TypeInfo::i64,
     TypeInfo::u8, TypeInfo::u16, TypeInfo::u32, TypeInfo::u64,
-    TypeInfo::Bool, TypeInfo::Double
+    TypeInfo::Void, TypeInfo::Bool, TypeInfo::Double
 };
 
 

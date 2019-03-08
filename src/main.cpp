@@ -38,19 +38,12 @@ int main(int argc, const char * argv[], const char *const *envp) {
     auto S = Contents.str();
     auto Tokens = Lexer.Lex(S);
     
-//    for (auto &Token : Tokens) {
-//        std::cout << *Token << std::endl;
-//    }
-    
     
     Parser P;
     auto Ast = P.Parse(Tokens);
     
-    //dump_ast(Ast);
     
-    
-    std::cout << ast::Description(Ast) << std::endl;
-    
+    //std::cout << ast::Description(Ast) << std::endl;
     
     irgen::IRGenerator Codegen("main");
     Codegen.Codegen(Ast);

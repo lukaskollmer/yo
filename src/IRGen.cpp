@@ -35,6 +35,7 @@ IRGenerator::IRGenerator(const std::string ModuleName) : Builder(C) {
     i32 = llvm::Type::getInt32Ty(C);
     i64 = llvm::Type::getInt64Ty(C);
     
+    i8_ptr = i8->getPointerTo();
     Void = llvm::Type::getVoidTy(C);
     Bool = llvm::Type::getInt1Ty(C);
     Double = llvm::Type::getDoubleTy(C);
