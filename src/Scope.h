@@ -51,7 +51,7 @@ public:
     llvm::Type *GetType(Ident Identifier);
     
     Entry Remove(Ident Identifier);
-    Entry *_GetEntry(Ident Identifier, V::const_iterator *Pos);
+    Entry *_GetEntry(Ident Identifier, V::const_iterator *Pos = nullptr);
     
     bool IsEmpty() { return Symbols.empty(); }
     void Clear() { Symbols.clear(); }

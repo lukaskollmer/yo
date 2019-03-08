@@ -14,6 +14,8 @@
 #include <ostream>
 
 
+inline void noop() {}
+
 using LKInteger = std::int64_t;
 using LKUInteger = std::uint64_t;
 
@@ -122,7 +124,7 @@ namespace util {
 
 namespace util::vector {
     template <typename T>
-    inline bool contains(std::vector<T> &Vector, T &Element) {
+    inline bool contains(const std::vector<T> &Vector, T &Element) {
         return std::find(Vector.begin(), Vector.end(), Element) != Vector.end();
     }
 }

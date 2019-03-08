@@ -47,7 +47,7 @@ public:
         NumberLiteral, StringLiteral, ArrayLiteral,
         
         // Expressions
-        Identifier, FunctionCall,
+        Identifier, FunctionCall, BinaryOperation,
         
     };
     
@@ -186,6 +186,22 @@ public:
     : Expr(NodeKind::FunctionCall), LocalStmt(NodeKind::FunctionCall), Target(Target), Arguments(Arguments), UnusedReturnValue(UnusedReturnValue) {}
 };
 
+
+
+
+class BinaryOperation : public Expr {
+public:
+    enum class Operation {
+        Add, Sub, Mul, Div, Mod,
+        And, Or, Xor, Shl, Shr
+    };
+    
+    Operation Op;
+    std::shared_ptr<Expr> LHS;
+    std::shared_ptr<Expr> RHS;
+    
+    BinaryOperation(Operation Op, std::shared_ptr<Expr> LHS, std::shared_ptr<Expr> RHS) : Expr(NodeKind::BinaryOperation), Op(Op), LHS(LHS), RHS(RHS) {}
+};
 
 
 NS_END

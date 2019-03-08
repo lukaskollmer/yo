@@ -18,6 +18,11 @@ void Scope::Insert(Ident Identifier, llvm::Type *Type, ValueBinding Binding) {
 }
 
 
+ValueBinding *Scope::GetBinding(Ident Identifier) {
+    return std::get<2>(*_GetEntry(Identifier)).get();
+}
+
+
 Scope::Entry Scope::Remove(Ident Identifier) {
     V::const_iterator Pos;
     auto E = *_GetEntry(Identifier, &Pos);

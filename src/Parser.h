@@ -18,6 +18,22 @@
 #include "Lexer.h"
 #include "AST.h"
 
+
+
+// Operator precedence groups, in increasing order
+enum class PrecedenceGroup : uint8_t {
+    Initial = 0,
+    
+    
+    // Casting,
+    Addition,
+    Multiplication,
+};
+
+
+
+
+
 class Parser {
 public:
     Parser() {}
@@ -83,14 +99,11 @@ private:
     std::shared_ptr<ast::LocalStmt> ParseLocalStmt();
     std::shared_ptr<ast::ReturnStmt> ParseReturnStmt();
     
-    std::shared_ptr<ast::Expr> ParseExpression();
+    std::shared_ptr<ast::Expr> ParseExpression(std::shared_ptr<ast::Expr> Context = nullptr, PrecedenceGroup CurrentPrecedenceGroup = PrecedenceGroup::Initial);
     std::vector<std::shared_ptr<ast::Expr>> ParseExpressionList(Token::TokenKind Delimiter);
     std::shared_ptr<ast::Identifier> ParseIdentifier();
     
     
     std::shared_ptr<ast::NumberLiteral> ParseNumberLiteral();
-    
-    
-    //std::vector<std::shared_ptr<ast::VariableDeclAST>> ParseVariableDeclList();
     
 };

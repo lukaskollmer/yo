@@ -32,6 +32,16 @@ std::string FunctionKindToString(FunctionSignature::FunctionKind Kind) {
     }
 }
 
+std::string BinopOperationToString(BinaryOperation::Operation Op) {
+    switch (Op) {
+    case BinaryOperation::Operation::Add: return "add";
+    case BinaryOperation::Operation::Sub: return "sub";
+    case BinaryOperation::Operation::Mul: return "mul";
+    case BinaryOperation::Operation::Div: return "div";
+    case BinaryOperation::Operation::Mod: return "mod";
+    }
+}
+
 
 std::string NodeKindToString(Node::NodeKind Kind) {
 #define CASE(x) case K::x: return "ast::"#x;
@@ -101,6 +111,8 @@ std::string to_string(T arg) {
         return arg->Str();
     } else if constexpr(std::is_same_v<T, FunctionSignature::FunctionKind>) {
         return FunctionKindToString(arg);
+    } else if constexpr(std::is_same_v<T, BinaryOperation::Operation>) {
+        return BinopOperationToString(arg);
     } else if constexpr(std::is_convertible_v<T, std::shared_ptr<Node>>) {
         return arg->Description();
     } else if constexpr(util::typeinfo::is_vector_of_convertible_v<T, std::shared_ptr<Node>>) {
@@ -181,6 +193,14 @@ Mirror Reflect(FunctionCall *Call) {
     };
 }
 
+Mirror Reflect(BinaryOperation *Binop) {
+    return {
+        { "Op", Binop->Op },
+        { "Lhs", Binop->LHS },
+        { "Rhs", Binop->RHS }
+    };
+}
+
 Mirror Reflect(Node *Node) {
 #define HANDLE(T) if (auto X = dynamic_cast<T*>(Node)) return Reflect(X);
     
@@ -191,6 +211,7 @@ Mirror Reflect(Node *Node) {
     HANDLE(ExternFunctionDecl)
     HANDLE(FunctionCall)
     HANDLE(Identifier)
+    HANDLE(BinaryOperation)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;

@@ -64,12 +64,19 @@ private:
     llvm::Value *Codegen(std::shared_ptr<ast::FunctionCall>);
     
     llvm::Value *Codegen(std::shared_ptr<ast::NumberLiteral>);
+    llvm::Value *Codegen(std::shared_ptr<ast::BinaryOperation>);
+    llvm::Value *Codegen(std::shared_ptr<ast::Identifier>);
     
     
     // Types
     llvm::Type *GetLLVMType(TypeInfo *TI);
+    bool IsSignedType(llvm::Type *T) {
+        return true;
+    }
     
     bool TypecheckAndApplyTrivialCastIfPossible(llvm::Value **V, llvm::Type *DestType);
+    
+    bool Binop_AttemptToResolvePotentialIntTypeMismatchesByCastingNumberLiteralsIfPossible(llvm::Value **LHS, llvm::Value **RHS);
 };
 
 

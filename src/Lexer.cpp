@@ -35,7 +35,12 @@ static std::map<std::string, Token::TokenKind> TokenKindMappings = {
     { "," , Token::TokenKind::Comma },
     { ":" , Token::TokenKind::Colon },
     { ";" , Token::TokenKind::Semicolon },
+    
     { "*" , Token::TokenKind::Asterisk },
+    { "+" , Token::TokenKind::Plus },
+    { "-" , Token::TokenKind::Minus },
+    { "/" , Token::TokenKind::ForwardSlash },
+    { "%" , Token::TokenKind::PercentageSign },
     
     // Keywords
     { "fn",     Token::TokenKind::Fn     },

@@ -10,32 +10,35 @@
 #include "Token.h"
 #include <map>
 
-static std::map<Token::TokenKind, std::string> TokenStringMappings = {
-#define ENTRY(x) { Token::TokenKind::x, #x },
-    
-    ENTRY(Unknown)
-    ENTRY(EOF_)
-    ENTRY(Identifier)
-    ENTRY(IntegerLiteral)
-    
-    ENTRY(OpeningParens)
-    ENTRY(ClosingParens)
-    ENTRY(OpeningCurlyBraces)
-    ENTRY(ClosingCurlyBraces)
-    ENTRY(Colon)
-    ENTRY(Comma)
-    ENTRY(Semicolon)
-    
-    ENTRY(Return)
-    ENTRY(Fn)
-    ENTRY(Extern)
-    
-#undef ENTRY
-};
+std::string TokenKindToString(Token::TokenKind Kind) {
+#define CASE(x) case Token::TokenKind::x: return #x;
+    switch (Kind) {
+        CASE(Unknown)
+        CASE(EOF_)
+        CASE(Identifier)
+        CASE(IntegerLiteral)
+        CASE(OpeningParens)
+        CASE(ClosingParens)
+        CASE(OpeningCurlyBraces)
+        CASE(ClosingCurlyBraces)
+        CASE(Comma)
+        CASE(Colon)
+        CASE(Semicolon)
+        CASE(Asterisk)
+        CASE(Plus)
+        CASE(Minus)
+        CASE(ForwardSlash)
+        CASE(PercentageSign)
+        CASE(Return)
+        CASE(Fn)
+        CASE(Extern)
+    }
+#undef CASE
+}
 
 
 std::ostream &operator<<(std::ostream &OS, const Token &T) {
-    OS << "<Token " << TokenStringMappings.at(T.getKind());
+    OS << "<Token " << TokenKindToString(T.getKind());
     switch (T.getKind()) {
         case Token::TokenKind::Identifier:
             OS << " '" << T.getData().s << "'";
@@ -52,5 +55,5 @@ std::ostream &operator<<(std::ostream &OS, const Token &T) {
 
 
 std::ostream &operator<<(std::ostream &OS, const Token::TokenKind &TK) {
-    return OS << TokenStringMappings.at(TK);
+    return OS << TokenKindToString(TK);
 }

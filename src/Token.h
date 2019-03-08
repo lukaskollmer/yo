@@ -31,7 +31,8 @@ public:
         OpeningCurlyBraces,
         ClosingCurlyBraces,
         Comma, Colon, Semicolon,
-        Asterisk,
+        
+        Asterisk, Plus, Minus, ForwardSlash, PercentageSign,
         
         // Keywords
         Return,

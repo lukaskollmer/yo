@@ -121,8 +121,12 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LocalStmt> LocalStmt) {
     unhandled_node(LocalStmt);
 }
 
+
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr) {
     HANDLE(Expr, NumberLiteral)
+    HANDLE(Expr, BinaryOperation)
+    HANDLE(Expr, Identifier)
+    HANDLE(Expr, FunctionCall)
     
     unhandled_node(Expr)
 }
@@ -195,6 +199,85 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> Number) {
 }
 
 
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Identifier> Ident) {
+    if (auto Binding = Scope.GetBinding(Ident->Value)) {
+        return Binding->Read();
+    }
+    
+    std::cout << "Unable to find identifier " << Ident->Value << std::endl;
+    throw;
+}
+
+
+
+
+llvm::Instruction::BinaryOps GetLLVMBinaryOpInstruction_Int(ast::BinaryOperation::Operation Op, bool IsSigned) {
+    using Operation = ast::BinaryOperation::Operation;
+    using BinaryOps = llvm::Instruction::BinaryOps;
+    
+    switch (Op) {
+        case Operation::Add: return BinaryOps::Add;
+        case Operation::Sub: return BinaryOps::Sub;
+        case Operation::Mul: return BinaryOps::Mul;
+        case Operation::Div: return IsSigned ? BinaryOps::SDiv : BinaryOps::UDiv;
+        case Operation::Mod: return IsSigned ? BinaryOps::SRem : BinaryOps::URem;
+        case Operation::And: return BinaryOps::And;
+        case Operation::Or:  return BinaryOps::Or;
+        case Operation::Xor: return BinaryOps::And;
+        case Operation::Shl: return BinaryOps::Shl;
+        case Operation::Shr: return BinaryOps::LShr; // TODO (important) arithmetic or logical right shift?
+    }
+    
+    llvm_unreachable("should never reach here");
+}
+
+
+
+
+llvm::Instruction::BinaryOps GetLLVMBinaryOpInstruction_Double(ast::BinaryOperation::Operation Op) {
+    using Operation = ast::BinaryOperation::Operation;
+    using BinaryOps = llvm::Instruction::BinaryOps;
+    
+    switch (Op) {
+        case Operation::Add: return BinaryOps::FAdd;
+        case Operation::Sub: return BinaryOps::FSub;
+        case Operation::Mul: return BinaryOps::FMul;
+        case Operation::Div: return BinaryOps::FDiv;
+        case Operation::Mod: return BinaryOps::FRem;
+        default: llvm_unreachable("nope");
+    }
+}
+
+
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::BinaryOperation> Binop) {
+    auto LHS = Codegen(Binop->LHS);
+    auto RHS = Codegen(Binop->RHS);
+    
+    if (!Binop_AttemptToResolvePotentialIntTypeMismatchesByCastingNumberLiteralsIfPossible(&LHS, &RHS)) {
+        llvm::outs() << "Unable to resolve type mismatch between comparison operands " << LHS->getType() << " and " << RHS->getType() << "\n";
+        throw;
+    }
+    
+    llvm::Instruction::BinaryOps Op;
+    auto T = LHS->getType(); // same as RHS->getType()
+    if (T->isIntegerTy()) {
+        Op = GetLLVMBinaryOpInstruction_Int(Binop->Op, IsSignedType(T));
+    } else if (T->isDoubleTy()) {
+        Op = GetLLVMBinaryOpInstruction_Double(Binop->Op);
+    } else {
+        llvm::outs() << "Unhandled tyoe in binop: " << T << "\n";
+        throw;
+    }
+    
+    return Builder.CreateBinOp(Op, LHS, RHS);
+}
+
+
+
+
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call) {
     llvm::Function *F;
     
@@ -226,6 +309,23 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call) {
     
     return Builder.CreateCall(F, Args);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #pragma mark - Types
@@ -262,6 +362,35 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
 
 
 
+// Inserts casts if operand types mismatch
+// For example, the expression `x` + 5` wouldn't compile if `x` was i8 (since the literal is inferred to be i64)
+// But literals can trivially be cast to the expected type
+// Returns false if there is a type mismatch, but we were unable to resolve it
+bool IRGenerator::Binop_AttemptToResolvePotentialIntTypeMismatchesByCastingNumberLiteralsIfPossible(llvm::Value **LHS, llvm::Value **RHS) {
+    auto T_LHS = (*LHS)->getType();
+    auto T_RHS = (*RHS)->getType();
+    
+    if (T_LHS == T_RHS) return true;
+    
+    // There's no need to check for doubles here, since there's only one double type
+    if (!(T_LHS->isIntegerTy() && T_RHS->isIntegerTy())) {
+        outs() << "Unable to compare incompatible types " << T_LHS << " and " << T_RHS << "\n" ;
+        throw;
+    }
+    
+    if ((*LHS)->getValueID() == llvm::Value::ValueTy::ConstantIntVal) {
+        // lhs is literal, cast to type of rhs
+        *LHS = Builder.CreateIntCast(*LHS, T_RHS, IsSignedType(T_RHS));
+    } else if ((*RHS)->getValueID() == llvm::Value::ValueTy::ConstantIntVal) {
+        // rhs is literal, cast to type of lhs
+        *RHS = Builder.CreateIntCast(*RHS, T_LHS, IsSignedType(T_LHS));
+    } else {
+        return false;
+    }
+    return true;
+}
+
+
 
 bool IRGenerator::TypecheckAndApplyTrivialCastIfPossible(llvm::Value **V, llvm::Type *DestType) {
     auto SrcTy = (*V)->getType();
@@ -269,7 +398,7 @@ bool IRGenerator::TypecheckAndApplyTrivialCastIfPossible(llvm::Value **V, llvm::
     if (SrcTy == DestType) return true;
     
     if (DestType->isIntegerTy() && (*V)->getValueID() == llvm::Value::ValueTy::ConstantIntVal) {
-        *V = Builder.CreateIntCast(*V, DestType, true); // TODO add support for signed/unsigned types
+        *V = Builder.CreateIntCast(*V, DestType, IsSignedType(DestType)); // TODO add support for signed/unsigned types
         return true;
     }
     return false;
