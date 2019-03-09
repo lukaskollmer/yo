@@ -146,6 +146,7 @@ std::string to_string(T arg) {
     } else if constexpr(std::is_same_v<T, LogicalOperation::Operation>) {
         return LogicalOperationOperatorToString(arg);
     } else if constexpr(std::is_convertible_v<T, std::shared_ptr<Node>>) {
+        if (!arg) return "<nullptr>";
         return arg->Description();
     } else if constexpr(util::typeinfo::is_vector_of_convertible_v<T, std::shared_ptr<Node>>) {
         return ast_description(arg);
