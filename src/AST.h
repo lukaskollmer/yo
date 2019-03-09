@@ -155,6 +155,14 @@ public:
 };
 
 
+class Assignment : public LocalStmt {
+public:
+    std::shared_ptr<Expr> Target;
+    std::shared_ptr<Expr> Value;
+    
+    Assignment(std::shared_ptr<Expr> Target, std::shared_ptr<Expr> Value) : LocalStmt(NodeKind::Node), Target(Target), Value(Value) {}
+};
+
 
 
 class IfStmt : public LocalStmt {

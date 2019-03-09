@@ -120,6 +120,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LocalStmt> LocalStmt) {
     HANDLE(LocalStmt, FunctionCall)
     HANDLE(LocalStmt, VariableDecl)
     HANDLE(LocalStmt, IfStmt)
+    HANDLE(LocalStmt, Assignment)
     
     unhandled_node(LocalStmt);
 }
@@ -170,6 +171,11 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
 }
 
 
+
+
+
+
+#pragma mark - Local Statements
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::VariableDecl> Decl) {
@@ -248,10 +254,27 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ReturnStmt> ReturnStmt) {
 }
 
 
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> Assignment) {
+    if (auto Ident = std::dynamic_pointer_cast<ast::Identifier>(Assignment->Target)) {
+        auto Binding = Scope.GetBinding(Ident->Value);
+        if (!Binding) throw;
+        
+        Binding->Write(Codegen(Assignment->Value));
+    }
+    
+    
+    // TODO should assignments return something?
+    return nullptr;
+}
 
 
 
 
+
+
+
+
+#pragma mark - Expressions
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> Number) {

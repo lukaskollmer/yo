@@ -12,8 +12,75 @@
 
 using namespace ast;
 
-
 using TK = Token::TokenKind;
+
+#pragma mark - Parser Utils
+
+class TokenSet {
+    std::vector<TK> Tokens;
+    
+public:
+    TokenSet(std::initializer_list<TK> Tokens) : Tokens(Tokens) {}
+    
+    bool Contains(TK Token) {
+        return util::vector::contains(Tokens, Token);
+    }
+};
+
+
+template <typename T>
+class MappedTokenSet {
+    std::map<TK, T> Mapping;
+    
+public:
+    MappedTokenSet(std::initializer_list<std::pair<TK, T>> Mapping) {
+        for (auto &Pair : Mapping) {
+            this->Mapping.insert(Pair);
+        }
+    }
+    
+    bool Contains(TK Token) {
+        return Mapping.find(Token) != Mapping.end();
+    }
+    
+    T &operator [](TK Token) {
+        return Mapping.at(Token);
+    }
+};
+
+
+
+#pragma mark - Token Collections
+
+// The initial tokens of all binary operators (binops, comparisons, etc)
+static TokenSet BinaryOperatorStartTokens = {
+    TK::Plus, TK::Minus, TK::Asterisk, TK::ForwardSlash, TK::PercentageSign,
+    TK::Ampersand, TK::Pipe, TK::Circumflex, TK::LessThanSign, TK::GreaterSign,
+    TK::EqualsSign, TK::ExclamationMark
+};
+
+
+
+static MappedTokenSet<ast::BinaryOperation::Operation> SingleTokenBinopOperatorTokenMapping = {
+    { TK::Plus,           BinaryOperation::Operation::Add },
+    { TK::Minus,          BinaryOperation::Operation::Sub },
+    { TK::Asterisk,       BinaryOperation::Operation::Mul },
+    { TK::ForwardSlash,   BinaryOperation::Operation::Div },
+    { TK::PercentageSign, BinaryOperation::Operation::Mod },
+    { TK::Ampersand,      BinaryOperation::Operation::And },
+    { TK::Pipe,           BinaryOperation::Operation::Or  },
+    { TK::Circumflex,     BinaryOperation::Operation::Xor }
+};
+
+
+
+
+
+
+
+
+
+#pragma mark - Parser
 
 
 #define save_pos(name) auto name = Position;
@@ -157,18 +224,40 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
         return ParseIfStmt();
     }
     
-    if (CurrentTokenKind() == TK::Identifier && PeekKind(1) == TK::OpeningParens) {
+    std::shared_ptr<LocalStmt> S;
+    std::shared_ptr<Expr> E; // A partially-parsed part of a local statement
+    
+    if (auto Ident = ParseIdentifier()) {
+        E = Ident;
+    }
+    
+    if (std::dynamic_pointer_cast<Identifier>(E) && CurrentTokenKind() == TK::OpeningParens) {
         // Function Call
-        auto Target = ParseIdentifier();
+        auto Target = E;
         assert_current_token_and_consume(TK::OpeningParens);
         
         auto Arguments = ParseExpressionList(TK::ClosingParens);
         assert_current_token_and_consume(TK::ClosingParens);
         
-        if (CurrentTokenKind() == TK::Semicolon) {
-            Consume();
-            return std::make_shared<FunctionCall>(Target, Arguments, true);
+        S = std::make_shared<FunctionCall>(Target, Arguments, true);
+        E = nullptr;
+    }
+    
+    if (BinaryOperatorStartTokens.Contains(CurrentTokenKind())) {
+        if (auto Op = ParseBinopOperator()) {
+            assert_current_token_and_consume(TK::EqualsSign);
+            
+            auto Value = std::make_shared<BinaryOperation>(*Op, E, ParseExpression());
+            S = std::make_shared<Assignment>(E, Value);
+            goto ret;
         }
+    }
+    
+    
+ret:
+    if (CurrentTokenKind() == TK::Semicolon) {
+        Consume();
+        return S;
     }
     
     unhandled_token(CurrentToken())
@@ -255,68 +344,7 @@ std::shared_ptr<Identifier> Parser::ParseIdentifier() {
     return R;
 }
 
-
-class TokenSet {
-    std::vector<TK> Tokens;
-
-public:
-    TokenSet(std::initializer_list<TK> Tokens) : Tokens(Tokens) {}
-    
-    bool Contains(TK Token) {
-        return util::vector::contains(Tokens, Token);
-    }
-};
-
-
-template <typename T>
-class MappedTokenSet {
-    std::map<TK, T> Mapping;
-    
-public:
-    MappedTokenSet(std::initializer_list<std::pair<TK, T>> Mapping) {
-        for (auto &Pair : Mapping) {
-            this->Mapping.insert(Pair);
-        }
-    }
-    
-    bool Contains(TK Token) {
-        return Mapping.find(Token) != Mapping.end();
-    }
-    
-    T &operator [](TK Token) {
-        return Mapping.at(Token);
-    }
-};
-
-
-static TokenSet BinopOperatorTokens = {
-    TK::Plus, TK::Minus, TK::Asterisk, TK::ForwardSlash, TK::PercentageSign
-};
-
-
-
-
-// The initial tokens of all binary operators (binops, comparisons, etc)
-static TokenSet BinaryOperatorStartTokens = {
-    TK::Plus, TK::Minus, TK::Asterisk, TK::ForwardSlash, TK::PercentageSign,
-    TK::Ampersand, TK::Pipe, TK::Circumflex, TK::LessThanSign, TK::GreaterSign,
-    TK::EqualsSign, TK::ExclamationMark
-};
-
-
-
-
-static MappedTokenSet<ast::BinaryOperation::Operation> SingleTokenBinopOperatorTokenMapping = {
-    { TK::Plus,           BinaryOperation::Operation::Add },
-    { TK::Minus,          BinaryOperation::Operation::Sub },
-    { TK::Asterisk,       BinaryOperation::Operation::Mul },
-    { TK::ForwardSlash,   BinaryOperation::Operation::Div },
-    { TK::PercentageSign, BinaryOperation::Operation::Mod },
-    { TK::Ampersand,      BinaryOperation::Operation::And },
-    { TK::Pipe,           BinaryOperation::Operation::Or  },
-    { TK::Circumflex,     BinaryOperation::Operation::Xor }
-};
-
+        
 std::optional<ast::BinaryOperation::Operation> Parser::ParseBinopOperator() {
     auto T = CurrentTokenKind();
     if (!BinaryOperatorStartTokens.Contains(T)) throw;
