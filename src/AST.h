@@ -42,20 +42,11 @@ protected:
 
 
 
-class TopLevelStmt : public Node {
-protected:
-    //TopLevelStmt() : Node() {}
-};
+class TopLevelStmt : public Node {};
 
-class LocalStmt : public Node {
-protected:
-    //LocalStmt(NodeKind Kind) : Node(Kind) {}
-};
+class LocalStmt : public Node {};
 
-class Expr : public Node {
-protected:
-    //Expr(NodeKind Kind) : Node(Kind) {}
-};
+class Expr : public Node {};
 
 
 
@@ -199,6 +190,7 @@ public:
     FunctionCall(std::shared_ptr<Expr> Target, std::vector<std::shared_ptr<Expr>> Arguments, bool UnusedReturnValue)
     : Target(Target), Arguments(Arguments), UnusedReturnValue(UnusedReturnValue) {}
 };
+
 
 
 
