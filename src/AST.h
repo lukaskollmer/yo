@@ -193,6 +193,14 @@ public:
 
 
 
+class Typecast : public Expr {
+public:
+    std::shared_ptr<Expr> Expression;
+    TypeInfo *DestType;
+    
+    Typecast(std::shared_ptr<Expr> Expression, TypeInfo *DestType) : Expression(Expression), DestType(DestType) {}
+};
+
 
 
 class BinaryOperation : public Expr {

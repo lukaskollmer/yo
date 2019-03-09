@@ -133,6 +133,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr) {
     HANDLE(Expr, FunctionCall)
     HANDLE(Expr, Comparison)
     HANDLE(Expr, LogicalOperation)
+    HANDLE(Expr, Typecast)
     
     unhandled_node(Expr)
 }
@@ -292,6 +293,35 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Identifier> Ident) {
     throw;
 }
 
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Typecast> Cast) {
+    auto V = Codegen(Cast->Expression);
+    
+    auto SrcType = V->getType();
+    auto DestType = GetLLVMType(Cast->DestType);
+    
+    if (SrcType == DestType) return V;
+    
+    llvm::Instruction::CastOps CastOp;
+    
+    if (SrcType->isIntegerTy() && DestType->isIntegerTy()) {
+        if (SrcType->getIntegerBitWidth() > DestType->getIntegerBitWidth()) {
+            // casting to a smaller type
+            CastOp = llvm::Instruction::CastOps::Trunc;
+        } else {
+            // casting to a larger type
+            if (IsSignedType(SrcType)) {
+                CastOp = llvm::Instruction::CastOps::SExt;
+            } else {
+                CastOp = llvm::Instruction::CastOps::ZExt;
+            }
+        }
+    } else {
+        throw;
+    }
+    
+    return Builder.CreateCast(CastOp, V, DestType);
+}
 
 
 

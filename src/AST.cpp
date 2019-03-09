@@ -293,6 +293,13 @@ Mirror Reflect(Assignment *Assignment) {
     };
 }
 
+Mirror Reflect(Typecast *Cast) {
+    return {
+        { "type", Cast->DestType },
+        { "expr", Cast->Expression }
+    };
+}
+
 Mirror Reflect(Node *Node) {
 #define HANDLE(T) if (auto X = dynamic_cast<T*>(Node)) return Reflect(X);
     
@@ -310,6 +317,7 @@ Mirror Reflect(Node *Node) {
     HANDLE(IfStmt)
     HANDLE(IfStmt::Branch)
     HANDLE(Assignment)
+    HANDLE(Typecast)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;

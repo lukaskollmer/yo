@@ -28,6 +28,7 @@ enum class PrecedenceGroup : uint8_t {
     LogicalDisjunction,
     LogicalConjunction,
     Comparison,
+    Casting,
     Addition,
     Multiplication,
     Bitshift,

@@ -523,6 +523,13 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
         }
     }
     
+    if (CurrentTokenKind() == TK::As) {
+        // Typecast
+        Consume();
+        auto Type = ParseType();
+        E = std::make_shared<Typecast>(E, Type);
+    }
+    
     if (ExpressionDelimitingTokens.Contains(CurrentTokenKind())) {
         return E;
     }

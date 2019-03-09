@@ -59,6 +59,7 @@ static std::map<std::string, Token::TokenKind> TokenKindMappings = {
     { "let",    Token::TokenKind::Let    },
     { "if",     Token::TokenKind::If    },
     { "else",   Token::TokenKind::Else    },
+    { "as",     Token::TokenKind::As    },
 };
 
 

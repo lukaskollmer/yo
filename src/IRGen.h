@@ -67,6 +67,7 @@ private:
     llvm::Value *Codegen(std::shared_ptr<ast::Assignment>);
     
     llvm::Value *Codegen(std::shared_ptr<ast::NumberLiteral>);
+    llvm::Value *Codegen(std::shared_ptr<ast::Typecast>);
     llvm::Value *Codegen(std::shared_ptr<ast::BinaryOperation>);
     llvm::Value *Codegen(std::shared_ptr<ast::Identifier>);
     llvm::Value *Codegen(std::shared_ptr<ast::Comparison>);

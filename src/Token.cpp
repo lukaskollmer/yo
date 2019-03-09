@@ -42,6 +42,7 @@ std::string TokenKindToString(Token::TokenKind Kind) {
         CASE(ExclamationMark)
         CASE(If)
         CASE(Else)
+        CASE(As)
     }
 #undef CASE
 }
