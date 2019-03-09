@@ -153,6 +153,10 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
         return ParseVariableDecl();
     }
     
+    if (CurrentTokenKind() == TK::If) {
+        return ParseIfStmt();
+    }
+    
     if (CurrentTokenKind() == TK::Identifier && PeekKind(1) == TK::OpeningParens) {
         // Function Call
         auto Target = ParseIdentifier();
@@ -203,6 +207,44 @@ std::shared_ptr<VariableDecl> Parser::ParseVariableDecl() {
     
     return std::make_shared<VariableDecl>(Identifier, Type, InitialValue);
 }
+
+
+
+std::shared_ptr<IfStmt> Parser::ParseIfStmt() {
+    using Kind = ast::IfStmt::Branch::BranchKind;
+    assert_current_token_and_consume(TK::If);
+    
+    std::vector<std::shared_ptr<IfStmt::Branch>> Branches;
+    
+    auto MainExpr = ParseExpression();
+    assert_current_token(TK::OpeningCurlyBraces);
+    
+    Branches.push_back(std::make_shared<IfStmt::Branch>(Kind::If,
+                                                        MainExpr,
+                                                        ParseComposite()));
+    
+    while (CurrentTokenKind() == TK::Else && PeekKind() == TK::If) {
+        Consume(2);
+        auto Expr = ParseExpression();
+        assert_current_token(TK::OpeningCurlyBraces);
+        auto Body = ParseComposite();
+        Branches.push_back(std::make_shared<IfStmt::Branch>(Kind::ElseIf, Expr, Body));
+    }
+    
+    if (CurrentTokenKind() == TK::Else && PeekKind() == TK::OpeningCurlyBraces) {
+        Consume();
+        Branches.push_back(std::make_shared<IfStmt::Branch>(Kind::Else, nullptr, ParseComposite()));
+    }
+    
+    return std::make_shared<IfStmt>(Branches);
+}
+
+
+
+
+#pragma mark - Expressions
+
+
 
 
 
@@ -385,7 +427,7 @@ PrecedenceGroup GetOperatorPrecedenceGroup(ast::LogicalOperation::Operation Op) 
 
 // Tokens that, if they appear on their own, mark the end of an expression
 static TokenSet ExpressionDelimitingTokens = {
-    TK::ClosingParens, TK::Semicolon, TK::Comma,
+    TK::ClosingParens, TK::Semicolon, TK::Comma, TK::OpeningCurlyBraces
 };
 
 

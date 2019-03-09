@@ -88,6 +88,10 @@ namespace util::typeinfo {
     template <typename T>
     inline constexpr bool is_vector_v = is_vector<T>::value;
     
+    // True if `T` is an `std::vector<U>`
+    template <typename T, typename U>
+    inline constexpr bool is_vector_of_v = is_vector_v<T> && std::is_same_v<typename T::value_type, U>;
+    
     // True if `T` is an `std::vector` of elements convertible to `U`
     template <typename T, typename U>
     inline constexpr bool is_vector_of_convertible_v = std::is_same<T, std::vector<typename T::value_type, typename T::allocator_type>>::value && std::is_convertible<typename T::value_type, U>::value;

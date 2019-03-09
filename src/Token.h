@@ -38,6 +38,7 @@ public:
         // Keywords
         Fn, Extern,
         Let, Return,
+        If, Else,
     };
     
     union TokenData {

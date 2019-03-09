@@ -119,6 +119,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LocalStmt> LocalStmt) {
     HANDLE(LocalStmt, Composite)
     HANDLE(LocalStmt, FunctionCall)
     HANDLE(LocalStmt, VariableDecl)
+    HANDLE(LocalStmt, IfStmt)
     
     unhandled_node(LocalStmt);
 }
@@ -428,6 +429,69 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LogicalOperation> LogOp) 
 
 
 
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
+    auto F = Builder.GetInsertBlock()->getParent();
+    
+    
+    std::vector<BasicBlock *> BranchBodyBlocks;
+    for (auto I = 0; I < If->Branches.size(); I++) {
+        auto Name = Twine(F->getName()).concat("_if_body").concat(Twine(I));
+        BranchBodyBlocks.push_back(BasicBlock::Create(C, Name));
+    }
+    
+    
+    
+    // The entry points to each branch's condition
+    // Note that if the last branch is a conditionless else branch, this points directly to the branch body
+    std::vector<BasicBlock *> BranchConditionBlocks;
+    
+    for (auto I = 0; I < If->Branches.size(); I++) {
+        if (If->Branches[I]->Kind == ast::IfStmt::Branch::BranchKind::Else) break;
+        auto Name = Twine(F->getName()).concat("_if_cond_").concat(Twine(I));
+        BranchConditionBlocks.push_back(BasicBlock::Create(C, Name));
+    }
+    
+    BranchConditionBlocks.push_back(BranchBodyBlocks.back());
+    
+    for (auto I = 0; I < If->Branches.size(); I++) {
+        if (If->Branches[I]->Kind == ast::IfStmt::Branch::BranchKind::Else) break;
+        if (I > 0) {
+            auto BB = BranchConditionBlocks[I];
+            F->getBasicBlockList().push_back(BB);
+            Builder.SetInsertPoint(BB);
+        }
+        
+        auto Cond = If->Branches[I]->Condition;
+        auto CondV = Codegen(Cond);
+        Builder.CreateCondBr(CondV, BranchBodyBlocks[I], BranchConditionBlocks[I + 1]);
+    }
+    
+    std::vector<Value *> BranchValues;
+    auto MergeBB = BasicBlock::Create(C, "merge");
+    
+    for (auto I = 0; I < If->Branches.size(); I++) {
+        auto BB = BranchBodyBlocks[I];
+        F->getBasicBlockList().push_back(BB);
+        Builder.SetInsertPoint(BB);
+        
+        BranchValues.push_back(Codegen(If->Branches[I]->Body));
+        Builder.CreateBr(MergeBB);
+        BranchBodyBlocks[I] = Builder.GetInsertBlock();
+    }
+    
+    F->getBasicBlockList().push_back(MergeBB);
+    Builder.SetInsertPoint(MergeBB);
+    
+    // the result of the phi instruction is currently unused, might be useful though in the future
+    auto PHI = Builder.CreatePHI(i8, If->Branches.size());
+    
+    for (auto I = 0; I < If->Branches.size(); I++) {
+        PHI->addIncoming(BranchValues[I], BranchBodyBlocks[I]);
+    }
+    return PHI;
+}
 
 
 

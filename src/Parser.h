@@ -103,6 +103,8 @@ private:
     std::shared_ptr<ast::ReturnStmt> ParseReturnStmt();
     std::shared_ptr<ast::VariableDecl> ParseVariableDecl();
     
+    std::shared_ptr<ast::IfStmt> ParseIfStmt();
+    
     std::shared_ptr<ast::Expr> ParseExpression(PrecedenceGroup CurrentPrecedenceGroup = PrecedenceGroup::Initial);
     std::vector<std::shared_ptr<ast::Expr>> ParseExpressionList(Token::TokenKind Delimiter);
     std::shared_ptr<ast::Identifier> ParseIdentifier();

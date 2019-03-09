@@ -67,31 +67,43 @@ std::string LogicalOperationOperatorToString(LogicalOperation::Operation Op) {
     }
 }
 
-std::string NodeKindToString(Node::NodeKind Kind) {
-#define CASE(x) case K::x: return "ast::"#x;
-    using K = Node::NodeKind;
+
+std::string IfStmtBranchKindToString(IfStmt::Branch::BranchKind Kind) {
     switch (Kind) {
-    case K::Node:
-    case K::Expr:
-    case K::Stmt:
-    case K::TopLevelStmt:
-        throw;
-    CASE(LocalStmt)
-    CASE(FunctionDecl)
-    CASE(ReturnStmt)
-    CASE(Composite)
-    CASE(VariableDecl)
-    CASE(NumberLiteral)
-    CASE(StringLiteral)
-    CASE(ArrayLiteral)
-    CASE(Identifier)
-    CASE(ExternFunctionDecl)
-    CASE(FunctionCall)
-    CASE(BinaryOperation)
-    CASE(Comparison)
+        case ast::IfStmt::Branch::BranchKind::If:     return "if";
+        case ast::IfStmt::Branch::BranchKind::ElseIf: return "else if";
+        case ast::IfStmt::Branch::BranchKind::Else:   return "else";
     }
-#undef CASE
 }
+
+
+//
+//std::string NodeKindToString(Node::NodeKind Kind) {
+//#define CASE(x) case K::x: return "ast::"#x;
+//    using K = Node::NodeKind;
+//    switch (Kind) {
+//    case K::Node:
+//    case K::Expr:
+//    case K::Stmt:
+//    case K::TopLevelStmt:
+//        throw;
+//    CASE(LocalStmt)
+//    CASE(FunctionDecl)
+//    CASE(ReturnStmt)
+//    CASE(Composite)
+//    CASE(VariableDecl)
+//    CASE(NumberLiteral)
+//    CASE(StringLiteral)
+//    CASE(ArrayLiteral)
+//    CASE(Identifier)
+//    CASE(ExternFunctionDecl)
+//    CASE(FunctionCall)
+//    CASE(BinaryOperation)
+//    CASE(Comparison)
+//            CASE(Log)
+//    }
+//#undef CASE
+//}
 
 
 
@@ -145,6 +157,8 @@ std::string to_string(T arg) {
         return ComparisonOpToString(arg);
     } else if constexpr(std::is_same_v<T, LogicalOperation::Operation>) {
         return LogicalOperationOperatorToString(arg);
+    } else if constexpr(std::is_same_v<T, IfStmt::Branch::BranchKind>) {
+        return IfStmtBranchKindToString(arg);
     } else if constexpr(std::is_convertible_v<T, std::shared_ptr<Node>>) {
         if (!arg) return "<nullptr>";
         return arg->Description();
@@ -258,6 +272,20 @@ Mirror Reflect(LogicalOperation *LogOp) {
     };
 }
 
+Mirror Reflect(IfStmt *If) {
+    return {
+        { "branches", If->Branches }
+    };
+}
+
+Mirror Reflect(IfStmt::Branch *Branch) {
+    return {
+        { "kind", Branch->Kind },
+        { "condition", Branch->Condition },
+        { "body", Branch->Body },
+    };
+}
+
 Mirror Reflect(Node *Node) {
 #define HANDLE(T) if (auto X = dynamic_cast<T*>(Node)) return Reflect(X);
     
@@ -272,6 +300,8 @@ Mirror Reflect(Node *Node) {
     HANDLE(VariableDecl)
     HANDLE(Comparison)
     HANDLE(LogicalOperation)
+    HANDLE(IfStmt)
+    HANDLE(IfStmt::Branch)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;

@@ -33,6 +33,7 @@ class Composite;
 
 class Node {
 public:
+    // TODO is this actually used/necessary?
     enum class NodeKind {
         // Categories
         Node, Expr, Stmt, TopLevelStmt, LocalStmt,
@@ -42,6 +43,7 @@ public:
         
         // Local Statements
         ReturnStmt, Composite, VariableDecl,
+        IfStmt, IfBranch,
         
         // Literals
         NumberLiteral, StringLiteral, ArrayLiteral,
@@ -151,6 +153,32 @@ public:
     VariableDecl(std::shared_ptr<Identifier> Name, TypeInfo *Type, std::shared_ptr<Expr> InitialValue = nullptr)
     : LocalStmt(NodeKind::VariableDecl), Name(Name), Type(Type), InitialValue(InitialValue) {}
 };
+
+
+
+
+class IfStmt : public LocalStmt {
+public:
+    class Branch : public Node { // Sole purpose of making this inherit from Node is simplifying ast dumping
+    public:
+        enum class BranchKind {
+            If, ElseIf, Else
+        };
+        
+        BranchKind Kind;
+        std::shared_ptr<Expr> Condition; // nullptr if Kind == BranchKind::Else
+        std::shared_ptr<Composite> Body;
+        
+        Branch(BranchKind Kind, std::shared_ptr<Expr> Condition, std::shared_ptr<Composite> Body)
+        : Node(NodeKind::IfBranch), Kind(Kind), Condition(Condition), Body(Body) {}
+    };
+    
+    std::vector<std::shared_ptr<Branch>> Branches;
+    
+    IfStmt(std::vector<std::shared_ptr<Branch>> Branches) : LocalStmt(NodeKind::IfStmt), Branches(Branches) {}
+};
+
+
 
 
 
