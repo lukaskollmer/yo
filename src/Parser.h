@@ -11,6 +11,7 @@
 #include <memory>
 #include <vector>
 #include <initializer_list>
+#include <optional>
 
 #include "TypeInfo.h"
 #include "Token.h"
@@ -24,8 +25,9 @@
 enum class PrecedenceGroup : uint8_t {
     Initial = 0,
     
-    
-    // Casting,
+    LogicalDisjunction,
+    LogicalConjunction,
+    Comparison,
     Addition,
     Multiplication,
     Bitshift,
@@ -101,14 +103,16 @@ private:
     std::shared_ptr<ast::ReturnStmt> ParseReturnStmt();
     std::shared_ptr<ast::VariableDecl> ParseVariableDecl();
     
-    std::shared_ptr<ast::Expr> ParseExpression(std::shared_ptr<ast::Expr> Context = nullptr, PrecedenceGroup CurrentPrecedenceGroup = PrecedenceGroup::Initial);
+    std::shared_ptr<ast::Expr> ParseExpression(PrecedenceGroup CurrentPrecedenceGroup = PrecedenceGroup::Initial);
     std::vector<std::shared_ptr<ast::Expr>> ParseExpressionList(Token::TokenKind Delimiter);
     std::shared_ptr<ast::Identifier> ParseIdentifier();
     
     
     std::shared_ptr<ast::NumberLiteral> ParseNumberLiteral();
     
-    
-    // NOTE: this only pars
-    ast::BinaryOperation::Operation ParseBinopOperator();
+    // Why do these return optional?
+    // Binop and Comparison operators can have the same initial token (ie, << and <, or & and &&)
+    std::optional<ast::BinaryOperation::Operation> ParseBinopOperator();
+    std::optional<ast::Comparison::Operation> ParseComparisonOperator();
+    std::optional<ast::LogicalOperation::Operation> ParseLogicalOperationOperator();
 };

@@ -28,7 +28,6 @@
 int main(int argc, const char * argv[], const char *const *envp) {
     //cl::Init(argc, argv);
     
-    
     std::ifstream File("/Users/lukas/Developer/yo/temp/program.yo");
     std::ostringstream Contents;
     Contents << File.rdbuf();
@@ -43,7 +42,7 @@ int main(int argc, const char * argv[], const char *const *envp) {
     auto Ast = P.Parse(Tokens);
     
     
-    //std::cout << ast::Description(Ast) << std::endl;
+    std::cout << ast::Description(Ast) << std::endl;
     
     irgen::IRGenerator Codegen("main");
     Codegen.Codegen(Ast);

@@ -254,10 +254,11 @@ static TokenSet BinopOperatorTokens = {
 
 
 
-// The initial tokens of all binop operators
-static TokenSet BinopOperatorStartTokens = {
+// The initial tokens of all binary operators (binops, comparisons, etc)
+static TokenSet BinaryOperatorStartTokens = {
     TK::Plus, TK::Minus, TK::Asterisk, TK::ForwardSlash, TK::PercentageSign,
-    TK::Ampersand, TK::Pipe, TK::Circumflex, TK::LessThanSign, TK::GreaterSign
+    TK::Ampersand, TK::Pipe, TK::Circumflex, TK::LessThanSign, TK::GreaterSign,
+    TK::EqualsSign, TK::ExclamationMark
 };
 
 
@@ -274,10 +275,9 @@ static MappedTokenSet<ast::BinaryOperation::Operation> SingleTokenBinopOperatorT
     { TK::Circumflex,     BinaryOperation::Operation::Xor }
 };
 
-
-ast::BinaryOperation::Operation Parser::ParseBinopOperator() {
+std::optional<ast::BinaryOperation::Operation> Parser::ParseBinopOperator() {
     auto T = CurrentTokenKind();
-    if (!BinopOperatorStartTokens.Contains(T)) throw;
+    if (!BinaryOperatorStartTokens.Contains(T)) throw;
     
     if (SingleTokenBinopOperatorTokenMapping.Contains(T)) {
         Consume();
@@ -294,12 +294,61 @@ ast::BinaryOperation::Operation Parser::ParseBinopOperator() {
         return BinaryOperation::Operation::Shr;
     }
     
-    // should never reach here
-    throw;
+    return std::nullopt;
 }
 
 
+std::optional<ast::Comparison::Operation> Parser::ParseComparisonOperator() {
+    using Op = ast::Comparison::Operation;
+    
+    auto Token = CurrentTokenKind();
+    if (!BinaryOperatorStartTokens.Contains(Token)) throw;
+    
+    auto Next = PeekKind();
+    
+    if (Token == TK::EqualsSign && Next == TK::EqualsSign) {
+        Consume(2); return Op::EQ;
+    }
+    
+    if (Token == TK::ExclamationMark && Next == TK::EqualsSign) {
+        Consume(2); return Op::NE;
+    }
+    
+    if (Token == TK::LessThanSign && Next == TK::EqualsSign) {
+        Consume(2); return Op::LE;
+    }
+    
+    if (Token == TK::LessThanSign) {
+        Consume(); return Op::LT;
+    }
+    
+    if (Token == TK::GreaterSign && Next == TK::EqualsSign) {
+        Consume(2); return Op::GE;
+    }
+    
+    if (Token == TK::GreaterSign) {
+        Consume(); return Op::GT;
+    }
+    
+    return std::nullopt;
+}
 
+
+std::optional<ast::LogicalOperation::Operation> Parser::ParseLogicalOperationOperator() {
+    auto Token = CurrentTokenKind();
+    if (!BinaryOperatorStartTokens.Contains(Token)) throw;
+    
+    auto Next = PeekKind();
+    
+    if (Token == TK::Ampersand && Next == TK::Ampersand) {
+        Consume(2); return ast::LogicalOperation::Operation::And;
+    }
+    if (Token == TK::Pipe && Next == TK::Pipe) {
+        Consume(2); return ast::LogicalOperation::Operation::Or;
+    }
+    
+    return std::nullopt;
+}
 
 
 PrecedenceGroup GetOperatorPrecedenceGroup(BinaryOperation::Operation Op) {
@@ -318,11 +367,20 @@ PrecedenceGroup GetOperatorPrecedenceGroup(BinaryOperation::Operation Op) {
     case BinaryOperation::Operation::Shr:
         return PrecedenceGroup::Bitshift;
     }
-    
     throw;
 }
 
 
+PrecedenceGroup GetOperatorPrecedenceGroup(ast::Comparison::Operation) {
+    return PrecedenceGroup::Comparison;
+}
+
+PrecedenceGroup GetOperatorPrecedenceGroup(ast::LogicalOperation::Operation Op) {
+    switch (Op) {
+        case LogicalOperation::Operation::And: return PrecedenceGroup::LogicalConjunction;
+        case LogicalOperation::Operation::Or:  return PrecedenceGroup::LogicalDisjunction;
+    }
+}
 
 
 // Tokens that, if they appear on their own, mark the end of an expression
@@ -331,7 +389,7 @@ static TokenSet ExpressionDelimitingTokens = {
 };
 
 
-std::shared_ptr<Expr> Parser::ParseExpression(std::shared_ptr<Expr> Context, PrecedenceGroup PrecedenceGroupConstraint) {
+std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupConstraint) {
     std::shared_ptr<Expr> E;
     
     if (CurrentTokenKind() == TK::OpeningParens) {
@@ -355,17 +413,43 @@ std::shared_ptr<Expr> Parser::ParseExpression(std::shared_ptr<Expr> Context, Pre
         E = std::make_shared<FunctionCall>(E, Arguments, false);
     }
     
-    while (BinopOperatorStartTokens.Contains(CurrentTokenKind())) {
+    while (BinaryOperatorStartTokens.Contains(CurrentTokenKind())) {
         save_pos(fallback)
-        auto Op = ParseBinopOperator();
-        auto Op_Precedence = GetOperatorPrecedenceGroup(Op);
         
-        if (Op_Precedence > PrecedenceGroupConstraint) {
-            auto RHS = ParseExpression(nullptr, Op_Precedence);
-            E = std::make_shared<BinaryOperation>(Op, E, RHS);
+        // Since there are multitple binary operators starting with the same initial token (`|` vs `||`, `<` vs `<<`, etc),
+        // it's important we parse the different kinds of binary operators in the correct order
+        
+        if (auto Op = ParseLogicalOperationOperator()) {
+            std::cout << E->Description() << std::endl;
+            auto Op_Precedence = GetOperatorPrecedenceGroup(*Op);
+            
+            if (Op_Precedence > PrecedenceGroupConstraint) {
+                auto RHS = ParseExpression(Op_Precedence);
+                E = std::make_shared<LogicalOperation>(*Op, E, RHS);
+            } else {
+                restore_pos(fallback);
+                return E;
+            }
+        
+        } else if (auto Op = ParseBinopOperator()) {
+            auto Op_Precedence = GetOperatorPrecedenceGroup(*Op);
+            
+            if (Op_Precedence > PrecedenceGroupConstraint) {
+                auto RHS = ParseExpression(Op_Precedence);
+                E = std::make_shared<BinaryOperation>(*Op, E, RHS);
+            } else {
+                restore_pos(fallback)
+                return E;
+            }
+        
+        } else if (auto Op = ParseComparisonOperator()) {
+            auto RHS = ParseExpression(PrecedenceGroup::Comparison);
+            // TODO: do we have to take the predecence group constraint into account?
+            E = std::make_shared<Comparison>(*Op, E, RHS);
+        
         } else {
-            restore_pos(fallback)
-            return E;
+            // We reach here if the current token is a binary operator starting token, but we didn't manage to parse a binop or a comparison
+            throw;
         }
     }
     

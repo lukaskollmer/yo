@@ -13,10 +13,12 @@
 #include "llvm/Support/TargetRegistry.h"
 
 
-extern "C"
-int printi(int x) {
+extern "C" void printi(int x) {
     printf("%i\n", x);
-    return 0;
+}
+
+extern "C" void printb(bool x) {
+    printf("%i\n", x);
 }
 
 

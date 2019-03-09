@@ -129,6 +129,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr) {
     HANDLE(Expr, BinaryOperation)
     HANDLE(Expr, Identifier)
     HANDLE(Expr, FunctionCall)
+    HANDLE(Expr, Comparison)
+    HANDLE(Expr, LogicalOperation)
     
     unhandled_node(Expr)
 }
@@ -371,10 +373,56 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call) {
 
 
 
+#pragma mark - Conditions
+
+
+llvm::CmpInst::Predicate GetMatchingLLVMCmpInstPredicateForComparisonOperator(ast::Comparison::Operation Op) {
+    using Operation = ast::Comparison::Operation;
+    using Predicate = llvm::CmpInst::Predicate;
+    
+    switch (Op) {
+        case ast::Comparison::Operation::EQ: return Predicate::ICMP_EQ;
+        case ast::Comparison::Operation::NE: return Predicate::ICMP_NE;
+        case ast::Comparison::Operation::LT: return Predicate::ICMP_SLT; // TODO differentiate between signed and unsigned
+        case ast::Comparison::Operation::LE: return Predicate::ICMP_SLE;
+        case ast::Comparison::Operation::GT: return Predicate::ICMP_SGT;
+        case ast::Comparison::Operation::GE: return Predicate::ICMP_SGE;
+    }
+}
 
 
 
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Comparison> Comparison) {
+    auto LHS = Codegen(Comparison->LHS);
+    auto RHS = Codegen(Comparison->RHS);
+    
+    assert(LHS->getType()->isIntegerTy());
+    
+    // TODO signed/unsigned types
+    //assert_implication(IsSignedType(LHS->getType()), IsSignedType(RHS->getType()));
+    
+    if (!Binop_AttemptToResolvePotentialIntTypeMismatchesByCastingNumberLiteralsIfPossible(&LHS, &RHS)) {
+        outs() << "Type mismatch: Unable to compare incompatible types '" << LHS->getType() << "' and '" << RHS->getType() << "'\n";
+        throw;
+    }
+    
+    auto Pred = GetMatchingLLVMCmpInstPredicateForComparisonOperator(Comparison->Op);
+    return Builder.CreateICmp(Pred, LHS, RHS);
+}
 
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LogicalOperation> LogOp) {
+    auto LHS = Codegen(LogOp->LHS);
+    auto RHS = Codegen(LogOp->RHS);
+    
+    assert(LHS->getType() == Bool && RHS->getType() == Bool);
+    
+    auto Op = LogOp->Op == ast::LogicalOperation::Operation::And
+        ? llvm::Instruction::BinaryOps::And
+        : llvm::Instruction::BinaryOps::Or;
+    
+    return Builder.CreateBinOp(Op, LHS, RHS);
+}
 
 
 

@@ -39,6 +39,7 @@ std::string TokenKindToString(Token::TokenKind Kind) {
         CASE(Let)
         CASE(Ampersand)
         CASE(Pipe)
+        CASE(ExclamationMark)
     }
 #undef CASE
 }

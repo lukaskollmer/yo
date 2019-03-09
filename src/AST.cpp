@@ -48,6 +48,25 @@ std::string BinopOperationToString(BinaryOperation::Operation Op) {
 }
 
 
+std::string ComparisonOpToString(Comparison::Operation Op) {
+    switch (Op) {
+    case ast::Comparison::Operation::EQ: return  "eq";
+    case ast::Comparison::Operation::NE: return  "ne";
+    case ast::Comparison::Operation::LT: return  "lt";
+    case ast::Comparison::Operation::LE: return  "le";
+    case ast::Comparison::Operation::GT: return  "gt";
+    case ast::Comparison::Operation::GE: return  "ge";
+    }
+}
+
+
+std::string LogicalOperationOperatorToString(LogicalOperation::Operation Op) {
+    switch (Op) {
+        case LogicalOperation::Operation::And: return "and";
+        case LogicalOperation::Operation::Or:  return "or";
+    }
+}
+
 std::string NodeKindToString(Node::NodeKind Kind) {
 #define CASE(x) case K::x: return "ast::"#x;
     using K = Node::NodeKind;
@@ -69,6 +88,7 @@ std::string NodeKindToString(Node::NodeKind Kind) {
     CASE(ExternFunctionDecl)
     CASE(FunctionCall)
     CASE(BinaryOperation)
+    CASE(Comparison)
     }
 #undef CASE
 }
@@ -121,6 +141,10 @@ std::string to_string(T arg) {
         return FunctionKindToString(arg);
     } else if constexpr(std::is_same_v<T, BinaryOperation::Operation>) {
         return BinopOperationToString(arg);
+    } else if constexpr(std::is_same_v<T, Comparison::Operation>) {
+        return ComparisonOpToString(arg);
+    } else if constexpr(std::is_same_v<T, LogicalOperation::Operation>) {
+        return LogicalOperationOperatorToString(arg);
     } else if constexpr(std::is_convertible_v<T, std::shared_ptr<Node>>) {
         return arg->Description();
     } else if constexpr(util::typeinfo::is_vector_of_convertible_v<T, std::shared_ptr<Node>>) {
@@ -217,6 +241,22 @@ Mirror Reflect(VariableDecl *Decl) {
     };
 }
 
+Mirror Reflect(Comparison *Comp) {
+    return {
+        { "op", Comp->Op },
+        { "lhs", Comp->LHS },
+        { "rhs", Comp->RHS }
+    };
+}
+
+Mirror Reflect(LogicalOperation *LogOp) {
+    return {
+        { "op", LogOp->Op },
+        { "lhs", LogOp->LHS },
+        { "rhs", LogOp->RHS }
+    };
+}
+
 Mirror Reflect(Node *Node) {
 #define HANDLE(T) if (auto X = dynamic_cast<T*>(Node)) return Reflect(X);
     
@@ -229,6 +269,8 @@ Mirror Reflect(Node *Node) {
     HANDLE(Identifier)
     HANDLE(BinaryOperation)
     HANDLE(VariableDecl)
+    HANDLE(Comparison)
+    HANDLE(LogicalOperation)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;

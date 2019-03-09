@@ -49,6 +49,9 @@ public:
         // Expressions
         Identifier, FunctionCall, BinaryOperation,
         
+        // Expressions that evaluate to bools
+        Comparison, LogicalOperation,
+        
     };
     
     const NodeKind _Kind;
@@ -203,5 +206,35 @@ public:
     BinaryOperation(Operation Op, std::shared_ptr<Expr> LHS, std::shared_ptr<Expr> RHS) : Expr(NodeKind::BinaryOperation), Op(Op), LHS(LHS), RHS(RHS) {}
 };
 
+
+
+class Comparison : public Expr {
+public:
+    enum class Operation {
+        EQ, NE, // == / !=
+        LT, LE, // > \ >=
+        GT, GE  // < \ <=
+    };
+    
+    Operation Op;
+    std::shared_ptr<Expr> LHS;
+    std::shared_ptr<Expr> RHS;
+    
+    Comparison(Operation Op, std::shared_ptr<Expr> LHS, std::shared_ptr<Expr> RHS) : Expr(NodeKind::Comparison), Op(Op), LHS(LHS), RHS(RHS) {}
+};
+
+
+class LogicalOperation : public Expr {
+public:
+    enum class Operation {
+        And, Or
+    };
+    
+    Operation Op;
+    std::shared_ptr<Expr> LHS;
+    std::shared_ptr<Expr> RHS;
+    
+    LogicalOperation(Operation Op, std::shared_ptr<Expr> LHS, std::shared_ptr<Expr> RHS) : Expr(NodeKind::LogicalOperation), Op(Op), LHS(LHS), RHS(RHS) {}
+};
 
 NS_END

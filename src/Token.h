@@ -30,7 +30,7 @@ public:
         ClosingParens,
         OpeningCurlyBraces,
         ClosingCurlyBraces,
-        Comma, Colon, Semicolon, EqualsSign,
+        Comma, Colon, Semicolon, EqualsSign, ExclamationMark,
         
         Asterisk, Plus, Minus, ForwardSlash, PercentageSign,
         Ampersand, Pipe, Circumflex, LessThanSign, GreaterSign,

@@ -43,7 +43,8 @@ void _LKFatalError_imp(const char *funcname, int line, const char *format, ...);
 
 
 
-#define assert_implication(x, y) { if (!( !(x) || (y) )) throw; }
+//#define assert_implication(x, y) { if (!( !(x) || (y) )) throw; }
+#define assert_implication(x, y) assert(!(x) || (y))
 
 
 
