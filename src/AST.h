@@ -33,35 +33,10 @@ class Composite;
 
 class Node {
 public:
-    // TODO is this actually used/necessary?
-    enum class NodeKind {
-        // Categories
-        Node, Expr, Stmt, TopLevelStmt, LocalStmt,
-        
-        // Top Level Statements
-        FunctionDecl, ExternFunctionDecl,
-        
-        // Local Statements
-        ReturnStmt, Composite, VariableDecl,
-        IfStmt, IfBranch,
-        
-        // Literals
-        NumberLiteral, StringLiteral, ArrayLiteral,
-        
-        // Expressions
-        Identifier, FunctionCall, BinaryOperation,
-        
-        // Expressions that evaluate to bools
-        Comparison, LogicalOperation,
-        
-    };
-    
-    const NodeKind _Kind;
-    
     virtual std::string Description();
     
 protected:
-    Node(NodeKind Kind) : _Kind(Kind) {}
+    Node() {}
     virtual ~Node() = default;
 };
 
@@ -69,17 +44,17 @@ protected:
 
 class TopLevelStmt : public Node {
 protected:
-    TopLevelStmt(NodeKind Kind) : Node(Kind) {}
+    //TopLevelStmt() : Node() {}
 };
 
 class LocalStmt : public Node {
 protected:
-    LocalStmt(NodeKind Kind) : Node(Kind) {}
+    //LocalStmt(NodeKind Kind) : Node(Kind) {}
 };
 
 class Expr : public Node {
 protected:
-    Expr(NodeKind Kind) : Node(Kind) {}
+    //Expr(NodeKind Kind) : Node(Kind) {}
 };
 
 
@@ -111,13 +86,13 @@ class FunctionDecl : public TopLevelStmt, public FunctionSignature {
 public:
     std::shared_ptr<Composite> Body;
     
-    FunctionDecl() : TopLevelStmt(NodeKind::FunctionDecl), FunctionSignature() {}
+    FunctionDecl() : FunctionSignature() {}
 };
 
 
 class ExternFunctionDecl : public TopLevelStmt, public FunctionSignature {
 public:
-    ExternFunctionDecl() : TopLevelStmt(NodeKind::ExternFunctionDecl), FunctionSignature() {}
+    ExternFunctionDecl() : FunctionSignature() {}
 };
 
 
@@ -125,7 +100,7 @@ class Composite : public LocalStmt {
 public:
     std::vector<std::shared_ptr<LocalStmt>> Statements;
     
-    Composite() : LocalStmt(NodeKind::Composite) {}
+    Composite() {}
 };
 
 
@@ -139,7 +114,7 @@ class ReturnStmt : public LocalStmt {
 public:
     std::shared_ptr<Expr> Expression;
     
-    explicit ReturnStmt(std::shared_ptr<Expr> Expression) : LocalStmt(NodeKind::ReturnStmt), Expression(Expression) {}
+    explicit ReturnStmt(std::shared_ptr<Expr> Expression) : Expression(Expression) {}
 };
 
 
@@ -151,7 +126,7 @@ public:
     std::shared_ptr<Expr> InitialValue;
     
     VariableDecl(std::shared_ptr<Identifier> Name, TypeInfo *Type, std::shared_ptr<Expr> InitialValue = nullptr)
-    : LocalStmt(NodeKind::VariableDecl), Name(Name), Type(Type), InitialValue(InitialValue) {}
+    : Name(Name), Type(Type), InitialValue(InitialValue) {}
 };
 
 
@@ -160,7 +135,7 @@ public:
     std::shared_ptr<Expr> Target;
     std::shared_ptr<Expr> Value;
     
-    Assignment(std::shared_ptr<Expr> Target, std::shared_ptr<Expr> Value) : LocalStmt(NodeKind::Node), Target(Target), Value(Value) {}
+    Assignment(std::shared_ptr<Expr> Target, std::shared_ptr<Expr> Value) : Target(Target), Value(Value) {}
 };
 
 
@@ -178,12 +153,12 @@ public:
         std::shared_ptr<Composite> Body;
         
         Branch(BranchKind Kind, std::shared_ptr<Expr> Condition, std::shared_ptr<Composite> Body)
-        : Node(NodeKind::IfBranch), Kind(Kind), Condition(Condition), Body(Body) {}
+        : Kind(Kind), Condition(Condition), Body(Body) {}
     };
     
     std::vector<std::shared_ptr<Branch>> Branches;
     
-    IfStmt(std::vector<std::shared_ptr<Branch>> Branches) : LocalStmt(NodeKind::IfStmt), Branches(Branches) {}
+    IfStmt(std::vector<std::shared_ptr<Branch>> Branches) : Branches(Branches) {}
 };
 
 
@@ -199,7 +174,7 @@ public:
 class Identifier : public Expr {
 public:
     const std::string Value;
-    Identifier(std::string Value) : Expr(NodeKind::Identifier), Value(Value) {}
+    Identifier(std::string Value) : Value(Value) {}
     
     operator std::string () { return Value; }
 };
@@ -210,7 +185,7 @@ class NumberLiteral : public Expr {
 public:
     uint64_t Value;
     
-    explicit NumberLiteral(uint64_t Value) : Expr(NodeKind::NumberLiteral), Value(Value) {}
+    explicit NumberLiteral(uint64_t Value) : Value(Value) {}
 };
 
 
@@ -222,7 +197,7 @@ public:
     bool UnusedReturnValue;
     
     FunctionCall(std::shared_ptr<Expr> Target, std::vector<std::shared_ptr<Expr>> Arguments, bool UnusedReturnValue)
-    : Expr(NodeKind::FunctionCall), LocalStmt(NodeKind::FunctionCall), Target(Target), Arguments(Arguments), UnusedReturnValue(UnusedReturnValue) {}
+    : Target(Target), Arguments(Arguments), UnusedReturnValue(UnusedReturnValue) {}
 };
 
 
@@ -239,7 +214,7 @@ public:
     std::shared_ptr<Expr> LHS;
     std::shared_ptr<Expr> RHS;
     
-    BinaryOperation(Operation Op, std::shared_ptr<Expr> LHS, std::shared_ptr<Expr> RHS) : Expr(NodeKind::BinaryOperation), Op(Op), LHS(LHS), RHS(RHS) {}
+    BinaryOperation(Operation Op, std::shared_ptr<Expr> LHS, std::shared_ptr<Expr> RHS) : Op(Op), LHS(LHS), RHS(RHS) {}
 };
 
 
@@ -256,7 +231,7 @@ public:
     std::shared_ptr<Expr> LHS;
     std::shared_ptr<Expr> RHS;
     
-    Comparison(Operation Op, std::shared_ptr<Expr> LHS, std::shared_ptr<Expr> RHS) : Expr(NodeKind::Comparison), Op(Op), LHS(LHS), RHS(RHS) {}
+    Comparison(Operation Op, std::shared_ptr<Expr> LHS, std::shared_ptr<Expr> RHS) : Op(Op), LHS(LHS), RHS(RHS) {}
 };
 
 
@@ -270,7 +245,7 @@ public:
     std::shared_ptr<Expr> LHS;
     std::shared_ptr<Expr> RHS;
     
-    LogicalOperation(Operation Op, std::shared_ptr<Expr> LHS, std::shared_ptr<Expr> RHS) : Expr(NodeKind::LogicalOperation), Op(Op), LHS(LHS), RHS(RHS) {}
+    LogicalOperation(Operation Op, std::shared_ptr<Expr> LHS, std::shared_ptr<Expr> RHS) : Op(Op), LHS(LHS), RHS(RHS) {}
 };
 
 NS_END
