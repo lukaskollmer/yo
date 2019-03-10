@@ -690,7 +690,7 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
             }
             auto Type = GetLLVMType(TI);
             
-            while(num_indirections--) {
+            while (num_indirections--) {
                 Type = Type->getPointerTo();
             }
             return Type;
