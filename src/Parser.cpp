@@ -240,34 +240,17 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
         return std::make_shared<Assignment>(E, Value);
     }
     
-    /*if (auto Ident = ParseIdentifier()) {
-        E = Ident;
-    }
-    
-    if (std::dynamic_pointer_cast<Identifier>(E) && CurrentTokenKind() == TK::OpeningParens) {
-        // Function Call
-        auto Target = E;
-        assert_current_token_and_consume(TK::OpeningParens);
-        
-        auto Arguments = ParseExpressionList(TK::ClosingParens);
-        assert_current_token_and_consume(TK::ClosingParens);
-        
-        S = std::make_shared<FunctionCall>(Target, Arguments, true);
-        E = nullptr;
-    }
-    
     if (BinaryOperatorStartTokens.Contains(CurrentTokenKind())) {
         if (auto Op = ParseBinopOperator()) {
             assert_current_token_and_consume(TK::EqualsSign);
             
             auto Value = std::make_shared<BinaryOperation>(*Op, E, ParseExpression());
             S = std::make_shared<Assignment>(E, Value);
-            goto ret;
+            assert_current_token_and_consume(TK::Semicolon);
+            return S;
         }
-    }*/
+    }
     
-    
-ret:
     if (CurrentTokenKind() == TK::Semicolon) {
         Consume();
         
