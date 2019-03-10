@@ -28,8 +28,9 @@ struct ValueBinding {
     
     const ReadImp  Read;
     const WriteImp Write;
+    const llvm::Value *Value;
     
-    ValueBinding(ReadImp Read, WriteImp Write) : Read(Read), Write(Write) {}
+    ValueBinding(llvm::Value *Value, ReadImp Read, WriteImp Write) : Value(Value), Read(Read), Write(Write) {}
 };
 
 

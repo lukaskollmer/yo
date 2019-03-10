@@ -24,86 +24,100 @@
 
 using namespace ast;
 
-std::string FunctionKindToString(FunctionSignature::FunctionKind Kind) {
+
+
+MemberAccess::Member::~Member() {
     switch (Kind) {
-    case FunctionSignature::FunctionKind::Global:   return "global";
-    case FunctionSignature::FunctionKind::Static:   return "static";
-    case FunctionSignature::FunctionKind::Instance: return "instance";
+        case MemberKind::Initial_Identifier:
+            Data.Ident.~shared_ptr();
+            break;
+        case MemberKind::Initial_FunctionCall:
+            Data.Call.~shared_ptr();
+            break;
+        case MemberKind::OffsetRead:
+            Data.Call.~shared_ptr();
+            break;
+    }
+}
+
+
+
+#pragma mark - AST Prining
+
+#define CASE(n) case E::n: return #n;
+
+std::string FunctionKindToString(FunctionSignature::FunctionKind Kind) {
+    using E = FunctionSignature::FunctionKind;
+    switch (Kind) {
+        CASE(Global)
+        CASE(Static)
+        CASE(Instance)
     }
 }
 
 std::string BinopOperationToString(BinaryOperation::Operation Op) {
+    using E = BinaryOperation::Operation;
     switch (Op) {
-    case BinaryOperation::Operation::Add: return "add";
-    case BinaryOperation::Operation::Sub: return "sub";
-    case BinaryOperation::Operation::Mul: return "mul";
-    case BinaryOperation::Operation::Div: return "div";
-    case BinaryOperation::Operation::Mod: return "mod";
-    case BinaryOperation::Operation::And: return "and";
-    case BinaryOperation::Operation::Or:  return "or";
-    case BinaryOperation::Operation::Xor: return "xor";
-    case BinaryOperation::Operation::Shl: return "shl";
-    case BinaryOperation::Operation::Shr: return "shr";
+        CASE(Add)
+        CASE(Sub)
+        CASE(Mul)
+        CASE(Div)
+        CASE(Mod)
+        CASE(And)
+        CASE(Or)
+        CASE(Xor)
+        CASE(Shl)
+        CASE(Shr)
     }
 }
 
 
 std::string ComparisonOpToString(Comparison::Operation Op) {
+    using E = Comparison::Operation;
     switch (Op) {
-    case ast::Comparison::Operation::EQ: return  "eq";
-    case ast::Comparison::Operation::NE: return  "ne";
-    case ast::Comparison::Operation::LT: return  "lt";
-    case ast::Comparison::Operation::LE: return  "le";
-    case ast::Comparison::Operation::GT: return  "gt";
-    case ast::Comparison::Operation::GE: return  "ge";
+        CASE(EQ)
+        CASE(NE)
+        CASE(LT)
+        CASE(LE)
+        CASE(GT)
+        CASE(GE)
     }
 }
 
 
 std::string LogicalOperationOperatorToString(LogicalOperation::Operation Op) {
+    using E = LogicalOperation::Operation;
     switch (Op) {
-        case LogicalOperation::Operation::And: return "and";
-        case LogicalOperation::Operation::Or:  return "or";
+        CASE(And)
+        CASE(Or)
     }
 }
 
 
 std::string IfStmtBranchKindToString(IfStmt::Branch::BranchKind Kind) {
+    using E = IfStmt::Branch::BranchKind;
     switch (Kind) {
-        case ast::IfStmt::Branch::BranchKind::If:     return "if";
-        case ast::IfStmt::Branch::BranchKind::ElseIf: return "else if";
-        case ast::IfStmt::Branch::BranchKind::Else:   return "else";
+        CASE(If)
+        CASE(ElseIf)
+        CASE(Else)
     }
 }
 
 
-//
-//std::string NodeKindToString(Node::NodeKind Kind) {
-//#define CASE(x) case K::x: return "ast::"#x;
-//    using K = Node::NodeKind;
-//    switch (Kind) {
-//    case K::Node:
-//    case K::Expr:
-//    case K::Stmt:
-//    case K::TopLevelStmt:
-//        throw;
-//    CASE(LocalStmt)
-//    CASE(FunctionDecl)
-//    CASE(ReturnStmt)
-//    CASE(Composite)
-//    CASE(VariableDecl)
-//    CASE(NumberLiteral)
-//    CASE(StringLiteral)
-//    CASE(ArrayLiteral)
-//    CASE(Identifier)
-//    CASE(ExternFunctionDecl)
-//    CASE(FunctionCall)
-//    CASE(BinaryOperation)
-//    CASE(Comparison)
-//            CASE(Log)
-//    }
-//#undef CASE
-//}
+std::string MemberAccessMemberKindToString(MemberAccess::Member::MemberKind Kind) {
+    using E = MemberAccess::Member::MemberKind;
+    switch (Kind) {
+        CASE(Initial_Identifier)
+        CASE(Initial_FunctionCall)
+        CASE(OffsetRead)
+    }
+}
+
+#undef CASE
+
+
+
+
 
 
 
@@ -147,28 +161,43 @@ template <typename T>
 std::string to_string(T arg) {
     if constexpr(std::is_same_v<T, const char *>) {
         return std::string(arg);
+    
     } else if constexpr(std::is_base_of_v<std::string, T>) {
         return arg;
+    
     } else if constexpr(std::is_integral_v<T>) {
         return std::to_string(arg);
+    
     } else if constexpr(std::is_same_v<T, TypeInfo *>) {
         return arg->Str();
+    
     } else if constexpr(std::is_same_v<T, FunctionSignature::FunctionKind>) {
         return FunctionKindToString(arg);
+    
     } else if constexpr(std::is_same_v<T, BinaryOperation::Operation>) {
         return BinopOperationToString(arg);
+    
     } else if constexpr(std::is_same_v<T, Comparison::Operation>) {
         return ComparisonOpToString(arg);
+    
     } else if constexpr(std::is_same_v<T, LogicalOperation::Operation>) {
         return LogicalOperationOperatorToString(arg);
+    
     } else if constexpr(std::is_same_v<T, IfStmt::Branch::BranchKind>) {
         return IfStmtBranchKindToString(arg);
-    } else if constexpr(std::is_convertible_v<T, std::shared_ptr<Node>>) {
+    
+    } else if constexpr(std::is_same_v<T, MemberAccess::Member::MemberKind>) {
+        return MemberAccessMemberKindToString(arg);
+    
+    } else if constexpr(std::is_convertible_v<T, std::shared_ptr<Node>> || (std::is_pointer_v<T> && std::is_base_of_v<Node, typename std::remove_pointer_t<T>>)) {
         if (!arg) return "<nullptr>";
         return arg->Description();
+    
     } else if constexpr(util::typeinfo::is_vector_of_convertible_v<T, std::shared_ptr<Node>>) {
         return ast_description(arg);
+    
     } else {
+        static_assert(std::is_null_pointer_v<T>, "ugh");
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-value"
         // Sole purpose of this cast is getting a compiler warning that includes the specific type of `T`
@@ -304,6 +333,37 @@ Mirror Reflect(Typecast *Cast) {
     };
 }
 
+Mirror Reflect(MemberAccess *MemberAccess) {
+    return {
+        { "members", MemberAccess->Members }
+    };
+}
+
+Mirror Reflect(MemberAccess::Member *Member) {
+    std::shared_ptr<Node> Data;
+    
+    switch (Member->Kind) {
+        case ast::MemberAccess::Member::MemberKind::Initial_Identifier:
+            Data = Member->Data.Ident;
+            break;
+        
+        case ast::MemberAccess::Member::MemberKind::Initial_FunctionCall:
+            Data = Member->Data.Call;
+            break;
+        
+        case ast::MemberAccess::Member::MemberKind::OffsetRead:
+            Data = Member->Data.Offset;
+            break;
+    }
+    
+    return {
+        { "kind", Member->Kind },
+        { "data", Data }
+    };
+}
+
+
+
 Mirror Reflect(Node *Node) {
 #define HANDLE(T) if (auto X = dynamic_cast<T*>(Node)) return Reflect(X);
     
@@ -322,6 +382,8 @@ Mirror Reflect(Node *Node) {
     HANDLE(IfStmt::Branch)
     HANDLE(Assignment)
     HANDLE(Typecast)
+    HANDLE(MemberAccess)
+    HANDLE(MemberAccess::Member)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;

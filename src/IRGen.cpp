@@ -8,10 +8,27 @@
 
 #include "IRGen.h"
 
+#include <optional>
+
 #include "Mangling.h"
 
 using namespace irgen;
 using namespace llvm;
+
+
+
+// Utils
+
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream &OS, llvm::Type *T) {
+    T->print(OS);
+    return OS;
+}
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream &OS, llvm::Value *V) {
+    V->print(OS);
+    return OS;
+}
 
 
 
@@ -88,8 +105,8 @@ void IRGenerator::RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignatu
 # pragma mark - Codegen
 
 
-#define HANDLE(node, T) \
-if (auto X = std::dynamic_pointer_cast<ast::T>(node)) return Codegen(X);
+#define HANDLE(node, T, ...) \
+if (auto X = std::dynamic_pointer_cast<ast::T>(node)) return Codegen(X, ## __VA_ARGS__);
 
 #define IGNORE(node, T) \
 if (std::dynamic_pointer_cast<ast::T>(node)) return nullptr;
@@ -98,13 +115,15 @@ if (std::dynamic_pointer_cast<ast::T>(node)) return nullptr;
 { std::cout << "[IRGenerator::Codegen] Unhandled Node: " << util::typeinfo::GetTypename(*(node)) << std::endl; \
 throw; }
 
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Node> Node) {
-    HANDLE(Node, Expr)
-    HANDLE(Node, LocalStmt)
-    HANDLE(Node, TopLevelStmt)
-    
-    unhandled_node(Node)
-}
+//llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Node> Node) {
+//    // The order here does actually matter, since some nodes inherit from both Expr and LocalStmt
+//    // And Nodes that can be lvalues (MemberAccess) are treated differently if they're a LocalStmt instead of an Expr
+//    HANDLE(Node, LocalStmt)
+//    HANDLE(Node, Expr)
+//    HANDLE(Node, TopLevelStmt)
+//
+//    unhandled_node(Node)
+//}
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
@@ -121,19 +140,21 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LocalStmt> LocalStmt) {
     HANDLE(LocalStmt, VariableDecl)
     HANDLE(LocalStmt, IfStmt)
     HANDLE(LocalStmt, Assignment)
+    HANDLE(LocalStmt, MemberAccess, CodegenReturnValueKind::Value);
     
     unhandled_node(LocalStmt);
 }
 
 
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr) {
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr, CodegenReturnValueKind ReturnValueKind) {
     HANDLE(Expr, NumberLiteral)
     HANDLE(Expr, BinaryOperation)
-    HANDLE(Expr, Identifier)
+    HANDLE(Expr, Identifier, ReturnValueKind)
     HANDLE(Expr, FunctionCall)
     HANDLE(Expr, Comparison)
     HANDLE(Expr, LogicalOperation)
     HANDLE(Expr, Typecast)
+    HANDLE(Expr, MemberAccess, ReturnValueKind)
     
     unhandled_node(Expr)
 }
@@ -155,7 +176,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
     }
     
     for (auto &Arg : F->args()) {
-        auto Binding = ValueBinding([&]() {
+        auto Binding = ValueBinding(&Arg, [&]() {
             return &Arg;
         }, [&](llvm::Value *Value) {
             LKFatalError("Function arguments are read-only (%s in %s)", Arg.getName().str().c_str(), Name.c_str());
@@ -202,7 +223,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::VariableDecl> Decl) {
     auto Alloca = Builder.CreateAlloca(Type);
     Alloca->setName(Decl->Name->Value);
     
-    auto Binding = ValueBinding([this, Alloca] () {
+    auto Binding = ValueBinding(Alloca, [this, Alloca] () {
         return Builder.CreateLoad(Alloca);
     }, [=] (llvm::Value *V) {
         if (!TypecheckAndApplyTrivialCastIfPossible(&V, Type)) {
@@ -256,16 +277,33 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ReturnStmt> ReturnStmt) {
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> Assignment) {
+    // TODO should assignments return something?
+    
     if (auto Ident = std::dynamic_pointer_cast<ast::Identifier>(Assignment->Target)) {
         auto Binding = Scope.GetBinding(Ident->Value);
         if (!Binding) throw;
         
         Binding->Write(Codegen(Assignment->Value));
+        return nullptr;
     }
     
+    if (auto MemberAccess = std::dynamic_pointer_cast<ast::MemberAccess>(Assignment->Target)) {
+        // In this case, the member access needs to be an lvalue, and should return an address, instead of a dereferenced
+        auto Dest = Codegen(MemberAccess, CodegenReturnValueKind::Address);
+        auto Value = Codegen(Assignment->Value);
+        
+        precondition(Dest->getType()->isPointerTy());
+        
+        if (!TypecheckAndApplyTrivialCastIfPossible(&Value, Dest->getType()->getPointerElementType())) {
+            llvm::outs() << "Unable to store value of type " << Value->getType() << " into address of type " << Dest->getType() << "\n";
+            throw;
+        }
+        
+        Builder.CreateStore(Value, Dest);
+        return nullptr;
+    }
     
-    // TODO should assignments return something?
-    return nullptr;
+    throw;
 }
 
 
@@ -284,9 +322,15 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> Number) {
 
 
 
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Identifier> Ident) {
+// If TakeAddress is true, this returns a pointer to the identifier, instead of the value stored
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Identifier> Ident, CodegenReturnValueKind ReturnValueKind) {
     if (auto Binding = Scope.GetBinding(Ident->Value)) {
-        return Binding->Read();
+        switch (ReturnValueKind) {
+            case CodegenReturnValueKind::Value:
+                return Binding->Read();
+            case CodegenReturnValueKind::Address:
+                return const_cast<llvm::Value *>(Binding->Value);
+        }
     }
     
     std::cout << "Unable to find identifier " << Ident->Value << std::endl;
@@ -317,11 +361,79 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Typecast> Cast) {
             }
         }
     } else {
+        llvm::outs() << "Unable to cast " << SrcType << " to " << DestType << "\n";
         throw;
     }
     
     return Builder.CreateCast(CastOp, V, DestType);
 }
+
+
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAccess, CodegenReturnValueKind ReturnValueKind) {
+    using MK = ast::MemberAccess::Member::MemberKind;
+    
+    llvm::Value *V = nullptr;
+    std::vector<llvm::Value *> GEPIndices;
+    
+    for (auto It = MemberAccess->Members.begin(); It != MemberAccess->Members.end(); It++) {
+        auto &Member = *It;
+        
+        CodegenReturnValueKind RetvalKind;
+        if (It + 1 != MemberAccess->Members.end()) {
+            auto K = (*(It + 1))->Kind;
+            if (K == MK::OffsetRead) {
+                RetvalKind = CodegenReturnValueKind::Value;
+            } else {
+                RetvalKind = ReturnValueKind;
+            }
+        }
+        
+        
+        switch (Member->Kind) {
+            case MK::Initial_Identifier:
+                V = Codegen(Member->Data.Ident, RetvalKind);
+                break;
+            case MK::Initial_FunctionCall:
+                V = Codegen(Member->Data.Call); // requested ReturnValueKind ignored here !?
+                // TODO somehow find out here whether the return value is unused? if this isn't the last member, we know for a fact that it isn't
+                break;
+            case MK::OffsetRead:
+                // TODO special handling if V isn't a pointer
+                precondition(V && V->getType()->isPointerTy());
+                
+                auto Offset = Codegen(Member->Data.Offset);
+                GEPIndices.push_back(Offset);
+                break;
+                
+        }
+    }
+    
+    if (!GEPIndices.empty()) {
+        V = Builder.CreateGEP(V, GEPIndices);
+    }
+    
+    switch (ReturnValueKind) {
+        case CodegenReturnValueKind::Value:
+            if (V && llvm::isa<GetElementPtrInst>(V)) {
+                return Builder.CreateLoad(V);
+            } else {
+                return V;
+            }
+        case CodegenReturnValueKind::Address:
+            return V;
+    }
+}
+
+
+
+
+
+
+
+
+
 
 
 

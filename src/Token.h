@@ -30,6 +30,9 @@ public:
         ClosingParens,
         OpeningCurlyBraces,
         ClosingCurlyBraces,
+        OpeningSquareBrackets,
+        ClosingSquareBrackets,
+        Period,
         Comma, Colon, Semicolon, EqualsSign, ExclamationMark,
         
         Asterisk, Plus, Minus, ForwardSlash, PercentageSign,

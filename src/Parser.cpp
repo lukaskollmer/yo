@@ -191,6 +191,8 @@ TypeInfo *Parser::ParseType() {
 
 
 
+#pragma mark - Local Statements
+
 
 
 std::shared_ptr<Composite> Parser::ParseComposite() {
@@ -227,7 +229,18 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
     std::shared_ptr<LocalStmt> S;
     std::shared_ptr<Expr> E; // A partially-parsed part of a local statement
     
-    if (auto Ident = ParseIdentifier()) {
+    E = ParseMemberAccess();
+    
+    
+    if (CurrentTokenKind() == TK::EqualsSign) { // Assignment
+        Consume();
+        auto Value = ParseExpression();
+        assert_current_token_and_consume(TK::Semicolon);
+        
+        return std::make_shared<Assignment>(E, Value);
+    }
+    
+    /*if (auto Ident = ParseIdentifier()) {
         E = Ident;
     }
     
@@ -251,12 +264,17 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
             S = std::make_shared<Assignment>(E, Value);
             goto ret;
         }
-    }
+    }*/
     
     
 ret:
     if (CurrentTokenKind() == TK::Semicolon) {
         Consume();
+        
+        if (auto ExprAsLocalStmt = std::dynamic_pointer_cast<LocalStmt>(E)) {
+            S = ExprAsLocalStmt;
+        }
+        
         return S;
     }
     
@@ -455,7 +473,7 @@ PrecedenceGroup GetOperatorPrecedenceGroup(ast::LogicalOperation::Operation Op) 
 
 // Tokens that, if they appear on their own, mark the end of an expression
 static TokenSet ExpressionDelimitingTokens = {
-    TK::ClosingParens, TK::Semicolon, TK::Comma, TK::OpeningCurlyBraces
+    TK::ClosingParens, TK::Semicolon, TK::Comma, TK::OpeningCurlyBraces, TK::ClosingSquareBrackets
 };
 
 
@@ -471,18 +489,30 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
     if (!E) {
         E = ParseNumberLiteral();
     }
+    
     if (!E) {
-        E = ParseIdentifier();
+        E = ParseMemberAccess();
     }
+//    if (!E) {
+//        E = ParseIdentifier();
+//    }
+//
+//    if (std::dynamic_pointer_cast<Identifier>(E) && CurrentTokenKind() == TK::OpeningParens) {
+//        // Function call
+//        Consume();
+//        auto Arguments = ParseExpressionList(TK::ClosingParens);
+//        assert_current_token_and_consume(TK::ClosingParens);
+//        E = std::make_shared<FunctionCall>(E, Arguments, false);
+//    }
     
-    if (auto Ident = std::dynamic_pointer_cast<Identifier>(E) && CurrentTokenKind() == TK::OpeningParens) {
-        // Function call
-        Consume();
-        auto Arguments = ParseExpressionList(TK::ClosingParens);
-        assert_current_token_and_consume(TK::ClosingParens);
-        E = std::make_shared<FunctionCall>(E, Arguments, false);
-    }
-    
+//    if (std::dynamic_pointer_cast<Identifier>(E) && CurrentTokenKind() == TK::OpeningSquareBrackets) {
+        // Offset pointer read
+//        Consume();
+//        auto Offset = ParseExpression();
+//        assert_current_token_and_consume(TK::ClosingSquareBrackets);
+//        E = std::make_shared<PointerRead>(E, Offset);
+//    }
+
     while (BinaryOperatorStartTokens.Contains(CurrentTokenKind())) {
         save_pos(fallback)
         
@@ -539,6 +569,63 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
 
 
 
+static TokenSet MemberAccessSeparatingTokens = {
+    TK::OpeningParens, TK::OpeningSquareBrackets, TK::Period
+};
+
+
+// Returns either ast::MemberAccess or ast::Identifier
+std::shared_ptr<Expr> Parser::ParseMemberAccess() {
+    using MemberKind = MemberAccess::Member::MemberKind;
+    
+    std::vector<std::shared_ptr<MemberAccess::Member>> Members;
+    
+    // Initial Member
+    auto Ident = ParseIdentifier();
+    if (!Ident) throw;
+    
+    if (!MemberAccessSeparatingTokens.Contains(CurrentTokenKind())) {
+        // Member Access that simply is a single identifier
+        return Ident;
+    }
+    
+    while (MemberAccessSeparatingTokens.Contains(CurrentTokenKind())) {
+        switch (CurrentTokenKind()) {
+            case Token::TokenKind::Period: throw;
+                
+            case Token::TokenKind::OpeningParens: { // Function Call
+                Consume();
+                auto Args = ParseExpressionList(TK::ClosingParens);
+                assert_current_token_and_consume(TK::ClosingParens);
+                auto M = std::make_shared<MemberAccess::Member>(MemberKind::Initial_FunctionCall);
+                M->Data.Call = std::make_shared<FunctionCall>(Ident, Args, false);
+                Members.push_back(M);
+                break;
+            }
+                
+                
+            case Token::TokenKind::OpeningSquareBrackets: { // Pointer Read w/ offset
+                
+                auto M1 = std::make_shared<MemberAccess::Member>(MemberKind::Initial_Identifier);
+                M1->Data.Ident = Ident;
+                Members.push_back(M1);
+                
+                Consume(); // Consume the opening square brackets
+                
+                auto Offset = ParseExpression();
+                assert_current_token_and_consume(TK::ClosingSquareBrackets);
+                auto M2 = std::make_shared<MemberAccess::Member>(MemberKind::OffsetRead);
+                M2->Data.Offset = Offset;
+                Members.push_back(M2);
+                break;
+            }
+            default:
+                unhandled_token(CurrentTokenKind())
+        }
+    }
+    
+    return std::make_shared<MemberAccess>(Members);
+}
 
 
 

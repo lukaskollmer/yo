@@ -110,6 +110,7 @@ private:
     std::vector<std::shared_ptr<ast::Expr>> ParseExpressionList(Token::TokenKind Delimiter);
     std::shared_ptr<ast::Identifier> ParseIdentifier();
     
+    std::shared_ptr<ast::Expr> ParseMemberAccess();
     
     std::shared_ptr<ast::NumberLiteral> ParseNumberLiteral();
     

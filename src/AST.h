@@ -42,11 +42,11 @@ protected:
 
 
 
-class TopLevelStmt : public Node {};
+class TopLevelStmt : virtual public Node {};
 
-class LocalStmt : public Node {};
+class LocalStmt : virtual public Node {};
 
-class Expr : public Node {};
+class Expr : virtual public Node {};
 
 
 
@@ -181,7 +181,7 @@ public:
 
 
 
-class FunctionCall : public Expr, public LocalStmt {
+class FunctionCall : public Expr {
 public:
     std::shared_ptr<Expr> Target;
     std::vector<std::shared_ptr<Expr>> Arguments;
@@ -201,6 +201,52 @@ public:
     Typecast(std::shared_ptr<Expr> Expression, TypeInfo *DestType) : Expression(Expression), DestType(DestType) {}
 };
 
+
+
+// A (chained) member access
+class MemberAccess : public Expr, public LocalStmt {
+public:
+    class Member : public Node { // same as IfStmt::Branch
+    public:
+        enum class MemberKind {
+            Initial_Identifier,
+            Initial_FunctionCall,
+            
+            OffsetRead
+        };
+        
+        union MemberData {
+            std::shared_ptr<Identifier> Ident;
+            std::shared_ptr<FunctionCall> Call;
+            std::shared_ptr<Expr> Offset;
+            
+            // https://stackoverflow.com/a/40302092/2513803
+            MemberData() : Ident{} {}
+            ~MemberData() {}
+        };
+        
+        MemberKind Kind;
+        MemberData Data;
+        
+        Member(MemberKind Kind) : Kind(Kind) {}
+        ~Member();
+    };
+    
+    std::vector<std::shared_ptr<Member>> Members;
+    
+    MemberAccess(std::vector<std::shared_ptr<Member>> Members) : Members(Members) {}
+};
+
+
+
+//
+//class PointerRead : public Expr {
+//public:
+//    std::shared_ptr<Expr> Target;
+//    std::shared_ptr<Expr> Offset;
+//
+//    PointerRead(std::shared_ptr<Expr> Target, std::shared_ptr<Expr> Offset) : Target(Target), Offset(Offset) {}
+//};
 
 
 class BinaryOperation : public Expr {

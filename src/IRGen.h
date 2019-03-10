@@ -52,11 +52,16 @@ private:
     void RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignature> Signature, bool MangleName = true);
     
     
+    // In some situations (for example when handling an lvalue), we need Codegen to return an address instead of a dereferenced value
+    enum class CodegenReturnValueKind {
+        Value, Address
+    };
+    
     // Codegen
-    llvm::Value *Codegen(std::shared_ptr<ast::Node>);
+    //llvm::Value *Codegen(std::shared_ptr<ast::Node>);
     llvm::Value *Codegen(std::shared_ptr<ast::TopLevelStmt>);
     llvm::Value *Codegen(std::shared_ptr<ast::LocalStmt>);
-    llvm::Value *Codegen(std::shared_ptr<ast::Expr>);
+    llvm::Value *Codegen(std::shared_ptr<ast::Expr>, CodegenReturnValueKind = CodegenReturnValueKind::Value);
     
     llvm::Value *Codegen(std::shared_ptr<ast::FunctionDecl>, bool MangleName = true);
     llvm::Value *Codegen(std::shared_ptr<ast::Composite>);
@@ -69,7 +74,10 @@ private:
     llvm::Value *Codegen(std::shared_ptr<ast::NumberLiteral>);
     llvm::Value *Codegen(std::shared_ptr<ast::Typecast>);
     llvm::Value *Codegen(std::shared_ptr<ast::BinaryOperation>);
-    llvm::Value *Codegen(std::shared_ptr<ast::Identifier>);
+    llvm::Value *Codegen(std::shared_ptr<ast::Identifier>, CodegenReturnValueKind);
+    
+    llvm::Value *Codegen(std::shared_ptr<ast::MemberAccess>, CodegenReturnValueKind);
+    
     llvm::Value *Codegen(std::shared_ptr<ast::Comparison>);
     llvm::Value *Codegen(std::shared_ptr<ast::LogicalOperation>);
     

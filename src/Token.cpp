@@ -21,6 +21,8 @@ std::string TokenKindToString(Token::TokenKind Kind) {
         CASE(ClosingParens)
         CASE(OpeningCurlyBraces)
         CASE(ClosingCurlyBraces)
+        CASE(OpeningSquareBrackets)
+        CASE(ClosingSquareBrackets)
         CASE(Comma)
         CASE(Colon)
         CASE(Semicolon)
@@ -43,6 +45,7 @@ std::string TokenKindToString(Token::TokenKind Kind) {
         CASE(If)
         CASE(Else)
         CASE(As)
+        CASE(Period)
     }
 #undef CASE
 }

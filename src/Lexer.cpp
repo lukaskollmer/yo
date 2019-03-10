@@ -32,12 +32,15 @@ static std::map<std::string, Token::TokenKind> TokenKindMappings = {
     { ")" , Token::TokenKind::ClosingParens },
     { "{" , Token::TokenKind::OpeningCurlyBraces },
     { "}" , Token::TokenKind::ClosingCurlyBraces },
+    { "[" , Token::TokenKind::OpeningSquareBrackets },
+    { "]" , Token::TokenKind::ClosingSquareBrackets },
     
     { "," , Token::TokenKind::Comma },
     { "!" , Token::TokenKind::ExclamationMark },
     { ":" , Token::TokenKind::Colon },
     { ";" , Token::TokenKind::Semicolon },
     { "=" , Token::TokenKind::EqualsSign },
+    { "." , Token::TokenKind::Period },
     
     { "*" , Token::TokenKind::Asterisk },
     { "+" , Token::TokenKind::Plus },

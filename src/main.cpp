@@ -42,7 +42,7 @@ int main(int argc, const char * argv[], const char *const *envp) {
     auto Ast = P.Parse(Tokens);
     
     
-    std::cout << ast::Description(Ast) << std::endl;
+    //std::cout << ast::Description(Ast) << std::endl;
     
     irgen::IRGenerator Codegen("main");
     Codegen.Codegen(Ast);
