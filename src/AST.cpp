@@ -116,8 +116,10 @@ template <typename T>
 std::string ast_description(std::vector<std::shared_ptr<T>> _Nodes) {
     std::vector<std::shared_ptr<T>> Nodes(_Nodes.begin(), _Nodes.end());
     
-    std::string Desc = util::typeinfo::LKTypeInfo<T>::Name;
-    Desc += " [\n";
+    std::string Desc;
+    Desc += "std::vector<";
+    Desc += util::typeinfo::LKTypeInfo<T>::Name;
+    Desc += "> [\n";
     
     for (auto It = Nodes.begin(); It != Nodes.end(); It++) {
         util::string::append_with_indentation(Desc,
