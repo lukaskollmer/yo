@@ -120,7 +120,9 @@ std::string ast_description(std::vector<std::shared_ptr<T>> _Nodes) {
     Desc += " [\n";
     
     for (auto It = Nodes.begin(); It != Nodes.end(); It++) {
-        util::string::append_with_indentation(Desc, (*It)->Description(), INDENT_SIZE);
+        util::string::append_with_indentation(Desc,
+                                              *It ? (*It)->Description() : "<nullptr>",
+                                              INDENT_SIZE);
         
         if (It + 1 != Nodes.end()) {
             Desc += ",";
