@@ -144,7 +144,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr) {
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDecl, bool MangleName) {
-    assert(Scope.IsEmpty());
+    precondition(Scope.IsEmpty());
     
     std::string Name = FunctionDecl->Name;
     if (MangleName) Name = MangleFunctionName(Name);
@@ -187,7 +187,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::VariableDecl> Decl) {
         Type = GetLLVMType(Decl->Type);
     } else {
         // If no type is specified, there _has_ to be an initial value
-        assert(Decl->InitialValue);
+        precondition(Decl->InitialValue);
     }
     
     if (auto InitialValueExpr = Decl->InitialValue) {
@@ -197,7 +197,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::VariableDecl> Decl) {
         }
     }
     
-    assert(Type);
+    precondition(Type);
     
     auto Alloca = Builder.CreateAlloca(Type);
     Alloca->setName(Decl->Name->Value);
@@ -450,7 +450,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Comparison> Comparison) {
     auto LHS = Codegen(Comparison->LHS);
     auto RHS = Codegen(Comparison->RHS);
     
-    assert(LHS->getType()->isIntegerTy());
+    precondition(LHS->getType()->isIntegerTy());
     
     // TODO signed/unsigned types
     //assert_implication(IsSignedType(LHS->getType()), IsSignedType(RHS->getType()));
@@ -469,7 +469,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LogicalOperation> LogOp) 
     auto LHS = Codegen(LogOp->LHS);
     auto RHS = Codegen(LogOp->RHS);
     
-    assert(LHS->getType() == Bool && RHS->getType() == Bool);
+    precondition(LHS->getType() == Bool && RHS->getType() == Bool);
     
     auto Op = LogOp->Op == ast::LogicalOperation::Operation::And
         ? llvm::Instruction::BinaryOps::And

@@ -41,12 +41,12 @@ public:
     
     // Primitives
     TypeInfo(std::string Name, uint8_t Size, enum Kind Kind) : Kind(Kind), Size(Size), Data(Name) {
-        assert((Kind == Kind::Primitive || Kind == Kind::Complex)  && "This initializer should only be called with primitive types");
+        precondition((Kind == Kind::Primitive || Kind == Kind::Complex)  && "This initializer should only be called with primitive types");
     }
     
     // Pointers
     TypeInfo(enum Kind Kind, TypeInfo *TI) : Kind(Kind), Size(8), Data(TI) {
-        assert(Kind == Kind::Pointer && "this is the pointer initializer, good sir");
+        precondition(Kind == Kind::Pointer && "this is the pointer initializer, good sir");
     }
     
     static TypeInfo *MakeComplex(std::string Name) {

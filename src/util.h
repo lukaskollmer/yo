@@ -42,9 +42,14 @@ void _LKFatalError_imp(const char *funcname, int line, const char *format, ...);
 #define LKFatalError(fmt, ...) _LKFatalError_imp(__FILE__, __LINE__, fmt, ## __VA_ARGS__)
 
 
+void _precondition_imp(const char *func, const char *file, int line, const char *expr);
+
+#define precondition(e) \
+(__builtin_expect(!(e), 0) ? _precondition_imp(__func__, __FILE__, __LINE__, #e) : (void)0)
+
 
 //#define assert_implication(x, y) { if (!( !(x) || (y) )) throw; }
-#define assert_implication(x, y) assert(!(x) || (y))
+#define assert_implication(x, y) precondition(!(x) || (y))
 
 
 

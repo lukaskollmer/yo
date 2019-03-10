@@ -12,7 +12,7 @@
 void AssertValidCharRange(char A, char B) {
     if (A > B) {
         LKLog("Invalid char range: '%c' > '%c'", A, B);
-        assert(false);
+        precondition(false);
     }
 }
 
