@@ -53,7 +53,7 @@ bool TypeInfo::IsSigned() const {
 }
 
 
-bool TypeInfo::Equals(const TypeInfo *Other) const {
+bool TypeInfo::Equals(TypeInfo *Other) {
     if (this == Other) return true;
     if (this->Kind != Other->Kind || this->Size != Other->Size) return false;
     if (this->Kind == Kind::Primitive && this->IsSigned() != Other->IsSigned()) return false;
@@ -65,7 +65,7 @@ bool TypeInfo::Equals(const TypeInfo *Other) const {
     throw; // TODO implement the rest
 }
 
-std::string TypeInfo::Str() const {
+std::string TypeInfo::Str() {
     if (this == TypeInfo::Unresolved) {
         // We have to check this one first since `this` is a nullpointer for unresolved // TODO: don't map unresolved to the nullpointer
         return "<unresolved>";
@@ -73,7 +73,7 @@ std::string TypeInfo::Str() const {
     if (this->Kind == Kind::Primitive || this->Kind == Kind::Complex) {
         return this->Data.Name;
     }
-    if (auto Pointee = const_cast<TypeInfo *>(this->Pointee())) {
+    if (auto Pointee = this->Pointee()) {
         return std::string("*").append(Pointee->Str());
     }
     

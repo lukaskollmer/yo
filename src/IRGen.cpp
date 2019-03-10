@@ -360,6 +360,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Typecast> Cast) {
                 CastOp = llvm::Instruction::CastOps::ZExt;
             }
         }
+    } else if (SrcType->isPointerTy() && DestType->isPointerTy()) {
+        CastOp = llvm::Instruction::CastOps::BitCast;
     } else {
         llvm::outs() << "Unable to cast " << SrcType << " to " << DestType << "\n";
         throw;
@@ -669,9 +671,6 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
 #define HANDLE(name) if (TI->Equals(TypeInfo::name)) { return name; }
     
     switch (TI->Kind) {
-        case TypeInfo::Kind::Pointer:
-            HANDLE(i8_ptr)
-            break;
         case TypeInfo::Kind::Primitive: {
             HANDLE(i8)
             HANDLE(i16)
@@ -682,15 +681,26 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
             HANDLE(Void)
             break;
         }
-        default: break;
+        
+        case TypeInfo::Kind::Pointer: {
+            auto num_indirections = 0;
+            while (TI->Kind == TypeInfo::Kind::Pointer) {
+                num_indirections += 1;
+                TI = TI->Pointee();
+            }
+            auto Type = GetLLVMType(TI);
+            
+            while(num_indirections--) {
+                Type = Type->getPointerTo();
+            }
+            return Type;
+        }
+        
+        case TypeInfo::Kind::Complex:
+        case TypeInfo::Kind::Function:
+            throw;
     }
     
-    if (TI->Kind == TypeInfo::Kind::Complex) {
-        //TypeCache.Get(TI->Data.Name)->LLVMType->print(outs());
-        //return TypeCache.Get(TI->Data.Name)->LLVMType;
-    }
-    
-    throw;
 #undef HANDLE
 }
 

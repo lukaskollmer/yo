@@ -60,8 +60,8 @@ public:
     
     bool IsSigned() const;
     
-    const TypeInfo *Pointee() const {
-        return Kind == Kind::Pointer ? Data.Pointee : nullptr;
+    TypeInfo *Pointee() {
+        return Kind == Kind::Pointer ? const_cast<TypeInfo*>(Data.Pointee) : nullptr;
     }
     
     
@@ -78,9 +78,9 @@ public:
     static TypeInfo *GetBuiltinWithName(const std::string &Name);
     
     
-    bool Equals(const TypeInfo *Other) const;
+    bool Equals(TypeInfo *Other);
     
-    std::string Str() const;
+    std::string Str();
 };
 
 
