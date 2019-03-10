@@ -13,7 +13,6 @@
 #include "Mangling.h"
 
 using namespace irgen;
-using namespace llvm;
 
 
 
@@ -39,7 +38,7 @@ std::string MangleFunctionName(std::string Name) {
 
 
 
-LLVMContext IRGenerator::C;
+llvm::LLVMContext IRGenerator::C;
 
 
 IRGenerator::IRGenerator(const std::string ModuleName) : Builder(C) {
@@ -317,7 +316,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> Assignment) {
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> Number) {
-    return ConstantInt::get(i64, Number->Value);
+    return llvm::ConstantInt::get(i64, Number->Value);
 }
 
 
@@ -418,7 +417,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
     
     switch (ReturnValueKind) {
         case CodegenReturnValueKind::Value:
-            if (V && llvm::isa<GetElementPtrInst>(V)) {
+            if (V && llvm::isa<llvm::GetElementPtrInst>(V)) {
                 return Builder.CreateLoad(V);
             } else {
                 return V;
@@ -528,7 +527,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call) {
         auto ExpectedType = FT->getParamType(I);
         auto V = Codegen(Call->Arguments[I]);
         if (!TypecheckAndApplyTrivialCastIfPossible(&V, ExpectedType)) {
-            outs() << "Type mismatch: Cannot pass expression of type " << V->getType() << " to function '" << F->getName() << "' expecting " << ExpectedType << "\n";
+            llvm::outs() << "Type mismatch: Cannot pass expression of type " << V->getType() << " to function '" << F->getName() << "' expecting " << ExpectedType << "\n";
             throw;
         }
         Args.push_back(V);
@@ -570,7 +569,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Comparison> Comparison) {
     //assert_implication(IsSignedType(LHS->getType()), IsSignedType(RHS->getType()));
     
     if (!Binop_AttemptToResolvePotentialIntTypeMismatchesByCastingNumberLiteralsIfPossible(&LHS, &RHS)) {
-        outs() << "Type mismatch: Unable to compare incompatible types '" << LHS->getType() << "' and '" << RHS->getType() << "'\n";
+        llvm::outs() << "Type mismatch: Unable to compare incompatible types '" << LHS->getType() << "' and '" << RHS->getType() << "'\n";
         throw;
     }
     
@@ -602,22 +601,22 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
     auto F = Builder.GetInsertBlock()->getParent();
     
     
-    std::vector<BasicBlock *> BranchBodyBlocks;
+    std::vector<llvm::BasicBlock *> BranchBodyBlocks;
     for (auto I = 0; I < If->Branches.size(); I++) {
-        auto Name = Twine(F->getName()).concat("_if_body").concat(Twine(I));
-        BranchBodyBlocks.push_back(BasicBlock::Create(C, Name));
+        auto Name = llvm::Twine(F->getName()).concat("_if_body").concat(llvm::Twine(I));
+        BranchBodyBlocks.push_back(llvm::BasicBlock::Create(C, Name));
     }
     
     
     
     // The entry points to each branch's condition
     // Note that if the last branch is a conditionless else branch, this points directly to the branch body
-    std::vector<BasicBlock *> BranchConditionBlocks;
+    std::vector<llvm::BasicBlock *> BranchConditionBlocks;
     
     for (auto I = 0; I < If->Branches.size(); I++) {
         if (If->Branches[I]->Kind == ast::IfStmt::Branch::BranchKind::Else) break;
-        auto Name = Twine(F->getName()).concat("_if_cond_").concat(Twine(I));
-        BranchConditionBlocks.push_back(BasicBlock::Create(C, Name));
+        auto Name = llvm::Twine(F->getName()).concat("_if_cond_").concat(llvm::Twine(I));
+        BranchConditionBlocks.push_back(llvm::BasicBlock::Create(C, Name));
     }
     
     BranchConditionBlocks.push_back(BranchBodyBlocks.back());
@@ -635,8 +634,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
         Builder.CreateCondBr(CondV, BranchBodyBlocks[I], BranchConditionBlocks[I + 1]);
     }
     
-    std::vector<Value *> BranchValues;
-    auto MergeBB = BasicBlock::Create(C, "merge");
+    std::vector<llvm::Value *> BranchValues;
+    auto MergeBB = llvm::BasicBlock::Create(C, "merge");
     
     for (auto I = 0; I < If->Branches.size(); I++) {
         auto BB = BranchBodyBlocks[I];
@@ -718,7 +717,7 @@ bool IRGenerator::Binop_AttemptToResolvePotentialIntTypeMismatchesByCastingNumbe
     
     // There's no need to check for doubles here, since there's only one double type
     if (!(T_LHS->isIntegerTy() && T_RHS->isIntegerTy())) {
-        outs() << "Unable to compare incompatible types " << T_LHS << " and " << T_RHS << "\n" ;
+        llvm::outs() << "Unable to compare incompatible types " << T_LHS << " and " << T_RHS << "\n" ;
         throw;
     }
     
