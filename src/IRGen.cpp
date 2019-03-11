@@ -35,6 +35,17 @@ std::string MangleFunctionName(std::string Name) {
     return Name == "main" ? Name : mangling::MangleFunction(Name);
 }
 
+std::string MangleFunctionName(std::shared_ptr<ast::FunctionSignature> Signature) {
+    switch (Signature->Kind) {
+        case ast::FunctionSignature::FunctionKind::Global:
+            return MangleFunctionName(Signature->Name);
+        case ast::FunctionSignature::FunctionKind::Instance:
+            return mangling::MangleMethod(Signature->Typename, Signature->Name, mangling::MethodKind::Instance);
+        case ast::FunctionSignature::FunctionKind::Static:
+            return mangling::MangleMethod(Signature->Typename, Signature->Name, mangling::MethodKind::Static);
+    }
+}
+
 
 
 
@@ -74,8 +85,12 @@ void IRGenerator::Preflight(ast::AST &Ast) {
     for (auto &Node : Ast) {
         if (auto FunctionDecl = std::dynamic_pointer_cast<ast::FunctionDecl>(Node)) {
             RegisterFunctionSignature(FunctionDecl);
+        
         } else if (auto ExternFunctionDecl = std::dynamic_pointer_cast<ast::ExternFunctionDecl>(Node)) {
             RegisterFunctionSignature(ExternFunctionDecl, false);
+        
+        } else if (auto StructDecl = std::dynamic_pointer_cast<ast::StructDecl>(Node)) {
+            RegisterStructDecl(StructDecl);
         }
     }
 }
@@ -88,7 +103,24 @@ void IRGenerator::RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignatu
         ParameterTypes.push_back(GetLLVMType(P->Type));
     }
     
-    auto Name = MangleName ? MangleFunctionName(Signature->Name) : Signature->Name;
+    std::string Name;
+    
+    if (!MangleName) {
+        Name = Signature->Name;
+    } else {
+        Name = MangleFunctionName(Signature);
+//        switch (Signature->Kind) {
+//            case ast::FunctionSignature::FunctionKind::Global:
+//                Name = MangleFunctionName(Signature->Name);
+//                break;
+//            case ast::FunctionSignature::FunctionKind::Instance:
+//                Name = mangling::MangleMethod(Signature->Typename, Signature->Name, mangling::MethodKind::Instance);
+//                break;
+//            case ast::FunctionSignature::FunctionKind::Static:
+//                Name = mangling::MangleMethod(Signature->Typename, Signature->Name, mangling::MethodKind::Static);
+//                break;
+//        }
+    }
     
     auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, false);
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, Name, M);
@@ -99,6 +131,10 @@ void IRGenerator::RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignatu
     }
 }
 
+
+void IRGenerator::RegisterStructDecl(std::shared_ptr<ast::StructDecl> Struct) {
+    TypeCache.Insert(Struct->Name->Value, Struct);
+}
 
 
 # pragma mark - Codegen
@@ -114,20 +150,11 @@ if (std::dynamic_pointer_cast<ast::T>(node)) return nullptr;
 { std::cout << "[IRGenerator::Codegen] Unhandled Node: " << util::typeinfo::GetTypename(*(node)) << std::endl; \
 throw; }
 
-//llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Node> Node) {
-//    // The order here does actually matter, since some nodes inherit from both Expr and LocalStmt
-//    // And Nodes that can be lvalues (MemberAccess) are treated differently if they're a LocalStmt instead of an Expr
-//    HANDLE(Node, LocalStmt)
-//    HANDLE(Node, Expr)
-//    HANDLE(Node, TopLevelStmt)
-//
-//    unhandled_node(Node)
-//}
-
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
     HANDLE(TLS, FunctionDecl)
     IGNORE(TLS, ExternFunctionDecl)
+    HANDLE(TLS, StructDecl)
     
     unhandled_node(TLS)
 }
@@ -163,11 +190,15 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr, CodegenReturn
 #undef unhandled_node
 
 
+#pragma mark - Top Level Statements
+
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDecl, bool MangleName) {
     precondition(Scope.IsEmpty());
     
-    std::string Name = FunctionDecl->Name;
-    if (MangleName) Name = MangleFunctionName(Name);
+    auto Name = !MangleName ? FunctionDecl->Name : MangleFunctionName(FunctionDecl);
+    
+    //std::string Name = FunctionDecl->Name;
+    //if (MangleName) Name = MangleFunctionName(Name);
     
     auto F = M->getFunction(Name);
     if (!F) {
@@ -191,6 +222,13 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
     return F;
 }
 
+
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StructDecl> Struct) {
+    GenerateStructInitializer(Struct);
+    return nullptr;
+}
 
 
 
@@ -548,12 +586,12 @@ llvm::CmpInst::Predicate GetMatchingLLVMCmpInstPredicateForComparisonOperator(as
     using Predicate = llvm::CmpInst::Predicate;
     
     switch (Op) {
-        case ast::Comparison::Operation::EQ: return Predicate::ICMP_EQ;
-        case ast::Comparison::Operation::NE: return Predicate::ICMP_NE;
-        case ast::Comparison::Operation::LT: return Predicate::ICMP_SLT; // TODO differentiate between signed and unsigned
-        case ast::Comparison::Operation::LE: return Predicate::ICMP_SLE;
-        case ast::Comparison::Operation::GT: return Predicate::ICMP_SGT;
-        case ast::Comparison::Operation::GE: return Predicate::ICMP_SGE;
+        case Operation::EQ: return Predicate::ICMP_EQ;
+        case Operation::NE: return Predicate::ICMP_NE;
+        case Operation::LT: return Predicate::ICMP_SLT; // TODO differentiate between signed and unsigned
+        case Operation::LE: return Predicate::ICMP_SLE;
+        case Operation::GT: return Predicate::ICMP_SGT;
+        case Operation::GE: return Predicate::ICMP_SGE;
     }
 }
 
@@ -669,6 +707,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
 llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
 #define HANDLE(name) if (TI->Equals(TypeInfo::name)) { return name; }
     
+    static std::map<std::string, llvm::Type *> StructTypeMappings;
+    
     switch (TI->Kind) {
         case TypeInfo::Kind::Primitive: {
             HANDLE(i8)
@@ -678,7 +718,7 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
             HANDLE(Bool)
             HANDLE(Double)
             HANDLE(Void)
-            break;
+            throw;
         }
         
         case TypeInfo::Kind::Pointer: {
@@ -695,7 +735,26 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
             return Type;
         }
         
-        case TypeInfo::Kind::Complex:
+        case TypeInfo::Kind::Complex: {
+            auto Name = TI->Data.Name;
+            if (auto Type = StructTypeMappings[Name]) {
+                return Type;
+            }
+            
+            auto LLVMType = llvm::StructType::get(C);
+            LLVMType->setName(Name);
+            
+            std::vector<llvm::Type *> Types;
+            for (auto &Attr : TypeCache.Get(Name)->Attributes) {
+                Types.push_back(GetLLVMType(Attr->Type));
+            }
+            
+            LLVMType->setBody(Types);
+            StructTypeMappings[Name] = LLVMType->getPointerTo();
+            return LLVMType->getPointerTo();
+            
+        }
+        
         case TypeInfo::Kind::Function:
             throw;
     }
@@ -745,4 +804,93 @@ bool IRGenerator::TypecheckAndApplyTrivialCastIfPossible(llvm::Value **V, llvm::
         return true;
     }
     return false;
+}
+
+
+
+namespace astgen {
+    using namespace ast;
+    
+    std::shared_ptr<Identifier> Ident(std::string Value) {
+        return std::make_shared<Identifier>(Value);
+    }
+    
+    std::vector<std::shared_ptr<Expr>> ExprVec(std::initializer_list<std::shared_ptr<Expr>> E) {
+        return E;
+    }
+    
+    std::shared_ptr<NumberLiteral> Number(uint64_t Value) {
+        return std::make_shared<NumberLiteral>(Value);
+    }
+    
+    std::shared_ptr<FunctionCall> Call(std::shared_ptr<Identifier> Target, std::vector<std::shared_ptr<Expr>> Args, bool UnusedReturnValue) {
+        return std::make_shared<FunctionCall>(Target, Args, UnusedReturnValue);
+    }
+    
+    std::shared_ptr<Assignment> Assign(std::shared_ptr<Expr> Target, std::shared_ptr<Expr> Value) {
+        return std::make_shared<Assignment>(Target, Value);
+    }
+    
+    std::shared_ptr<Typecast> Cast(std::shared_ptr<Expr> Expr, TypeInfo *T) {
+        return std::make_shared<Typecast>(Expr, T);
+    }
+}
+
+
+
+#pragma mark - Synthesized Functions
+
+llvm::Value *IRGenerator::GenerateStructInitializer(std::shared_ptr<ast::StructDecl> Struct) {
+    auto T = TypeInfo::MakeComplex(Struct->Name->Value);
+    
+    auto F = std::make_shared<ast::FunctionDecl>();
+    F->Name = "init";
+    F->Kind = ast::FunctionSignature::FunctionKind::Static;
+    F->Typename = Struct->Name->Value;
+    F->Parameters = Struct->Attributes;
+    F->ReturnType = T;
+    F->Body = std::make_shared<ast::Composite>();
+    
+    
+    
+    RegisterFunctionSignature(F);
+    
+    auto self = astgen::Ident("self");
+    
+    {
+        // Allocate Self
+        F->Body->Statements.push_back(std::make_shared<ast::VariableDecl>(self, T));
+        
+        auto Malloc = astgen::Call(astgen::Ident("malloc"),
+                                   astgen::ExprVec({astgen::Number(M->getDataLayout().getTypeAllocSize(GetLLVMType(T)))}),
+                                   false);
+        
+        auto X = std::make_shared<ast::Typecast>(Malloc, T);
+        
+        F->Body->Statements.push_back(astgen::Assign(self, X));
+        
+    }
+    
+    
+    // Set Attributes
+    auto Idx = 0;
+    for (auto &Attr : Struct->Attributes) {
+        auto M1 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::Initial_Identifier);
+        M1->Data.Ident = self;
+        
+        auto M2 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::OffsetRead);
+        M2->Data.Offset = astgen::Number(0);
+        
+        auto M3 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::OffsetRead);
+        M3->Data.Offset = astgen::Cast(astgen::Number(Idx++), TypeInfo::i32);
+        
+        auto MemberAccess = std::make_shared<ast::MemberAccess>(std::vector<std::shared_ptr<ast::MemberAccess::Member>>({M1, M2, M3}));
+        F->Body->Statements.push_back(astgen::Assign(MemberAccess, Attr->Name));
+    }
+    
+    
+    // Return
+    F->Body->Statements.push_back(std::make_shared<ast::ReturnStmt>(self));
+    
+    return Codegen(F);
 }

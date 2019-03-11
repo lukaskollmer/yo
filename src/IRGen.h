@@ -15,6 +15,7 @@
 
 #include "AST.h"
 #include "Scope.h"
+#include "TypeCache.h"
 #include "util.h"
 
 
@@ -30,6 +31,7 @@ class IRGenerator {
     llvm::IRBuilder<> Builder;
     
     Scope Scope;
+    TypeCache TypeCache;
     
     llvm::Type *i8, *i16, *i32, *i64;
     llvm::Type *i8_ptr;
@@ -50,6 +52,7 @@ public:
 private:
     void Preflight(ast::AST &Ast);
     void RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignature> Signature, bool MangleName = true);
+    void RegisterStructDecl(std::shared_ptr<ast::StructDecl> Struct);
     
     
     // In some situations (for example when handling an lvalue), we need Codegen to return an address instead of a dereferenced value
@@ -58,12 +61,14 @@ private:
     };
     
     // Codegen
-    //llvm::Value *Codegen(std::shared_ptr<ast::Node>);
     llvm::Value *Codegen(std::shared_ptr<ast::TopLevelStmt>);
     llvm::Value *Codegen(std::shared_ptr<ast::LocalStmt>);
     llvm::Value *Codegen(std::shared_ptr<ast::Expr>, CodegenReturnValueKind = CodegenReturnValueKind::Value);
     
     llvm::Value *Codegen(std::shared_ptr<ast::FunctionDecl>, bool MangleName = true);
+    llvm::Value *Codegen(std::shared_ptr<ast::StructDecl>);
+    
+    
     llvm::Value *Codegen(std::shared_ptr<ast::Composite>);
     llvm::Value *Codegen(std::shared_ptr<ast::ReturnStmt>);
     llvm::Value *Codegen(std::shared_ptr<ast::FunctionCall>);
@@ -89,8 +94,10 @@ private:
     }
     
     bool TypecheckAndApplyTrivialCastIfPossible(llvm::Value **V, llvm::Type *DestType);
-    
     bool Binop_AttemptToResolvePotentialIntTypeMismatchesByCastingNumberLiteralsIfPossible(llvm::Value **LHS, llvm::Value **RHS);
+    
+    
+    llvm::Value *GenerateStructInitializer(std::shared_ptr<ast::StructDecl> Struct);
 };
 
 

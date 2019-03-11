@@ -30,13 +30,13 @@ void _LKFatalError_imp(const char *funcname, int line, const char *format, ...) 
         printf("[%s:%i] Fatal Error\n", funcname, line);
     }
     
+    raise(SIGABRT);
     exit(EXIT_FAILURE);
 }
 
 
 void _precondition_imp(const char *func, const char *file, int line, const char *expr) {
     printf("Precondition failed: (%s), function %s, file %s, line %i\n", expr, func, file, line);
-    //exit(EXIT_FAILURE);
     raise(SIGABRT);
 }
 

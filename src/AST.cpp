@@ -197,12 +197,8 @@ std::string to_string(T arg) {
         return ast_description(arg);
     
     } else {
+        // this will always fail, but if it does, we get a nice compile-time error message which includes the typename of T
         static_assert(std::is_null_pointer_v<T>, "ugh");
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-value"
-        // Sole purpose of this cast is getting a compiler warning that includes the specific type of `T`
-        static_cast<std::nullptr_t>(arg);
-#pragma clang diagnostic push
         throw;
     }
 }
@@ -227,6 +223,7 @@ Mirror Reflect(FunctionSignature *Signature) {
     return {
         { "name", Signature->Name },
         { "kind", Signature->Kind },
+        { "parameters", Signature->Parameters },
         { "returnType", Signature->ReturnType },
     };
 }
@@ -362,6 +359,13 @@ Mirror Reflect(MemberAccess::Member *Member) {
     };
 }
 
+Mirror Reflect(StructDecl *Struct) {
+    return {
+        { "name", Struct->Name },
+        { "attributes", Struct->Attributes }
+    };
+}
+
 
 
 Mirror Reflect(Node *Node) {
@@ -384,6 +388,7 @@ Mirror Reflect(Node *Node) {
     HANDLE(Typecast)
     HANDLE(MemberAccess)
     HANDLE(MemberAccess::Member)
+    HANDLE(StructDecl)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;

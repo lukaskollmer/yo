@@ -110,10 +110,24 @@ std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
     switch (CurrentToken().getKind()) {
         case TK::Fn: return ParseFunctionDecl();
         case TK::Extern: return ParseExternFunctionDecl();
+        case TK::Struct: return ParseStructDecl();
         default: unhandled_token(CurrentToken());
     }
 }
 
+
+std::shared_ptr<StructDecl> Parser::ParseStructDecl() {
+    assert_current_token_and_consume(TK::Struct);
+    
+    auto Name = ParseIdentifier();
+    assert_current_token_and_consume(TK::OpeningCurlyBraces);
+    
+    auto Attributes = ParseParameterList();
+    assert_current_token_and_consume(TK::ClosingCurlyBraces);
+    
+    return std::make_shared<StructDecl>(Name, Attributes);
+    
+}
 
 
 void Parser::ParseFunctionSignatureInto(std::shared_ptr<FunctionSignature> S) {

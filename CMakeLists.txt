@@ -31,6 +31,8 @@ add_executable(yo
         src/Mangling.cpp
         src/Scope.h
         src/Scope.cpp
+        src/TypeCache.h
+        src/TypeCache.cpp
         src/IRGen.h
         src/IRGen.cpp
         src/JIT.h

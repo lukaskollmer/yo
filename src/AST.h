@@ -87,6 +87,21 @@ public:
 };
 
 
+class StructDecl : public TopLevelStmt {
+public:
+    std::shared_ptr<Identifier> Name;
+    std::vector<std::shared_ptr<VariableDecl>> Attributes;
+    
+    StructDecl(std::shared_ptr<Identifier> Name, std::vector<std::shared_ptr<VariableDecl>> Attributes) : Name(Name), Attributes(Attributes) {}
+};
+
+
+
+
+
+# pragma mark - Local Statements
+
+
 class Composite : public LocalStmt {
 public:
     std::vector<std::shared_ptr<LocalStmt>> Statements;
@@ -94,12 +109,6 @@ public:
     Composite() {}
 };
 
-
-
-
-
-
-# pragma mark - Local Statements
 
 class ReturnStmt : public LocalStmt {
 public:
