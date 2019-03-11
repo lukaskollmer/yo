@@ -206,8 +206,10 @@ class Typecast : public Expr {
 public:
     std::shared_ptr<Expr> Expression;
     TypeInfo *DestType;
+    bool ForceBitcast;
     
-    Typecast(std::shared_ptr<Expr> Expression, TypeInfo *DestType) : Expression(Expression), DestType(DestType) {}
+    Typecast(std::shared_ptr<Expr> Expression, TypeInfo *DestType, bool ForceBitcast = false)
+    : Expression(Expression), DestType(DestType), ForceBitcast(ForceBitcast) {}
 };
 
 

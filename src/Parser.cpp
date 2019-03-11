@@ -559,11 +559,16 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
         }
     }
     
-    if (CurrentTokenKind() == TK::As) {
-        // Typecast
+    if (CurrentTokenKind() == TK::As) { // Typecast
         Consume();
+        bool ForceBitcast = false;
+        if (CurrentTokenKind() == TK::ExclamationMark) {
+            ForceBitcast = true;
+            Consume();
+        }
+        
         auto Type = ParseType();
-        E = std::make_shared<Typecast>(E, Type);
+        E = std::make_shared<Typecast>(E, Type, ForceBitcast);
     }
     
     if (ExpressionDelimitingTokens.Contains(CurrentTokenKind())) {
