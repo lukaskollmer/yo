@@ -869,8 +869,7 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
                 return Type;
             }
             
-            auto LLVMType = llvm::StructType::get(C);
-            LLVMType->setName(Name);
+            auto LLVMType = llvm::StructType::create(C, Name);
             
             std::vector<llvm::Type *> Types;
             for (auto &Attr : TypeCache.Get(Name)->Attributes) {
