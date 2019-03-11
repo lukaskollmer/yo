@@ -72,7 +72,7 @@ private:
     llvm::Value *Codegen(std::shared_ptr<ast::ImplBlock>);
     
     
-    llvm::Value *Codegen(std::shared_ptr<ast::Composite>);
+    llvm::Value *Codegen(std::shared_ptr<ast::Composite>, bool IsFunctionBody = false);
     llvm::Value *Codegen(std::shared_ptr<ast::ReturnStmt>);
     llvm::Value *Codegen(std::shared_ptr<ast::FunctionCall>, unsigned ArgumentOffset = 0);
     llvm::Value *Codegen(std::shared_ptr<ast::VariableDecl>);

@@ -239,7 +239,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
     auto BB = llvm::BasicBlock::Create(C, "entry", F);
     Builder.SetInsertPoint(BB);
     
-    Codegen(FunctionDecl->Body);
+    Codegen(FunctionDecl->Body, true);
     return F;
 }
 
@@ -315,22 +315,36 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::VariableDecl> Decl) {
 
 
 
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> Composite) {
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> Composite, bool IsFunctionBody) {
     auto M = Scope.GetMarker();
     
-    for (auto &Stmt : Composite->Statements) {
+    bool DidReturn = false;
+    
+    for (auto It = Composite->Statements.begin(); It != Composite->Statements.end(); It++) {
+        auto &Stmt = *It;
         if (auto ReturnStmt = std::dynamic_pointer_cast<ast::ReturnStmt>(Stmt)) {
-            // TODO special handling?
             Codegen(ReturnStmt);
-            Scope.Clear();
+            DidReturn = true;
+            break;
         } else {
             Codegen(Stmt);
+            if (IsFunctionBody && It + 1 == Composite->Statements.end()) {
+                // Reached the end of the composite w/out a return statement
+                auto F = Builder.GetInsertBlock()->getParent();
+                precondition(F->getReturnType() == Void);
+                Builder.CreateRetVoid();
+                DidReturn = true;
+            }
         }
     }
     
-    auto Entries = Scope.GetEntriesSinceMarker(M);
-    for (auto &E : Entries) {
-        Scope.Remove(std::get<0>(E));
+    if (DidReturn) {
+        Scope.Clear();
+    } else {
+        auto Entries = Scope.GetEntriesSinceMarker(M);
+        for (auto &E : Entries) {
+            Scope.Remove(std::get<0>(E));
+        }
     }
     
     // if statements are implemented as phi nodes, which means that we need every branch to return _something_
@@ -341,9 +355,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> Composite) {
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ReturnStmt> ReturnStmt) {
     auto F = Builder.GetInsertBlock()->getParent();
     
-    llvm::Value *V;
     if (auto Expr = ReturnStmt->Expression) {
-        V = Codegen(Expr);
+        auto V = Codegen(Expr);
         if (!TypecheckAndApplyTrivialCastIfPossible(&V, F->getReturnType())) {
             llvm::outs() << "Error: Can't return value of type '" << V->getType() << "' from function returning '" << F->getReturnType() << "'\n";
             throw;
