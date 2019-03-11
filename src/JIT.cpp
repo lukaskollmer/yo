@@ -13,8 +13,8 @@
 #include "llvm/Support/TargetRegistry.h"
 
 
-extern "C" void printi(int x) {
-    printf("%i\n", x);
+extern "C" void printi(int64_t x) {
+    printf("%lli\n", x);
 }
 
 extern "C" void printb(bool x) {

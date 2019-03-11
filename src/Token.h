@@ -39,7 +39,7 @@ public:
         Ampersand, Pipe, Circumflex, LessThanSign, GreaterSign,
         
         // Keywords
-        Struct,
+        Struct, Impl,
         Fn, Extern,
         Let, Return,
         If, Else,

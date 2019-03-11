@@ -47,6 +47,7 @@ std::string TokenKindToString(Token::TokenKind Kind) {
         CASE(As)
         CASE(Period)
         CASE(Struct)
+        CASE(Impl)
     }
 #undef CASE
 }

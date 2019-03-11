@@ -94,6 +94,7 @@ private:
     std::shared_ptr<ast::FunctionDecl> ParseFunctionDecl();
     std::shared_ptr<ast::ExternFunctionDecl> ParseExternFunctionDecl();
     std::shared_ptr<ast::StructDecl> ParseStructDecl();
+    std::shared_ptr<ast::ImplBlock> ParseImplBlock();
     
     std::vector<std::shared_ptr<ast::VariableDecl>> ParseParameterList();
     

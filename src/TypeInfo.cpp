@@ -62,6 +62,8 @@ bool TypeInfo::Equals(TypeInfo *Other) {
         return Pointee->Equals(Other->Pointee());
     }
     
+    if (this->Kind == Kind::Complex && Other->Kind == Kind::Complex) return this->Data.Name == Other->Data.Name;
+    
     throw; // TODO implement the rest
 }
 

@@ -49,9 +49,9 @@ MemberAccess::Member::~Member() {
 std::string FunctionKindToString(FunctionSignature::FunctionKind Kind) {
     using E = FunctionSignature::FunctionKind;
     switch (Kind) {
-        CASE(Global)
-        CASE(Static)
-        CASE(Instance)
+        CASE(GlobalFunction)
+        CASE(StaticMethod)
+        CASE(InstanceMethod)
     }
 }
 

@@ -111,6 +111,7 @@ std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
         case TK::Fn: return ParseFunctionDecl();
         case TK::Extern: return ParseExternFunctionDecl();
         case TK::Struct: return ParseStructDecl();
+        case TK::Impl: return ParseImplBlock();
         default: unhandled_token(CurrentToken());
     }
 }
@@ -128,6 +129,25 @@ std::shared_ptr<StructDecl> Parser::ParseStructDecl() {
     return std::make_shared<StructDecl>(Name, Attributes);
     
 }
+
+
+std::shared_ptr<ImplBlock> Parser::ParseImplBlock() {
+    assert_current_token_and_consume(TK::Impl);
+    
+    auto Impl = std::make_shared<ImplBlock>(ParseIdentifier()->Value);
+    
+    assert_current_token_and_consume(TK::OpeningCurlyBraces);
+    
+    while (CurrentTokenKind() == TK::Fn) {
+        Impl->Methods.push_back(ParseFunctionDecl());
+    }
+    assert_current_token_and_consume(TK::ClosingCurlyBraces);
+    
+    return Impl;
+}
+
+
+
 
 
 void Parser::ParseFunctionSignatureInto(std::shared_ptr<FunctionSignature> S) {
@@ -602,7 +622,25 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
     
     while (MemberAccessSeparatingTokens.Contains(CurrentTokenKind())) {
         switch (CurrentTokenKind()) {
-            case Token::TokenKind::Period: throw;
+            case Token::TokenKind::Period: {
+                Consume();
+                
+                // Insert the initial identifier
+                Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::Initial_Identifier, Ident));
+                
+                auto Ident = ParseIdentifier();
+                if (CurrentTokenKind() == TK::OpeningParens) { // Function Call
+                    Consume();
+                    auto Args = ParseExpressionList(TK::ClosingParens);
+                    assert_current_token_and_consume(TK::ClosingParens);
+                    
+                    Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::MemberFunctionCall,
+                                                                             std::make_shared<FunctionCall>(Ident, Args, false)));
+                } else { // Attribute Access
+                    Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::MemberAttributeRead, Ident));
+                }
+                break;
+            }
                 
             case Token::TokenKind::OpeningParens: { // Function Call
                 Consume();

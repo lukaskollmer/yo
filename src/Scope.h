@@ -26,9 +26,9 @@ struct ValueBinding {
     using ReadImp  = std::function<llvm::Value*(void)>;
     using WriteImp = std::function<void(llvm::Value*)>;
     
+    const llvm::Value *Value;
     const ReadImp  Read;
     const WriteImp Write;
-    const llvm::Value *Value;
     
     ValueBinding(llvm::Value *Value, ReadImp Read, WriteImp Write) : Value(Value), Read(Read), Write(Write) {}
 };

@@ -35,14 +35,18 @@ std::string MangleFunctionName(std::string Name) {
     return Name == "main" ? Name : mangling::MangleFunction(Name);
 }
 
-std::string MangleFunctionName(std::shared_ptr<ast::FunctionSignature> Signature) {
+std::string MangleFunctionName(std::shared_ptr<ast::FunctionSignature> Signature, std::optional<std::string> Typename) {
+    using FK = ast::FunctionDecl::FunctionKind;
+    
     switch (Signature->Kind) {
-        case ast::FunctionSignature::FunctionKind::Global:
+        case FK::GlobalFunction:
             return MangleFunctionName(Signature->Name);
-        case ast::FunctionSignature::FunctionKind::Instance:
-            return mangling::MangleMethod(Signature->Typename, Signature->Name, mangling::MethodKind::Instance);
-        case ast::FunctionSignature::FunctionKind::Static:
-            return mangling::MangleMethod(Signature->Typename, Signature->Name, mangling::MethodKind::Static);
+        case FK::InstanceMethod:
+            precondition(Typename);
+            return mangling::MangleMethod(Typename.value(), Signature->Name, mangling::MethodKind::Instance);
+        case FK::StaticMethod:
+            precondition(Typename);
+            return mangling::MangleMethod(Typename.value(), Signature->Name, mangling::MethodKind::Static);
     }
 }
 
@@ -91,12 +95,15 @@ void IRGenerator::Preflight(ast::AST &Ast) {
         
         } else if (auto StructDecl = std::dynamic_pointer_cast<ast::StructDecl>(Node)) {
             RegisterStructDecl(StructDecl);
+        
+        } else if (auto ImplBlock = std::dynamic_pointer_cast<ast::ImplBlock>(Node)) {
+            RegisterImplBlock(ImplBlock);
         }
     }
 }
 
 
-void IRGenerator::RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignature> Signature, bool MangleName) {
+void IRGenerator::RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignature> Signature, bool MangleName, std::optional<std::string> Typename) {
     std::vector<llvm::Type *> ParameterTypes;
     
     for (auto &P : Signature->Parameters) {
@@ -106,20 +113,10 @@ void IRGenerator::RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignatu
     std::string Name;
     
     if (!MangleName) {
+        precondition(Typename == std::nullopt);
         Name = Signature->Name;
     } else {
-        Name = MangleFunctionName(Signature);
-//        switch (Signature->Kind) {
-//            case ast::FunctionSignature::FunctionKind::Global:
-//                Name = MangleFunctionName(Signature->Name);
-//                break;
-//            case ast::FunctionSignature::FunctionKind::Instance:
-//                Name = mangling::MangleMethod(Signature->Typename, Signature->Name, mangling::MethodKind::Instance);
-//                break;
-//            case ast::FunctionSignature::FunctionKind::Static:
-//                Name = mangling::MangleMethod(Signature->Typename, Signature->Name, mangling::MethodKind::Static);
-//                break;
-//        }
+        Name = MangleFunctionName(Signature, Typename);
     }
     
     auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, false);
@@ -132,9 +129,33 @@ void IRGenerator::RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignatu
 }
 
 
+
 void IRGenerator::RegisterStructDecl(std::shared_ptr<ast::StructDecl> Struct) {
     TypeCache.Insert(Struct->Name->Value, Struct);
 }
+
+
+
+void IRGenerator::RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock) {
+    auto Typename = ImplBlock->Typename;
+    precondition(TypeCache.Contains(Typename));
+    
+    auto T = TypeInfo::MakeComplex(Typename);
+    
+    for (auto &M : ImplBlock->Methods) {
+        auto Kind = ast::FunctionSignature::FunctionKind::StaticMethod;
+        if (!M->Parameters.empty()) {
+            auto First = M->Parameters[0];
+            if (First->Name->Value == "self" && First->Type->Equals(T)) {
+                Kind = ast::FunctionSignature::FunctionKind::InstanceMethod;
+            }
+        }
+        M->Kind = Kind;
+        
+        RegisterFunctionSignature(M, true, Typename);
+    }
+}
+
 
 
 # pragma mark - Codegen
@@ -155,6 +176,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
     HANDLE(TLS, FunctionDecl)
     IGNORE(TLS, ExternFunctionDecl)
     HANDLE(TLS, StructDecl)
+    HANDLE(TLS, ImplBlock)
     
     unhandled_node(TLS)
 }
@@ -190,15 +212,14 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr, CodegenReturn
 #undef unhandled_node
 
 
+
+
 #pragma mark - Top Level Statements
 
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDecl, bool MangleName) {
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDecl, bool MangleName, std::optional<std::string> Typename) {
     precondition(Scope.IsEmpty());
     
-    auto Name = !MangleName ? FunctionDecl->Name : MangleFunctionName(FunctionDecl);
-    
-    //std::string Name = FunctionDecl->Name;
-    //if (MangleName) Name = MangleFunctionName(Name);
+    auto Name = !MangleName ? FunctionDecl->Name : MangleFunctionName(FunctionDecl, Typename);
     
     auto F = M->getFunction(Name);
     if (!F) {
@@ -230,6 +251,15 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StructDecl> Struct) {
     return nullptr;
 }
 
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ImplBlock> ImplBlock) {
+    auto Typename = ImplBlock->Typename;
+    for (auto &M : ImplBlock->Methods) {
+        Codegen(M, true, Typename);
+    }
+    return nullptr;
+}
 
 
 
@@ -432,6 +462,16 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
     
     llvm::Value *V = nullptr;
     std::vector<llvm::Value *> GEPIndices;
+    llvm::Type *CurrentType = nullptr;
+    
+    auto HandleGEPIfNecessary = [&]() {
+        precondition(V);
+        if (!GEPIndices.empty()) {
+            V = Builder.CreateGEP(V, GEPIndices);
+        }
+    };
+    
+    
     
     for (auto It = MemberAccess->Members.begin(); It != MemberAccess->Members.end(); It++) {
         auto &Member = *It;
@@ -446,29 +486,85 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
             }
         }
         
-        
         switch (Member->Kind) {
-            case MK::Initial_Identifier:
-                V = Codegen(Member->Data.Ident, RetvalKind);
+            case MK::Initial_Identifier: {
+                auto Ident = Member->Data.Ident;
+                V = Codegen(Ident, RetvalKind);
+                
+                CurrentType = Scope.GetType(Ident->Value);
                 break;
+            }
             case MK::Initial_FunctionCall:
                 V = Codegen(Member->Data.Call); // requested ReturnValueKind ignored here !?
                 // TODO somehow find out here whether the return value is unused? if this isn't the last member, we know for a fact that it isn't
+                CurrentType = V->getType();
+                precondition(CurrentType);
                 break;
-            case MK::OffsetRead:
+            
+            case MK::OffsetRead: {
                 // TODO special handling if V isn't a pointer
                 precondition(V && V->getType()->isPointerTy());
                 
                 auto Offset = Codegen(Member->Data.Offset);
                 GEPIndices.push_back(Offset);
-                break;
                 
+                CurrentType = V->getType()->getPointerElementType();
+                break;
+            }
+                
+            case MK::MemberAttributeRead: {
+                precondition(CurrentType && CurrentType->isPointerTy() && CurrentType->getPointerElementType()->isStructTy());
+                auto MemberName = Member->Data.Ident->Value;
+                auto StructName = CurrentType->getPointerElementType()->getStructName();
+                auto StructType = TypeCache.Get(StructName);
+                
+                auto Offset = -1;
+                for (auto &Attr : StructType->Attributes) {
+                    Offset += 1;
+                    if (Attr->Name->Value == MemberName) {
+                        CurrentType = GetLLVMType(Attr->Type);
+                        break;
+                    }
+                }
+                
+                if (Offset == -1) {
+                    std::cout << "Unable to find member '" << MemberName << "' in Struct '" << StructName.str() << "'\n";
+                    throw;
+                }
+                
+                GEPIndices.push_back(llvm::ConstantInt::get(i64, 0)); // Dereference the pointer
+                GEPIndices.push_back(llvm::ConstantInt::get(i32, Offset));
+                break;
+            }
+                
+            case MK::MemberFunctionCall: {
+                precondition(CurrentType && CurrentType->isPointerTy() && CurrentType->getPointerElementType()->isStructTy());
+                auto Typename = CurrentType->getPointerElementType()->getStructName().str();
+                auto Call = Member->Data.Call;
+                auto MethodName = std::dynamic_pointer_cast<ast::Identifier>(Call->Target)->Value;
+                auto MangledName = mangling::MangleMethod(Typename, MethodName, mangling::MethodKind::Instance);
+                
+                auto F = M->getFunction(MangledName);
+                if (!F) {
+                    std::cout << "Error: Unable to find method -[" << Typename << " " << MethodName << "] (mangled: " << MangledName << ")" << std::endl;
+                    throw;
+                }
+                
+                CurrentType = F->getReturnType();
+                
+                HandleGEPIfNecessary();
+                
+                // Call the method, inserting the additional first parameter
+                Call->Target = std::make_shared<ast::Identifier>(MangledName);
+                auto CallInst = llvm::dyn_cast<llvm::CallInst>(Codegen(Call, 1));
+                CallInst->setArgOperand(0, V);
+                V = CallInst;
+                break;
+            }
         }
     }
     
-    if (!GEPIndices.empty()) {
-        V = Builder.CreateGEP(V, GEPIndices);
-    }
+    HandleGEPIfNecessary();
     
     switch (ReturnValueKind) {
         case CodegenReturnValueKind::Value:
@@ -558,8 +654,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::BinaryOperation> Binop) {
 
 
 
-
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call) {
+// ArgumentOffset: indicates the number of skipped arguments at the start of the argumens list
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset) {
     llvm::Function *F;
     
     if (auto Ident = std::dynamic_pointer_cast<ast::Identifier>(Call->Target)) {
@@ -576,9 +672,11 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call) {
     
     auto FT = F->getFunctionType();
     
-    std::vector<llvm::Value *> Args;
+    std::vector<llvm::Value *> Args(ArgumentOffset, nullptr);
     
-    for (auto I = 0; I < Call->Arguments.size(); I++) {
+    precondition(Call->Arguments.size() == FT->getNumParams() - ArgumentOffset);
+    
+    for (auto I = ArgumentOffset; I < FT->getNumParams(); I++) { // NOTE: getNumParams only returns *fixed* parameters
         auto ExpectedType = FT->getParamType(I);
         auto V = Codegen(Call->Arguments[I]);
         if (!TypecheckAndApplyTrivialCastIfPossible(&V, ExpectedType)) {
@@ -858,19 +956,15 @@ namespace astgen {
 #pragma mark - Synthesized Functions
 
 llvm::Value *IRGenerator::GenerateStructInitializer(std::shared_ptr<ast::StructDecl> Struct) {
-    auto T = TypeInfo::MakeComplex(Struct->Name->Value);
+    auto Typename = Struct->Name->Value;
     
+    auto T = TypeInfo::MakeComplex(Typename);
     auto F = std::make_shared<ast::FunctionDecl>();
     F->Name = "init";
-    F->Kind = ast::FunctionSignature::FunctionKind::Static;
-    F->Typename = Struct->Name->Value;
+    F->Kind = ast::FunctionSignature::FunctionKind::StaticMethod;
     F->Parameters = Struct->Attributes;
     F->ReturnType = T;
     F->Body = std::make_shared<ast::Composite>();
-    
-    
-    
-    RegisterFunctionSignature(F);
     
     auto self = astgen::Ident("self");
     
@@ -909,5 +1003,6 @@ llvm::Value *IRGenerator::GenerateStructInitializer(std::shared_ptr<ast::StructD
     // Return
     F->Body->Statements.push_back(std::make_shared<ast::ReturnStmt>(self));
     
-    return Codegen(F);
+    RegisterFunctionSignature(F, true, Typename);
+    return Codegen(F, true, Typename);
 }

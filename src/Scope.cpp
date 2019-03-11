@@ -22,6 +22,10 @@ ValueBinding *Scope::GetBinding(Ident Identifier) {
     return std::get<2>(*_GetEntry(Identifier)).get();
 }
 
+llvm::Type *Scope::GetType(Ident Identifier) {
+    return std::get<1>(*_GetEntry(Identifier));
+}
+
 
 Scope::Entry Scope::Remove(Ident Identifier) {
     V::const_iterator Pos;

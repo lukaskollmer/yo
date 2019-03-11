@@ -9,6 +9,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
@@ -51,8 +52,9 @@ public:
     
 private:
     void Preflight(ast::AST &Ast);
-    void RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignature> Signature, bool MangleName = true);
+    void RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignature> Signature, bool MangleName = true, std::optional<std::string> Typename = std::nullopt);
     void RegisterStructDecl(std::shared_ptr<ast::StructDecl> Struct);
+    void RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock);
     
     
     // In some situations (for example when handling an lvalue), we need Codegen to return an address instead of a dereferenced value
@@ -65,13 +67,14 @@ private:
     llvm::Value *Codegen(std::shared_ptr<ast::LocalStmt>);
     llvm::Value *Codegen(std::shared_ptr<ast::Expr>, CodegenReturnValueKind = CodegenReturnValueKind::Value);
     
-    llvm::Value *Codegen(std::shared_ptr<ast::FunctionDecl>, bool MangleName = true);
+    llvm::Value *Codegen(std::shared_ptr<ast::FunctionDecl>, bool MangleName = true, std::optional<std::string> Typename = std::nullopt);
     llvm::Value *Codegen(std::shared_ptr<ast::StructDecl>);
+    llvm::Value *Codegen(std::shared_ptr<ast::ImplBlock>);
     
     
     llvm::Value *Codegen(std::shared_ptr<ast::Composite>);
     llvm::Value *Codegen(std::shared_ptr<ast::ReturnStmt>);
-    llvm::Value *Codegen(std::shared_ptr<ast::FunctionCall>);
+    llvm::Value *Codegen(std::shared_ptr<ast::FunctionCall>, unsigned ArgumentOffset = 0);
     llvm::Value *Codegen(std::shared_ptr<ast::VariableDecl>);
     llvm::Value *Codegen(std::shared_ptr<ast::IfStmt>);
     llvm::Value *Codegen(std::shared_ptr<ast::Assignment>);

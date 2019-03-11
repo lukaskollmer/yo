@@ -59,14 +59,13 @@ class Expr : virtual public Node {};
 class FunctionSignature {
 public:
     enum class FunctionKind {
-        Global,     // A free global function
-        Static,     // A static type member method
-        Instance    // A type instance method
+        GlobalFunction,   // A free global function
+        StaticMethod,     // A static type member method
+        InstanceMethod    // A type instance method
     };
     
     std::string Name; // TODO make this an identifier?
     FunctionKind Kind;
-    std::string Typename; // Only relevant if Kind != Global
     std::vector<std::shared_ptr<VariableDecl>> Parameters;
     TypeInfo *ReturnType;
 };
@@ -95,7 +94,14 @@ public:
     StructDecl(std::shared_ptr<Identifier> Name, std::vector<std::shared_ptr<VariableDecl>> Attributes) : Name(Name), Attributes(Attributes) {}
 };
 
-
+class ImplBlock : public TopLevelStmt {
+public:
+    std::string Typename;
+    std::vector<std::shared_ptr<FunctionDecl>> Methods;
+    
+    ImplBlock(std::string Typename) : Typename(Typename) {}
+    ImplBlock(std::string Typename, std::vector<std::shared_ptr<FunctionDecl>> Methods) : Typename(Typename), Methods(Methods) {}
+};
 
 
 
@@ -220,10 +226,12 @@ public:
     class Member : public Node { // same as IfStmt::Branch
     public:
         enum class MemberKind {
-            Initial_Identifier,
-            Initial_FunctionCall,
+            Initial_Identifier,     // Value in Data.Ident
+            Initial_FunctionCall,   // Value in Data.Call
             
-            OffsetRead
+            OffsetRead,             // Value in Data.Offset
+            MemberFunctionCall,     // Value in Data.Call (call target is name of the method being called)
+            MemberAttributeRead     // Value in Data.Ident
         };
         
         union MemberData {
@@ -240,6 +248,18 @@ public:
         MemberData Data;
         
         Member(MemberKind Kind) : Kind(Kind) {}
+        Member(MemberKind Kind, std::shared_ptr<Identifier> Ident) : Kind(Kind) {
+            precondition(Kind == MemberKind::Initial_Identifier || Kind == MemberKind::MemberAttributeRead);
+            Data.Ident = Ident;
+        }
+        Member(MemberKind Kind, std::shared_ptr<FunctionCall> Call) : Kind(Kind) {
+            precondition(Kind == MemberKind::Initial_FunctionCall || Kind == MemberKind::MemberFunctionCall);
+            Data.Call = Call;
+        }
+        Member(MemberKind Kind, std::shared_ptr<Expr> Offset) : Kind(Kind) {
+            precondition(Kind == MemberKind::OffsetRead);
+            Data.Offset = Offset;
+        }
         ~Member();
     };
     

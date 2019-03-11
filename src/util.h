@@ -12,6 +12,7 @@
 #include <vector>
 #include <functional>
 #include <ostream>
+#include <csignal>
 
 
 inline void noop() {}
@@ -45,7 +46,7 @@ void _LKFatalError_imp(const char *funcname, int line, const char *format, ...);
 void _precondition_imp(const char *func, const char *file, int line, const char *expr);
 
 #define precondition(e) \
-(__builtin_expect(!(e), 0) ? _precondition_imp(__func__, __FILE__, __LINE__, #e) : (void)0)
+(__builtin_expect(!(e), 0) ? (void)(printf("Precondition Failed: (%s) function %s, file %s, line %i\n", #e, __func__, __FILE__, __LINE__) & raise(SIGABRT)) : (void)0)
 
 
 //#define assert_implication(x, y) { if (!( !(x) || (y) )) throw; }
