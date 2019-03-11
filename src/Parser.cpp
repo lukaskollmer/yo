@@ -287,6 +287,11 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
 std::shared_ptr<ReturnStmt> Parser::ParseReturnStmt() {
     assert_current_token_and_consume(TK::Return);
     
+    if (CurrentTokenKind() == TK::Semicolon) {
+        Consume();
+        return std::make_shared<ReturnStmt>(nullptr);
+    }
+    
     auto Expr = ParseExpression();
     assert_current_token_and_consume(TK::Semicolon);
     return std::make_shared<ReturnStmt>(Expr);

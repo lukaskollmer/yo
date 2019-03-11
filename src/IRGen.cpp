@@ -309,7 +309,20 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> Composite) {
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ReturnStmt> ReturnStmt) {
-    return Builder.CreateRet(Codegen(ReturnStmt->Expression));
+    auto F = Builder.GetInsertBlock()->getParent();
+    
+    llvm::Value *V;
+    if (auto Expr = ReturnStmt->Expression) {
+        V = Codegen(Expr);
+        if (!TypecheckAndApplyTrivialCastIfPossible(&V, F->getReturnType())) {
+            llvm::outs() << "Error: Can't return value of type '" << V->getType() << "' from function returning '" << F->getReturnType() << "'\n";
+            throw;
+        }
+        return Builder.CreateRet(V);
+    } else {
+        precondition(F->getReturnType() == Void);
+        return Builder.CreateRetVoid();
+    }
 }
 
 
