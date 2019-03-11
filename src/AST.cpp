@@ -35,7 +35,7 @@ MemberAccess::Member::~Member() {
             Data.Call.~shared_ptr();
             break;
         case MemberKind::OffsetRead:
-            Data.Call.~shared_ptr();
+            Data.Offset.~shared_ptr();
             break;
     }
 }
