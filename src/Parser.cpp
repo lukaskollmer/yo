@@ -138,9 +138,13 @@ void Parser::ParseFunctionSignatureInto(std::shared_ptr<FunctionSignature> S) {
     
     S->Parameters = ParseParameterList();
     assert_current_token_and_consume(TK::ClosingParens);
-    assert_current_token_and_consume(TK::Colon);
     
-    S->ReturnType = ParseType();
+    if (CurrentTokenKind() == TK::Colon) {
+        Consume();
+        S->ReturnType = ParseType();
+    } else {
+        S->ReturnType = TypeInfo::Void;
+    }
 }
 
 
