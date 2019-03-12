@@ -197,9 +197,15 @@ public:
 
 class StringLiteral : public Expr {
 public:
-    std::string Value;
+    enum class StringLiteralKind {
+        NormalString,   // Becomes a `String` object
+        ByteString      // Becomes an `*i8` pointer
+    };
     
-    explicit StringLiteral(std::string Value) : Value(Value) {}
+    std::string Value;
+    StringLiteralKind Kind;
+    
+    explicit StringLiteral(std::string Value, StringLiteralKind Kind) : Value(Value), Kind(Kind) {}
 };
 
 

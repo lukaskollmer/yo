@@ -28,14 +28,16 @@
 int main(int argc, const char * argv[], const char *const *envp) {
     //cl::Init(argc, argv);
     
-    std::ifstream File("/Users/lukas/Developer/yo/temp/program.yo");
+    std::string Filename("/Users/lukas/Developer/yo/temp/program.yo");
+    
+    std::ifstream File(Filename);
     std::ostringstream Contents;
     Contents << File.rdbuf();
     File.close();
     
     Lexer Lexer;
     auto S = Contents.str();
-    auto Tokens = Lexer.Lex(S);
+    auto Tokens = Lexer.Lex(S, Filename);
     
     
     //for (auto Token : Tokens) { std::cout << *Token << std::endl; } return 0;

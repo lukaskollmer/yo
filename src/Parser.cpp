@@ -96,7 +96,7 @@ AST Parser::Parse(TokenList Tokens) {
     this->Position = 0;
     
     AST Ast;
-    while (Position < Tokens.size() && CurrentToken().getKind() != TK::EOF_) {
+    while (Position < Tokens.size() && CurrentToken().Kind != TK::EOF_) {
         Ast.push_back(ParseTopLevelStmt());
     }
     
@@ -107,7 +107,7 @@ AST Parser::Parse(TokenList Tokens) {
 
 
 std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
-    switch (CurrentToken().getKind()) {
+    switch (CurrentToken().Kind) {
         case TK::Fn: return ParseFunctionDecl();
         case TK::Extern: return ParseExternFunctionDecl();
         case TK::Struct: return ParseStructDecl();
@@ -383,7 +383,7 @@ std::shared_ptr<IfStmt> Parser::ParseIfStmt() {
 
 std::shared_ptr<Identifier> Parser::ParseIdentifier() {
     if (CurrentTokenKind() != TK::Identifier) return nullptr;
-    auto R = std::make_shared<Identifier>(CurrentToken().getData().s);
+    auto R = std::make_shared<Identifier>(CurrentToken().Data.S);
     Consume();
     return R;
 }
@@ -512,20 +512,19 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
         assert_current_token_and_consume(TK::ClosingParens);
     }
     
-    if (CurrentTokenKind() == TK::StringLiteral) {
-        auto Value = CurrentToken().getData().s;
-        Consume();
-        return std::make_shared<StringLiteral>(Value); // TODO support string literals as first elements in a ast::MemberAccess?
-    }
-    
     if (CurrentTokenKind() == TK::CharLiteral) {
-        auto Value = (char) CurrentToken().getData().i;
+        auto Value = (char) CurrentToken().Data.I;
         Consume();
         return std::make_shared<CharLiteral>(Value); // TODO assign the char to E, which would allow using it in arithmetic expressions?
     }
     
     if (!E) {
         E = ParseNumberLiteral();
+    }
+    
+    if (!E) {
+        // TODO support string literals as first elements in a ast::MemberAccess?
+        E = ParseStringLiteral();
     }
     
     if (!E) {
@@ -699,13 +698,31 @@ std::shared_ptr<NumberLiteral> Parser::ParseNumberLiteral() {
         return nullptr;
     }
     
-    auto Value = CurrentToken().getData().i;
+    auto Value = CurrentToken().Data.I;
     Consume();
     
     return std::make_shared<NumberLiteral>(Value);
 }
 
 
+
+
+std::shared_ptr<StringLiteral> Parser::ParseStringLiteral() {
+    auto &T = CurrentToken();
+    
+    
+    if (T.Kind != TK::StringLiteral && T.Kind != TK::ByteStringLiteral) {
+        return nullptr;
+    }
+    
+    auto Value = T.Data.S;
+    StringLiteral::StringLiteralKind Kind = T.Kind == TK::StringLiteral
+        ? StringLiteral::StringLiteralKind::NormalString
+        : StringLiteral::StringLiteralKind::ByteString;
+    
+    Consume();
+    return std::make_shared<StringLiteral>(Value, Kind);
+}
 
 
 

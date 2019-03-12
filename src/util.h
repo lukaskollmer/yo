@@ -51,8 +51,6 @@ void _precondition_imp(const char *func, const char *file, int line, const char 
 #define precondition(e) \
 (__builtin_expect(!(e), 0) ? (void)(printf("Precondition Failed: (%s) function %s, file %s, line %i\n", #e, __func__, __FILE__, __LINE__) & raise(SIGABRT)) : (void)0)
 
-
-//#define assert_implication(x, y) { if (!( !(x) || (y) )) throw; }
 #define assert_implication(x, y) precondition(!(x) || (y))
 
 

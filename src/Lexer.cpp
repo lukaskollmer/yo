@@ -15,279 +15,342 @@
 //#include "util.h"
 
 
-static CharacterSet Letters({{'a', 'z'}, {'A', 'Z'}});
+using TK = Token::TokenKind;
 
+static constexpr char DOUBLE_QUOTE = '"';
+
+
+static CharacterSet Letters({{'a', 'z'}, {'A', 'Z'}});
 
 static CharacterSet IgnoredCharacters(" "); // TODO make this "all whitespace" instead
 static CharacterSet Delimiters(" .,+-*/;:=<>!&^#|~(){}[]@\n");
+static CharacterSet BinaryDigits("01");
+static CharacterSet OctalDigits("01234567");
 static CharacterSet DecimalDigits("0123456789");
+static CharacterSet HexadecimalDigits("0123456789abcdef");
 static CharacterSet IdentifierStartCharacters = Letters.Joined(CharacterSet("_"));
 static CharacterSet IdentifierCharacters = IdentifierStartCharacters.Joined(DecimalDigits);
+
+static CharacterSet SingleCharTokens(".,+-*/;:=<>!&^#|~(){}[]@");
 
 
 
 // TODO now idea if/how this would work, but it'd be cool to have a compile-time assertion that the mapping below is complete
 static std::map<std::string, Token::TokenKind> TokenKindMappings = {
-    { "(" , Token::TokenKind::OpeningParens },
-    { ")" , Token::TokenKind::ClosingParens },
-    { "{" , Token::TokenKind::OpeningCurlyBraces },
-    { "}" , Token::TokenKind::ClosingCurlyBraces },
-    { "[" , Token::TokenKind::OpeningSquareBrackets },
-    { "]" , Token::TokenKind::ClosingSquareBrackets },
+    { "(" , TK::OpeningParens },
+    { ")" , TK::ClosingParens },
+    { "{" , TK::OpeningCurlyBraces },
+    { "}" , TK::ClosingCurlyBraces },
+    { "[" , TK::OpeningSquareBrackets },
+    { "]" , TK::ClosingSquareBrackets },
     
-    { "," , Token::TokenKind::Comma },
-    { "!" , Token::TokenKind::ExclamationMark },
-    { ":" , Token::TokenKind::Colon },
-    { ";" , Token::TokenKind::Semicolon },
-    { "=" , Token::TokenKind::EqualsSign },
-    { "." , Token::TokenKind::Period },
+    { "," , TK::Comma },
+    { "!" , TK::ExclamationMark },
+    { ":" , TK::Colon },
+    { ";" , TK::Semicolon },
+    { "=" , TK::EqualsSign },
+    { "." , TK::Period },
     
-    { "*" , Token::TokenKind::Asterisk },
-    { "+" , Token::TokenKind::Plus },
-    { "-" , Token::TokenKind::Minus },
-    { "/" , Token::TokenKind::ForwardSlash },
-    { "%" , Token::TokenKind::PercentageSign },
+    { "*" , TK::Asterisk },
+    { "+" , TK::Plus },
+    { "-" , TK::Minus },
+    { "/" , TK::ForwardSlash },
+    { "%" , TK::PercentageSign },
     
-    { "&" , Token::TokenKind::Ampersand },
-    { "|" , Token::TokenKind::Pipe },
-    { "^" , Token::TokenKind::Circumflex },
+    { "&" , TK::Ampersand },
+    { "|" , TK::Pipe },
+    { "^" , TK::Circumflex },
     
-    { "<" , Token::TokenKind::LessThanSign },
-    { ">" , Token::TokenKind::GreaterSign },
+    { "<" , TK::LessThanSign },
+    { ">" , TK::GreaterSign },
     
     // Keywords
-    { "fn",     Token::TokenKind::Fn     },
-    { "return", Token::TokenKind::Return },
-    { "extern", Token::TokenKind::Extern },
-    { "let",    Token::TokenKind::Let    },
-    { "if",     Token::TokenKind::If    },
-    { "else",   Token::TokenKind::Else    },
-    { "as",     Token::TokenKind::As    },
-    { "struct", Token::TokenKind::Struct  },
-    { "impl",   Token::TokenKind::Impl  },
+    { "fn",     TK::Fn     },
+    { "return", TK::Return },
+    { "extern", TK::Extern },
+    { "let",    TK::Let    },
+    { "if",     TK::If    },
+    { "else",   TK::Else    },
+    { "as",     TK::As    },
+    { "struct", TK::Struct  },
+    { "impl",   TK::Impl  },
 };
 
 
-
-
-bool IsWhitespace(char &character) {
-    return character == ' '; // TODO add support for other kinds of whitespace
-}
-
-
-
-void toggle(bool *x) {
-    *x = !*x;
-}
-
-std::string RemovingCommentsInLine(std::string &line) {
-    auto length = line.length();
-    if (length == 0) return "";
+TokenList Lexer::Lex(std::string &String, std::string &Filename) {
+    // Reset everything
+    Tokens = {};
+    Line = 0;
+    LineStart = 0;
+    this->Filename = Filename;
     
-    bool didOnlyEncounterWhitespaceSoFar = true;
-    bool inStringLiteral = false;
-    bool escapeNextCharacter = false;
-    int inlineCommentStartIndex = -1;
     
-    auto isParsingInlineComment = [&inlineCommentStartIndex] () -> bool {
-        return inlineCommentStartIndex > -1;
-    };
+    auto Length = String.length();
     
-    for (int i = 0; i < length; i++) {
-        char c = line.at(i);
+    for (Offset = 0; Offset < Length; Offset++) {
+        auto C = String[Offset];
         
-        if (didOnlyEncounterWhitespaceSoFar) {
-            if (i < length - 3 && c == '/' && line.at(i + 1) == '/') {
-                return "";
-            }
-            didOnlyEncounterWhitespaceSoFar = IsWhitespace(c);
-        }
-        
-        // Check for end-of-line comments
-        // The only caveat here is excluding slashes in string literals
-        
-        if (!escapeNextCharacter && c == '"' && !isParsingInlineComment()) {
-            inStringLiteral = !inStringLiteral;
-        }
-        
-        if (!inStringLiteral && i < length - 1) {
-            char nextChar = line.at(i + 1);
-            if (c == '/') {
-                if (nextChar == '/' && !isParsingInlineComment()) {
-                    return line.substr(0, i);
-                } else if (nextChar == '*') {
-                    inlineCommentStartIndex = i;
-                }
-            } else if (c == '*' && nextChar == '/' && isParsingInlineComment()) {
-                auto length = i - inlineCommentStartIndex + 2;
-                auto replacement = std::string(length, ' ');
-                line = line.replace(inlineCommentStartIndex, length, replacement);
-                
-                inlineCommentStartIndex = -1;
-                i += 1;
-            }
-        }
-        escapeNextCharacter = !escapeNextCharacter && c == '\\';
-    }
-    
-    return line;
-    
-    
-}
-
-bool StringContainsChar(std::string &String, char Char) {
-    return String.find(Char) != std::string::npos;
-}
-
-
-
-LKUInteger Lexer::LexLine(std::string &line, LKUInteger LineStartPosition) {
-    auto length = line.length();
-    
-    std::string currentToken;
-    
-    bool lastScalarWasEscapeSequenceSignal = false;
-    bool currentlyInStringLiteral = false;
-    
-    for (int i = 0; i < length; i++) {
-        char c = line.at(i);
-        if (!currentlyInStringLiteral && IgnoredCharacters.Contains(c)) {
+        if (IgnoredCharacters.Contains(C)) {
             continue;
         }
         
-        currentToken.push_back(c);
         
-        // String Literals
-        if (c == '"') {
-            if (!currentlyInStringLiteral) {
-                currentlyInStringLiteral = true;
-                currentToken.pop_back(); // remove the initial quotes
-                continue;
+        
+        // Q: Why is this a lambda?
+        // A: We also need to adjust the current source position if we're in multiline strings/comments
+        auto HandleNewline = [&]() {
+            Line++;
+            LineStart = Offset + 1;
+        };
+        
+        
+        if (C == '\n') {
+            // TODO this would be a good place to insert semicolons?
+            HandleNewline();
+            continue;
+        }
+        
+        
+        
+        if (C == '/' && String[Offset + 1] == '/') {
+            // Start of line comment
+            while (String[++Offset] != '\n');
+            HandleNewline();
+            continue;
+        }
+        
+        
+        
+        
+        if (C == '/' && String[Offset + 1] == '*') {
+            // start of comment block
+            // Note that we deliberately don't check whether a comment's end is within a string literal
+            Offset += 2;
+            while (String[Offset++] != '*' && String[Offset] != '/') {
+                if (String[Offset] == '\n') HandleNewline();
+            }
+            continue;
+        }
+        
+        
+        
+        // Offset after returning is the character after the end of the escaped character
+        // For example, if we're parsing `'\123x`, the Offset after returhing would "point" to the x
+        auto ParseEscapedCharacter = [&] () -> char {
+            precondition(String[Offset] == '\\');
+            
+            if (String[Offset + 1] == '\\') {
+                // Escaped backslash
+                Offset++;
+                return '\\';
             }
             
-            if (!lastScalarWasEscapeSequenceSignal) {
-                // string ended
-                currentlyInStringLiteral = false;
-                currentToken.pop_back(); // remove the closing quotes
-                HandleRawToken(currentToken, LineStartPosition + i, Token::TokenKind::StringLiteral);
-                currentToken.clear();
-                if (i == length - 1) {
-                    goto line_end_handling; // TODO come up w/ a better solution
+            
+            auto X = String[++Offset];
+            
+            // Offset at this point is now the character after the backslash
+            
+            if (X == 'x' || OctalDigits.Contains(X)) { // Hex or octal value
+                auto IsHex = X == 'x';
+                
+                std::string RawValue;
+                
+                if (IsHex) {
+                    RawValue.push_back(String[++Offset]);
+                    RawValue.push_back(String[++Offset]);
+                    Offset++;
                 } else {
-                    continue;
+                    while (OctalDigits.Contains(String[Offset]) && RawValue.length() < 3) {
+                        RawValue.push_back(String[Offset++]);
+                    }
+                }
+                
+                std::size_t Length;
+                char Value;
+                try {
+                    Value = std::stoi(RawValue, &Length, IsHex ? 16 : 8);
+                } catch (...) {
+                    throw;
+                }
+                
+                precondition(Length == RawValue.length());
+                
+                return Value;
+                
+            }
+            
+            
+            switch (X) {
+                case 'n': Offset++; return '\n';
+                case 't': Offset++; return '\t';
+                default: break;
+            }
+            
+            
+            throw;
+        };
+        
+        
+        
+        
+        if (C == '\'') { // Char literal
+            C = String[++Offset];
+            char content;
+            
+            if (C == '\'') {
+                throw; // Empty char literal
+            } else if (C == '\\') {
+                content = ParseEscapedCharacter();
+            } else {
+                content = C;
+                Offset++;
+            }
+            
+            precondition(String[Offset] == '\'');
+            auto T = HandleRawToken("", TK::CharLiteral);
+            T->Data.C = content;
+            continue;
+        }
+        
+        
+        bool IsByteStringLiteral = false;
+        bool IsRawStringLiteral = false;
+        
+        if (C == 'b' && String[Offset + 1 + (String[Offset + 1] == 'r')] == DOUBLE_QUOTE) {
+            IsByteStringLiteral = true;
+            Offset++;
+        }
+        
+        
+        
+        if (String[Offset] == 'r' && String[Offset + 1] == DOUBLE_QUOTE) { // Raw (unescaped) string literal
+            IsRawStringLiteral = true;
+            Offset++;
+        }
+        
+        
+        if (String[Offset] == DOUBLE_QUOTE) { // String literal
+            std::string Content;
+            
+            Offset++;
+            
+            // Offset is at first char after opening quotes
+            
+            if (IsRawStringLiteral) {
+                for (auto C = String[Offset]; C != DOUBLE_QUOTE; C = String[++Offset]) {
+                    Content.push_back(C);
+                    if (C == '\n') HandleNewline();
                 }
             } else {
-                throw; // TODO continue parsing
-            }
-        }
-        
-        if (currentlyInStringLiteral) {
-            if (c == '\\') {
-                if (!lastScalarWasEscapeSequenceSignal) {
-                    currentToken.pop_back();
+                for (auto C = String[Offset]; C != DOUBLE_QUOTE; C = String[Offset]) {
+                    if (C == '\\') {
+                        Content.push_back(ParseEscapedCharacter());
+                    } else {
+                        if (C == '\n') HandleNewline();
+                        Content.push_back(C);
+                        Offset++;
+                    }
                 }
-                toggle(&lastScalarWasEscapeSequenceSignal);
-                continue;
             }
             
+            precondition(String[Offset++] == DOUBLE_QUOTE);
             
-            if (lastScalarWasEscapeSequenceSignal) {
-                switch (c) {
-                    case 'n': currentToken.push_back('\n'); break;
-                    case '"': currentToken.push_back('"');  break;
-                    case 't': currentToken.push_back('\t'); break;
-                    default: LKFatalError("Unhandled excape sequence in string literal: \\%c", c);
-                }
-                lastScalarWasEscapeSequenceSignal = false;
-            }
-        }
-        
-        
-        
-    line_end_handling:
-        auto isLast = i == length - 1;
-        
-        if (isLast) {
-            // TODO ?this is where we should dynamically insert semicolons, depending on the type of the last token?
-            if (!currentToken.empty()) {
-                HandleRawToken(currentToken, LineStartPosition + i);
-                currentToken.clear();
-            }
+            auto T = HandleRawToken("", IsByteStringLiteral ? TK::ByteStringLiteral : TK::StringLiteral);
+            T->Data.S = Content;
+            Offset--; // unavoidable :/
             continue;
         }
         
-        // Not last token
-        auto next = line.at(i + 1);
+        // If either of these is true, the string should've been handled above
+        precondition(!IsRawStringLiteral && !IsByteStringLiteral);
+        
+        if (SingleCharTokens.Contains(C)) {
+            std::string X(1, C);
+            HandleRawToken(X);
+            continue;
+        }
         
         
-        // Char literals
-        if (c == '\'' && !currentlyInStringLiteral) {
-            currentToken.pop_back();
+        
+        if (IdentifierStartCharacters.Contains(C)) {
+            std::string Ident;
             
-            precondition(next != '\'' && "Empty char literal");
+            do {
+                Ident.push_back(C);
+                C = String[++Offset];
+            } while (IdentifierCharacters.Contains(C));
             
-            if (next == '\\') {
-                throw; // TODO
+            HandleRawToken(Ident);
+            Offset--;
+            continue;
+        }
+        
+        
+        
+        
+        if (DecimalDigits.Contains(C)) { // Number literal
+            uint8_t Base = 10;
+            std::string RawValue;
+            
+            auto Next = String[Offset + 1];
+            
+            if (C == '0') { // binary/octal/decimal/hex ?
+                if (Next == 'b') {
+                    Offset += 2;
+                    Base = 2;
+                } else if (Next == 'x') {
+                    Offset += 2;
+                    Base = 16;
+                } else if (OctalDigits.Contains(Next)) {
+                    Base = 8;
+                } else {
+                    // A single 0, not followed by another numeric digit
+                    precondition(!HexadecimalDigits.Contains(Next));
+                }
             }
             
-            precondition(currentToken.empty());
-            currentToken.push_back(next);
-            HandleRawToken(currentToken, LineStartPosition + i + 1, Token::TokenKind::CharLiteral);
-            currentToken.clear();
+            // The hex digits charset contains all other digits as well, so it makes most sense to use that.
+            // Invalid characters will be detected by `std::stoll` below
             
-            i += 2; // skip over the char and the closing single quote. TODO update this if the literal contains > 1 scalar
+            do {
+                RawValue.push_back(String[Offset]);
+            } while (HexadecimalDigits.Contains(String[++Offset]));
+            
+            
+            uint64_t Value;
+            std::size_t Length;
+            
+            try {
+                Value = std::stoll(RawValue, &Length, Base);
+            } catch (const std::exception &e) {
+                std::cout << e.what() << std::endl;
+                throw;
+            }
+            
+            // TODO turn this into a nice error message
+            precondition(Length == RawValue.length()); // The string contained illegal characters (eg: 0b110012)
+            
+            auto T = HandleRawToken("", TK::IntegerLiteral);
+            T->Data.I = Value;
+            Offset--; // unavoidable :/
+            continue;
         }
         
-        
-        // Handle the current token, if
-        // a) the next char is a delimiter
-        // b) the current character is a delimiter (this catches things like `(x` in a function signature
-        if (!currentlyInStringLiteral && (Delimiters.Contains(c) || Delimiters.Contains(next))) {
-            HandleRawToken(currentToken, LineStartPosition + i);
-            currentToken.clear();
-        }
+        LKFatalError("unhandled character: '%c'", String[Offset]);
     }
     
-    return length;
-}
-
-
-TokenList Lexer::Lex(std::string &string) {
-    std::stringstream ss(string);
-    
-    LKUInteger Position = 0;
-    std::string line;
-    while (std::getline(ss, line, '\n')) {
-        line = RemovingCommentsInLine(line);
-        Position += LexLine(line, Position);
-    }
-    HandleRawToken("", Position, Token::TokenKind::EOF_);
+    HandleRawToken("", TK::EOF_);
     
     return Tokens;
 }
 
 
 
-void Lexer::HandleRawToken(const std::string &RawToken, LKUInteger EndLocation, Token::TokenKind TokenKind) {
-    //printf("[%s] token: '%s', EndLoc: %i, Kind: %i\n", __PRETTY_FUNCTION__, RawToken.c_str(), EndLocation, TokenKind);
-    
+Token *Lexer::HandleRawToken(const std::string &RawToken, Token::TokenKind TokenKind) {
     std::shared_ptr<Token> Token;
     
-    if (TokenKind == Token::TokenKind::StringLiteral) {
-        Token = Token::StringLiteral(RawToken);
-    }
-    
-    else if (TokenKind == Token::TokenKind::CharLiteral) {
-        Token = Token::CharLiteral(RawToken.front());
-    }
-    
-    else if (TokenKind != Token::TokenKind::Unknown) {
+    if (TokenKind != TK::Unknown) {
         Token = Token::WithKind(TokenKind);
-    }
-    
-    else if (DecimalDigits.ContainsAllCharactersInString(RawToken)) {
-        auto Value = std::stol(RawToken);
-        Token = Token::IntegerLiteral(Value);
     }
     
     else if (TokenKindMappings.find(RawToken) != TokenKindMappings.end()) {
@@ -299,34 +362,15 @@ void Lexer::HandleRawToken(const std::string &RawToken, LKUInteger EndLocation, 
     }
     
     
-    
-    
     if (!Token) {
         LKLog("didn't initialize token for '%s'", RawToken.c_str());
         exit(EXIT_FAILURE);
     }
     
-    auto Start = EndLocation - RawToken.length();
-    Token->setSourceLocation(Range(Start, RawToken.length()));
+    auto Column = ColumnRelatoveToCurrentLine();
+    Token->SourceLocation = TokenSourceLocation(Filename, Line, Column, Offset - Column);
     
     Tokens.push_back(Token);
+    return Token.get();
 }
 
-
-
-
-
-std::string Lexer::RemovingComments(std::string Input) {
-    std::stringstream ss(Input);
-    
-    std::string ReturnValue;
-    ReturnValue.reserve(Input.length());
-    
-    std::string line;
-    while (std::getline(ss, line, '\n')) {
-        ReturnValue += RemovingCommentsInLine(line);
-        ReturnValue += '\n'; // TODO it'd be more efficient if we just left out all newlines, but that means that errors reported by the parser won't have accurate positions
-    }
-    
-    return ReturnValue;
-}

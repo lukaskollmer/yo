@@ -50,30 +50,46 @@ std::string TokenKindToString(Token::TokenKind Kind) {
         CASE(Impl)
         CASE(StringLiteral)
         CASE(CharLiteral)
+        CASE(DoubleLiteral)
+        CASE(ByteStringLiteral)
     }
 #undef CASE
 }
 
 
-std::ostream &operator<<(std::ostream &OS, const Token &T) {
-    OS << "<Token " << TokenKindToString(T.getKind());
-    switch (T.getKind()) {
-        case Token::TokenKind::StringLiteral:
+std::string escape_char(char C) {
+    switch (C) {
+        case '\n': return "\\n";
+        case '\t': return "\\t";
+        default: return std::string(1, C);
+    }
+}
+
+std::ostream &operator<<(std::ostream &OS, Token &T) {
+    OS << "<Token " << TokenKindToString(T.Kind);
+    switch (T.Kind) {
         case Token::TokenKind::Identifier:
-            OS << " '" << T.getData().s << "'";
+        case Token::TokenKind::StringLiteral:
+        case Token::TokenKind::ByteStringLiteral:
+            OS << " '" << T.Data.S << "'";
             break;
         case Token::TokenKind::IntegerLiteral:
+            OS << " " << T.Data.I;
+            break;
         case Token::TokenKind::CharLiteral:
-            OS << " " << T.getData().i << "";
+            OS << " '" << escape_char(T.Data.C) << "'";
+            break;
+        case Token::TokenKind::DoubleLiteral:
+            OS << " " << T.Data.D;
             break;
         default: break;
     }
-    OS << ">";
-    return OS;
+    
+    return OS << ">";
 }
 
 
 
-std::ostream &operator<<(std::ostream &OS, const Token::TokenKind &TK) {
+std::ostream &operator<<(std::ostream &OS, Token::TokenKind TK) {
     return OS << TokenKindToString(TK);
 }

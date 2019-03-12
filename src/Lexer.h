@@ -19,13 +19,19 @@
 
 class Lexer {
 public:
-    LKUInteger LexLine(std::string &Line, LKUInteger LineStartPosition);
-    TokenList Lex(std::string &String);
-    
-    void HandleRawToken(const std::string &RawToken, LKUInteger EndLocation, Token::TokenKind TokenKind = Token::TokenKind::Unknown);
-    
-    static std::string RemovingComments(std::string Input);
+    TokenList Lex(std::string &String, std::string &Filename);
     
 private:
     TokenList Tokens;
+    
+    uint64_t Offset;
+    uint64_t Line;
+    uint64_t LineStart;
+    std::string Filename;
+    
+    uint64_t ColumnRelatoveToCurrentLine() {
+        return Offset - LineStart;
+    }
+    
+    Token *HandleRawToken(const std::string &RawToken, Token::TokenKind TokenKind = Token::TokenKind::Unknown);
 };

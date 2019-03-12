@@ -418,6 +418,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> Number) {
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StringLiteral> StringLiteral) {
+    precondition(StringLiteral->Kind == ast::StringLiteral::StringLiteralKind::ByteString);
     return Builder.CreateGlobalStringPtr(StringLiteral->Value);
 }
 

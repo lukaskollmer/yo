@@ -51,25 +51,25 @@ private:
     inline Token &NextToken() { return *Tokens[++Position]; }
     
     inline Token::TokenKind CurrentTokenKind() {
-        return CurrentToken().getKind();
+        return CurrentToken().Kind;
     }
-    inline const Token &Peek(uint64_t Offset = 1) {
+    inline Token &Peek(uint64_t Offset = 1) {
         return *Tokens[Position + Offset];
     }
-    inline const Token::TokenKind &PeekKind(uint64_t Offset = 1) {
-        return Peek(Offset).getKind();
+    inline Token::TokenKind &PeekKind(uint64_t Offset = 1) {
+        return Peek(Offset).Kind;
     }
     inline void Consume(uint64_t Count = 1) { Position += Count; }
     
     void assert_current_token(Token::TokenKind Expected) {
-        if (CurrentToken().getKind() != Expected) {
+        if (CurrentToken().Kind != Expected) {
             std::cout << "token assert failed. expected: " << Expected << " got: " << CurrentTokenKind() << std::endl;
             throw "FUCK";
         }
     }
     
     void assert_current_token_and_consume(Token::TokenKind Expected) {
-        if (CurrentToken().getKind() != Expected) {
+        if (CurrentToken().Kind != Expected) {
             std::cout << "token assert failed. expected: " << Expected << " got: " << CurrentTokenKind() << std::endl;
             throw "FUCK";
         } else {
@@ -115,6 +115,7 @@ private:
     std::shared_ptr<ast::Expr> ParseMemberAccess();
     
     std::shared_ptr<ast::NumberLiteral> ParseNumberLiteral();
+    std::shared_ptr<ast::StringLiteral> ParseStringLiteral();
     
     // Why do these return optional?
     // Binop and Comparison operators can have the same initial token (ie, << and <, or & and &&)

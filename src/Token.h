@@ -16,6 +16,20 @@
 class Token;
 using TokenList = std::vector<std::shared_ptr<Token>>;
 
+
+
+struct TokenSourceLocation {
+    std::string Filename;
+    uint64_t Line;
+    uint64_t Column;
+    uint64_t Length;
+    
+    TokenSourceLocation() {}
+    
+    TokenSourceLocation(std::string Filename, uint64_t Line, uint64_t Column, uint64_t Length) : Filename(Filename), Line(Line), Column(Column), Length(Length) {}
+};
+
+
 class Token {
 public:
     enum class TokenKind {
@@ -24,9 +38,11 @@ public:
         
         // Tokens w/ associated data
         Identifier,
-        IntegerLiteral,
         StringLiteral,
+        ByteStringLiteral,
         CharLiteral,
+        IntegerLiteral,
+        DoubleLiteral,
         
         OpeningParens,
         ClosingParens,
@@ -49,25 +65,31 @@ public:
     };
     
     union TokenData {
-        int64_t i;
-        std::string s;
+        char C;
+        double D;
+        int64_t I;
+        std::string S;
         
-        TokenData() : i(0) {}
+        // TODO: it would be interesting to know how many tokens actually use the S field
+        // (identifiers and string literals). if it's a minority, it _might_ make sense to turn the S field
+        // into a pointer, which would slightly decrease `sizeof(TokenData)` (24 -> 8 bytes)
+        // Not sure whether this actually matters, but it might start adding up eventually when parsing large files?
+        
+        TokenData() : I(0) {}
         ~TokenData() {}
     };
     
-private:
-    // TODO destructors in the union need to be called manually!!!
-    
     TokenKind Kind;
     TokenData Data;
-    Range SourceLocation;
+    TokenSourceLocation SourceLocation;
     
-public:
+    
     Token(TokenKind Kind) : Kind(Kind) {}
     ~Token() {
-        if (Kind == TokenKind::Identifier) {
-            Data.s.~basic_string();
+        if (Kind == TokenKind::Identifier
+            || Kind == TokenKind::StringLiteral
+            || Kind == TokenKind::ByteStringLiteral) {
+            Data.S.~basic_string();
         }
     }
     
@@ -77,39 +99,30 @@ public:
     
     static std::shared_ptr<Token> Identifier(std::string Name) {
         auto T = WithKind(TokenKind::Identifier);
-        T->Data.s = Name;
+        T->Data.S = Name;
         return T;
     }
     
     static std::shared_ptr<Token> IntegerLiteral(int64_t Value) {
         auto T = WithKind(TokenKind::IntegerLiteral);
-        T->Data.i = Value;
+        T->Data.I = Value;
         return T;
     }
     
     static std::shared_ptr<Token> StringLiteral(std::string Value) {
         auto T = WithKind(TokenKind::StringLiteral);
-        T->Data.s = Value;
+        T->Data.S = Value;
         return T;
     }
     
     static std::shared_ptr<Token> CharLiteral(char Value) {
         auto T = WithKind(TokenKind::CharLiteral);
-        T->Data.i = Value;
+        T->Data.C = Value;
         return T;
     }
-    
-    auto &getKind() const { return Kind; }
-    auto &getData() const { return Data; }
-    auto &getSourceLocation() const { return SourceLocation; }
-    
-    void setSourceLocation(Range SourceLocation) {
-        this->SourceLocation = SourceLocation;
-    }
-    
 };
 
-std::ostream &operator<<(std::ostream &OS, const Token &T);
-std::ostream &operator<<(std::ostream &OS, const Token::TokenKind &TK);
+std::ostream &operator<<(std::ostream &OS, Token &T);
+std::ostream &operator<<(std::ostream &OS, Token::TokenKind TK);
 
 
