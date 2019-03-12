@@ -203,6 +203,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr, CodegenReturn
     HANDLE(Expr, LogicalOperation)
     HANDLE(Expr, Typecast)
     HANDLE(Expr, MemberAccess, ReturnValueKind)
+    HANDLE(Expr, StringLiteral)
+    HANDLE(Expr, CharLiteral)
     
     unhandled_node(Expr)
 }
@@ -413,6 +415,16 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> Number) {
     return llvm::ConstantInt::get(i64, Number->Value);
 }
 
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StringLiteral> StringLiteral) {
+    return Builder.CreateGlobalStringPtr(StringLiteral->Value);
+}
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::CharLiteral> CharLiteral) {
+    return llvm::ConstantInt::get(i8, CharLiteral->Value);
+}
 
 
 // If TakeAddress is true, this returns a pointer to the identifier, instead of the value stored

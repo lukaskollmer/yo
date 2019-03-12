@@ -25,6 +25,14 @@ NS_START(irgen)
 
 
 
+// TODO
+//class StringLiteralCache {
+//    std::map<std::string, llvm::Value *> Cache;
+//
+//public:
+//    llvm::Value *Get(std::string)
+//};
+
 
 class IRGenerator {
     std::unique_ptr<llvm::Module> Module;
@@ -80,6 +88,8 @@ private:
     llvm::Value *Codegen(std::shared_ptr<ast::Assignment>);
     
     llvm::Value *Codegen(std::shared_ptr<ast::NumberLiteral>);
+    llvm::Value *Codegen(std::shared_ptr<ast::StringLiteral>);
+    llvm::Value *Codegen(std::shared_ptr<ast::CharLiteral>);
     llvm::Value *Codegen(std::shared_ptr<ast::Typecast>);
     llvm::Value *Codegen(std::shared_ptr<ast::BinaryOperation>);
     llvm::Value *Codegen(std::shared_ptr<ast::Identifier>, CodegenReturnValueKind);

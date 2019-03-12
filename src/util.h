@@ -40,7 +40,10 @@ using LKUInteger = std::uint64_t;
 __attribute__((unused, noreturn, format(printf, 3, 4)))
 void _LKFatalError_imp(const char *funcname, int line, const char *format, ...);
 
-#define LKFatalError(fmt, ...) _LKFatalError_imp(__FILE__, __LINE__, fmt, ## __VA_ARGS__)
+//#define LKFatalError(fmt, ...) _LKFatalError_imp(__FILE__, __LINE__, fmt, ## __VA_ARGS__)
+
+#define LKFatalError(fmt, ...) \
+{ printf("Fatal Error: " fmt ". func: %s, file: %s, line: %i", ## __VA_ARGS__ , __func__, __FILE__, __LINE__); raise(SIGABRT); exit(1); }
 
 
 void _precondition_imp(const char *func, const char *file, int line, const char *expr);

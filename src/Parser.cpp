@@ -512,6 +512,18 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
         assert_current_token_and_consume(TK::ClosingParens);
     }
     
+    if (CurrentTokenKind() == TK::StringLiteral) {
+        auto Value = CurrentToken().getData().s;
+        Consume();
+        return std::make_shared<StringLiteral>(Value); // TODO support string literals as first elements in a ast::MemberAccess?
+    }
+    
+    if (CurrentTokenKind() == TK::CharLiteral) {
+        auto Value = (char) CurrentToken().getData().i;
+        Consume();
+        return std::make_shared<CharLiteral>(Value); // TODO assign the char to E, which would allow using it in arithmetic expressions?
+    }
+    
     if (!E) {
         E = ParseNumberLiteral();
     }
@@ -519,26 +531,8 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
     if (!E) {
         E = ParseMemberAccess();
     }
-//    if (!E) {
-//        E = ParseIdentifier();
-//    }
-//
-//    if (std::dynamic_pointer_cast<Identifier>(E) && CurrentTokenKind() == TK::OpeningParens) {
-//        // Function call
-//        Consume();
-//        auto Arguments = ParseExpressionList(TK::ClosingParens);
-//        assert_current_token_and_consume(TK::ClosingParens);
-//        E = std::make_shared<FunctionCall>(E, Arguments, false);
-//    }
     
-//    if (std::dynamic_pointer_cast<Identifier>(E) && CurrentTokenKind() == TK::OpeningSquareBrackets) {
-        // Offset pointer read
-//        Consume();
-//        auto Offset = ParseExpression();
-//        assert_current_token_and_consume(TK::ClosingSquareBrackets);
-//        E = std::make_shared<PointerRead>(E, Offset);
-//    }
-
+    
     while (BinaryOperatorStartTokens.Contains(CurrentTokenKind())) {
         save_pos(fallback)
         

@@ -76,6 +76,10 @@ bool IsWhitespace(char &character) {
 
 
 
+void toggle(bool *x) {
+    *x = !*x;
+}
+
 std::string RemovingCommentsInLine(std::string &line) {
     auto length = line.length();
     if (length == 0) return "";
@@ -143,27 +147,96 @@ LKUInteger Lexer::LexLine(std::string &line, LKUInteger LineStartPosition) {
     std::string currentToken;
     
     bool lastScalarWasEscapeSequenceSignal = false;
-    bool currentlyInStringLiteral = false; // TODO
+    bool currentlyInStringLiteral = false;
     
     for (int i = 0; i < length; i++) {
         char c = line.at(i);
-        if (IgnoredCharacters.Contains(c)) {
+        if (!currentlyInStringLiteral && IgnoredCharacters.Contains(c)) {
             continue;
         }
         
         currentToken.push_back(c);
         
+        // String Literals
+        if (c == '"') {
+            if (!currentlyInStringLiteral) {
+                currentlyInStringLiteral = true;
+                currentToken.pop_back(); // remove the initial quotes
+                continue;
+            }
+            
+            if (!lastScalarWasEscapeSequenceSignal) {
+                // string ended
+                currentlyInStringLiteral = false;
+                currentToken.pop_back(); // remove the closing quotes
+                HandleRawToken(currentToken, LineStartPosition + i, Token::TokenKind::StringLiteral);
+                currentToken.clear();
+                if (i == length - 1) {
+                    goto line_end_handling; // TODO come up w/ a better solution
+                } else {
+                    continue;
+                }
+            } else {
+                throw; // TODO continue parsing
+            }
+        }
+        
+        if (currentlyInStringLiteral) {
+            if (c == '\\') {
+                if (!lastScalarWasEscapeSequenceSignal) {
+                    currentToken.pop_back();
+                }
+                toggle(&lastScalarWasEscapeSequenceSignal);
+                continue;
+            }
+            
+            
+            if (lastScalarWasEscapeSequenceSignal) {
+                switch (c) {
+                    case 'n': currentToken.push_back('\n'); break;
+                    case '"': currentToken.push_back('"');  break;
+                    case 't': currentToken.push_back('\t'); break;
+                    default: LKFatalError("Unhandled excape sequence in string literal: \\%c", c);
+                }
+                lastScalarWasEscapeSequenceSignal = false;
+            }
+        }
+        
+        
+        
+    line_end_handling:
         auto isLast = i == length - 1;
         
         if (isLast) {
             // TODO ?this is where we should dynamically insert semicolons, depending on the type of the last token?
-            HandleRawToken(currentToken, LineStartPosition + i);
-            currentToken.clear();
+            if (!currentToken.empty()) {
+                HandleRawToken(currentToken, LineStartPosition + i);
+                currentToken.clear();
+            }
             continue;
         }
         
         // Not last token
         auto next = line.at(i + 1);
+        
+        
+        // Char literals
+        if (c == '\'' && !currentlyInStringLiteral) {
+            currentToken.pop_back();
+            
+            precondition(next != '\'' && "Empty char literal");
+            
+            if (next == '\\') {
+                throw; // TODO
+            }
+            
+            precondition(currentToken.empty());
+            currentToken.push_back(next);
+            HandleRawToken(currentToken, LineStartPosition + i + 1, Token::TokenKind::CharLiteral);
+            currentToken.clear();
+            
+            i += 2; // skip over the char and the closing single quote. TODO update this if the literal contains > 1 scalar
+        }
         
         
         // Handle the current token, if
@@ -200,7 +273,15 @@ void Lexer::HandleRawToken(const std::string &RawToken, LKUInteger EndLocation, 
     
     std::shared_ptr<Token> Token;
     
-    if (TokenKind != Token::TokenKind::Unknown) {
+    if (TokenKind == Token::TokenKind::StringLiteral) {
+        Token = Token::StringLiteral(RawToken);
+    }
+    
+    else if (TokenKind == Token::TokenKind::CharLiteral) {
+        Token = Token::CharLiteral(RawToken.front());
+    }
+    
+    else if (TokenKind != Token::TokenKind::Unknown) {
         Token = Token::WithKind(TokenKind);
     }
     

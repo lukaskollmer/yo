@@ -38,6 +38,8 @@ int main(int argc, const char * argv[], const char *const *envp) {
     auto Tokens = Lexer.Lex(S);
     
     
+    //for (auto Token : Tokens) { std::cout << *Token << std::endl; } return 0;
+    
     Parser P;
     auto Ast = P.Parse(Tokens);
     

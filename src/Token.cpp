@@ -48,6 +48,8 @@ std::string TokenKindToString(Token::TokenKind Kind) {
         CASE(Period)
         CASE(Struct)
         CASE(Impl)
+        CASE(StringLiteral)
+        CASE(CharLiteral)
     }
 #undef CASE
 }
@@ -56,10 +58,12 @@ std::string TokenKindToString(Token::TokenKind Kind) {
 std::ostream &operator<<(std::ostream &OS, const Token &T) {
     OS << "<Token " << TokenKindToString(T.getKind());
     switch (T.getKind()) {
+        case Token::TokenKind::StringLiteral:
         case Token::TokenKind::Identifier:
             OS << " '" << T.getData().s << "'";
             break;
         case Token::TokenKind::IntegerLiteral:
+        case Token::TokenKind::CharLiteral:
             OS << " " << T.getData().i << "";
             break;
         default: break;

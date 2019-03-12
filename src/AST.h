@@ -195,6 +195,22 @@ public:
 };
 
 
+class StringLiteral : public Expr {
+public:
+    std::string Value;
+    
+    explicit StringLiteral(std::string Value) : Value(Value) {}
+};
+
+
+class CharLiteral : public Expr {
+public:
+    char Value;
+    
+    explicit CharLiteral(char Value) : Value(Value) {}
+};
+
+
 
 class FunctionCall : public Expr {
 public:

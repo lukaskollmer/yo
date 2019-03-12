@@ -25,6 +25,8 @@ public:
         // Tokens w/ associated data
         Identifier,
         IntegerLiteral,
+        StringLiteral,
+        CharLiteral,
         
         OpeningParens,
         ClosingParens,
@@ -81,6 +83,18 @@ public:
     
     static std::shared_ptr<Token> IntegerLiteral(int64_t Value) {
         auto T = WithKind(TokenKind::IntegerLiteral);
+        T->Data.i = Value;
+        return T;
+    }
+    
+    static std::shared_ptr<Token> StringLiteral(std::string Value) {
+        auto T = WithKind(TokenKind::StringLiteral);
+        T->Data.s = Value;
+        return T;
+    }
+    
+    static std::shared_ptr<Token> CharLiteral(char Value) {
+        auto T = WithKind(TokenKind::CharLiteral);
         T->Data.i = Value;
         return T;
     }
