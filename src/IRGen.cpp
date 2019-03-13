@@ -460,7 +460,13 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Typecast> Cast) {
     
     if (Cast->ForceBitcast) {
         precondition(M->getDataLayout().getTypeSizeInBits(SrcType) == M->getDataLayout().getTypeSizeInBits(DestType));
-        CastOp = llvm::Instruction::CastOps::BitCast;
+        if (SrcType->isPointerTy() && DestType->isIntegerTy()) {
+            CastOp = llvm::Instruction::CastOps::PtrToInt;
+        } else if (SrcType->isIntegerTy() && DestType->isPointerTy()) {
+            CastOp = llvm::Instruction::CastOps::IntToPtr;
+        } else {
+            CastOp = llvm::Instruction::CastOps::BitCast;
+        }
     
     } else if (SrcType->isIntegerTy() && DestType->isIntegerTy()) {
         if (SrcType->getIntegerBitWidth() > DestType->getIntegerBitWidth()) {
