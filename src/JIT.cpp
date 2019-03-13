@@ -8,19 +8,8 @@
 
 #include "JIT.h"
 
-
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/TargetRegistry.h"
-
-
-extern "C" void printi(int64_t x) {
-    printf("%lli\n", x);
-}
-
-extern "C" void printb(bool x) {
-    printf("%i\n", x);
-}
-
 
 
 JIT::JIT(std::unique_ptr<llvm::Module> Module) {
