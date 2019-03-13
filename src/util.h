@@ -37,11 +37,6 @@ using LKUInteger = std::uint64_t;
 
 
 
-__attribute__((unused, noreturn, format(printf, 3, 4)))
-void _LKFatalError_imp(const char *funcname, int line, const char *format, ...);
-
-//#define LKFatalError(fmt, ...) _LKFatalError_imp(__FILE__, __LINE__, fmt, ## __VA_ARGS__)
-
 #define LKFatalError(fmt, ...) \
 { printf("Fatal Error: " fmt ". func: %s, file: %s, line: %i", ## __VA_ARGS__ , __func__, __FILE__, __LINE__); raise(SIGABRT); exit(1); }
 
@@ -132,51 +127,30 @@ namespace util::vector {
 }
 
 
-// TODO move all these to a cpp file
-namespace util {
-    /*template <typename T>
-    int vector_first_index_where(std::vector<T> &Vector, const std::function<bool(T)> &Fn) {
-        auto idx = 0;
-        for (T &Obj : Vector) {
-            if (Fn(Obj)) {
-                return idx;
-            }
-            idx += 1;
-        }
-        return -1;
-    }
+namespace util::string {
+    std::string repeating(const char C, std::string::size_type N);
+    bool contains(const std::string_view String, const std::string_view Other);
+    
+    // There's a good reason why these two use std::string_view, but i don't remember it
+    bool has_prefix(const std::string_view String, const std::string_view Prefix);
+    bool has_suffix(const std::string_view String, const std::string_view Suffix);
+    
+    std::string substr_from_index(const std::string String, LKUInteger Index);
+    
+    // Returns a substring from the start of the string to the specified index
+    // If `Index` is negative, it's counted from the end of the string
+    std::string substr_to_index(const std::string String, LKInteger Index);
+    
+    std::string substr_with_range(const std::string String, Range Range);
     
     
-    template <typename T>
-    bool vector_contains_where(std::vector<T> &Vector, const std::function<bool(T)> &Fn) {
-        return vector_first_index_where(Vector, Fn) != -1;
-    }*/
+    std::string replace_all(const std::string String, const std::string Pattern, const std::string Replacement);
     
-    namespace string {
-        std::string repeating(const char C, std::string::size_type N);
-        bool contains(const std::string_view String, const std::string_view Other);
-        
-        // There's a good reason why these two use std::string_view, but i don't remember it
-        bool has_prefix(const std::string_view String, const std::string_view Prefix);
-        bool has_suffix(const std::string_view String, const std::string_view Suffix);
-        
-        std::string substr_from_index(const std::string String, LKUInteger Index);
-        
-        // Returns a substring from the start of the string to the specified index
-        // If `Index` is negative, it's counted from the end of the string
-        std::string substr_to_index(const std::string String, LKInteger Index);
-        
-        std::string substr_with_range(const std::string String, Range Range);
-        
-        
-        std::string replace_all(const std::string String, const std::string Pattern, const std::string Replacement);
-        
-        std::vector<std::string> split(const std::string String, const std::string Delimiter);
-        std::string join(const std::vector<std::string> &Strings, const std::string Delimiter);
-        
-        std::string& append_with_indentation(std::string &Target, std::string &&Other, unsigned Indent);
-        
-        std::string lastPathCompotent(std::string &Path);
-    }
+    std::vector<std::string> split(const std::string String, const std::string Delimiter);
+    std::string join(const std::vector<std::string> &Strings, const std::string Delimiter);
+    
+    std::string& append_with_indentation(std::string &Target, std::string &&Other, unsigned Indent);
+    
+    std::string lastPathCompotent(std::string &Path);
 }
 

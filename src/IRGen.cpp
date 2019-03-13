@@ -11,23 +11,10 @@
 #include <optional>
 
 #include "Mangling.h"
+#include "util_llvm.h"
 
 using namespace irgen;
-
-
-
-// Utils
-
-
-llvm::raw_ostream& operator<<(llvm::raw_ostream &OS, llvm::Type *T) {
-    T->print(OS);
-    return OS;
-}
-
-llvm::raw_ostream& operator<<(llvm::raw_ostream &OS, llvm::Value *V) {
-    V->print(OS);
-    return OS;
-}
+using namespace util_llvm;
 
 
 
@@ -1001,33 +988,19 @@ llvm::Value *IRGenerator::GenerateStructInitializer(std::shared_ptr<ast::StructD
                                    false);
         
         auto X = std::make_shared<ast::Typecast>(Malloc, T);
-        
         F->Body->Statements.push_back(astgen::Assign(self, X));
         
     }
     
-    
     // Set Attributes
-    auto Idx = 0;
     for (auto &Attr : Struct->Attributes) {
         auto M1 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::Initial_Identifier, self);
-        
         auto M2 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::MemberAttributeRead, Attr->Name);
         
         auto M = std::make_shared<ast::MemberAccess>(std::vector<std::shared_ptr<ast::MemberAccess::Member>>({M1, M2}));
-        
         F->Body->Statements.push_back(std::make_shared<ast::Assignment>(M, Attr->Name));
         
-        //auto M2 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::OffsetRead);
-        //M2->Data.Offset = astgen::Number(0);
-        
-        //auto M3 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::OffsetRead);
-        //M3->Data.Offset = astgen::Cast(astgen::Number(Idx++), TypeInfo::i32);
-        
-        //auto MemberAccess = std::make_shared<ast::MemberAccess>(std::vector<std::shared_ptr<ast::MemberAccess::Member>>({M1, M2, M3}));
-        //F->Body->Statements.push_back(astgen::Assign(MemberAccess, Attr->Name));
     }
-    
     
     // Return
     F->Body->Statements.push_back(std::make_shared<ast::ReturnStmt>(self));

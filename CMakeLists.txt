@@ -39,6 +39,7 @@ add_executable(yo
         src/JIT.cpp
         src/util.h
         src/util.cpp
+        src/util_llvm.h
         src/main.cpp
 )
 

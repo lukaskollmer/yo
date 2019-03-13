@@ -12,38 +12,6 @@
 #include <cxxabi.h>
 
 
-void _LKFatalError_imp(const char *funcname, int line, const char *format, ...) {
-    
-    if (format && strlen(format) > 0) {
-        va_list args;
-        va_start(args, format);
-        auto char_count = vsnprintf(nullptr, 0, format, args);
-        char buffer[char_count];
-        va_end(args);
-        
-        va_start(args, format);
-        vsprintf(buffer, format, args);
-        
-        printf("[%s:%i] Fatal Error: %s\n", funcname, line, buffer);
-        va_end(args);
-    } else {
-        printf("[%s:%i] Fatal Error\n", funcname, line);
-    }
-    
-    raise(SIGABRT);
-    exit(EXIT_FAILURE);
-}
-
-
-void _precondition_imp(const char *func, const char *file, int line, const char *expr) {
-    printf("Precondition failed: (%s), function %s, file %s, line %i\n", expr, func, file, line);
-    raise(SIGABRT);
-}
-
-
-
-
-
 std::string util::typeinfo::demangle(const char *name) {
     int status;
     
@@ -56,17 +24,6 @@ std::string util::typeinfo::demangle(const char *name) {
 }
 
 
-
-
-
-std::string util::string::repeating(const char C, std::string::size_type N) {
-    std::string String;
-    String.reserve(N);
-    for (int I = 0; I < N; I++) {
-        String.push_back(C);
-    }
-    return String;
-}
 
 
 bool util::string::contains(const std::string_view String, const std::string_view Other) {
@@ -165,7 +122,7 @@ std::string util::string::join(const std::vector<std::string> &Strings, const st
 
 
 std::string& util::string::append_with_indentation(std::string &Target, std::string &&Other, unsigned int IndentCount) {
-    auto Indent = repeating(' ', IndentCount);
+    std::string Indent(IndentCount, ' ');
     
     std::vector<std::string> Indented;
     for (auto Line : split(Other, "\n")) {
