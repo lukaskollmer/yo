@@ -124,16 +124,6 @@ namespace util::typeinfo {
 }
 
 
-namespace util {
-    [[noreturn]]
-    inline void fail(std::ostream &OS) {
-        OS << std::flush;
-        std::exit(EXIT_FAILURE);
-    }
-}
-
-
-
 namespace util::vector {
     template <typename T>
     inline bool contains(const std::vector<T> &Vector, T &Element) {

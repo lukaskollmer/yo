@@ -564,7 +564,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
                 }
                 
                 if (!DidFindMember) {
-                    std::cout << "Unable to find member '" << MemberName << "' in struct '" << StructName << util::fail;
+                    std::cout << "Unable to find member '" << MemberName << "' in struct '" << StructName << std::endl;
+                    throw;
                 }
                 CurrentType = CurrentType->getPointerElementType()->getStructElementType(Offset);
                 
