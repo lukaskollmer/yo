@@ -150,19 +150,18 @@ std::shared_ptr<ImplBlock> Parser::ParseImplBlock() {
 
 
 
-void Parser::ParseFunctionSignatureInto(std::shared_ptr<FunctionSignature> S, bool UnnamedArgumentsAllowed) {
+void Parser::ParseFunctionSignatureInto(std::shared_ptr<FunctionSignature> S, bool IsExternal) {
     assert_current_token_and_consume(TK::Fn);
     
     S->Name = ParseIdentifier()->Value;
     assert_current_token_and_consume(TK::OpeningParens);
     
-    if (!UnnamedArgumentsAllowed) {
+    if (!IsExternal) {
         S->Parameters = ParseParameterList();
     } else {
         S->Parameters = {};
-        auto Idx = 0;
+        auto Ident = std::make_shared<Identifier>("");
         while (CurrentTokenKind() != TK::ClosingParens) {
-            auto Ident = std::make_shared<Identifier>(std::string("arg").append(std::to_string(Idx++)));
             S->Parameters.push_back(std::make_shared<VariableDecl>(Ident, ParseType()));
         }
     }
