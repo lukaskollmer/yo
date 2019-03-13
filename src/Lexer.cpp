@@ -50,6 +50,7 @@ static std::map<std::string, Token::TokenKind> TokenKindMappings = {
     { ";" , TK::Semicolon },
     { "=" , TK::EqualsSign },
     { "." , TK::Period },
+    { "#" , TK::Hashtag },
     
     { "*" , TK::Asterisk },
     { "+" , TK::Plus },

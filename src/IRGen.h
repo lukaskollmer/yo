@@ -46,6 +46,8 @@ class IRGenerator {
     llvm::Type *i8_ptr;
     llvm::Type *Void, *Bool, *Double;
     
+    std::vector<std::string> ExternalFunctions;
+    
 public:
     static llvm::LLVMContext C;
     
@@ -60,7 +62,7 @@ public:
     
 private:
     void Preflight(ast::AST &Ast);
-    void RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignature> Signature, bool MangleName = true, std::optional<std::string> Typename = std::nullopt);
+    void RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignature> Signature, bool IsVariadic = false, bool MangleName = true, std::optional<std::string> Typename = std::nullopt);
     void RegisterStructDecl(std::shared_ptr<ast::StructDecl> Struct);
     void RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock);
     
@@ -111,6 +113,10 @@ private:
     
     
     llvm::Value *GenerateStructInitializer(std::shared_ptr<ast::StructDecl> Struct);
+    
+    
+    // Other stuff
+    bool ExistsExternalFunctionWithName(std::string &Name);
 };
 
 
