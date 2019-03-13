@@ -38,7 +38,7 @@ using LKUInteger = std::uint64_t;
 
 
 #define LKFatalError(fmt, ...) \
-{ printf("Fatal Error: " fmt ". func: %s, file: %s, line: %i", ## __VA_ARGS__ , __func__, __FILE__, __LINE__); raise(SIGABRT); exit(1); }
+{ printf("Fatal Error: " fmt ". func: %s, file: %s, line: %i\n", ## __VA_ARGS__ , __func__, __FILE__, __LINE__); raise(SIGABRT); exit(1); }
 
 
 void _precondition_imp(const char *func, const char *file, int line, const char *expr);
