@@ -26,7 +26,7 @@
 
 
 int main(int argc, const char * argv[], const char *const *envp) {
-    //cl::Init(argc, argv);
+    cl::Init(argc, argv);
     
     std::string Filename("/Users/lukas/Developer/yo/temp/program.yo");
     
