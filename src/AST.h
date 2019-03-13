@@ -35,6 +35,8 @@ class Node {
 public:
     virtual std::string Description();
     
+    std::vector<std::string> Annotations;
+    
 protected:
     Node() {}
     virtual ~Node() = default;
@@ -53,7 +55,6 @@ class Expr : virtual public Node {};
 
 
 #pragma mark - Top Level Statements
-
 
 
 class FunctionSignature {

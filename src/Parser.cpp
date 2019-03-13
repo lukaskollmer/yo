@@ -107,13 +107,28 @@ AST Parser::Parse(TokenList Tokens) {
 
 
 std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
+    auto Annotations = ParseAnnotations();
+    
+    std::shared_ptr<TopLevelStmt> Stmt;
+    
     switch (CurrentToken().Kind) {
-        case TK::Fn: return ParseFunctionDecl();
-        case TK::Extern: return ParseExternFunctionDecl();
-        case TK::Struct: return ParseStructDecl();
-        case TK::Impl: return ParseImplBlock();
+        case TK::Fn:
+            Stmt = ParseFunctionDecl();
+            break;
+        case TK::Extern:
+            Stmt = ParseExternFunctionDecl();
+            break;
+        case TK::Struct:
+            Stmt = ParseStructDecl();
+            break;
+        case TK::Impl:
+            Stmt = ParseImplBlock();
+            break;
         default: unhandled_token(CurrentToken());
     }
+    
+    Stmt->Annotations = Annotations;
+    return Stmt;
 }
 
 
@@ -149,6 +164,36 @@ std::shared_ptr<ImplBlock> Parser::ParseImplBlock() {
 
 
 
+std::vector<std::string> Parser::ParseAnnotations() {
+    if (CurrentTokenKind() != TK::Hashtag) return {};
+    Consume();
+    assert_current_token_and_consume(TK::OpeningSquareBrackets);
+    
+    std::vector<std::string> Annotations;
+    
+    while (CurrentTokenKind() == TK::Identifier) {
+        Annotations.push_back(ParseIdentifier()->Value);
+        
+        
+        switch (CurrentTokenKind()) {
+            case TK::Comma:
+                Consume();
+                continue;
+            case TK::ClosingSquareBrackets:
+                Consume();
+                if (CurrentTokenKind() == TK::Hashtag) {
+                    Consume(); continue;
+                } else {
+                    return Annotations;
+                }
+            default: unhandled_token(CurrentTokenKind())
+        }
+    }
+    
+    return Annotations;
+}
+
+
 
 void Parser::ParseFunctionSignatureInto(std::shared_ptr<FunctionSignature> S, bool IsExternal) {
     assert_current_token_and_consume(TK::Fn);
@@ -163,6 +208,7 @@ void Parser::ParseFunctionSignatureInto(std::shared_ptr<FunctionSignature> S, bo
         auto Ident = std::make_shared<Identifier>("");
         while (CurrentTokenKind() != TK::ClosingParens) {
             S->Parameters.push_back(std::make_shared<VariableDecl>(Ident, ParseType()));
+            if (CurrentTokenKind() == TK::Comma) Consume();
         }
     }
     assert_current_token_and_consume(TK::ClosingParens);
