@@ -613,56 +613,54 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
         return Ident;
     }
     
+    bool IsInitialIdentifier = true;
+    
     while (MemberAccessSeparatingTokens.Contains(CurrentTokenKind())) {
         switch (CurrentTokenKind()) {
-            case Token::TokenKind::Period: {
+            case TK::Period: {
                 Consume();
                 
-                // Insert the initial identifier
-                Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::Initial_Identifier, Ident));
+                if (IsInitialIdentifier) {
+                    Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::Initial_Identifier, Ident));
+                    IsInitialIdentifier = false;
+                }
                 
-                auto Ident = ParseIdentifier();
-                if (CurrentTokenKind() == TK::OpeningParens) { // Function Call
+                Ident = ParseIdentifier();
+                if (CurrentTokenKind() == TK::OpeningParens) { // Method call
                     Consume();
                     auto Args = ParseExpressionList(TK::ClosingParens);
                     assert_current_token_and_consume(TK::ClosingParens);
-                    
                     Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::MemberFunctionCall,
                                                                              std::make_shared<FunctionCall>(Ident, Args, false)));
                 } else { // Attribute Access
                     Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::MemberAttributeRead, Ident));
                 }
-                break;
+                continue;
             }
-                
-            case Token::TokenKind::OpeningParens: { // Function Call
+            
+            case TK::OpeningParens: { // Initial Function Call
+                precondition(IsInitialIdentifier);
                 Consume();
                 auto Args = ParseExpressionList(TK::ClosingParens);
                 assert_current_token_and_consume(TK::ClosingParens);
-                auto M = std::make_shared<MemberAccess::Member>(MemberKind::Initial_FunctionCall);
-                M->Data.Call = std::make_shared<FunctionCall>(Ident, Args, false);
-                Members.push_back(M);
-                break;
+                Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::Initial_FunctionCall,
+                                                                         std::make_shared<FunctionCall>(Ident, Args, false)));
+                continue;
             }
+            
+            case TK::OpeningSquareBrackets: { // Subscript
+                if (IsInitialIdentifier) {
+                    Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::Initial_Identifier, Ident));
+                    IsInitialIdentifier = false;
+                }
                 
-                
-            case Token::TokenKind::OpeningSquareBrackets: { // Pointer Read w/ offset
-                
-                auto M1 = std::make_shared<MemberAccess::Member>(MemberKind::Initial_Identifier);
-                M1->Data.Ident = Ident;
-                Members.push_back(M1);
-                
-                Consume(); // Consume the opening square brackets
-                
+                Consume();
                 auto Offset = ParseExpression();
                 assert_current_token_and_consume(TK::ClosingSquareBrackets);
-                auto M2 = std::make_shared<MemberAccess::Member>(MemberKind::OffsetRead);
-                M2->Data.Offset = Offset;
-                Members.push_back(M2);
-                break;
+                Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::OffsetRead, Offset));
+                continue;
             }
-            default:
-                unhandled_token(CurrentTokenKind())
+            default: unhandled_token(CurrentTokenKind())
         }
     }
     

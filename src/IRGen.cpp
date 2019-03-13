@@ -331,11 +331,13 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> Composite, boo
         } else {
             Codegen(Stmt);
             if (IsFunctionBody && It + 1 == Composite->Statements.end()) {
+                // TODO this doesn't seem to work?
                 // Reached the end of the composite w/out a return statement
                 auto F = Builder.GetInsertBlock()->getParent();
                 precondition(F->getReturnType() == Void);
                 Builder.CreateRetVoid();
                 DidReturn = true;
+                break;
             }
         }
     }
@@ -391,6 +393,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> Assignment) {
         
         if (!TypecheckAndApplyTrivialCastIfPossible(&Value, Dest->getType()->getPointerElementType())) {
             llvm::outs() << "Unable to store value of type " << Value->getType() << " into address of type " << Dest->getType() << "\n";
+            std::cout << "\n\n\n" << std::endl;
+            Builder.GetInsertBlock()->print(llvm::outs(), nullptr);
             throw;
         }
         
@@ -486,121 +490,109 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Typecast> Cast) {
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAccess, CodegenReturnValueKind ReturnValueKind) {
     using MK = ast::MemberAccess::Member::MemberKind;
     
+    // TODO: This is almost definitely wrong
+    
     llvm::Value *V = nullptr;
-    std::vector<llvm::Value *> GEPIndices;
     llvm::Type *CurrentType = nullptr;
     
-    auto HandleGEPIfNecessary = [&]() {
-        precondition(V);
-        if (!GEPIndices.empty()) {
-            V = Builder.CreateGEP(V, GEPIndices);
-        }
-    };
-    
-    
-    
-    for (auto It = MemberAccess->Members.begin(); It != MemberAccess->Members.end(); It++) {
-        auto &Member = *It;
-        
-        CodegenReturnValueKind RetvalKind;
-        if (It + 1 != MemberAccess->Members.end()) {
-            auto K = (*(It + 1))->Kind;
-            if (K == MK::OffsetRead) {
-                RetvalKind = CodegenReturnValueKind::Value;
-            } else {
-                RetvalKind = ReturnValueKind;
-            }
-        }
-        
+    for (auto &Member : MemberAccess->Members) {
         switch (Member->Kind) {
             case MK::Initial_Identifier: {
                 auto Ident = Member->Data.Ident;
-                V = Codegen(Ident, RetvalKind);
-                
+                V = Codegen(Ident);
                 CurrentType = Scope.GetType(Ident->Value);
                 break;
             }
-            case MK::Initial_FunctionCall:
-                V = Codegen(Member->Data.Call); // requested ReturnValueKind ignored here !?
-                // TODO somehow find out here whether the return value is unused? if this isn't the last member, we know for a fact that it isn't
+            
+            case MK::Initial_FunctionCall: {
+                V = Codegen(Member->Data.Call);
                 CurrentType = V->getType();
-                precondition(CurrentType);
                 break;
+            }
             
             case MK::OffsetRead: {
-                // TODO special handling if V isn't a pointer
-                precondition(V && V->getType()->isPointerTy());
+                precondition(CurrentType->isPointerTy());
                 
-                auto Offset = Codegen(Member->Data.Offset);
-                GEPIndices.push_back(Offset);
-                
-                CurrentType = V->getType()->getPointerElementType();
-                break;
-            }
-                
-            case MK::MemberAttributeRead: {
-                precondition(CurrentType && CurrentType->isPointerTy() && CurrentType->getPointerElementType()->isStructTy());
-                auto MemberName = Member->Data.Ident->Value;
-                auto StructName = CurrentType->getPointerElementType()->getStructName();
-                auto StructType = TypeCache.Get(StructName);
-                
-                auto Offset = -1;
-                for (auto &Attr : StructType->Attributes) {
-                    Offset += 1;
-                    if (Attr->Name->Value == MemberName) {
-                        CurrentType = GetLLVMType(Attr->Type);
-                        break;
-                    }
+                if (llvm::isa<llvm::GetElementPtrInst>(V)) {
+                    V = Builder.CreateLoad(V);
                 }
                 
-                if (Offset == -1) {
-                    std::cout << "Unable to find member '" << MemberName << "' in Struct '" << StructName.str() << "'\n";
+                // We need V to be a pointer
+                precondition(V->getType()->isPointerTy());
+                
+                if (auto Offset = llvm::dyn_cast<llvm::Constant>(Codegen(Member->Data.Offset))) {
+                    V = Builder.CreateGEP(V, Offset);
+                } else {
                     throw;
                 }
                 
-                GEPIndices.push_back(llvm::ConstantInt::get(i64, 0)); // Dereference the pointer
-                GEPIndices.push_back(llvm::ConstantInt::get(i32, Offset));
+                CurrentType = CurrentType->getPointerElementType();
                 break;
             }
-                
+            
             case MK::MemberFunctionCall: {
-                precondition(CurrentType && CurrentType->isPointerTy() && CurrentType->getPointerElementType()->isStructTy());
-                auto Typename = CurrentType->getPointerElementType()->getStructName().str();
+                precondition(CurrentType->isPointerTy() && CurrentType->getPointerElementType()->isStructTy());
+                
                 auto Call = Member->Data.Call;
+                auto Typename = CurrentType->getPointerElementType()->getStructName().str();
                 auto MethodName = std::dynamic_pointer_cast<ast::Identifier>(Call->Target)->Value;
                 auto MangledName = mangling::MangleMethod(Typename, MethodName, mangling::MethodKind::Instance);
+                Call->Target = std::make_shared<ast::Identifier>(MangledName);
                 
-                auto F = M->getFunction(MangledName);
-                if (!F) {
-                    std::cout << "Error: Unable to find method -[" << Typename << " " << MethodName << "] (mangled: " << MangledName << ")" << std::endl;
-                    throw;
+                // Call the function, inserting the implicit first argument
+                auto CallInst = llvm::dyn_cast<llvm::CallInst>(Codegen(Call, 1));
+                CallInst->setOperand(0, V);
+                V = CallInst;
+                
+                break;
+            }
+            
+            case MK::MemberAttributeRead: {
+                precondition(CurrentType->isPointerTy() && CurrentType->getPointerElementType()->isStructTy());
+                auto MemberName = Member->Data.Ident->Value;
+                auto StructName = CurrentType->getPointerElementType()->getStructName().str();
+                auto StructType = TypeCache.Get(StructName);
+                
+                uint32_t Offset = 0;
+                auto DidFindMember = false;
+                for (auto &Attr : StructType->Attributes) {
+                    if (Attr->Name->Value == MemberName) {
+                        DidFindMember = true;
+                        break;
+                    }
+                    Offset++;
                 }
                 
-                CurrentType = F->getReturnType();
+                if (!DidFindMember) {
+                    std::cout << "Unable to find member '" << MemberName << "' in struct '" << StructName << util::fail;
+                }
+                CurrentType = CurrentType->getPointerElementType()->getStructElementType(Offset);
                 
-                HandleGEPIfNecessary();
+                llvm::Value *Offsets[] = {
+                    llvm::ConstantInt::get(i64, 0),
+                    llvm::ConstantInt::get(i32, Offset)
+                };
                 
-                // Call the method, inserting the additional first parameter
-                Call->Target = std::make_shared<ast::Identifier>(MangledName);
-                auto CallInst = llvm::dyn_cast<llvm::CallInst>(Codegen(Call, 1));
-                CallInst->setArgOperand(0, V);
-                V = CallInst;
+                if (llvm::isa<llvm::GetElementPtrInst>(V)) {
+                    V = Builder.CreateLoad(V);
+                }
+        
+                V = Builder.CreateGEP(V, Offsets);
                 break;
             }
         }
     }
     
-    HandleGEPIfNecessary();
     
     switch (ReturnValueKind) {
+        case CodegenReturnValueKind::Address:
+            return V;
         case CodegenReturnValueKind::Value:
             if (V && llvm::isa<llvm::GetElementPtrInst>(V)) {
                 return Builder.CreateLoad(V);
             } else {
                 return V;
             }
-        case CodegenReturnValueKind::Address:
-            return V;
     }
 }
 
@@ -1011,17 +1003,22 @@ llvm::Value *IRGenerator::GenerateStructInitializer(std::shared_ptr<ast::StructD
     // Set Attributes
     auto Idx = 0;
     for (auto &Attr : Struct->Attributes) {
-        auto M1 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::Initial_Identifier);
-        M1->Data.Ident = self;
+        auto M1 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::Initial_Identifier, self);
         
-        auto M2 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::OffsetRead);
-        M2->Data.Offset = astgen::Number(0);
+        auto M2 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::MemberAttributeRead, Attr->Name);
         
-        auto M3 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::OffsetRead);
-        M3->Data.Offset = astgen::Cast(astgen::Number(Idx++), TypeInfo::i32);
+        auto M = std::make_shared<ast::MemberAccess>(std::vector<std::shared_ptr<ast::MemberAccess::Member>>({M1, M2}));
         
-        auto MemberAccess = std::make_shared<ast::MemberAccess>(std::vector<std::shared_ptr<ast::MemberAccess::Member>>({M1, M2, M3}));
-        F->Body->Statements.push_back(astgen::Assign(MemberAccess, Attr->Name));
+        F->Body->Statements.push_back(std::make_shared<ast::Assignment>(M, Attr->Name));
+        
+        //auto M2 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::OffsetRead);
+        //M2->Data.Offset = astgen::Number(0);
+        
+        //auto M3 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::OffsetRead);
+        //M3->Data.Offset = astgen::Cast(astgen::Number(Idx++), TypeInfo::i32);
+        
+        //auto MemberAccess = std::make_shared<ast::MemberAccess>(std::vector<std::shared_ptr<ast::MemberAccess::Member>>({M1, M2, M3}));
+        //F->Body->Statements.push_back(astgen::Assign(MemberAccess, Attr->Name));
     }
     
     

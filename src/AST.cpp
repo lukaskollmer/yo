@@ -29,9 +29,11 @@ using namespace ast;
 MemberAccess::Member::~Member() {
     switch (Kind) {
         case MemberKind::Initial_Identifier:
+        case MemberKind::MemberAttributeRead:
             Data.Ident.~shared_ptr();
             break;
         case MemberKind::Initial_FunctionCall:
+        case MemberKind::MemberFunctionCall:
             Data.Call.~shared_ptr();
             break;
         case MemberKind::OffsetRead:
@@ -110,6 +112,8 @@ std::string MemberAccessMemberKindToString(MemberAccess::Member::MemberKind Kind
         CASE(Initial_Identifier)
         CASE(Initial_FunctionCall)
         CASE(OffsetRead)
+        CASE(MemberFunctionCall)
+        CASE(MemberAttributeRead)
     }
 }
 
@@ -341,10 +345,12 @@ Mirror Reflect(MemberAccess::Member *Member) {
     
     switch (Member->Kind) {
         case ast::MemberAccess::Member::MemberKind::Initial_Identifier:
+        case ast::MemberAccess::Member::MemberKind::MemberAttributeRead:
             Data = Member->Data.Ident;
             break;
         
         case ast::MemberAccess::Member::MemberKind::Initial_FunctionCall:
+        case ast::MemberAccess::Member::MemberKind::MemberFunctionCall:
             Data = Member->Data.Call;
             break;
         
