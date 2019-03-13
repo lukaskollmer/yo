@@ -220,11 +220,11 @@ public:
 
 class FunctionCall : public Expr {
 public:
-    std::shared_ptr<Expr> Target;
+    std::shared_ptr<Identifier> Target;
     std::vector<std::shared_ptr<Expr>> Arguments;
     bool UnusedReturnValue;
     
-    FunctionCall(std::shared_ptr<Expr> Target, std::vector<std::shared_ptr<Expr>> Arguments, bool UnusedReturnValue)
+    FunctionCall(std::shared_ptr<Identifier> Target, std::vector<std::shared_ptr<Expr>> Arguments, bool UnusedReturnValue)
     : Target(Target), Arguments(Arguments), UnusedReturnValue(UnusedReturnValue) {}
 };
 

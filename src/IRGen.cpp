@@ -535,7 +535,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
                 
                 auto Call = Member->Data.Call;
                 auto Typename = CurrentType->getPointerElementType()->getStructName().str();
-                auto MethodName = std::dynamic_pointer_cast<ast::Identifier>(Call->Target)->Value;
+                auto MethodName = Call->Target->Value;
                 auto MangledName = mangling::MangleMethod(Typename, MethodName, mangling::MethodKind::Instance);
                 Call->Target = std::make_shared<ast::Identifier>(MangledName);
                 
@@ -677,16 +677,13 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::BinaryOperation> Binop) {
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset) {
     llvm::Function *F;
     
-    if (auto Ident = std::dynamic_pointer_cast<ast::Identifier>(Call->Target)) {
-        F = M->getFunction(MangleFunctionName(Ident->Value));
-        if (!F) {
-            F = M->getFunction(Ident->Value);
-        }
-        if (!F) {
-            LKFatalError("Unable to find function named '%s'", Ident->Value.c_str());
-        }
-    } else {
-        throw;
+    auto TargetName = Call->Target->Value;
+    F = M->getFunction(MangleFunctionName(TargetName));
+    if (!F) {
+        F = M->getFunction(TargetName);
+    }
+    if (!F) {
+        LKFatalError("Unable to find function named '%s'", TargetName.c_str());
     }
     
     auto FT = F->getFunctionType();
