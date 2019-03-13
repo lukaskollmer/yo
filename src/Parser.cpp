@@ -150,13 +150,22 @@ std::shared_ptr<ImplBlock> Parser::ParseImplBlock() {
 
 
 
-void Parser::ParseFunctionSignatureInto(std::shared_ptr<FunctionSignature> S) {
+void Parser::ParseFunctionSignatureInto(std::shared_ptr<FunctionSignature> S, bool UnnamedArgumentsAllowed) {
     assert_current_token_and_consume(TK::Fn);
     
     S->Name = ParseIdentifier()->Value;
     assert_current_token_and_consume(TK::OpeningParens);
     
-    S->Parameters = ParseParameterList();
+    if (!UnnamedArgumentsAllowed) {
+        S->Parameters = ParseParameterList();
+    } else {
+        S->Parameters = {};
+        auto Idx = 0;
+        while (CurrentTokenKind() != TK::ClosingParens) {
+            auto Ident = std::make_shared<Identifier>(std::string("arg").append(std::to_string(Idx++)));
+            S->Parameters.push_back(std::make_shared<VariableDecl>(Ident, ParseType()));
+        }
+    }
     assert_current_token_and_consume(TK::ClosingParens);
     
     if (CurrentTokenKind() == TK::Colon) {
@@ -173,7 +182,7 @@ std::shared_ptr<ExternFunctionDecl> Parser::ParseExternFunctionDecl() {
     assert_current_token_and_consume(TK::Extern);
     
     auto EFD = std::make_shared<ExternFunctionDecl>();
-    ParseFunctionSignatureInto(EFD);
+    ParseFunctionSignatureInto(EFD, true);
     
     assert_current_token_and_consume(TK::Semicolon);
     
@@ -183,7 +192,7 @@ std::shared_ptr<ExternFunctionDecl> Parser::ParseExternFunctionDecl() {
 std::shared_ptr<FunctionDecl> Parser::ParseFunctionDecl() {
     auto FD = std::make_shared<FunctionDecl>();
     
-    ParseFunctionSignatureInto(FD);
+    ParseFunctionSignatureInto(FD, false);
     assert_current_token(TK::OpeningCurlyBraces);
     
     FD->Body = ParseComposite();

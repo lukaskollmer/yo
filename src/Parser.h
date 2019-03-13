@@ -89,7 +89,7 @@ private:
     
     std::shared_ptr<ast::TopLevelStmt> ParseTopLevelStmt();
     
-    void ParseFunctionSignatureInto(std::shared_ptr<ast::FunctionSignature> S);
+    void ParseFunctionSignatureInto(std::shared_ptr<ast::FunctionSignature> S, bool UnnamedArgumentsAllowed);
     
     std::shared_ptr<ast::FunctionDecl> ParseFunctionDecl();
     std::shared_ptr<ast::ExternFunctionDecl> ParseExternFunctionDecl();
