@@ -309,12 +309,22 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> Composite, boo
     
     bool DidReturn = false;
     
-    for (auto It = Composite->Statements.begin(); It != Composite->Statements.end(); It++) {
+    if (IsFunctionBody && Composite->Statements.empty()) {
+        // Empty body -> no return statement
+        auto F = Builder.GetInsertBlock()->getParent();
+        if (F->getReturnType() == Void) {
+            Builder.CreateRetVoid();
+            DidReturn = true;
+        } else {
+            LKFatalError("Missing return statement in function '%s' w/ return type '%s'", F->getName().str().c_str(), util_llvm::to_string(F->getReturnType()).c_str());
+        }
+    }
+    
+    for (auto It = Composite->Statements.begin(); !DidReturn && It != Composite->Statements.end(); It++) {
         auto &Stmt = *It;
         if (auto ReturnStmt = std::dynamic_pointer_cast<ast::ReturnStmt>(Stmt)) {
             Codegen(ReturnStmt);
             DidReturn = true;
-            break;
         } else {
             Codegen(Stmt);
             if (IsFunctionBody && It + 1 == Composite->Statements.end()) {
@@ -324,7 +334,6 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> Composite, boo
                 precondition(F->getReturnType() == Void);
                 Builder.CreateRetVoid();
                 DidReturn = true;
-                break;
             }
         }
     }
@@ -380,8 +389,6 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> Assignment) {
         
         if (!TypecheckAndApplyTrivialCastIfPossible(&Value, Dest->getType()->getPointerElementType())) {
             llvm::outs() << "Unable to store value of type " << Value->getType() << " into address of type " << Dest->getType() << "\n";
-            std::cout << "\n\n\n" << std::endl;
-            Builder.GetInsertBlock()->print(llvm::outs(), nullptr);
             throw;
         }
         
