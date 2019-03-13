@@ -56,7 +56,8 @@ int main(int argc, const char * argv[], const char *const *envp) {
     
     if (cl::EmitLLVM) {
         std::error_code EC;
-        llvm::raw_fd_ostream OS("main.ll", EC); // TODO use the actual filename!!!
+        auto OutputFile = util::string::lastPathCompotent(Filename).append(".ll");
+        llvm::raw_fd_ostream OS(OutputFile, EC);
         M->print(OS, nullptr, true, true);
         return EXIT_SUCCESS;
     }

@@ -151,7 +151,6 @@ std::vector<std::string> util::string::split(const std::string String, const std
 
 
 
-// Not tested
 std::string util::string::join(const std::vector<std::string> &Strings, const std::string Delimiter) {
     std::string Retval;
     
@@ -177,3 +176,11 @@ std::string& util::string::append_with_indentation(std::string &Target, std::str
     return Target;
 }
 
+
+std::string util::string::lastPathCompotent(std::string &Path) {
+    auto Pos = Path.rfind('/');
+    if (Pos == std::string::npos) {
+        return Path;
+    }
+    return Path.substr(Pos + 1);
+}

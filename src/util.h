@@ -175,6 +175,8 @@ namespace util {
         std::string join(const std::vector<std::string> &Strings, const std::string Delimiter);
         
         std::string& append_with_indentation(std::string &Target, std::string &&Other, unsigned Indent);
+        
+        std::string lastPathCompotent(std::string &Path);
     }
 }
 
