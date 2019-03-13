@@ -26,18 +26,11 @@ extern "C" void printb(bool x) {
 JIT::JIT(std::unique_ptr<llvm::Module> Module) {
     
     llvm::InitializeNativeTarget();
-    //llvm::InitializeAllTargets();
-    //llvm::InitializeAllAsmPrinters();
-    //llvm::InitializeAllTargetInfos();
-    //llvm::InitializeAllAsmParsers();
-    //llvm::InitializeAllDisassemblers();
-    //llvm::InitializeAllTargetMCs();
     
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmParser();
     llvm::InitializeNativeTargetAsmPrinter();
-    
-    LLVMLinkInMCJIT(); // For some reason, this call is required when using cmake, but not when using xcode
+    LLVMLinkInMCJIT();
     
     
     std::string err;
