@@ -117,6 +117,15 @@ std::string MemberAccessMemberKindToString(MemberAccess::Member::MemberKind Kind
     }
 }
 
+
+std::string StringLiteralKindToString(StringLiteral::StringLiteralKind Kind) {
+    using E = StringLiteral::StringLiteralKind;
+    switch (Kind) {
+        CASE(NormalString)
+        CASE(ByteString)
+    }
+}
+
 #undef CASE
 
 
@@ -192,6 +201,9 @@ std::string to_string(T arg) {
     
     } else if constexpr(std::is_same_v<T, MemberAccess::Member::MemberKind>) {
         return MemberAccessMemberKindToString(arg);
+        
+    } else if constexpr(std::is_same_v<T, StringLiteral::StringLiteralKind>) {
+        return StringLiteralKindToString(arg);
     
     } else if constexpr(std::is_convertible_v<T, std::shared_ptr<Node>> || (std::is_pointer_v<T> && std::is_base_of_v<Node, typename std::remove_pointer_t<T>>)) {
         if (!arg) return "<nullptr>";
@@ -372,6 +384,25 @@ Mirror Reflect(StructDecl *Struct) {
     };
 }
 
+Mirror Reflect(ImplBlock *ImplBlock) {
+    return {
+        { "typename", ImplBlock->Typename },
+        { "methods", ImplBlock->Methods }
+    };
+}
+
+Mirror Reflect(StringLiteral *String) {
+    return {
+        { "kind", String->Kind },
+        { "value", String->Value }
+    };
+}
+
+Mirror Reflect(CharLiteral *CharLiteral) {
+    return {
+        { "value", CharLiteral->Value }
+    };
+}
 
 
 Mirror Reflect(Node *Node) {
@@ -395,6 +426,9 @@ Mirror Reflect(Node *Node) {
     HANDLE(MemberAccess)
     HANDLE(MemberAccess::Member)
     HANDLE(StructDecl)
+    HANDLE(ImplBlock)
+    HANDLE(StringLiteral)
+    HANDLE(CharLiteral)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;
