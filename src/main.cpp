@@ -40,21 +40,26 @@ int main(int argc, const char * argv[], const char *const *envp) {
     auto Tokens = Lexer.Lex(S, Filename);
     
     
-    //for (auto Token : Tokens) { std::cout << *Token << std::endl; } return 0;
-    
     Parser P;
     auto Ast = P.Parse(Tokens);
     
     
-    //std::cout << ast::Description(Ast) << std::endl;
+    if (cl::PrintAST) {
+        std::cout << ast::Description(Ast) << std::endl;
+        return EXIT_SUCCESS;
+    }
     
     irgen::IRGenerator Codegen("main");
     Codegen.Codegen(Ast);
     
     auto M = Codegen.GetModule();
     
-    std::cout << "IR:" << std::endl;
-    M->print(llvm::outs(), nullptr, false, false);
+    if (cl::EmitLLVM) {
+        std::error_code EC;
+        llvm::raw_fd_ostream OS("main.ll", EC); // TODO use the actual filename!!!
+        M->print(OS, nullptr, true, true);
+        return EXIT_SUCCESS;
+    }
     
     JIT JIT(std::move(M));
     

@@ -17,6 +17,7 @@ NS_START(cl)
 
 extern llvm::cl::opt<std::string> InputFilename;
 extern llvm::cl::opt<bool> PrintAST;
+extern llvm::cl::opt<bool> EmitLLVM;
 
 
 //llvm::cl::opt<std::string> InputFilename(llvm::cl::Positional, llvm::cl::desc("<input file>"), llvm::cl::Required);

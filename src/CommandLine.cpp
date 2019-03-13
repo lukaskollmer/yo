@@ -12,6 +12,7 @@
 llvm::cl::opt<std::string> cl::InputFilename(llvm::cl::Positional, llvm::cl::desc("<input file>"), llvm::cl::Required);
 
 llvm::cl::opt<bool> cl::PrintAST("print-ast", llvm::cl::desc("Print the Abstract Syntax Tree"));
+llvm::cl::opt<bool> cl::EmitLLVM("emit-llvm", llvm::cl::desc("Emit LLVM IR"));
 
 void print_version(llvm::raw_ostream &OS) {
     OS << "0.0.1";
