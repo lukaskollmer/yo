@@ -15,8 +15,8 @@ llvm::cl::opt<bool> cl::PrintAST("print-ast", llvm::cl::desc("Print the Abstract
 llvm::cl::opt<bool> cl::EmitLLVM("emit-llvm", llvm::cl::desc("Emit LLVM IR"));
 
 void print_version(llvm::raw_ostream &OS) {
-    OS << "0.0.1";
-    // TODO: a) get the version from somewhere, b) should this include a newline?
+    OS << "0.0.1\n";
+    // TODO: get the version from somewhere
 }
 
 void cl::Init(int argc, const char *const *argv) {
