@@ -4,6 +4,7 @@ project(yo)
 set(YO_VERSION "0.0.1")
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_BUILD_TYPE Debug)
 
 find_package(LLVM 7 REQUIRED CONFIG)
 include_directories(${LLVM_INCLUDE_DIRS})
