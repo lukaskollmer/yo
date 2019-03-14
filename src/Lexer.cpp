@@ -257,7 +257,8 @@ TokenList Lexer::Lex(std::string &String, std::string &Filename) {
             precondition(String[Offset++] == DOUBLE_QUOTE);
             
             auto T = HandleRawToken("", IsByteStringLiteral ? TK::ByteStringLiteral : TK::StringLiteral);
-            T->Data.S = Content;
+            precondition(T->Data.S == nullptr);
+            T->Data.S = new std::string(Content);
             Offset--; // unavoidable :/
             continue;
         }

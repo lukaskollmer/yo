@@ -437,7 +437,7 @@ std::shared_ptr<IfStmt> Parser::ParseIfStmt() {
 
 std::shared_ptr<Identifier> Parser::ParseIdentifier() {
     if (CurrentTokenKind() != TK::Identifier) return nullptr;
-    auto R = std::make_shared<Identifier>(CurrentToken().Data.S);
+    auto R = std::make_shared<Identifier>(*CurrentToken().Data.S);
     Consume();
     return R;
 }
@@ -767,7 +767,7 @@ std::shared_ptr<StringLiteral> Parser::ParseStringLiteral() {
         return nullptr;
     }
     
-    auto Value = T.Data.S;
+    auto Value = *T.Data.S;
     StringLiteral::StringLiteralKind Kind = T.Kind == TK::StringLiteral
         ? StringLiteral::StringLiteralKind::NormalString
         : StringLiteral::StringLiteralKind::ByteString;

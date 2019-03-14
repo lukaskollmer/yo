@@ -69,15 +69,12 @@ public:
         char C;
         double D;
         int64_t I;
-        std::string S;
-        
-        // TODO: it would be interesting to know how many tokens actually use the S field
-        // (identifiers and string literals). if it's a minority, it _might_ make sense to turn the S field
-        // into a pointer, which would slightly decrease `sizeof(TokenData)` (24 -> 8 bytes)
-        // Not sure whether this actually matters, but it might start adding up eventually when parsing large files?
+        std::string *S;
         
         TokenData() : I(0) {}
         ~TokenData() {}
+        
+        static_assert(sizeof(I) == sizeof(S), "");
     };
     
     TokenKind Kind;
@@ -90,7 +87,7 @@ public:
         if (Kind == TokenKind::Identifier
             || Kind == TokenKind::StringLiteral
             || Kind == TokenKind::ByteStringLiteral) {
-            Data.S.~basic_string();
+            delete Data.S;
         }
     }
     
@@ -100,7 +97,7 @@ public:
     
     static std::shared_ptr<Token> Identifier(std::string Name) {
         auto T = WithKind(TokenKind::Identifier);
-        T->Data.S = Name;
+        T->Data.S = new std::string(Name);
         return T;
     }
     
@@ -112,7 +109,7 @@ public:
     
     static std::shared_ptr<Token> StringLiteral(std::string Value) {
         auto T = WithKind(TokenKind::StringLiteral);
-        T->Data.S = Value;
+        T->Data.S = new std::string(Value);
         return T;
     }
     
