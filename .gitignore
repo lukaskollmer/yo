@@ -19,3 +19,6 @@ temp/
 yo.build/
 Debug/
 a.out
+
+# Automatically generated files
+src/Version.h
