@@ -11,6 +11,7 @@
 #include <string>
 #include <iostream>
 #include "util.h"
+#include <memory>
 // TODO rename Token -> SourceToken, Kind -> Token?
 
 class Token;

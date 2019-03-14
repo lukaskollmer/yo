@@ -12,22 +12,22 @@
 
 
 TypeInfo *TypeInfo::Unresolved = TypeInfo::Unresolved;
-auto TypeInfo::Void = new TypeInfo("void", 0, TypeInfo::Kind::Primitive);
+TypeInfo *TypeInfo::Void = new TypeInfo("void", 0, TypeInfo::Kind::Primitive);
 
-auto TypeInfo::i8  = new TypeInfo("i8" , 1, TypeInfo::Kind::Primitive);
-auto TypeInfo::i16 = new TypeInfo("i16", 2, TypeInfo::Kind::Primitive);
-auto TypeInfo::i32 = new TypeInfo("i32", 4, TypeInfo::Kind::Primitive);
-auto TypeInfo::i64 = new TypeInfo("i64", 8, TypeInfo::Kind::Primitive);
+TypeInfo *TypeInfo::i8  = new TypeInfo("i8" , 1, TypeInfo::Kind::Primitive);
+TypeInfo *TypeInfo::i16 = new TypeInfo("i16", 2, TypeInfo::Kind::Primitive);
+TypeInfo *TypeInfo::i32 = new TypeInfo("i32", 4, TypeInfo::Kind::Primitive);
+TypeInfo *TypeInfo::i64 = new TypeInfo("i64", 8, TypeInfo::Kind::Primitive);
 
-auto TypeInfo::u8  = new TypeInfo("u8" , 1, TypeInfo::Kind::Primitive);
-auto TypeInfo::u16 = new TypeInfo("u16", 2, TypeInfo::Kind::Primitive);
-auto TypeInfo::u32 = new TypeInfo("u32", 4, TypeInfo::Kind::Primitive);
-auto TypeInfo::u64 = new TypeInfo("u64", 8, TypeInfo::Kind::Primitive);
+TypeInfo *TypeInfo::u8  = new TypeInfo("u8" , 1, TypeInfo::Kind::Primitive);
+TypeInfo *TypeInfo::u16 = new TypeInfo("u16", 2, TypeInfo::Kind::Primitive);
+TypeInfo *TypeInfo::u32 = new TypeInfo("u32", 4, TypeInfo::Kind::Primitive);
+TypeInfo *TypeInfo::u64 = new TypeInfo("u64", 8, TypeInfo::Kind::Primitive);
 
-auto TypeInfo::Bool   = new TypeInfo("bool",   1, TypeInfo::Kind::Primitive);
-auto TypeInfo::Double = new TypeInfo("double", 8, TypeInfo::Kind::Primitive);
+TypeInfo *TypeInfo::Bool   = new TypeInfo("bool",   1, TypeInfo::Kind::Primitive);
+TypeInfo *TypeInfo::Double = new TypeInfo("double", 8, TypeInfo::Kind::Primitive);
 
-auto TypeInfo::i8_ptr = TypeInfo::MakePointer(TypeInfo::i8);
+TypeInfo *TypeInfo::i8_ptr = TypeInfo::MakePointer(TypeInfo::i8);
 
 
 std::vector<TypeInfo *> TypeInfo::PrimitiveTypes = {

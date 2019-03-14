@@ -8,6 +8,7 @@
 
 #include "util.h"
 
+#include <memory>
 #include <csignal>
 #include <cxxabi.h>
 

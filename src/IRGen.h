@@ -39,8 +39,8 @@ class IRGenerator {
     llvm::Module *M;
     llvm::IRBuilder<> Builder;
     
-    Scope Scope;
-    TypeCache TypeCache;
+    irgen::Scope Scope;
+    irgen::TypeCache TypeCache;
     
     llvm::Type *i8, *i16, *i32, *i64;
     llvm::Type *i8_ptr;
