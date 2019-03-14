@@ -1,11 +1,11 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.10)
 project(yo)
 
 set(YO_VERSION "0.0.1")
 
 set(CMAKE_CXX_STANDARD 17)
 
-find_package(LLVM REQUIRED CONFIG)
+find_package(LLVM 7 REQUIRED CONFIG)
 include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
