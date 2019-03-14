@@ -22,8 +22,6 @@ void print_version(llvm::raw_ostream &OS) {
 
 void cl::Init(int argc, const char *const *argv) {
     // TODO
-    // - add groups, etc?
-    // - is there an option to force 2 dashes for arguments that aren't just a single letter?
     // - remove all the default llvm stuff
     // - is there an option to have default values?
     llvm::cl::SetVersionPrinter(&print_version);
