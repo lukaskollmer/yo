@@ -1,15 +1,25 @@
 cmake_minimum_required(VERSION 3.13)
 project(yo)
 
+set(YO_VERSION "0.0.1")
+
 set(CMAKE_CXX_STANDARD 17)
 
 find_package(LLVM REQUIRED CONFIG)
+include_directories(${LLVM_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS})
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in ${LLVM_DIR}")
 
-include_directories(${LLVM_INCLUDE_DIRS})
-add_definitions(${LLVM_DEFINITIONS})
+
+configure_file(
+  "${PROJECT_SOURCE_DIR}/src/Version.h.in"
+  "${PROJECT_SOURCE_DIR}/src/Version.h"
+)
+include_directories("${PROJECT_BINARY_DIR}")
+
+
 
 # TODO split this up into proper subfolders and shit
 add_executable(yo

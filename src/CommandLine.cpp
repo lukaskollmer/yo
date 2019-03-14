@@ -7,8 +7,8 @@
 //
 
 #include "CommandLine.h"
+#include "Version.h"
 
-#define VERSION "0.0.1"
 
 
 llvm::cl::opt<std::string> cl::InputFilename(llvm::cl::Positional, llvm::cl::desc("<input file>"), llvm::cl::Required);
@@ -17,7 +17,9 @@ llvm::cl::opt<bool> cl::PrintAST("print-ast", llvm::cl::desc("Print the Abstract
 llvm::cl::opt<bool> cl::EmitLLVM("emit-llvm", llvm::cl::desc("Emit LLVM IR"));
 
 void print_version(llvm::raw_ostream &OS) {
-    OS << VERSION << "\n";
+    OS << "yo " << YO_VERSION << " (" << __DATE__ << ", " << __TIME__ << ")\n";
+    OS << "- LLVM: " << YO_LLVM_VERSION << "\n";
+    OS << "- " << COMPILER << "\n";
 }
 
 void cl::Init(int argc, const char *const *argv) {
@@ -25,5 +27,5 @@ void cl::Init(int argc, const char *const *argv) {
     // - remove all the default llvm stuff
     // - is there an option to have default values?
     llvm::cl::SetVersionPrinter(&print_version);
-    llvm::cl::ParseCommandLineOptions(argc, argv, "the yo programming language v" VERSION "\n");
+    llvm::cl::ParseCommandLineOptions(argc, argv, "the yo programming language v" YO_VERSION "\n");
 }
