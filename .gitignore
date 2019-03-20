@@ -20,5 +20,7 @@ yo.build/
 Debug/
 a.out
 
+stdlib_old/
+
 # Automatically generated files
 src/Version.h
