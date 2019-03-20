@@ -524,6 +524,18 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
                 break;
             }
             
+            case MK::Initial_StaticCall: {
+                auto Call = Member->Data.Call;
+                std::string Typename, MethodName;
+                mangling::DemangleStaticMethodCallNameForAST(Call->Target->Value, &Typename, &MethodName);
+                auto Mangled = mangling::MangleMethod(Typename, MethodName, mangling::MethodKind::Static);
+                Call->Target = std::make_shared<ast::Identifier>(Mangled);
+                V = Codegen(Call);
+                CurrentType = V->getType(); // TODO assert that V->getType() == Call->returnType!
+                
+                break;
+            }
+            
             case MK::Initial_FunctionCall: {
                 V = Codegen(Member->Data.Call);
                 CurrentType = V->getType();
@@ -563,6 +575,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
                 auto CallInst = llvm::dyn_cast<llvm::CallInst>(Codegen(Call, 1));
                 CallInst->setOperand(0, V);
                 V = CallInst;
+                
+                CurrentType = V->getType(); // TODO assert that V->getType == Call->returnType
                 
                 break;
             }

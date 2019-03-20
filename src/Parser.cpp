@@ -9,6 +9,7 @@
 #include "Parser.h"
 
 #include <map>
+#include "Mangling.h"
 
 using namespace ast;
 
@@ -648,7 +649,7 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
 
 
 static TokenSet MemberAccessSeparatingTokens = {
-    TK::OpeningParens, TK::OpeningSquareBrackets, TK::Period
+    TK::OpeningParens, TK::OpeningSquareBrackets, TK::Period, TK::Colon
 };
 
 
@@ -671,6 +672,19 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
     
     while (MemberAccessSeparatingTokens.Contains(CurrentTokenKind())) {
         switch (CurrentTokenKind()) {
+            case TK::Colon: { // Static method call
+                Consume();
+                assert_current_token_and_consume(TK::Colon);
+                //auto EncodedName = std::make_shared<Identifier>(std::string(Ident->Value).append(ParseIdentifier()->Value));
+                auto EncodedName = std::make_shared<Identifier>(mangling::MangleStaticMethodCallNameForAST(Ident->Value, ParseIdentifier()->Value));
+                assert_current_token_and_consume(TK::OpeningParens);
+                auto Args = ParseExpressionList(TK::ClosingParens);
+                assert_current_token_and_consume(TK::ClosingParens);
+                Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::Initial_StaticCall,
+                                                                         std::make_shared<FunctionCall>(EncodedName, Args, false)));
+                continue;
+            }
+            
             case TK::Period: {
                 Consume();
                 

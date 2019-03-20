@@ -246,11 +246,12 @@ public:
 // A (chained) member access
 class MemberAccess : public Expr, public LocalStmt {
 public:
-    class Member : public Node { // same as IfStmt::Branch
+    class Member : public Node { // Sole purpose of making this inherit from Node is simplifying ast dumping
     public:
         enum class MemberKind {
             Initial_Identifier,     // Value in Data.Ident
             Initial_FunctionCall,   // Value in Data.Call
+            Initial_StaticCall,     // Value in Data.Call (Call.Target contains both the type, and the method name, separated by `~`. TODO come up w/ a better solution)
             
             OffsetRead,             // Value in Data.Offset
             MemberFunctionCall,     // Value in Data.Call (call target is name of the method being called)
@@ -276,7 +277,9 @@ public:
             Data.Ident = Ident;
         }
         Member(MemberKind Kind, std::shared_ptr<FunctionCall> Call) : Kind(Kind) {
-            precondition(Kind == MemberKind::Initial_FunctionCall || Kind == MemberKind::MemberFunctionCall);
+            precondition(Kind == MemberKind::Initial_FunctionCall
+                         || Kind == MemberKind::Initial_StaticCall
+                         || Kind == MemberKind::MemberFunctionCall);
             Data.Call = Call;
         }
         Member(MemberKind Kind, std::shared_ptr<Expr> Offset) : Kind(Kind) {

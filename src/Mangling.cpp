@@ -7,6 +7,7 @@
 //
 
 #include "Mangling.h"
+#include "util.h"
 
 
 std::string mangling::MangleFunction(std::string Name) {
@@ -28,3 +29,17 @@ std::string mangling::MangleMethod(std::string Typename, std::string MethodName,
     Mangled += MethodName;
     return Mangled;
 }
+
+
+
+std::string mangling::MangleStaticMethodCallNameForAST(const std::string Typename, const std::string MethodName) {
+    return std::string(Typename).append("~").append(MethodName);
+}
+
+void mangling::DemangleStaticMethodCallNameForAST(const std::string Mangled, std::string *Typename, std::string *MethodName) {
+    auto Pos = Mangled.find('~');
+    precondition(Pos != Mangled.npos);
+    *Typename = Mangled.substr(0, Pos);
+    *MethodName = Mangled.substr(Pos + 1);
+}
+
