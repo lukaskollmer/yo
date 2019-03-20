@@ -1,6 +1,8 @@
 # yo
 > the yo programming language
 
+> **Note:** There's a partially working llvm-based version in the [`rewrite`](https://github.com/lukaskollmer/yo/tree/rewrite) branch
+
 <br>
 
 Yo is an interpreted, statically typed programming language with a rust-inspired syntax. This repo includes a parser, compiler and interpreter, as well as a small standard library.
