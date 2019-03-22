@@ -111,6 +111,7 @@ std::string MemberAccessMemberKindToString(MemberAccess::Member::MemberKind Kind
     switch (Kind) {
         CASE(Initial_Identifier)
         CASE(Initial_FunctionCall)
+        CASE(Initial_StaticCall)
         CASE(OffsetRead)
         CASE(MemberFunctionCall)
         CASE(MemberAttributeRead)
