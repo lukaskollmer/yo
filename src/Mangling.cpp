@@ -36,10 +36,12 @@ std::string mangling::MangleStaticMethodCallNameForAST(const std::string Typenam
     return std::string(Typename).append("~").append(MethodName);
 }
 
-void mangling::DemangleStaticMethodCallNameForAST(const std::string Mangled, std::string *Typename, std::string *MethodName) {
+std::pair<std::string, std::string> mangling::DemangleStaticMethodCallNameForAST(const std::string Mangled) {
     auto Pos = Mangled.find('~');
     precondition(Pos != Mangled.npos);
-    *Typename = Mangled.substr(0, Pos);
-    *MethodName = Mangled.substr(Pos + 1);
+    return {
+        Mangled.substr(0, Pos),
+        Mangled.substr(Pos + 1)
+    };
 }
 

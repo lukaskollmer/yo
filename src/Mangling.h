@@ -18,5 +18,5 @@ namespace mangling {
     // "temporary" mangling
     // used to encode static calls in the ast, without having to introduce additional node types
     std::string MangleStaticMethodCallNameForAST(const std::string Typename, const std::string MethodName);
-    void DemangleStaticMethodCallNameForAST(const std::string Mangled, std::string *Typename, std::string *MethodName);
+    std::pair<std::string, std::string> DemangleStaticMethodCallNameForAST(const std::string Mangled);
 }

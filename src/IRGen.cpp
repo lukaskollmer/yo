@@ -526,8 +526,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
             
             case MK::Initial_StaticCall: {
                 auto Call = Member->Data.Call;
-                std::string Typename, MethodName;
-                mangling::DemangleStaticMethodCallNameForAST(Call->Target->Value, &Typename, &MethodName);
+                auto [Typename, MethodName] = mangling::DemangleStaticMethodCallNameForAST(Call->Target->Value);
                 auto Mangled = mangling::MangleMethod(Typename, MethodName, mangling::MethodKind::Static);
                 Call->Target = std::make_shared<ast::Identifier>(Mangled);
                 V = Codegen(Call);
