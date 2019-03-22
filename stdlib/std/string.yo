@@ -1,0 +1,19 @@
+// std/string.yo
+
+extern fn strlen(*i8): i64;
+
+struct String {
+    ptr: *i8,
+    length: i64
+}
+
+
+impl String {
+    fn new(str: *i8): String {
+        return String::init(str, strlen(str));
+    }
+
+    fn length(self: String): i64 {
+        return self.length;
+    }
+}
