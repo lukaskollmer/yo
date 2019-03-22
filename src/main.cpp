@@ -123,6 +123,8 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, std::string &Filename) 
         return EXIT_FAILURE;
     }
     
+    std::cout << "Executable written to " << ExecutablePath << std::endl;
+    
     return EXIT_SUCCESS;
 }
 
