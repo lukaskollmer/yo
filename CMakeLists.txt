@@ -57,3 +57,4 @@ add_executable(yo
 llvm_map_components_to_libnames(llvm_libs core support irreader mcjit orcjit native nativecodegen)
 
 target_link_libraries(yo ${llvm_libs})
+target_compile_options(yo PRIVATE "-fvisibility=hidden")

@@ -8,13 +8,48 @@
 
 #include "CommandLine.h"
 #include "Version.h"
+#include <iostream>
+
+static llvm::cl::OptionCategory CLIOptionsCategory("General Options");
 
 
+enum class PostCodegenAction {
+    Emit, Run, JIT
+};
 
-llvm::cl::opt<std::string> cl::InputFilename(llvm::cl::Positional, llvm::cl::desc("<input file>"), llvm::cl::Required);
 
-llvm::cl::opt<bool> cl::PrintAST("print-ast", llvm::cl::desc("Print the Abstract Syntax Tree"));
-llvm::cl::opt<bool> cl::EmitLLVM("emit-llvm", llvm::cl::desc("Emit LLVM IR"));
+llvm::cl::opt<PostCodegenAction> Action(llvm::cl::ValueDisallowed,
+                                        llvm::cl::desc("Post codegen action"),
+                                        llvm::cl::values(clEnumValN(PostCodegenAction::Emit, "Emit", "Emit executable"),
+                                                         clEnumValN(PostCodegenAction::Run,  "Run",  "Emit & run executable"),
+                                                         clEnumValN(PostCodegenAction::JIT,  "JIT",  "Run in JIT")
+                                        ),
+                                        llvm::cl::init(PostCodegenAction::Emit),
+                                        llvm::cl::cat(CLIOptionsCategory));
+
+//llvm::cl::opt<bool> cl::Run(llvm::cl::Positional,
+//                            llvm::cl::desc("[run]"),
+//                            llvm::cl::init(false),
+//                            llvm::cl::cat(CLIOptionsCategory));
+
+llvm::cl::opt<std::string> cl::InputFilename(llvm::cl::Positional,
+                                             llvm::cl::desc("<input file>"),
+                                             llvm::cl::Required,
+                                             llvm::cl::cat(CLIOptionsCategory));
+
+llvm::cl::opt<bool> cl::PrintAST("print-ast",
+                                 llvm::cl::desc("Print the Abstract Syntax Tree"),
+                                 llvm::cl::cat(CLIOptionsCategory));
+
+llvm::cl::opt<bool> cl::EmitLLVM("emit-llvm",
+                                 llvm::cl::desc("Emit LLVM IR"),
+                                 llvm::cl::cat(CLIOptionsCategory));
+
+llvm::cl::opt<std::string> cl::StdlibPath("stdlib-path",
+                                          llvm::cl::desc("Standard Librray Path"),
+                                          llvm::cl::init("/Users/lukas/Developer/yo/stdlib"),
+                                          llvm::cl::cat(CLIOptionsCategory));
+
 
 void print_version(llvm::raw_ostream &OS) {
     OS << "yo " << YO_VERSION << " (" << __DATE__ << ", " << __TIME__ << ")\n";
@@ -23,9 +58,9 @@ void print_version(llvm::raw_ostream &OS) {
 }
 
 void cl::Init(int argc, const char *const *argv) {
-    // TODO
-    // - remove all the default llvm stuff
-    // - is there an option to have default values?
     llvm::cl::SetVersionPrinter(&print_version);
+    
+    llvm::cl::HideUnrelatedOptions(CLIOptionsCategory);
+    
     llvm::cl::ParseCommandLineOptions(argc, argv, "the yo programming language v" YO_VERSION "\n");
 }
