@@ -12,6 +12,7 @@
 #include <fstream>
 #include <sstream>
 #include "Mangling.h"
+#include "StdlibResolution.h"
 
 using namespace ast;
 
@@ -137,6 +138,8 @@ std::string Parser::ResolveImportPathRelativeToBaseDirectory(const std::string &
     std::string Path;
     
     if (ModuleName[0] == ':') { // stdlib import
+        std::cout << ModuleName << std::endl;
+        throw;
         Path = ModuleName;
         Path.erase(Path.begin());
         Path = std::string(StdlibPath).append("/").append(Path).append(".yo");
@@ -159,12 +162,19 @@ void Parser::ResolveImport() {
     auto ModuleName = ParseStringLiteral()->Value;
     assert_current_token_and_consume(TK::Semicolon);
     
-    std::string Path = ResolveImportPathRelativeToBaseDirectory(ModuleName, BaseDirectory);
+    TokenList NewTokens;
     
-    if (util::vector::contains(ImportedFiles, Path)) return;
-    ImportedFiles.push_back(Path);
+    if (ModuleName[0] == ':') { // stdlib import
+        if (util::vector::contains(ImportedFiles, ModuleName)) return;
+        ImportedFiles.push_back(ModuleName);
+        NewTokens = Lexer().Lex(stdlib_resolution::GetContentsOfModuleWithName(ModuleName), ModuleName);
+    } else {
+        std::string Path = ResolveImportPathRelativeToBaseDirectory(ModuleName, BaseDirectory);
+        if (util::vector::contains(ImportedFiles, Path)) return;
+        ImportedFiles.push_back(Path);
+        NewTokens = LexFile(Path);
+    }
     
-    auto NewTokens = LexFile(Path);
     Tokens.insert(Tokens.begin() + Position,
                   NewTokens.begin(),
                   NewTokens.end() - 1); // exclude EOF_

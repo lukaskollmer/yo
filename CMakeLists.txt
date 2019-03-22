@@ -2,11 +2,14 @@ cmake_minimum_required(VERSION 3.10)
 project(yo)
 
 set(YO_VERSION "0.0.1")
+set(YO_STDLIB_PATH "${CMAKE_BINARY_DIR}/stdlib")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE Debug)
 
 find_package(LLVM 7 REQUIRED CONFIG)
+find_package(PythonInterp 3 REQUIRED)
+
 include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
@@ -18,7 +21,11 @@ configure_file(
   "${PROJECT_SOURCE_DIR}/src/Version.h.in"
   "${PROJECT_SOURCE_DIR}/src/Version.h"
 )
-include_directories("${PROJECT_BINARY_DIR}")
+
+
+add_custom_target(gen_stdlib
+    COMMAND ${PYTHON_EXECUTABLE} stdlib_gen.py "${CMAKE_BINARY_DIR}" "${YO_STDLIB_PATH}"
+)
 
 
 
@@ -50,9 +57,15 @@ add_executable(yo
         src/JIT.cpp
         src/util.h
         src/util.cpp
+        src/StdlibResolution.cpp
+        src/StdlibResolution.h
         src/util_llvm.h
         src/main.cpp
 )
+
+
+add_dependencies(yo gen_stdlib)
+
 
 #llvm_map_components_to_libnames(llvm_libs core support irreader mcjit orcjit native nativecodegen)
 llvm_map_components_to_libnames(llvm_libs all)
