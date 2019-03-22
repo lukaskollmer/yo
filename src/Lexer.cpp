@@ -35,7 +35,7 @@ static CharacterSet SingleCharTokens(".,+-*/;:=<>!&^#|~(){}[]@");
 
 
 
-// TODO now idea if/how this would work, but it'd be cool to have a compile-time assertion that the mapping below is complete
+// TODO no idea if/how this would work, but it'd be cool to have a compile-time assertion that the mapping below is complete
 static std::map<std::string, Token::TokenKind> TokenKindMappings = {
     { "(" , TK::OpeningParens },
     { ")" , TK::ClosingParens },
@@ -70,15 +70,16 @@ static std::map<std::string, Token::TokenKind> TokenKindMappings = {
     { "return", TK::Return },
     { "extern", TK::Extern },
     { "let",    TK::Let    },
-    { "if",     TK::If    },
-    { "else",   TK::Else    },
-    { "as",     TK::As    },
-    { "struct", TK::Struct  },
-    { "impl",   TK::Impl  },
+    { "if",     TK::If     },
+    { "else",   TK::Else   },
+    { "as",     TK::As     },
+    { "struct", TK::Struct },
+    { "impl",   TK::Impl   },
+    { "use",    TK::Use    },
 };
 
 
-TokenList Lexer::Lex(std::string &String, std::string &Filename) {
+TokenList Lexer::Lex(std::string String, std::string &Filename) {
     // Reset everything
     Tokens = {};
     Line = 0;
