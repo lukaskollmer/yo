@@ -436,6 +436,15 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> Number) {
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StringLiteral> StringLiteral) {
+//    switch (StringLiteral->Kind) {
+//        case ast::StringLiteral::StringLiteralKind::ByteString:
+//            return Builder.CreateGlobalStringPtr(StringLiteral->Value);
+//        case ast::StringLiteral::StringLiteralKind::NormalString: {
+//            precondition(TypeCache.Contains("String"));
+//            return Codegen(std::make_shared<ast::FunctionCall>(std::make_shared<ast::Identifier>(mangling::MangleMethod("String", "new", mangling::MethodKind::Static),
+//                                                                                                 std::vector<std::shared_ptr<ast::Expr>>())))
+//        }
+//    }
     precondition(StringLiteral->Kind == ast::StringLiteral::StringLiteralKind::ByteString);
     return Builder.CreateGlobalStringPtr(StringLiteral->Value);
 }
