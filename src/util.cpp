@@ -13,6 +13,29 @@
 #include <cxxabi.h>
 
 
+char *LKStringUtils_FormatIntoNewBuffer(const char *format, ...) {
+    if (format && strlen(format) > 0) {
+        va_list args;
+        va_start(args, format);
+        
+        auto char_count = vsnprintf(NULL, 0, format, args);
+        char *str = (char *) calloc(char_count, sizeof(char));
+        va_end(args);
+        
+        va_start(args, format);
+        vsprintf(str, format, args);
+        return str;
+    } else {
+        LKFatalError("invalid arguments");
+    }
+}
+
+
+
+
+
+
+
 std::string util::typeinfo::demangle(const char *name) {
     int status;
     
@@ -141,4 +164,20 @@ std::string util::string::lastPathCompotent(std::string &Path) {
         return Path;
     }
     return Path.substr(Pos + 1);
+}
+
+std::string util::string::excludingLastPathComponent(std::string &Path) {
+    auto Pos = Path.rfind('/');
+    if (Pos == std::string::npos) {
+        return Path;
+    }
+    return Path.substr(0, Pos);
+}
+
+std::string util::string::excludingFileExtension(const std::string &Path) {
+    auto Pos = Path.rfind('.');
+    if (Pos == std::string::npos) {
+        return Path;
+    }
+    return Path.substr(0, Pos);
 }

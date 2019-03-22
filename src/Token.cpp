@@ -53,6 +53,7 @@ std::string TokenKindToString(Token::TokenKind Kind) {
         CASE(DoubleLiteral)
         CASE(ByteStringLiteral)
         CASE(Hashtag)
+        CASE(Use)
     }
 #undef CASE
 }

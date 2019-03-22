@@ -9,6 +9,8 @@
 #include "Parser.h"
 
 #include <map>
+#include <fstream>
+#include <sstream>
 #include "Mangling.h"
 
 using namespace ast;
@@ -92,17 +94,85 @@ static MappedTokenSet<ast::BinaryOperation::Operation> SingleTokenBinopOperatorT
 // Position always points to the current token.
 // For example, if we parse an identifier, after returning from `ParseIdentifier`, Position would point to the token after that identifier
 
-AST Parser::Parse(TokenList Tokens) {
-    this->Tokens = Tokens;
+
+TokenList LexFile(std::string &Path) {
+    std::ifstream File(Path);
+    std::ostringstream Contents;
+    Contents << File.rdbuf();
+    File.close();
+
+    return Lexer().Lex(Contents.str(), Path);
+}
+
+
+AST Parser::Parse(std::string &FilePath) {
     this->Position = 0;
+    this->Tokens = LexFile(FilePath);
+    ImportedFiles.push_back(FilePath);
     
     AST Ast;
-    while (Position < Tokens.size() && CurrentToken().Kind != TK::EOF_) {
+    while (Position < Tokens.size() && CurrentTokenKind() != TK::EOF_) {
         Ast.push_back(ParseTopLevelStmt());
     }
     
     return Ast;
 }
+
+
+#include <sys/stat.h>
+namespace fs {
+    bool file_exists(std::string &Path) {
+        struct stat S;
+        return stat(Path.c_str(), &S) == 0;
+    }
+}
+
+
+// TODO move the entire module resolution stuff somewhere else !?
+std::string Parser::ResolveImportPathRelativeToBaseDirectory(const std::string &ModuleName, const std::string &BaseDirectory) {
+    if (ModuleName[0] == '/') { // absolute path
+        return ModuleName;
+    }
+    
+    std::string Path;
+    
+    if (ModuleName[0] == ':') { // stdlib import
+        Path = ModuleName;
+        Path.erase(Path.begin());
+        Path = std::string(StdlibPath).append("/").append(Path).append(".yo");
+        precondition(fs::file_exists(Path));
+        return Path;
+    }
+    
+    Path = std::string(BaseDirectory).append("/").append(ModuleName).append(".yo");
+    if (fs::file_exists(Path)) return Path;
+    
+    LKFatalError("Unable to resolve import of '%s' relative to '%s'", ModuleName.c_str(), BaseDirectory.c_str());
+}
+
+
+
+void Parser::ResolveImport() {
+    auto BaseDirectory = util::string::excludingLastPathComponent(CurrentToken().SourceLocation.Filename);
+    assert_current_token_and_consume(TK::Use);
+    
+    auto ModuleName = ParseStringLiteral()->Value;
+    assert_current_token_and_consume(TK::Semicolon);
+    
+    std::string Path = ResolveImportPathRelativeToBaseDirectory(ModuleName, BaseDirectory);
+    
+    if (util::vector::contains(ImportedFiles, Path)) return;
+    ImportedFiles.push_back(Path);
+    
+    auto NewTokens = LexFile(Path);
+    Tokens.insert(Tokens.begin() + Position,
+                  NewTokens.begin(),
+                  NewTokens.end() - 1); // exclude EOF_
+}
+
+
+
+
 
 #define unhandled_token(T) { std::cout << "Unhandled Token: " << T << std::endl; throw; }
 
@@ -125,6 +195,9 @@ std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
         case TK::Impl:
             Stmt = ParseImplBlock();
             break;
+        case TK::Use:
+            ResolveImport();
+            return ParseTopLevelStmt();
         default: unhandled_token(CurrentToken());
     }
     

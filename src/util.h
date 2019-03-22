@@ -49,6 +49,9 @@ void _precondition_imp(const char *func, const char *file, int line, const char 
 #define assert_implication(x, y) precondition(!(x) || (y))
 
 
+__attribute__((format(printf, 1, 2)))
+char *LKStringUtils_FormatIntoNewBuffer(const char *format, ...);
+
 
 struct Range {
     long Location;
@@ -152,5 +155,7 @@ namespace util::string {
     std::string& append_with_indentation(std::string &Target, std::string &&Other, unsigned Indent);
     
     std::string lastPathCompotent(std::string &Path);
+    std::string excludingLastPathComponent(std::string &Path);
+    std::string excludingFileExtension(const std::string &Path);
 }
 

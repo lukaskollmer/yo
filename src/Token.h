@@ -58,6 +58,7 @@ public:
         Ampersand, Pipe, Circumflex, LessThanSign, GreaterSign,
         
         // Keywords
+        Use,
         Struct, Impl,
         Fn, Extern,
         Let, Return,
