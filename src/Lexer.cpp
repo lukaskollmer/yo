@@ -79,7 +79,7 @@ static std::map<std::string, Token::TokenKind> TokenKindMappings = {
 };
 
 
-TokenList Lexer::Lex(std::string String, std::string &Filename) {
+TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
     // Reset everything
     Tokens = {};
     Line = 0;

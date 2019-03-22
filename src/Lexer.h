@@ -19,7 +19,7 @@
 
 class Lexer {
 public:
-    TokenList Lex(std::string String, std::string &Filename);
+    TokenList Lex(std::string_view String, std::string &Filename);
     
 private:
     TokenList Tokens;
