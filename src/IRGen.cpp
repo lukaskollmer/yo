@@ -119,6 +119,9 @@ void IRGenerator::RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignatu
         Name = MangleFunctionName(Signature, Typename);
     }
     
+    // TODO allow multiple declarations of the same external function, as long as the signature is the same
+    precondition(M->getFunction(Name) == nullptr);
+    
     auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, IsVariadic);
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, Name, M);
     
