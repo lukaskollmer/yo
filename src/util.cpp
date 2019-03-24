@@ -11,6 +11,7 @@
 #include <memory>
 #include <csignal>
 #include <cxxabi.h>
+#include <cstring>
 
 
 char *LKStringUtils_FormatIntoNewBuffer(const char *format, ...) {
