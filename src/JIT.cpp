@@ -13,7 +13,7 @@
 
 
 JIT::JIT(std::unique_ptr<llvm::Module> Module) {
-    
+#if 0
     llvm::InitializeNativeTarget();
     
     llvm::InitializeNativeTarget();
@@ -36,12 +36,15 @@ JIT::JIT(std::unique_ptr<llvm::Module> Module) {
         .create(targetMachine);
     
     EE->finalizeObject();
+#endif
 }
 
 
 int JIT::RunMain(const char *const *envp) {
+#if 0
     // TODO pass proper args!!!
     std::vector<std::string> args = {"hello", "wrld"};
     auto F_main = EE->FindFunctionNamed("main");
     return EE->runFunctionAsMain(F_main, args, envp);
+#endif
 }

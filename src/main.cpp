@@ -36,11 +36,9 @@
 
 // Returns EXIT_FAILURE when something went wrong, otherwise EXIT_SUCCESS
 int EmitExecutable(std::unique_ptr<llvm::Module> Module, std::string &Filename) {
-    llvm::InitializeAllTargetInfos();
-    llvm::InitializeAllTargets();
-    llvm::InitializeAllTargetMCs();
-    llvm::InitializeAllAsmParsers();
-    llvm::InitializeAllAsmPrinters();
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmParser();
+    llvm::InitializeNativeTargetAsmPrinter();
     
     std::string Error;
     auto TargetTriple = llvm::sys::getDefaultTargetTriple();
