@@ -142,7 +142,7 @@ int RunExecutable(const std::string &ExecutablePath, const char *const *envp) {
     llvm::llvm_shutdown();
     
     auto Status = execve(argv[0], (char *const *) argv, (char *const *) envp);
-    perror("execve failed: ");
+    perror("execve failed");
     return Status;
 }
 
