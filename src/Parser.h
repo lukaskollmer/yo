@@ -66,31 +66,6 @@ private:
     }
     void Consume(uint64_t Count = 1) { Position += Count; }
     
-    void assert_current_token(Token::TokenKind Expected) {
-        if (CurrentToken().Kind != Expected) {
-            std::cout << "token assert failed. expected: " << Expected << " got: " << CurrentTokenKind() << std::endl;
-            throw "FUCK";
-        }
-    }
-    
-    void assert_current_token_and_consume(Token::TokenKind Expected) {
-        if (CurrentToken().Kind != Expected) {
-            std::cout << "token assert failed. expected: " << Expected << " got: " << CurrentTokenKind() << std::endl;
-            throw "FUCK";
-        } else {
-            Consume();
-        }
-    }
-    
-    
-    void assert_current_token_either(std::vector<Token::TokenKind> TokenKinds) {
-        auto Current = CurrentTokenKind();
-        for (auto &TK : TokenKinds) {
-            if (TK == Current) return;
-        }
-        throw;
-        //std::cout << "[assert_current_]" << std::endl;
-    }
     
     
     std::shared_ptr<ast::TopLevelStmt> ParseTopLevelStmt();

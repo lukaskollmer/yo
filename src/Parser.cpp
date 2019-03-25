@@ -20,6 +20,25 @@ using TK = Token::TokenKind;
 
 #pragma mark - Parser Utils
 
+
+
+#define assert_current_token(Expected) \
+do { if (auto T = CurrentToken(); T.Kind != Expected) { \
+    auto &S = T.SourceLocation; \
+    std::cout << "[token assert] Expected: " << Expected << ", got: " << T.Kind << ". (file: " << S.Filename << ":" << S.Line << ":" << S.Column << ")\n";  \
+    throw; \
+} } while (0)
+
+
+#define assert_current_token_and_consume(Expected) \
+do { if (auto T = CurrentToken(); T.Kind != Expected) { \
+    auto &S = T.SourceLocation; \
+    std::cout << "[token assert] Expected: " << Expected << ", got: " << T.Kind << ". (file: " << S.Filename << ":" << S.Line << ":" << S.Column << ")\n";  \
+    throw; \
+} else { Consume(); } } while (0)
+
+
+
 class TokenSet {
     std::vector<TK> Tokens;
     
@@ -328,6 +347,8 @@ std::shared_ptr<FunctionDecl> Parser::ParseFunctionDecl() {
     
     return FD;
 }
+
+
 
 
 
@@ -832,7 +853,7 @@ std::vector<std::shared_ptr<Expr>> Parser::ParseExpressionList(Token::TokenKind 
     
     do {
         Expressions.push_back(ParseExpression());
-        assert_current_token_either({TK::Comma, Delimiter});
+        precondition(CurrentTokenKind() == TK::Comma || CurrentTokenKind() == Delimiter);
         if (CurrentTokenKind() == TK::Comma) Consume();
     } while (CurrentTokenKind() != Delimiter);
     
