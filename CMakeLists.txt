@@ -53,8 +53,6 @@ add_executable(yo
         src/TypeCache.cpp
         src/IRGen.h
         src/IRGen.cpp
-        src/JIT.h
-        src/JIT.cpp
         src/util.h
         src/util.cpp
         src/StdlibResolution.cpp

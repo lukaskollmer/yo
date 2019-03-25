@@ -14,13 +14,13 @@
 #include "Parser.h"
 #include "AST.h"
 #include "IRGen.h"
-#include "JIT.h"
 
 #include "AST.h"
 #include "Parser.h"
 
 #include <fstream>
 #include <sstream>
+#include <unistd.h>
 
 #include "Mangling.h"
 
@@ -29,13 +29,16 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/Program.h"
+#include "llvm/Target/TargetOptions.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Support/FileSystem.h"
 
 
 
 
 
 // Returns EXIT_FAILURE when something went wrong, otherwise EXIT_SUCCESS
-int EmitExecutable(std::unique_ptr<llvm::Module> Module, std::string &Filename) {
+int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &Filename, std::string &ExecutableOutputPath) {
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmParser();
     llvm::InitializeNativeTargetAsmPrinter();
@@ -104,9 +107,10 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, std::string &Filename) 
     dest.flush();
     
     auto clangPath = llvm::sys::findProgramByName("clang");
-    auto ExecutablePath = LKStringUtils_FormatIntoNewBuffer("%s/%s",
-                                                            DebugDirPath.c_str(),
-                                                            util::string::excludingFileExtension(Filename).c_str());
+    const auto ExecutablePath = LKStringUtils_FormatIntoNewBuffer("%s/%s",
+                                                                  DebugDirPath.c_str(),
+                                                                  util::string::excludingFileExtension(Filename).c_str());
+    ExecutableOutputPath = ExecutablePath;
     
     if (EC) {
         llvm::outs() << "Error creating output directory: " << EC.message();
@@ -121,13 +125,26 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, std::string &Filename) 
         return EXIT_FAILURE;
     }
     
-    std::cout << "Executable written to " << ExecutablePath << std::endl;
-    
     return EXIT_SUCCESS;
 }
 
 
 
+
+int RunExecutable(const std::string &ExecutablePath, const char *const *envp) {
+    auto argc = cl::RunArgs.size();
+    auto argv = static_cast<char **>(calloc(argc + 2, sizeof(char *))); // +2 bc the first element is the executable path and the array is null terminated
+    argv[0] = strdup(ExecutablePath.c_str());
+    
+    for (auto I = 0; I < argc; I++) {
+        argv[I + 1] = strdup(cl::RunArgs[I].c_str());
+    }
+    llvm::llvm_shutdown();
+    
+    auto Status = execve(argv[0], (char *const *) argv, (char *const *) envp);
+    perror("execve failed: ");
+    return Status;
+}
 
 
 
@@ -138,8 +155,7 @@ int main(int argc, const char * argv[], const char *const *envp) {
     
     std::string Filename = cl::InputFilename;
     
-    Parser P(cl::StdlibPath);
-    auto Ast = P.Parse(Filename);
+    auto Ast = Parser().Parse(Filename);
     
     Filename = util::string::lastPathCompotent(Filename);
     
@@ -161,12 +177,16 @@ int main(int argc, const char * argv[], const char *const *envp) {
         return EXIT_SUCCESS;
     }
     
-//    JIT JIT(std::move(M));
-//
-//    auto retval = JIT.RunMain(envp);
-//    std::cout << "Retval: " << retval << std::endl;
+    std::string ExecutablePath;
     
-    return EmitExecutable(std::move(M), Filename);
+    if (auto Status = EmitExecutable(std::move(M), Filename, ExecutablePath); Status != EXIT_SUCCESS) {
+        return Status;
+    }
+    
+    if (cl::Run) {
+        // Only returns if execve failed
+        return RunExecutable(ExecutablePath, envp);
+    }
     
     return EXIT_SUCCESS;
 }

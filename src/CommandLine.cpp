@@ -27,15 +27,15 @@ llvm::cl::opt<PostCodegenAction> Action(llvm::cl::ValueDisallowed,
                                         llvm::cl::init(PostCodegenAction::Emit),
                                         llvm::cl::cat(CLIOptionsCategory));
 
-//llvm::cl::opt<bool> cl::Run(llvm::cl::Positional,
-//                            llvm::cl::desc("[run]"),
-//                            llvm::cl::init(false),
-//                            llvm::cl::cat(CLIOptionsCategory));
 
 llvm::cl::opt<std::string> cl::InputFilename(llvm::cl::Positional,
                                              llvm::cl::desc("<input file>"),
                                              llvm::cl::Required,
                                              llvm::cl::cat(CLIOptionsCategory));
+
+llvm::cl::opt<bool> cl::Run("run",
+                            llvm::cl::desc("Run the generated executable after codegen"),
+                            llvm::cl::cat(CLIOptionsCategory));
 
 llvm::cl::opt<bool> cl::PrintAST("print-ast",
                                  llvm::cl::desc("Print the Abstract Syntax Tree"),
@@ -45,10 +45,7 @@ llvm::cl::opt<bool> cl::EmitLLVM("emit-llvm",
                                  llvm::cl::desc("Emit LLVM IR"),
                                  llvm::cl::cat(CLIOptionsCategory));
 
-llvm::cl::opt<std::string> cl::StdlibPath("stdlib-path",
-                                          llvm::cl::desc("Standard Librray Path"),
-                                          llvm::cl::init("/Users/lukas/Developer/yo/stdlib"),
-                                          llvm::cl::cat(CLIOptionsCategory));
+llvm::cl::list<std::string> cl::RunArgs(llvm::cl::ConsumeAfter, llvm::cl::desc("<run args>..."), llvm::cl::cat(CLIOptionsCategory));
 
 
 void print_version(llvm::raw_ostream &OS) {
