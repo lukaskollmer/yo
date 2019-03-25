@@ -52,19 +52,19 @@ private:
     void ResolveImport();
     std::string ResolveImportPathRelativeToBaseDirectory(const std::string &ModuleName, const std::string &BaseDirectory);
     
-    inline Token &CurrentToken() { return *Tokens[Position]; }
-    inline Token &NextToken() { return *Tokens[++Position]; }
+    Token &CurrentToken() { return *Tokens[Position]; }
+    Token &NextToken() { return *Tokens[++Position]; }
     
-    inline Token::TokenKind CurrentTokenKind() {
+    Token::TokenKind CurrentTokenKind() {
         return CurrentToken().Kind;
     }
-    inline Token &Peek(uint64_t Offset = 1) {
+    Token &Peek(uint64_t Offset = 1) {
         return *Tokens[Position + Offset];
     }
-    inline Token::TokenKind &PeekKind(uint64_t Offset = 1) {
+    Token::TokenKind &PeekKind(uint64_t Offset = 1) {
         return Peek(Offset).Kind;
     }
-    inline void Consume(uint64_t Count = 1) { Position += Count; }
+    void Consume(uint64_t Count = 1) { Position += Count; }
     
     void assert_current_token(Token::TokenKind Expected) {
         if (CurrentToken().Kind != Expected) {
