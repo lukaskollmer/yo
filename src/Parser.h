@@ -40,14 +40,13 @@ enum class PrecedenceGroup : uint8_t {
 
 class Parser {
 public:
-    explicit Parser(std::string &StdlibPath) : StdlibPath(StdlibPath) {}
+    Parser() {}
     ast::AST Parse(std::string &FilePath);
     
 private:
     TokenList Tokens;
     uint64_t Position;
     std::vector<std::string> ImportedFiles;
-    std::string &StdlibPath;
     
     void ResolveImport();
     std::string ResolveImportPathRelativeToBaseDirectory(const std::string &ModuleName, const std::string &BaseDirectory);

@@ -154,19 +154,7 @@ std::string Parser::ResolveImportPathRelativeToBaseDirectory(const std::string &
         return ModuleName;
     }
     
-    std::string Path;
-    
-    if (ModuleName[0] == ':') { // stdlib import
-        std::cout << ModuleName << std::endl;
-        throw;
-        Path = ModuleName;
-        Path.erase(Path.begin());
-        Path = std::string(StdlibPath).append("/").append(Path).append(".yo");
-        precondition(fs::file_exists(Path));
-        return Path;
-    }
-    
-    Path = std::string(BaseDirectory).append("/").append(ModuleName).append(".yo");
+    std::string Path = std::string(BaseDirectory).append("/").append(ModuleName).append(".yo");
     if (fs::file_exists(Path)) return Path;
     
     LKFatalError("Unable to resolve import of '%s' relative to '%s'", ModuleName.c_str(), BaseDirectory.c_str());
