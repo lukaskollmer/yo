@@ -371,7 +371,7 @@ Token *Lexer::HandleRawToken(const std::string &RawToken, Token::TokenKind Token
     }
     
     auto Column = ColumnRelatoveToCurrentLine();
-    Token->SourceLocation = TokenSourceLocation(Filename, Line, Column, Offset - Column);
+    Token->SourceLocation = TokenSourceLocation(Filename, Line + 1, Column + 1, Offset - Column);
     
     Tokens.push_back(Token);
     return Token.get();
