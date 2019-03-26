@@ -45,6 +45,10 @@ llvm::cl::opt<bool> cl::EmitLLVM("emit-llvm",
                                  llvm::cl::desc("Emit LLVM IR"),
                                  llvm::cl::cat(CLIOptionsCategory));
 
+llvm::cl::opt<bool> cl::DumpLLVM("dump-llvm",
+                                 llvm::cl::desc("Dump LLVM IR"),
+                                 llvm::cl::cat(CLIOptionsCategory));
+
 llvm::cl::list<std::string> cl::RunArgs(llvm::cl::ConsumeAfter, llvm::cl::desc("<run args>..."), llvm::cl::cat(CLIOptionsCategory));
 
 

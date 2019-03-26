@@ -67,6 +67,11 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     Module->setTargetTriple(TargetTriple);
     
     
+    if (cl::DumpLLVM) {
+        Module->print(llvm::outs(), nullptr, true, true);
+    }
+    
+    
     std::error_code EC;
     
     llvm::SmallVector<char, 256> cwd;

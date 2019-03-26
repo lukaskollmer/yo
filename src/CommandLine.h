@@ -17,6 +17,7 @@ namespace cl {
     extern llvm::cl::opt<std::string> InputFilename;
     extern llvm::cl::opt<bool> PrintAST;
     extern llvm::cl::opt<bool> EmitLLVM;
+    extern llvm::cl::opt<bool> DumpLLVM;
     extern llvm::cl::list<std::string> RunArgs;
     
     void Init(int argc, const char *const *argv);
