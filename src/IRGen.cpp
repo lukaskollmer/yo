@@ -99,6 +99,7 @@ void IRGenerator::Preflight(ast::AST &Ast) {
                                            [] (auto Arg1, auto Arg2) -> bool {
                                                return Arg1->Type->Equals(Arg2->Type);
                                            })
+                             && "Multiple external function declarations w/ same name, but different signatures"
                              );
                 continue;
             }

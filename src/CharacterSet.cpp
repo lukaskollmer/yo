@@ -10,10 +10,7 @@
 #include "CharacterSet.h"
 
 void AssertValidCharRange(char A, char B) {
-    if (A > B) {
-        LKLog("Invalid char range: '%c' > '%c'", A, B);
-        precondition(false);
-    }
+    precondition(A <= B);
 }
 
 
