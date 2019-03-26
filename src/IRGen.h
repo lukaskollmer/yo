@@ -46,7 +46,7 @@ class IRGenerator {
     llvm::Type *i8_ptr;
     llvm::Type *Void, *Bool, *Double;
     
-    std::vector<std::string> ExternalFunctions;
+    std::map<std::string, std::shared_ptr<ast::FunctionSignature>> ExternalFunctions;
     
 public:
     static llvm::LLVMContext C;
@@ -61,8 +61,17 @@ public:
     }
     
 private:
+    struct FunctionCodegenOptions {
+        bool IsVariadic;
+        bool IsExternal;
+        bool ShouldMangleName;
+        std::optional<std::string> Typename;
+        
+        FunctionCodegenOptions() : IsVariadic(false), IsExternal(false), ShouldMangleName(true), Typename(std::nullopt) {}
+    };
+    
     void Preflight(ast::AST &Ast);
-    void RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignature> Signature, bool IsVariadic = false, bool MangleName = true, std::optional<std::string> Typename = std::nullopt);
+    void RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignature> Signature, FunctionCodegenOptions Options = FunctionCodegenOptions());
     void RegisterStructDecl(std::shared_ptr<ast::StructDecl> Struct);
     void RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock);
     
@@ -77,7 +86,7 @@ private:
     llvm::Value *Codegen(std::shared_ptr<ast::LocalStmt>);
     llvm::Value *Codegen(std::shared_ptr<ast::Expr>, CodegenReturnValueKind = CodegenReturnValueKind::Value);
     
-    llvm::Value *Codegen(std::shared_ptr<ast::FunctionDecl>, bool MangleName = true, std::optional<std::string> Typename = std::nullopt);
+    llvm::Value *Codegen(std::shared_ptr<ast::FunctionDecl>, FunctionCodegenOptions Options = FunctionCodegenOptions());
     llvm::Value *Codegen(std::shared_ptr<ast::StructDecl>);
     llvm::Value *Codegen(std::shared_ptr<ast::ImplBlock>);
     
@@ -117,7 +126,7 @@ private:
     
     
     // Other stuff
-    bool ExistsExternalFunctionWithName(std::string &Name);
+    std::shared_ptr<ast::FunctionSignature> GetExternalFunctionWithName(std::string &Name);
 };
 
 

@@ -87,11 +87,28 @@ bool is_variadic(std::shared_ptr<ast::Node> Node) {
 void IRGenerator::Preflight(ast::AST &Ast) {
     for (auto &Node : Ast) {
         if (auto FunctionDecl = std::dynamic_pointer_cast<ast::FunctionDecl>(Node)) {
-            RegisterFunctionSignature(FunctionDecl, is_variadic(Node));
+            FunctionCodegenOptions Options;
+            Options.IsVariadic = is_variadic(Node);
+            RegisterFunctionSignature(FunctionDecl, Options);
         
-        } else if (auto ExternFunctionDecl = std::dynamic_pointer_cast<ast::ExternFunctionDecl>(Node)) {
-            RegisterFunctionSignature(ExternFunctionDecl, is_variadic(Node), false);
-            ExternalFunctions.push_back(ExternFunctionDecl->Name);
+        } else if (auto EFD = std::dynamic_pointer_cast<ast::ExternFunctionDecl>(Node)) {
+            if (auto EFS2 = GetExternalFunctionWithName(EFD->Name)) {
+                precondition(EFD->ReturnType->Equals(EFS2->ReturnType)
+                             && EFD->Parameters.size() == EFS2->Parameters.size()
+                             && std::equal(EFD->Parameters.begin(), EFD->Parameters.end(), EFS2->Parameters.begin(),
+                                           [] (auto Arg1, auto Arg2) -> bool {
+                                               return Arg1->Type->Equals(Arg2->Type);
+                                           })
+                             );
+                continue;
+            }
+            ExternalFunctions[EFD->Name] = EFD;
+            
+            FunctionCodegenOptions Options;
+            Options.IsVariadic = is_variadic(Node);
+            Options.IsExternal = true;
+            Options.ShouldMangleName = false;
+            RegisterFunctionSignature(EFD, Options);
         
         } else if (auto StructDecl = std::dynamic_pointer_cast<ast::StructDecl>(Node)) {
             RegisterStructDecl(StructDecl);
@@ -103,7 +120,7 @@ void IRGenerator::Preflight(ast::AST &Ast) {
 }
 
 
-void IRGenerator::RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignature> Signature, bool IsVariadic, bool MangleName, std::optional<std::string> Typename) {
+void IRGenerator::RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignature> Signature, FunctionCodegenOptions Options) {
     std::vector<llvm::Type *> ParameterTypes;
     
     for (auto &P : Signature->Parameters) {
@@ -111,18 +128,16 @@ void IRGenerator::RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignatu
     }
     
     std::string Name;
-    
-    if (!MangleName) {
-        precondition(Typename == std::nullopt);
+    if (!Options.ShouldMangleName) {
+        precondition(Options.Typename == std::nullopt);
         Name = Signature->Name;
     } else {
-        Name = MangleFunctionName(Signature, Typename);
+        Name = MangleFunctionName(Signature, Options.Typename);
     }
     
-    // TODO allow multiple declarations of the same external function, as long as the signature is the same
     precondition(M->getFunction(Name) == nullptr);
     
-    auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, IsVariadic);
+    auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Options.IsVariadic);
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, Name, M);
     
     unsigned Idx = 0;
@@ -132,11 +147,11 @@ void IRGenerator::RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignatu
 }
 
 
-bool IRGenerator::ExistsExternalFunctionWithName(std::string &Name) {
-    for (auto &ExtName : ExternalFunctions) {
-        if (ExtName == Name) return true;
+std::shared_ptr<ast::FunctionSignature> IRGenerator::GetExternalFunctionWithName(std::string &Name) {
+    if (auto It = ExternalFunctions.find(Name); It != ExternalFunctions.end()) {
+        return It->second;
     }
-    return false;
+    return nullptr;
 }
 
 
@@ -152,17 +167,20 @@ void IRGenerator::RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock) {
     
     auto T = TypeInfo::MakeComplex(Typename);
     
-    for (auto &M : ImplBlock->Methods) {
+    for (auto &F : ImplBlock->Methods) {
         auto Kind = ast::FunctionSignature::FunctionKind::StaticMethod;
-        if (!M->Parameters.empty()) {
-            auto First = M->Parameters[0];
+        if (!F->Parameters.empty()) {
+            auto First = F->Parameters[0];
             if (First->Name->Value == "self" && First->Type->Equals(T)) {
                 Kind = ast::FunctionSignature::FunctionKind::InstanceMethod;
             }
         }
-        M->Kind = Kind;
+        F->Kind = Kind;
         
-        RegisterFunctionSignature(M, is_variadic(M), true, Typename);
+        FunctionCodegenOptions Options;
+        Options.Typename = Typename;
+        Options.IsVariadic = is_variadic(F);
+        RegisterFunctionSignature(F, Options);
     }
 }
 
@@ -229,10 +247,10 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr, CodegenReturn
 
 #pragma mark - Top Level Statements
 
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDecl, bool MangleName, std::optional<std::string> Typename) {
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDecl, FunctionCodegenOptions Options) {
     precondition(Scope.IsEmpty());
     
-    auto Name = !MangleName ? FunctionDecl->Name : MangleFunctionName(FunctionDecl, Typename);
+    auto Name = !Options.ShouldMangleName ? FunctionDecl->Name : MangleFunctionName(FunctionDecl, Options.Typename);
     
     auto F = M->getFunction(Name);
     if (!F) {
@@ -269,7 +287,10 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StructDecl> Struct) {
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ImplBlock> ImplBlock) {
     auto Typename = ImplBlock->Typename;
     for (auto &M : ImplBlock->Methods) {
-        Codegen(M, true, Typename);
+        
+        FunctionCodegenOptions Options;
+        Options.Typename = Typename;
+        Codegen(M, Options);
     }
     return nullptr;
 }
@@ -747,7 +768,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsig
         Args.push_back(V);
     }
     
-    if (IsVariadic && ExistsExternalFunctionWithName(TargetName)) {
+    if (IsVariadic && GetExternalFunctionWithName(TargetName)) {
         for (auto It = Call->Arguments.begin() + NumFixedArgs; It != Call->Arguments.end(); It++) {
             Args.push_back(Codegen(*It));
         }
@@ -1090,6 +1111,9 @@ llvm::Value *IRGenerator::GenerateStructInitializer(std::shared_ptr<ast::StructD
     // Return
     F->Body->Statements.push_back(std::make_shared<ast::ReturnStmt>(self));
     
-    RegisterFunctionSignature(F, false, true, Typename);
-    return Codegen(F, true, Typename);
+    FunctionCodegenOptions Options;
+    Options.Typename = Typename;
+    
+    RegisterFunctionSignature(F, Options);
+    return Codegen(F, Options);
 }
