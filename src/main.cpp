@@ -33,6 +33,7 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Support/FileSystem.h"
 
+#include "llvm/IR/Verifier.h"
 
 
 
@@ -106,6 +107,16 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     if (TargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
         llvm::errs() << "TargetMachine can't emit a file of this type";
         return EXIT_FAILURE;
+    }
+    
+    
+    // Verify Module
+    {
+        std::string S;
+        llvm::raw_string_ostream OS(S);
+        if (llvm::verifyModule(*Module, &OS)) {
+            std::cout << "Error: Invalid IR:\n" << OS.str();
+        }
     }
     
     pass.run(*Module);
