@@ -1,0 +1,22 @@
+// std/array.yo
+
+extern fn malloc(i64): *i8;
+extern fn free(*i8);
+
+
+struct Array {
+    count: i64,
+    elements: *i64,
+    allocatedSize: i64
+}
+
+
+impl Array {
+    fn new(): Array {
+        return Array::init(0, malloc(12) as *i64, 12);
+    }
+
+    fn dealloc(self: Array) {
+        free(self.elements as *i8);
+    }
+}
