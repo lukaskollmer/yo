@@ -34,6 +34,19 @@ NS_START(irgen)
 //};
 
 
+//class Counter {
+//    uint64_t Value;
+//    const uint64_t InitialValue;
+//
+//public:
+//    explicit Counter(uint64_t InitialValue = 0) : Value(InitialValue), InitialValue(InitialValue) {}
+//
+//    uint64_t Increment() { return ++Value; }
+//    uint64_t GetCurrent() { return Value; }
+//    void Reset() { Value = InitialValue; }
+//};
+
+
 class IRGenerator {
     std::unique_ptr<llvm::Module> Module;
     llvm::Module *M;
@@ -47,6 +60,7 @@ class IRGenerator {
     llvm::Type *Void, *Bool, *Double;
     
     std::map<std::string, std::shared_ptr<ast::FunctionSignature>> ExternalFunctions;
+//    irgen::Counter Counter;
     
 public:
     static llvm::LLVMContext C;
