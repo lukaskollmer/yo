@@ -168,6 +168,7 @@ int RunExecutable(const std::string &ExecutablePath, const char *const *envp) {
 
 int main(int argc, const char * argv[], const char *const *envp) {
     cl::Init(argc, argv);
+    assert_implication(cl::RunArgs.size() > 0, cl::Run);
     
     std::string Filename = cl::InputFilename;
     
