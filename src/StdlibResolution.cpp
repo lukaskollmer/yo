@@ -10,7 +10,7 @@
 
 #include <map>
 #include <iostream>
-#include "stdlib_full.h"
+#include "stdlib_sources.h"
 
 static std::map<std::string, std::string_view> StdlibModules = {
     { ":std/string", std::string_view(reinterpret_cast<const char *>(stdlib_std_string_yo), stdlib_std_string_yo_len) }

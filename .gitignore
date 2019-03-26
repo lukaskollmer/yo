@@ -24,4 +24,4 @@ stdlib_old/
 
 # Automatically generated files
 src/Version.h
-src/stdlib_full.h
+src/stdlib_sources.h

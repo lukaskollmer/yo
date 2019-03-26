@@ -9,7 +9,7 @@ STDLIB_PATH = os.path.join(os.getcwd(), sys.argv[2])
 STDLIB_PARENT = os.path.dirname(STDLIB_PATH)
 
 
-f = open(os.path.join(CMAKE_BINARY_DIR, 'src', 'stdlib_full.h'), 'w')
+f = open(os.path.join(CMAKE_BINARY_DIR, 'src', 'stdlib_sources.h'), 'w')
 
 f.write(
 f"""//
