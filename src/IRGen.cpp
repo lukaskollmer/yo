@@ -461,17 +461,19 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> Number) {
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StringLiteral> StringLiteral) {
-//    switch (StringLiteral->Kind) {
-//        case ast::StringLiteral::StringLiteralKind::ByteString:
-//            return Builder.CreateGlobalStringPtr(StringLiteral->Value);
-//        case ast::StringLiteral::StringLiteralKind::NormalString: {
-//            precondition(TypeCache.Contains("String"));
-//            return Codegen(std::make_shared<ast::FunctionCall>(std::make_shared<ast::Identifier>(mangling::MangleMethod("String", "new", mangling::MethodKind::Static),
-//                                                                                                 std::vector<std::shared_ptr<ast::Expr>>())))
-//        }
-//    }
-    precondition(StringLiteral->Kind == ast::StringLiteral::StringLiteralKind::ByteString);
-    return Builder.CreateGlobalStringPtr(StringLiteral->Value);
+    using SLK = ast::StringLiteral::StringLiteralKind;
+    
+    switch (StringLiteral->Kind) {
+        case SLK::ByteString:
+            return Builder.CreateGlobalStringPtr(StringLiteral->Value);
+        case SLK::NormalString: {
+            precondition(TypeCache.Contains("String"));
+            auto ByteStringLiteral = std::make_shared<ast::StringLiteral>(StringLiteral->Value, SLK::ByteString);
+            auto Target = std::make_shared<ast::Identifier>(mangling::MangleMethod("String", "new", mangling::MethodKind::Static));
+            auto Call = std::make_shared<ast::FunctionCall>(Target, std::vector<std::shared_ptr<ast::Expr>>(1, ByteStringLiteral), false);
+            return Codegen(Call);
+        }
+    }
 }
 
 
