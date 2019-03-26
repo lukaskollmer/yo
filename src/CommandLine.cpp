@@ -13,21 +13,6 @@
 static llvm::cl::OptionCategory CLIOptionsCategory("General Options");
 
 
-enum class PostCodegenAction {
-    Emit, Run, JIT
-};
-
-
-llvm::cl::opt<PostCodegenAction> Action(llvm::cl::ValueDisallowed,
-                                        llvm::cl::desc("Post codegen action"),
-                                        llvm::cl::values(clEnumValN(PostCodegenAction::Emit, "Emit", "Emit executable"),
-                                                         clEnumValN(PostCodegenAction::Run,  "Run",  "Emit & run executable"),
-                                                         clEnumValN(PostCodegenAction::JIT,  "JIT",  "Run in JIT")
-                                        ),
-                                        llvm::cl::init(PostCodegenAction::Emit),
-                                        llvm::cl::cat(CLIOptionsCategory));
-
-
 llvm::cl::opt<std::string> cl::InputFilename(llvm::cl::Positional,
                                              llvm::cl::desc("<input file>"),
                                              llvm::cl::Required,
