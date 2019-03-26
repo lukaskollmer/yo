@@ -34,6 +34,7 @@ MemberAccess::Member::~Member() {
             break;
         case MemberKind::Initial_FunctionCall:
         case MemberKind::MemberFunctionCall:
+        case MemberKind::Initial_StaticCall:
             Data.Call.~shared_ptr();
             break;
         case MemberKind::OffsetRead:
@@ -356,18 +357,21 @@ Mirror Reflect(MemberAccess *MemberAccess) {
 Mirror Reflect(MemberAccess::Member *Member) {
     std::shared_ptr<Node> Data;
     
+    using MK = ast::MemberAccess::Member::MemberKind;
+    
     switch (Member->Kind) {
-        case ast::MemberAccess::Member::MemberKind::Initial_Identifier:
-        case ast::MemberAccess::Member::MemberKind::MemberAttributeRead:
+        case MK::Initial_Identifier:
+        case MK::MemberAttributeRead:
             Data = Member->Data.Ident;
             break;
         
-        case ast::MemberAccess::Member::MemberKind::Initial_FunctionCall:
-        case ast::MemberAccess::Member::MemberKind::MemberFunctionCall:
+        case MK::Initial_FunctionCall:
+        case MK::MemberFunctionCall:
+        case MK::Initial_StaticCall:
             Data = Member->Data.Call;
             break;
         
-        case ast::MemberAccess::Member::MemberKind::OffsetRead:
+        case MK::OffsetRead:
             Data = Member->Data.Offset;
             break;
     }
