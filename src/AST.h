@@ -303,16 +303,6 @@ public:
 
 
 
-//
-//class PointerRead : public Expr {
-//public:
-//    std::shared_ptr<Expr> Target;
-//    std::shared_ptr<Expr> Offset;
-//
-//    PointerRead(std::shared_ptr<Expr> Target, std::shared_ptr<Expr> Offset) : Target(Target), Offset(Offset) {}
-//};
-
-
 class BinaryOperation : public Expr {
 public:
     enum class Operation {
