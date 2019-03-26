@@ -76,6 +76,7 @@ static std::map<std::string, Token::TokenKind> TokenKindMappings = {
     { "struct", TK::Struct },
     { "impl",   TK::Impl   },
     { "use",    TK::Use    },
+    { "while",  TK::While  },
 };
 
 

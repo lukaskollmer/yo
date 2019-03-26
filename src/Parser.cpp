@@ -411,6 +411,10 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
         return ParseIfStmt();
     }
     
+    if (CurrentTokenKind() == TK::While) {
+        return ParseWhileStmt();
+    }
+    
     std::shared_ptr<LocalStmt> S;
     std::shared_ptr<Expr> E; // A partially-parsed part of a local statement
     
@@ -518,6 +522,19 @@ std::shared_ptr<IfStmt> Parser::ParseIfStmt() {
     
     return std::make_shared<IfStmt>(Branches);
 }
+
+
+
+
+std::shared_ptr<ast::WhileStmt> Parser::ParseWhileStmt() {
+    assert_current_token_and_consume(TK::While);
+    
+    auto Condition = ParseExpression();
+    assert_current_token(TK::OpeningCurlyBraces);
+    
+    return std::make_shared<ast::WhileStmt>(Condition, ParseComposite());
+}
+
 
 
 

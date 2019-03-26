@@ -62,7 +62,7 @@ public:
         Struct, Impl,
         Fn, Extern,
         Let, Return,
-        If, Else,
+        If, Else, While,
         As,
     };
     

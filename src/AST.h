@@ -169,6 +169,13 @@ public:
 };
 
 
+class WhileStmt : public LocalStmt {
+public:
+    std::shared_ptr<ast::Expr> Condition;
+    std::shared_ptr<ast::Composite> Body;
+    
+    WhileStmt(std::shared_ptr<Expr> Condition, std::shared_ptr<Composite> Body) : Condition(Condition), Body(Body) {}
+};
 
 
 

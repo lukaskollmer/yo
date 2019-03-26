@@ -199,6 +199,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LocalStmt> LocalStmt) {
     HANDLE(LocalStmt, IfStmt)
     HANDLE(LocalStmt, Assignment)
     HANDLE(LocalStmt, MemberAccess, CodegenReturnValueKind::Value);
+    HANDLE(LocalStmt, WhileStmt)
     
     unhandled_node(LocalStmt);
 }
@@ -562,13 +563,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
                 
                 // We need V to be a pointer
                 precondition(V->getType()->isPointerTy());
-                
-                if (auto Offset = llvm::dyn_cast<llvm::Constant>(Codegen(Member->Data.Offset))) {
-                    V = Builder.CreateGEP(V, Offset);
-                } else {
-                    throw;
-                }
-                
+                V = Builder.CreateGEP(V, Codegen(Member->Data.Offset));
                 CurrentType = CurrentType->getPointerElementType();
                 break;
             }
@@ -886,6 +881,34 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
     return PHI;
 }
 
+
+
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::WhileStmt> WhileStmt) {
+    auto F = Builder.GetInsertBlock()->getParent();
+    
+    // TODO add unique ids to the branch names!, add the current function name?
+    auto CondBB = llvm::BasicBlock::Create(C, "while_cond");
+    auto BodyBB = llvm::BasicBlock::Create(C, "while_body");
+    auto MergeBB = llvm::BasicBlock::Create(C, "while_merge");
+    
+    F->getBasicBlockList().push_back(CondBB);
+    Builder.CreateBr(CondBB);
+    Builder.SetInsertPoint(CondBB);
+    
+    Builder.CreateCondBr(Codegen(WhileStmt->Condition), BodyBB, MergeBB);
+    
+    F->getBasicBlockList().push_back(BodyBB);
+    Builder.SetInsertPoint(BodyBB);
+    Codegen(WhileStmt->Body);
+    Builder.CreateBr(CondBB);
+    
+    F->getBasicBlockList().push_back(MergeBB);
+    Builder.SetInsertPoint(MergeBB);
+    
+    return nullptr;
+}
 
 
 
