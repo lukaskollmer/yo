@@ -34,7 +34,9 @@ llvm::cl::opt<bool> cl::DumpLLVM("dump-llvm",
                                  llvm::cl::desc("Dump LLVM IR"),
                                  llvm::cl::cat(CLIOptionsCategory));
 
-llvm::cl::list<std::string> cl::RunArgs(llvm::cl::ConsumeAfter, llvm::cl::desc("<run args>..."), llvm::cl::cat(CLIOptionsCategory));
+llvm::cl::list<std::string> cl::RunArgs(llvm::cl::ConsumeAfter,
+                                        llvm::cl::desc("<run args>..."),
+                                        llvm::cl::cat(CLIOptionsCategory));
 
 
 void print_version(llvm::raw_ostream &OS) {
@@ -45,8 +47,6 @@ void print_version(llvm::raw_ostream &OS) {
 
 void cl::Init(int argc, const char *const *argv) {
     llvm::cl::SetVersionPrinter(&print_version);
-    
     llvm::cl::HideUnrelatedOptions(CLIOptionsCategory);
-    
     llvm::cl::ParseCommandLineOptions(argc, argv, "the yo programming language v" YO_VERSION "\n");
 }
