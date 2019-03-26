@@ -830,7 +830,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
     
     std::vector<llvm::BasicBlock *> BranchBodyBlocks;
     for (auto I = 0; I < If->Branches.size(); I++) {
-        auto Name = llvm::Twine(F->getName()).concat("_if_body").concat(llvm::Twine(I));
+        auto Name = llvm::Twine(F->getName()).concat("_if_body_").concat(llvm::Twine(I));
         BranchBodyBlocks.push_back(llvm::BasicBlock::Create(C, Name));
     }
     
