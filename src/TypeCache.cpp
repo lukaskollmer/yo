@@ -18,9 +18,9 @@ bool TypeCache::Contains(std::string Name) {
     return Get(Name) != nullptr;
 }
 
-ast::StructDecl* TypeCache::Get(std::string Name) {
+std::shared_ptr<ast::StructDecl> TypeCache::Get(std::string Name) {
     try {
-        return Types.at(Name).get();
+        return Types.at(Name);
     } catch (...) {
         return nullptr;
     }

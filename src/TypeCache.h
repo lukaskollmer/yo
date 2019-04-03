@@ -10,6 +10,7 @@
 
 #include <string>
 #include <map>
+#include <memory>
 
 #include "AST.h"
 #include "util.h"
@@ -27,7 +28,7 @@ public:
     void Insert(std::string Name, std::shared_ptr<ast::StructDecl> Struct);
     
     bool Contains(std::string Name);
-    ast::StructDecl* Get(std::string Name);
+    std::shared_ptr<ast::StructDecl> Get(std::string Name);
     
 };
 
