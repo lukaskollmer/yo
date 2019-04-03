@@ -29,6 +29,7 @@ class Expr;
 class Identifier;
 class VariableDecl;
 class Composite;
+class StructDecl;
 
 
 class Node {
@@ -36,6 +37,10 @@ public:
     virtual std::string Description();
     
     std::vector<std::string> Annotations;
+    
+    bool HasAnnotation(const std::string &Annotation) {
+        return util::vector::contains(Annotations, Annotation);
+    }
     
 protected:
     Node() {}
@@ -51,13 +56,14 @@ class LocalStmt : virtual public Node {};
 class Expr : virtual public Node {};
 
 
+// Note: some of the subclasses also inherit from ast::Node. one could argue that this is philosophically wrong, but it greatly simplifies ast printing
 
 
 
 #pragma mark - Top Level Statements
 
 
-class FunctionSignature {
+class FunctionSignature : public Node {
 public:
     enum class FunctionKind {
         GlobalFunction,   // A free global function
@@ -65,25 +71,36 @@ public:
         InstanceMethod    // A type instance method
     };
     
-    std::string Name; // TODO make this an identifier?
+    std::string Name;
     FunctionKind Kind;
-    std::vector<std::shared_ptr<VariableDecl>> Parameters;
     TypeInfo *ReturnType;
+    std::vector<std::shared_ptr<VariableDecl>> Parameters;
+    std::shared_ptr<ast::StructDecl> ImplType; // If this is a static or instance method, the type it is a member of
+    
+    bool IsTemplateFunction = false;
+    std::vector<std::string> TemplateArgumentNames;
+    
+    bool IsFullSpecialization() {
+        return IsTemplateFunction && TemplateArgumentNames.empty();
+    }
 };
 
 
 
-class FunctionDecl : public TopLevelStmt, public FunctionSignature {
+class FunctionDecl : public TopLevelStmt {
 public:
+    std::shared_ptr<FunctionSignature> Signature;
     std::shared_ptr<Composite> Body;
     
-    FunctionDecl() : FunctionSignature() {}
+    FunctionDecl() {}
 };
 
 
-class ExternFunctionDecl : public TopLevelStmt, public FunctionSignature {
+class ExternFunctionDecl : public TopLevelStmt {
 public:
-    ExternFunctionDecl() : FunctionSignature() {}
+    std::shared_ptr<FunctionSignature> Signature;
+    
+    ExternFunctionDecl() {}
 };
 
 
@@ -149,7 +166,7 @@ public:
 
 class IfStmt : public LocalStmt {
 public:
-    class Branch : public Node { // Sole purpose of making this inherit from Node is simplifying ast dumping
+    class Branch : public Node {
     public:
         enum class BranchKind {
             If, ElseIf, Else
@@ -197,9 +214,15 @@ public:
 
 class NumberLiteral : public Expr {
 public:
-    uint64_t Value;
+    enum class NumberType {
+        Integer, Double, Boolean
+    };
     
-    explicit NumberLiteral(uint64_t Value) : Value(Value) {}
+    const uint64_t Value;
+    const bool IsSigned;
+    const NumberType Type;
+    
+    explicit NumberLiteral(uint64_t Value) : Value(Value), IsSigned(false), Type(NumberType::Integer) {}
 };
 
 
@@ -240,12 +263,15 @@ public:
 
 class Typecast : public Expr {
 public:
+    enum class CastKind {
+        StaticCast, Bitcast
+    };
     std::shared_ptr<Expr> Expression;
     TypeInfo *DestType;
-    bool ForceBitcast;
+    CastKind Kind;
     
-    Typecast(std::shared_ptr<Expr> Expression, TypeInfo *DestType, bool ForceBitcast = false)
-    : Expression(Expression), DestType(DestType), ForceBitcast(ForceBitcast) {}
+    Typecast(std::shared_ptr<Expr> Expression, TypeInfo *DestType, CastKind Kind)
+    : Expression(Expression), DestType(DestType), Kind(Kind) {}
 };
 
 
@@ -253,7 +279,7 @@ public:
 // A (chained) member access
 class MemberAccess : public Expr, public LocalStmt {
 public:
-    class Member : public Node { // Sole purpose of making this inherit from Node is simplifying ast dumping
+    class Member : public Node {
     public:
         enum class MemberKind {
             Initial_Identifier,     // Value in Data.Ident

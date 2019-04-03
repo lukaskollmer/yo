@@ -243,17 +243,21 @@ Mirror Reflect(FunctionSignature *Signature) {
         { "kind", Signature->Kind },
         { "parameters", Signature->Parameters },
         { "returnType", Signature->ReturnType },
+        { "implType", Signature->ImplType }
     };
 }
 
 Mirror Reflect(ExternFunctionDecl *EFD) {
-    return Reflect(static_cast<FunctionSignature *>(EFD));
+    return {
+        { "signature", EFD->Signature}
+    };
 }
 
 Mirror Reflect(FunctionDecl *FD) {
-    auto M = Reflect(static_cast<FunctionSignature *>(FD));
-    M.push_back({ "body", FD->Body });
-    return M;
+    return {
+        { "signature", FD->Signature },
+        { "body", FD->Body }
+    };
 }
 
 Mirror Reflect(Composite *C) {
