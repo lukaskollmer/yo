@@ -56,7 +56,7 @@ class LocalStmt : virtual public Node {};
 class Expr : virtual public Node {};
 
 
-// Note: some of the subclasses also inherit from ast::Node. one could argue that this is philosophically wrong, but it greatly simplifies ast printing
+// Note: some of the nested subclasses also inherit from ast::Node. one could argue that this is philosophically wrong, but it greatly simplifies ast printing
 
 
 
