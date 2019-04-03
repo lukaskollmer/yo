@@ -45,6 +45,7 @@ public:
         IntegerLiteral,
         DoubleLiteral,
         
+        // Punctuation
         OpeningParens,
         ClosingParens,
         OpeningCurlyBraces,
