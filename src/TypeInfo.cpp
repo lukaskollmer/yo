@@ -7,6 +7,7 @@
 //
 
 #include <iostream>
+#include <map>
 
 #include "TypeInfo.h"
 
@@ -81,3 +82,25 @@ std::string TypeInfo::Str() {
     
     throw;
 }
+
+
+//
+//static std::map<std::string, TypeInfo *> Types = {
+//#define builtin(n1, n2) { #n1, TypeInfo::n2 }
+//    builtin(i8, i8), builtin(i16, i16), builtin(i32, i32), builtin(i64, i64),
+//    builtin(u8, u8), builtin(u16, u16), builtin(u32, u32), builtin(u64, u64),
+//    builtin(void, Void), builtin(bool, Bool), builtin(double, Double)
+//#undef builtin
+//};
+
+//
+//TypeInfo *TypeInfo::GetWithName(const std::string &Name) {
+//    auto It = Types.find(Name);
+//    if (It != Types.end()) return It->second;
+//
+//    auto T = new TypeInfo(Name, 0, Kind::Unresolved);
+//    Types[Name] = T;
+//    return T;
+//}
+
+

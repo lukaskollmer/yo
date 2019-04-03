@@ -124,9 +124,17 @@ namespace util::typeinfo {
 
 namespace util::vector {
     template <typename T>
-    inline bool contains(const std::vector<T> &Vector, T &Element) {
+    inline bool contains(const std::vector<T> &Vector, const T &Element) {
         return std::find(Vector.begin(), Vector.end(), Element) != Vector.end();
     }
+    
+    template <typename T, typename F>
+    std::vector<std::invoke_result_t<F, T&>> map(const std::vector<T> &Vector, F Fn) {
+        std::vector<std::invoke_result_t<F, T&>> Mapped(Vector.size());
+        std::transform(Vector.begin(), Vector.end(), Mapped.begin(), Fn);
+        return Mapped;
+    }
+    
 }
 
 
