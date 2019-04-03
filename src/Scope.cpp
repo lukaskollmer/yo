@@ -12,7 +12,7 @@ using namespace irgen;
 
 
 
-void Scope::Insert(Ident Identifier, llvm::Type *Type, ValueBinding Binding) {
+void Scope::Insert(Ident Identifier, TypeInfo *Type, ValueBinding Binding) {
     auto B = std::make_shared<ValueBinding>(std::move(Binding));
     Symbols.push_back({Identifier, Type, B});
 }
@@ -22,7 +22,7 @@ ValueBinding *Scope::GetBinding(Ident Identifier) {
     return std::get<2>(*_GetEntry(Identifier)).get();
 }
 
-llvm::Type *Scope::GetType(Ident Identifier) {
+TypeInfo *Scope::GetType(Ident Identifier) {
     return std::get<1>(*_GetEntry(Identifier));
 }
 

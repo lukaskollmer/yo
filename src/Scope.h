@@ -12,6 +12,7 @@
 #include <vector>
 #include <functional>
 #include "llvm/IR/Value.h"
+#include "TypeInfo.h"
 
 #include "util.h"
 
@@ -37,7 +38,7 @@ struct ValueBinding {
 
 class Scope {
     using Ident = std::string;
-    using Entry = std::tuple<std::string, llvm::Type *, std::shared_ptr<ValueBinding>>;
+    using Entry = std::tuple<std::string, TypeInfo *, std::shared_ptr<ValueBinding>>;
     using V = std::vector<Entry>;
     
     V Symbols;
@@ -45,11 +46,11 @@ class Scope {
 public:
     using Marker = uint64_t;
     
-    void Insert(Ident Identifier, llvm::Type *Type, ValueBinding Binding);
+    void Insert(Ident Identifier, TypeInfo *Type, ValueBinding Binding);
     
     // All of these return null if the scope doesn't contain the identifier
     ValueBinding *GetBinding(Ident Identifier);
-    llvm::Type *GetType(Ident Identifier);
+    TypeInfo *GetType(Ident Identifier);
     
     Entry Remove(Ident Identifier);
     Entry *_GetEntry(Ident Identifier, V::const_iterator *Pos = nullptr);
