@@ -542,7 +542,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StringLiteral> StringLite
         case SLK::NormalString: {
             precondition(TypeCache.Contains("String"));
             StringLiteral->Kind = SLK::ByteString;
-            auto Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName("String", "init", ast::FunctionSignature::FunctionKind::StaticMethod));
+            auto Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName("String", "new", ast::FunctionSignature::FunctionKind::StaticMethod));
             auto Call = std::make_shared<ast::FunctionCall>(Target, std::vector<std::shared_ptr<ast::Expr>>(1, StringLiteral), false);
             return Codegen(Call);
         }
