@@ -46,6 +46,12 @@ NS_START(irgen)
 //    void Reset() { Value = InitialValue; }
 //};
 
+struct FunctionResolutionInfo {
+    std::shared_ptr<ast::FunctionDecl> Decl;
+    llvm::Function *LLVMFunction;
+    
+    FunctionResolutionInfo(std::shared_ptr<ast::FunctionDecl> Decl, llvm::Function *LLVMFunction) : Decl(Decl), LLVMFunction(LLVMFunction) {}
+};
 
 class IRGenerator {
     std::unique_ptr<llvm::Module> Module;
@@ -59,7 +65,15 @@ class IRGenerator {
     llvm::Type *i8_ptr;
     llvm::Type *Void, *Bool, *Double;
     
-    std::map<std::string, std::shared_ptr<ast::FunctionSignature>> ExternalFunctions;
+    std::map<std::string, std::vector<std::shared_ptr<ast::FunctionDecl>>> TemplateFunctions;
+    
+    
+    // key: canonical function name
+    std::map<std::string, std::vector<FunctionResolutionInfo>> Functions;
+    // key: fully resolved function name
+    std::map<std::string, std::shared_ptr<ast::FunctionSignature>> ResolvedFunctions;
+    
+    
 //    irgen::Counter Counter;
     
 public:
@@ -78,16 +92,18 @@ private:
     struct FunctionCodegenOptions {
         bool IsVariadic;
         bool IsExternal;
-        bool ShouldMangleName;
         std::optional<std::string> Typename;
         
-        FunctionCodegenOptions() : IsVariadic(false), IsExternal(false), ShouldMangleName(true), Typename(std::nullopt) {}
+        FunctionCodegenOptions() : IsVariadic(false), IsExternal(false), Typename(std::nullopt) {}
     };
     
     void Preflight(ast::AST &Ast);
-    void RegisterFunctionSignature(std::shared_ptr<ast::FunctionSignature> Signature, FunctionCodegenOptions Options = FunctionCodegenOptions());
+    void RegisterFunction(std::shared_ptr<ast::FunctionDecl> Function);
+    void RegisterFunction(std::shared_ptr<ast::ExternFunctionDecl> Function);
     void RegisterStructDecl(std::shared_ptr<ast::StructDecl> Struct);
     void RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock);
+    
+    void VerifyFunctionDeclarations();
     
     
     // In some situations (for example when handling an lvalue), we need Codegen to return an address instead of a dereferenced value
@@ -100,14 +116,14 @@ private:
     llvm::Value *Codegen(std::shared_ptr<ast::LocalStmt>);
     llvm::Value *Codegen(std::shared_ptr<ast::Expr>, CodegenReturnValueKind = CodegenReturnValueKind::Value);
     
-    llvm::Value *Codegen(std::shared_ptr<ast::FunctionDecl>, FunctionCodegenOptions Options = FunctionCodegenOptions());
+    llvm::Value *Codegen(std::shared_ptr<ast::FunctionDecl>);
     llvm::Value *Codegen(std::shared_ptr<ast::StructDecl>);
     llvm::Value *Codegen(std::shared_ptr<ast::ImplBlock>);
     
     
     llvm::Value *Codegen(std::shared_ptr<ast::Composite>, bool IsFunctionBody = false);
     llvm::Value *Codegen(std::shared_ptr<ast::ReturnStmt>);
-    llvm::Value *Codegen(std::shared_ptr<ast::FunctionCall>, unsigned ArgumentOffset = 0);
+    llvm::Value *Codegen(std::shared_ptr<ast::FunctionCall>, unsigned ArgumentOffset = 0, std::shared_ptr<ast::FunctionSignature> *SelectedOverload = nullptr);
     llvm::Value *Codegen(std::shared_ptr<ast::VariableDecl>);
     llvm::Value *Codegen(std::shared_ptr<ast::IfStmt>);
     llvm::Value *Codegen(std::shared_ptr<ast::WhileStmt>);
@@ -132,15 +148,29 @@ private:
         return true;
     }
     
-    bool TypecheckAndApplyTrivialCastIfPossible(llvm::Value **V, llvm::Type *DestType);
     bool Binop_AttemptToResolvePotentialIntTypeMismatchesByCastingNumberLiteralsIfPossible(llvm::Value **LHS, llvm::Value **RHS);
+    
+    // returns true on success
+    // TypeofExpr: Initial (unchanged) type of `Expr`
+    bool TypecheckAndApplyTrivialCastIfPossible(std::shared_ptr<ast::Expr> *Expr, TypeInfo *ExpectedType, TypeInfo **InitialTypeOfExpr = nullptr);
     
     
     llvm::Value *GenerateStructInitializer(std::shared_ptr<ast::StructDecl> Struct);
     
     
     // Other stuff
-    std::shared_ptr<ast::FunctionSignature> GetExternalFunctionWithName(std::string &Name);
+    std::shared_ptr<ast::FunctionSignature> GetResolvedFunctionWithName(std::string &Name);
+    
+    
+    TypeInfo *GuessType(std::shared_ptr<ast::Expr> Expr);
+    TypeInfo *GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess);
+    FunctionResolutionInfo ResolveCall(std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset);
+    
+    // Returns true if SrcType is trivially convertible to DestType
+    bool IsTriviallyConvertible(TypeInfo *SrcType, TypeInfo *DestType);
+    bool IsIntegerType(TypeInfo *TI);
+    
+    bool ValueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiteral> Number, TypeInfo *TI);
 };
 
 
