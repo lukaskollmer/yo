@@ -286,10 +286,21 @@ std::vector<std::string> Parser::ParseAnnotations() {
 
 
 
-void Parser::ParseFunctionSignatureInto(std::shared_ptr<FunctionSignature> S, bool IsExternal) {
-    assert_current_token_and_consume(TK::Fn);
+std::shared_ptr<FunctionSignature> Parser::ParseFunctionSignature(bool IsExternal) {
+    auto S = std::make_shared<ast::FunctionSignature>();
     
+    assert_current_token_and_consume(TK::Fn);
     S->Name = ParseIdentifier()->Value;
+    
+    if (CurrentTokenKind() == TK::LessThanSign) { // Template function
+        S->IsTemplateFunction = true;
+        Consume();
+        while (CurrentTokenKind() != TK::GreaterSign) {
+            S->TemplateArgumentNames.push_back(ParseIdentifier()->Value);
+            if (CurrentTokenKind() == TK::Comma) Consume();
+        }
+        assert_current_token_and_consume(TK::GreaterSign);
+    }
     assert_current_token_and_consume(TK::OpeningParens);
     
     if (!IsExternal) {
@@ -310,6 +321,8 @@ void Parser::ParseFunctionSignatureInto(std::shared_ptr<FunctionSignature> S, bo
     } else {
         S->ReturnType = TypeInfo::Void;
     }
+    
+    return S;
 }
 
 
@@ -318,21 +331,18 @@ std::shared_ptr<ExternFunctionDecl> Parser::ParseExternFunctionDecl() {
     assert_current_token_and_consume(TK::Extern);
     
     auto EFD = std::make_shared<ExternFunctionDecl>();
-    ParseFunctionSignatureInto(EFD, true);
+    EFD->Signature = ParseFunctionSignature(true);
     
     assert_current_token_and_consume(TK::Semicolon);
-    
     return EFD;
 }
 
 std::shared_ptr<FunctionDecl> Parser::ParseFunctionDecl() {
     auto FD = std::make_shared<FunctionDecl>();
-    
-    ParseFunctionSignatureInto(FD, false);
+    FD->Signature = ParseFunctionSignature(false);
     assert_current_token(TK::OpeningCurlyBraces);
     
     FD->Body = ParseComposite();
-    
     return FD;
 }
 
@@ -738,14 +748,14 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
     
     if (CurrentTokenKind() == TK::As) { // Typecast
         Consume();
-        bool ForceBitcast = false;
+        Typecast::CastKind Kind = Typecast::CastKind::StaticCast;
         if (CurrentTokenKind() == TK::ExclamationMark) {
-            ForceBitcast = true;
+            Kind = Typecast::CastKind::Bitcast;
             Consume();
         }
         
         auto Type = ParseType();
-        E = std::make_shared<Typecast>(E, Type, ForceBitcast);
+        E = std::make_shared<Typecast>(E, Type, Kind);
     }
     
     if (ExpressionDelimitingTokens.Contains(CurrentTokenKind())) {
@@ -784,13 +794,12 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
             case TK::Colon: { // Static method call
                 Consume();
                 assert_current_token_and_consume(TK::Colon);
-                //auto EncodedName = std::make_shared<Identifier>(std::string(Ident->Value).append(ParseIdentifier()->Value));
-                auto EncodedName = std::make_shared<Identifier>(mangling::MangleStaticMethodCallNameForAST(Ident->Value, ParseIdentifier()->Value));
+                auto CanonicalName = std::make_shared<Identifier>(mangling::MangleCanonicalName(Ident->Value, ParseIdentifier()->Value, FunctionSignature::FunctionKind::StaticMethod));
                 assert_current_token_and_consume(TK::OpeningParens);
                 auto Args = ParseExpressionList(TK::ClosingParens);
                 assert_current_token_and_consume(TK::ClosingParens);
                 Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::Initial_StaticCall,
-                                                                         std::make_shared<FunctionCall>(EncodedName, Args, false)));
+                                                                         std::make_shared<FunctionCall>(CanonicalName, Args, false)));
                 continue;
             }
             

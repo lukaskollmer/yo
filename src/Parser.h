@@ -70,7 +70,7 @@ private:
     std::shared_ptr<ast::TopLevelStmt> ParseTopLevelStmt();
     
     std::vector<std::string> ParseAnnotations();
-    void ParseFunctionSignatureInto(std::shared_ptr<ast::FunctionSignature> S, bool IsExternal);
+    std::shared_ptr<ast::FunctionSignature> ParseFunctionSignature(bool IsExternal);
     
     std::shared_ptr<ast::FunctionDecl> ParseFunctionDecl();
     std::shared_ptr<ast::ExternFunctionDecl> ParseExternFunctionDecl();
