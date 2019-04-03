@@ -8,40 +8,123 @@
 
 #include "Mangling.h"
 #include "util.h"
+#include <map>
 
 
-std::string mangling::MangleFunction(std::string Name) {
-    std::string Mangled;
-    Mangled.append("_F");
-    Mangled.append(std::to_string(Name.length()));
-    Mangled.append(Name);
-    return Mangled;
+
+class ManglingStringBuilder {
+    std::string Buffer;
+  
+public:
+    ManglingStringBuilder() {}
+    
+    ManglingStringBuilder& appendWithCount(std::string_view Str) {
+        Buffer.append(std::to_string(Str.length()));
+        Buffer.append(Str);
+        return *this;
+    }
+    
+    ManglingStringBuilder& append(std::string_view Str) {
+        Buffer.append(Str);
+        return *this;
+    }
+    
+    ManglingStringBuilder& appendEncodedType(TypeInfo *TI);
+    
+    std::string& str() { return Buffer; }
+};
+
+
+
+
+
+std::string mangling::MangleCanonicalName(std::string_view Type, std::string_view Method, ast::FunctionSignature::FunctionKind Kind) {
+    ManglingStringBuilder Mangler;
+    
+    switch (Kind) {
+        case ast::FunctionSignature::FunctionKind::GlobalFunction:
+            return std::string(Method);
+        case ast::FunctionSignature::FunctionKind::StaticMethod:
+            Mangler.append("+"); break;
+        case ast::FunctionSignature::FunctionKind::InstanceMethod:
+            Mangler.append("-"); break;
+    }
+    
+    return Mangler
+        .appendWithCount(Type)
+        .appendWithCount(Method)
+        .str();
 }
 
 
-std::string mangling::MangleMethod(std::string Typename, std::string MethodName, MethodKind Kind) {
-    std::string Mangled;
-    Mangled += "_";
-    Mangled += Kind == MethodKind::Static ? "S" : "I";
-    Mangled += std::to_string(Typename.length());
-    Mangled += Typename;
-    Mangled += std::to_string(MethodName.length());
-    Mangled += MethodName;
-    return Mangled;
+
+std::string mangling::MangleCanonicalNameForSignature(std::shared_ptr<ast::FunctionSignature> Signature) {
+    auto Typename = Signature->Kind == ast::FunctionSignature::FunctionKind::GlobalFunction ? "" : Signature->ImplType->Name->Value;
+    return MangleCanonicalName(Typename, Signature->Name, Signature->Kind);
 }
 
 
 
-std::string mangling::MangleStaticMethodCallNameForAST(const std::string Typename, const std::string MethodName) {
-    return std::string(Typename).append("~").append(MethodName);
+
+ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
+    switch (TI->Kind) {
+        case TypeInfo::Kind::Primitive: {
+            if (TI->Equals(TypeInfo::i8)) {
+                return append("i");
+            } else if (TI->Equals(TypeInfo::i16)) {
+                return append("s");
+            } else if (TI->Equals(TypeInfo::i32)) {
+                return append("l");
+            } else if (TI->Equals(TypeInfo::i64)) {
+                return append("I");
+            }
+            throw;
+        }
+        
+        case TypeInfo::Kind::Pointer:
+            return append("^").appendEncodedType(TI->Pointee());
+        
+        case TypeInfo::Kind::Complex:
+            return append("{").append(TI->Data.Name).append("}");
+        
+        case TypeInfo::Kind::Function:
+            throw;
+        
+        case TypeInfo::Kind::Unresolved:
+            LKFatalError("should never reach here");
+    }
+    
+    LKFatalError("[EncodeType] Unhandled type: %s", TI->Str().c_str());
 }
 
-std::pair<std::string, std::string> mangling::DemangleStaticMethodCallNameForAST(const std::string Mangled) {
-    auto Pos = Mangled.find('~');
-    precondition(Pos != Mangled.npos);
-    return {
-        Mangled.substr(0, Pos),
-        Mangled.substr(Pos + 1)
-    };
-}
 
+
+
+
+// Mangled name includes type encodings for return- & parameter types
+std::string mangling::MangleFullyResolvedNameForSignature(std::shared_ptr<ast::FunctionSignature> Signature) {
+    using FK = ast::FunctionSignature::FunctionKind;
+    ManglingStringBuilder Mangler;
+    
+    switch (Signature->Kind) {
+        case FK::GlobalFunction:
+            Mangler.append("~"); break;
+        case FK::InstanceMethod:
+            Mangler.append("-");
+            Mangler.appendWithCount(Signature->ImplType->Name->Value);
+            break;
+        case FK::StaticMethod:
+            Mangler.append("+");
+            Mangler.appendWithCount(Signature->ImplType->Name->Value);
+            break;
+    }
+    
+    Mangler.appendWithCount(Signature->Name);
+    Mangler.appendEncodedType(Signature->ReturnType);
+    
+    for (auto &Param : Signature->Parameters) {
+        Mangler.appendEncodedType(Param->Type);
+    }
+    
+    return Mangler.str();
+}
