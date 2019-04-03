@@ -540,12 +540,11 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StringLiteral> StringLite
         case SLK::ByteString:
             return Builder.CreateGlobalStringPtr(StringLiteral->Value);
         case SLK::NormalString: {
-            throw; // TODO
-            //precondition(TypeCache.Contains("String"));
-            //auto ByteStringLiteral = std::make_shared<ast::StringLiteral>(StringLiteral->Value, SLK::ByteString);
-            //auto Target = std::make_shared<ast::Identifier>(mangling::MangleMethod("String", "new", mangling::MethodKind::Static));
-            //auto Call = std::make_shared<ast::FunctionCall>(Target, std::vector<std::shared_ptr<ast::Expr>>(1, ByteStringLiteral), false);
-            //return Codegen(Call);
+            precondition(TypeCache.Contains("String"));
+            StringLiteral->Kind = SLK::ByteString;
+            auto Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName("String", "init", ast::FunctionSignature::FunctionKind::StaticMethod));
+            auto Call = std::make_shared<ast::FunctionCall>(Target, std::vector<std::shared_ptr<ast::Expr>>(1, StringLiteral), false);
+            return Codegen(Call);
         }
     }
 }
