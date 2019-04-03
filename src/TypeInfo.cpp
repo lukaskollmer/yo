@@ -11,7 +11,7 @@
 #include "TypeInfo.h"
 
 
-TypeInfo *TypeInfo::Unresolved = TypeInfo::Unresolved;
+TypeInfo *TypeInfo::Unresolved = nullptr; // Note: This could backfire
 TypeInfo *TypeInfo::Void = new TypeInfo("void", 0, TypeInfo::Kind::Primitive);
 
 TypeInfo *TypeInfo::i8  = new TypeInfo("i8" , 1, TypeInfo::Kind::Primitive);
