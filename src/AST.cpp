@@ -45,7 +45,7 @@ MemberAccess::Member::~Member() {
 
 
 
-#pragma mark - AST Prining
+#pragma mark - AST Printing
 
 #define CASE(n) case E::n: return #n;
 
