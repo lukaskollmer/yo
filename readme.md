@@ -18,7 +18,7 @@ fn main(): int {
 
 
 ## Documentation
-You can find some documentation [here](https://lukaskollmer.me/yo)
+You can find some documentation [here](https://yo.lukaskollmer.me)
 
 
 ## Usage
