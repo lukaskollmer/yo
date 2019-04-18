@@ -67,7 +67,7 @@ std::string mangling::MangleCanonicalNameForSignature(std::shared_ptr<ast::Funct
 
 
 ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
-    switch (TI->Kind) {
+    switch (TI->getKind()) {
         case TypeInfo::Kind::Primitive: {
             if (TI->Equals(TypeInfo::i8)) {
                 return append("i");
@@ -82,16 +82,16 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
         }
         
         case TypeInfo::Kind::Pointer:
-            return append("^").appendEncodedType(TI->Pointee());
+            return append("^").appendEncodedType(TI->getPointee());
         
         case TypeInfo::Kind::Complex:
-            return append("{").append(TI->Data.Name).append("}");
+            return append("{").append(TI->getName()).append("}");
         
         case TypeInfo::Kind::Function:
             throw;
         
         case TypeInfo::Kind::Unresolved:
-            LKFatalError("should never reach here");
+            LKFatalError("should never reach here: %s", TI->Str().c_str());
     }
     
     LKFatalError("[EncodeType] Unhandled type: %s", TI->Str().c_str());

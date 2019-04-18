@@ -178,7 +178,9 @@ std::shared_ptr<ast::FunctionSignature> IRGenerator::GetResolvedFunctionWithName
 
 
 void IRGenerator::RegisterStructDecl(std::shared_ptr<ast::StructDecl> Struct) {
-    TypeCache.Insert(Struct->Name->Value, Struct);
+    auto Name = Struct->Name->Value;
+    TypeCache.Insert(Name, Struct);
+    TypeInfo::MakeComplex(Name);
 }
 
 
@@ -337,10 +339,10 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ImplBlock> ImplBlock) {
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::VariableDecl> Decl) {
-    TypeInfo *Type = TypeInfo::Unresolved;
+    TypeInfo *Type = nullptr /*TI::Unreoslved*/;
     bool HasInferredType = false;
     
-    if ((Type = Decl->Type) == TypeInfo::Unresolved) {
+    if ((Type = Decl->Type) == nullptr /*TI::Unreoslved*/) {
         // If no type is specified, there _has_ to be an initial value
         precondition(Decl->InitialValue);
         Type = GuessType(Decl->InitialValue);
@@ -665,7 +667,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
                 // We need V to be a pointer
                 precondition(V->getType()->isPointerTy());
                 V = Builder.CreateGEP(V, Codegen(Member->Data.Offset));
-                CurrentType = CurrentType->Pointee();
+                CurrentType = CurrentType->getPointee();
                 break;
             }
             
@@ -676,7 +678,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
                 //precondition(Call->Target->Value[0] == '-'); // The name should already be mangled
                 
                 if (Call->Target->Value[0] != '-') { // Call still unmangled
-                    Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(CurrentType->Data.Name, Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
+                    Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(CurrentType->getName(), Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
                 }
                 
                 std::shared_ptr<ast::FunctionSignature> SelectedOverload;
@@ -691,9 +693,9 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
             }
             
             case MK::MemberAttributeRead: {
-                precondition(CurrentType->IsComplex() && TypeCache.Contains(CurrentType->Data.Name));
+                precondition(CurrentType->IsComplex() && TypeCache.Contains(CurrentType->getName()));
                 auto MemberName = Member->Data.Ident->Value;
-                auto StructName = CurrentType->Data.Name;
+                auto StructName = CurrentType->getName();
                 auto StructType = TypeCache.Get(StructName);
                 
                 uint32_t Offset = 0;
@@ -1098,12 +1100,11 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::WhileStmt> WhileStmt) {
 
 
 llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
-#define HANDLE(name) if (TI->Equals(TypeInfo::name)) { return name; }
-    
-    static std::map<std::string, llvm::Type *> StructTypeMappings;
-    
-    switch (TI->Kind) {
+    if (auto T = TI->getLLVMType()) return T;
+
+    switch (TI->getKind()) {
         case TypeInfo::Kind::Primitive: {
+#define HANDLE(name) if (TI->Equals(TypeInfo::name)) { TI->setLLVMType(name); return name; }
             HANDLE(i8)
             HANDLE(i16)
             HANDLE(i32)
@@ -1111,41 +1112,41 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
             HANDLE(Bool)
             HANDLE(Double)
             HANDLE(Void)
-            throw;
+#undef HANDLE
+            LKFatalError("Unhandled primitive type");
         }
         
         case TypeInfo::Kind::Pointer: {
             auto num_indirections = 0;
-            while (TI->Kind == TypeInfo::Kind::Pointer) {
+            auto TI_temp = TI;
+            while (TI_temp->getKind() == TypeInfo::Kind::Pointer) {
                 num_indirections += 1;
-                TI = TI->Pointee();
+                TI_temp = TI_temp->getPointee();
             }
-            auto Type = GetLLVMType(TI);
+            auto Type = GetLLVMType(TI_temp);
             
             while (num_indirections--) {
                 Type = Type->getPointerTo();
             }
+            TI->setLLVMType(Type);
             return Type;
         }
         
         case TypeInfo::Kind::Complex: {
-            auto Name = TI->Data.Name;
+            auto Name = TI->getName();
             precondition(TypeCache.Contains(Name));
-            if (auto Type = StructTypeMappings[Name]) {
-                return Type;
-            }
             
-            auto LLVMType = llvm::StructType::create(C, Name);
+            auto LLVMStructType = llvm::StructType::create(C, Name);
             
             std::vector<llvm::Type *> Types;
             for (auto &Attr : TypeCache.Get(Name)->Attributes) {
                 Types.push_back(GetLLVMType(Attr->Type));
             }
             
-            LLVMType->setBody(Types);
-            StructTypeMappings[Name] = LLVMType->getPointerTo();
-            return LLVMType->getPointerTo();
-            
+            LLVMStructType->setBody(Types);
+            auto T = LLVMStructType->getPointerTo();
+            TI->setLLVMType(T);
+            return T;
         }
         
         case TypeInfo::Kind::Function:
@@ -1155,7 +1156,6 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
             LKFatalError("unresolved type");
     }
     throw;
-#undef HANDLE
 }
 
 
@@ -1213,7 +1213,7 @@ bool IRGenerator::ValueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiter
     uint8_t BitCount = 0;
     while (Value != 0) { ++BitCount; Value >>= 1; }
     
-    return BitCount <= TI->Size;
+    return BitCount <= TI->getSize();
 }
 
 TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::Expr> Expr) {
@@ -1280,18 +1280,18 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess
             
             case MK::OffsetRead:
                 precondition(Type->IsPointer());
-                Type = Type->Pointee();
+                Type = Type->getPointee();
                 break;
             
             case MK::MemberFunctionCall: {
                 std::cout << "XX:" << Member->Data.Call << std::endl;
-                precondition(Type->IsComplex() && TypeCache.Contains(Type->Data.Name));
+                precondition(Type->IsComplex() && TypeCache.Contains(Type->getName()));
                 auto Call = Member->Data.Call;
                 //precondition(Call->Target->Value[0] != '-'); // make sure the name is still unmangled
                 //Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(Type->Data.Name, Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
                 
                 if (Call->Target->Value[0] != '-') { // Call still unmangled
-                    Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(Type->Data.Name, Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
+                    Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(Type->getName(), Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
                 }
                 Type = ResolveCall(Call, kInstanceMethodCallArgumentOffset).Decl->Signature->ReturnType;
                 break;
@@ -1300,7 +1300,7 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess
             case MK::MemberAttributeRead:
                 precondition(Type->IsComplex());
                 auto DidFind = false;
-                for (auto &Attr : TypeCache.Get(Type->Data.Name)->Attributes) {
+                for (auto &Attr : TypeCache.Get(Type->getName())->Attributes) {
                     if (Attr->Name->Value == Member->Data.Ident->Value) {
                         Type = Attr->Type;
                         DidFind = true;

@@ -13,6 +13,12 @@
 #include <functional>
 #include "util.h"
 
+
+namespace llvm {
+    class Type;
+}
+
+
 class TypeInfo {
 public:
     enum class Kind {
@@ -22,44 +28,51 @@ public:
         Function,    // A function pointer
         Unresolved  // tbd
     };
+    
+private:
 
-    union TypeData {
-        const std::string Name;     // if `Kind` is Primitive or Complex
-        const TypeInfo *Pointee;    // if `Kind` is Pointer
-        //const ast::FunctionSignature FnSig; // if `Kind` is Function
-
-        explicit TypeData(std::string Name) : Name(Name) {}
-        explicit TypeData(TypeInfo *Pointee) : Pointee(Pointee) {}
-        ~TypeData() {}
-
-    };
-
-    const Kind Kind;
-    const uint8_t Size; // Size in bytes
-    TypeData Data;
-
-
-    // Primitives
-    TypeInfo(std::string Name, uint8_t Size, enum Kind Kind) : Kind(Kind), Size(Size), Data(Name) {
-        precondition((Kind == Kind::Primitive || Kind == Kind::Complex)  && "This initializer should only be called with primitive types");
-    }
-
-    // Pointers
-    TypeInfo(enum Kind Kind, TypeInfo *TI) : Kind(Kind), Size(8), Data(TI) {
-        precondition(Kind == Kind::Pointer && "this is the pointer initializer, good sir");
-    }
+    Kind Kind;
+    uint8_t Size; // Size in bytes
+    std::string Name;
+    TypeInfo *Pointee;
+    llvm::Type *LLVMType;
+    
+    TypeInfo() : Kind(Kind::Unresolved), Size(0), Pointee(nullptr), LLVMType(nullptr) {}
+    
+public:
+    static TypeInfo *GetWithName(const std::string &Name);
 
     static TypeInfo *MakeComplex(std::string Name) {
-        return new TypeInfo(Name, 8, Kind::Complex);
+        auto TI = GetWithName(Name);
+        TI->Name = Name;
+        TI->Size = 8;
+        TI->Kind = Kind::Complex;
+        return TI;
     }
 
-    static TypeInfo *MakePointer(TypeInfo *TI) {
-        return new TypeInfo(Kind::Pointer, TI);
+    static TypeInfo *MakePointer(TypeInfo *Pointee) {
+        auto TI = new TypeInfo();
+        TI->Kind = Kind::Pointer;
+        TI->Size = 8;
+        TI->Pointee = Pointee;
+        return TI;
     }
 
+    
+    
+    enum Kind getKind() { return Kind; }
+    uint8_t getSize() { return Size; }
+    const std::string& getName() { return Name; }
+    TypeInfo *getPointee() { return Kind == Kind::Pointer ? Pointee : nullptr; }
+    
+    llvm::Type *getLLVMType() { return LLVMType; }
+    void setLLVMType(llvm::Type *LLVMType) { this->LLVMType = LLVMType; }
+    
+    
+    std::string Str();
+    bool Equals(TypeInfo *Other);
 
     bool IsSigned() const;
-
     bool IsPointer() { return Kind == Kind::Pointer; }
     bool IsComplex() { return Kind == Kind::Complex; }
     bool IsPrimitive() { return Kind == Kind::Primitive; }
@@ -67,32 +80,40 @@ public:
     bool IsIntegerType() {
         return this == i8 || this == i16 || this == i32 || this == i64 || this == u8 || this == u16 || this == u32 || this == u64;
     }
-
-    TypeInfo *Pointee() {
-        return Kind == Kind::Pointer ? const_cast<TypeInfo*>(Data.Pointee) : nullptr;
-    }
-
-
-    static TypeInfo *Unresolved;
-    static TypeInfo *Void, *Bool, *Double;
-    static TypeInfo *i8, *i16, *i32, *i64;
-    static TypeInfo *u8, *u16, *u32, *u64;
-    static TypeInfo *i8_ptr;
-
-    static std::vector<TypeInfo *> PrimitiveTypes;
-
-    // Checks whether a builtin type w/ that name exists
-    // Returns a nullptr if no matching type was found
-    static TypeInfo *GetBuiltinWithName(const std::string &Name);
-
-
-
-    //static TypeInfo *GetWithName(const std::string &Name);
-
-
-    bool Equals(TypeInfo *Other);
-
-    std::string Str();
+    
+    
+    static TypeInfo *getType_void();
+    static TypeInfo *getType_bool();
+    static TypeInfo *getType_double();
+    
+    static TypeInfo *getType_i8();
+    static TypeInfo *getType_i16();
+    static TypeInfo *getType_i32();
+    static TypeInfo *getType_i64();
+    
+    static TypeInfo *getType_u8();
+    static TypeInfo *getType_u16();
+    static TypeInfo *getType_u32();
+    static TypeInfo *getType_u64();
+    
+    
+    inline static TypeInfo *Unresolved = nullptr;
+    
+    inline static const auto i8  = TypeInfo::getType_i8();
+    inline static const auto i16 = TypeInfo::getType_i16();
+    inline static const auto i32 = TypeInfo::getType_i32();
+    inline static const auto i64 = TypeInfo::getType_i64();
+    
+    inline static const auto u8  = TypeInfo::getType_u8();
+    inline static const auto u16 = TypeInfo::getType_u16();
+    inline static const auto u32 = TypeInfo::getType_u32();
+    inline static const auto u64 = TypeInfo::getType_u64();
+    
+    inline static const auto Void = TypeInfo::getType_void();
+    inline static const auto Bool = TypeInfo::getType_bool();
+    inline static const auto Double = TypeInfo::getType_double();
+    inline static const auto i8_ptr = TypeInfo::MakePointer(TypeInfo::i8);
+    
 
 
     static inline constexpr uint8_t kSizeof_i8 = 1;
@@ -105,10 +126,3 @@ public:
     static inline constexpr uint8_t kSizeof_u32 = 4;
     static inline constexpr uint8_t kSizeof_u64 = 8;
 };
-
-
-//bool operator==(const TypeInfo &Lhs, const TypeInfo &Rhs);
-
-
-
-

@@ -377,8 +377,7 @@ std::vector<std::shared_ptr<VariableDecl>> Parser::ParseParameterList() {
 TypeInfo *Parser::ParseType() {
     if (CurrentTokenKind() == TK::Identifier) {
         auto Name = ParseIdentifier()->Value;
-        // TODO Is the `?:` operator standard c++ ? is it guaranteed that rhs will only be evaluated if lhs was nil?
-        return TypeInfo::GetBuiltinWithName(Name) ?: TypeInfo::MakeComplex(Name);
+        return TypeInfo::GetWithName(Name);
     }
     if (CurrentTokenKind() == TK::Asterisk) {
         Consume();
