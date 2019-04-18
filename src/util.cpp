@@ -182,3 +182,67 @@ std::string util::string::excludingFileExtension(const std::string &Path) {
     }
     return Path.substr(0, Pos);
 }
+
+
+
+
+
+
+
+
+/*
+ namespace fmt {
+ 
+ 
+ template <typename T>
+ void format_helper(std::ostringstream &OSS, std::string_view flags, T&& arg) {
+ std::cout << util::typeinfo::LKTypeInfo<T>::Name << std::endl;
+ OSS << arg;
+ }
+ 
+ template <>
+ void format_helper(std::ostringstream &OSS, std::string_view flags, char* &&arg) {
+ OSS << "FUUUUUUCK";
+ }
+ 
+ 
+ template <typename T>
+ struct formatter {
+ static void format(std::ostringstream &OSS, std::string_view flags, T&& arg) {
+ OSS << arg;
+ }
+ };
+ 
+ 
+ template <typename T, typename... Args>
+ void format_imp(std::ostringstream &OSS, std::string_view format, T&& arg, Args &&...args) {
+ auto pos = format.find_first_of("{");
+ if (pos == format.npos) {
+ OSS << format;
+ return;
+ }
+ OSS << format.substr(0, pos);
+ if (format[pos + 1] == '}') {
+ format_helper(OSS, "", arg);
+ //OSS << arg;
+ format.remove_prefix(pos + 2);
+ } else {
+ LKFatalError("TODO: implement");
+ }
+ 
+ if constexpr(sizeof...(args) == 0) {
+ OSS << format;
+ } else {
+ format_imp(OSS, format, std::forward<Args>(args)...);
+ }
+ }
+ 
+ 
+ template <typename... Args>
+ std::string format(std::string_view format, Args &&...args) {
+ std::ostringstream OS;
+ format_imp(OS, format, std::forward<Args>(args)...);
+ return OS.str();
+ }
+ }
+ */
