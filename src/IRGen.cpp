@@ -1127,6 +1127,7 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
         
         case TypeInfo::Kind::Complex: {
             auto Name = TI->Data.Name;
+            precondition(TypeCache.Contains(Name));
             if (auto Type = StructTypeMappings[Name]) {
                 return Type;
             }
