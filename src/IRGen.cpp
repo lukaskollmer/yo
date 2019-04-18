@@ -400,10 +400,9 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> Composite, boo
         } else {
             Codegen(Stmt);
             if (IsFunctionBody && It + 1 == Composite->Statements.end()) {
-                // TODO this doesn't seem to work?
                 // Reached the end of the composite w/out a return statement
                 auto F = Builder.GetInsertBlock()->getParent();
-                precondition(F->getReturnType() == Void);
+                precondition(F->getReturnType() == Void, fmt_c("Function %s doesn't have a return statement", F->getName().str().c_str()));
                 Builder.CreateRetVoid();
                 DidReturn = true;
             }
