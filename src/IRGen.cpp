@@ -1239,6 +1239,15 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::Expr> Expr) {
         return Cast->DestType;
     }
     
+    IF(StringLiteral, ast::StringLiteral) {
+        switch (StringLiteral->Kind) {
+            case ast::StringLiteral::StringLiteralKind::NormalString:
+                return TypeInfo::MakeComplex("String");
+            case ast::StringLiteral::StringLiteralKind::ByteString:
+                return TypeInfo::i8_ptr;
+        }
+    }
+    
     LKFatalError("Unhandled node %s", util::typeinfo::GetTypename(*Expr).c_str());
     
 #undef IF
