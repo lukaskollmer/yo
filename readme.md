@@ -11,7 +11,7 @@ Yo is a compiled programming language with strong static typing.
 use "runtime";
 use "io";
 
-fn main(): int {
+fn main(): i32 {
     io::print("Hello World");
 }
 ```
