@@ -116,6 +116,7 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
         llvm::raw_string_ostream OS(S);
         if (llvm::verifyModule(*Module, &OS)) {
             std::cout << "Error: Invalid IR:\n" << OS.str();
+            return EXIT_FAILURE;
         }
     }
     
