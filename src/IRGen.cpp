@@ -1146,6 +1146,9 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
         
         case TypeInfo::Kind::Function:
             throw;
+        
+        case TypeInfo::Kind::Unresolved:
+            LKFatalError("unresolved type");
     }
     throw;
 #undef HANDLE
