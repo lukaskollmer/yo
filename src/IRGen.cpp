@@ -674,7 +674,11 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
                 precondition(CurrentType->IsComplex());
 
                 auto Call = Member->Data.Call;
-                precondition(Call->Target->Value[0] == '-'); // The name should already be mangled
+                //precondition(Call->Target->Value[0] == '-'); // The name should already be mangled
+                
+                if (Call->Target->Value[0] != '-') { // Call still unmangled
+                    Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(CurrentType->Data.Name, Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
+                }
                 
                 std::shared_ptr<ast::FunctionSignature> SelectedOverload;
                 
@@ -1284,8 +1288,12 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess
                 std::cout << "XX:" << Member->Data.Call << std::endl;
                 precondition(Type->IsComplex() && TypeCache.Contains(Type->Data.Name));
                 auto Call = Member->Data.Call;
-                precondition(Call->Target->Value[0] != '-'); // make sure the name is still unmangled
-                Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(Type->Data.Name, Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
+                //precondition(Call->Target->Value[0] != '-'); // make sure the name is still unmangled
+                //Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(Type->Data.Name, Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
+                
+                if (Call->Target->Value[0] != '-') { // Call still unmangled
+                    Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(Type->Data.Name, Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
+                }
                 Type = ResolveCall(Call, kInstanceMethodCallArgumentOffset).Decl->Signature->ReturnType;
                 break;
             }
