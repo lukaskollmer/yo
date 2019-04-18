@@ -446,7 +446,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ReturnStmt> ReturnStmt) {
 bool IntegerLiteralFitsInType(uint64_t Value, TypeInfo *Type) {
     assert_implication(static_cast<int64_t>(Value) < 0, Type->IsSigned());
     
-    uint8_t MaxValue;
+    uint64_t MaxValue;
     
     if (!Type->IsSigned()) { // unsigned
         if (Type->Equals(TypeInfo::u8)) MaxValue = UINT8_MAX;
