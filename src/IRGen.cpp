@@ -551,6 +551,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StringLiteral> StringLite
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::CharLiteral> CharLiteral) {
+    precondition(IntegerLiteralFitsInType(CharLiteral->Value, TypeInfo::i8));
     return llvm::ConstantInt::get(i8, CharLiteral->Value);
 }
 

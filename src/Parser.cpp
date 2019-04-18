@@ -213,7 +213,7 @@ std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
             Stmt = ParseImplBlock();
             break;
         case TK::Use:
-            ResolveImport();
+            ResolveImport(); // TODO can/should imports have annotations?
             return ParseTopLevelStmt();
         default: unhandled_token(CurrentToken());
     }
