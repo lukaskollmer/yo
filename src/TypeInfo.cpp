@@ -37,7 +37,6 @@ TypeInfo *TypeInfo::GetWithName(const std::string &Name) {
 TypeInfo *TypeInfo::getType_##name() {          \
     static TypeInfo *TI = nullptr;              \
     if (!TI) {                                  \
-std::cout << "INIT: " << #name << std::endl; \
         TI = new TypeInfo();                    \
         TI->Name = #name;                       \
         TI->Kind = TypeInfo::Kind::Primitive;   \
