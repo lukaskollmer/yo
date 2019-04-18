@@ -38,6 +38,13 @@ do { if (auto T = CurrentToken(); T.Kind != Expected) { \
 } else { Consume(); } } while (0)
 
 
+#define unhandled_token(T)                                                                                                      \
+{                                                                                                                               \
+    auto &SL = T.SourceLocation;                                                                                                \
+    std::cout << "Unhandled Token: " << T << " at " << SL.Filename << ":" << SL.Line << ":" << SL.Column << std::endl; throw;   \
+}
+
+
 
 class TokenSet {
     std::vector<TK> Tokens;
@@ -190,10 +197,6 @@ void Parser::ResolveImport() {
 
 
 
-
-#define unhandled_token(T) { std::cout << "Unhandled Token: " << T << std::endl; throw; }
-
-
 std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
     auto Annotations = ParseAnnotations();
     
@@ -277,7 +280,7 @@ std::vector<std::string> Parser::ParseAnnotations() {
                 } else {
                     return Annotations;
                 }
-            default: unhandled_token(CurrentTokenKind())
+            default: unhandled_token(CurrentToken())
         }
     }
     
@@ -846,7 +849,7 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
                 Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::OffsetRead, Offset));
                 continue;
             }
-            default: unhandled_token(CurrentTokenKind())
+            default: unhandled_token(CurrentToken())
         }
     }
     
