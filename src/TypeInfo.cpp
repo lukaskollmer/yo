@@ -84,6 +84,7 @@ bool TypeInfo::Equals(TypeInfo *Other) {
 std::string TypeInfo::Str() {
     if (this == TypeInfo::Unresolved || this->Kind == Kind::Unresolved) {
         // We have to check this one first since `this` is a nullpointer for unresolved // TODO: don't map unresolved to the nullpointer
+        // TODO we also end up in this branch in some cases where the type isn't actually unresolved (template arguments, etc!)
         return "<unresolved>";
     }
     if (this->Kind == Kind::Primitive || this->Kind == Kind::Complex) {

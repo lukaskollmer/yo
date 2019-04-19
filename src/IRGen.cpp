@@ -23,14 +23,26 @@ inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
 // ast utils
 
 std::ostream& operator<<(std::ostream &OS, const std::shared_ptr<ast::FunctionSignature> &Signature) {
-    OS << "fn " << Signature->Name << "(";
+    OS << "fn " << Signature->Name;
+    if (Signature->IsTemplateFunction) {
+        OS << "<";
+        for (auto It = Signature->TemplateArgumentNames.begin(); It != Signature->TemplateArgumentNames.end(); It++) {
+            OS << *It;
+            if (It + 1 != Signature->TemplateArgumentNames.end()) {
+                OS << ", ";
+            }
+        }
+        OS << ">";
+    }
+    OS << "(";
+    
     for (auto It = Signature->Parameters.begin(); It != Signature->Parameters.end(); It++) {
-        OS << (*It)->Type->Str();
+        OS << (*It)->Type->getName();
         if (It + 1 != Signature->Parameters.end()) {
             OS << ", ";
         }
     }
-    OS << "): " << Signature->ReturnType->Str();
+    OS << "): " << Signature->ReturnType->getName();
     return OS;
 }
 
@@ -117,7 +129,11 @@ void IRGenerator::Preflight(ast::AST &Ast) {
 
 
 void IRGenerator::RegisterFunction(std::shared_ptr<ast::FunctionDecl> Function) {
-    precondition(!Function->Signature->IsTemplateFunction);
+    if (Function->Signature->IsTemplateFunction && !Function->Signature->IsFullSpecialization()) {
+        auto CanonicalName = mangling::MangleCanonicalNameForSignature(Function->Signature);
+        Functions[CanonicalName].push_back(ResolvedFunction(Function, nullptr));
+        return;
+    }
     
     auto Signature = Function->Signature;
     std::vector<llvm::Type *> ParameterTypes;
@@ -141,7 +157,7 @@ void IRGenerator::RegisterFunction(std::shared_ptr<ast::FunctionDecl> Function) 
     }
     
     ResolvedFunctions[ResolvedName] = Function->Signature;
-    Functions[CanonicalName].push_back(FunctionResolutionInfo(Function, F));
+    Functions[CanonicalName].push_back(ResolvedFunction(Function, F));
 }
 
 
@@ -164,7 +180,7 @@ void IRGenerator::RegisterFunction(std::shared_ptr<ast::ExternFunctionDecl> Func
     
     auto Decl = std::make_shared<ast::FunctionDecl>();
     Decl->Signature = Function->Signature;
-    Functions[Signature->Name].push_back(FunctionResolutionInfo(Decl, F));
+    Functions[Signature->Name].push_back(ResolvedFunction(Decl, F));
 }
 
 
@@ -283,6 +299,10 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr, CodegenReturn
 #pragma mark - Top Level Statements
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDecl) {
+    if (FunctionDecl->Signature->IsTemplateFunction && !FunctionDecl->Signature->IsFullSpecialization()) {
+        return nullptr;
+    }
+    
     precondition(Scope.IsEmpty());
     
     auto ResolvedName = MangleFullyResolved(FunctionDecl);
@@ -817,34 +837,143 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::BinaryOperation> Binop) {
 }
 
 
+
+std::optional<std::map<std::string, TypeInfo *>> IRGenerator::AttemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> TemplateFunction, std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset) {
+    auto Sig = TemplateFunction->Signature;
+    
+    if (Sig->Parameters.size() != Call->Arguments.size()) return std::nullopt;
+    
+    std::map<std::string, TypeInfo *> TemplateArgumentMapping;
+    
+    for (auto Name : Sig->TemplateArgumentNames) {
+        TemplateArgumentMapping[Name] = TypeInfo::Unresolved;
+    }
+    
+    for (auto Idx = ArgumentOffset; Idx < Call->Arguments.size(); Idx++) {
+        auto ParamTypename = Sig->Parameters[Idx]->Type->getName();
+        if (auto Mapping = TemplateArgumentMapping.find(ParamTypename); Mapping != TemplateArgumentMapping.end()) {
+            auto GuessedArgumentType = GuessType(Call->Arguments[Idx]);
+            if (!Mapping->second) {
+                Mapping->second = GuessedArgumentType;
+            } else {
+                precondition(Mapping->second == GuessedArgumentType);
+            }
+        }
+    }
+    
+    return TemplateArgumentMapping;
+}
+
+
+
+ResolvedFunction IRGenerator::InstantiateTemplateFunctionForCall(std::shared_ptr<ast::FunctionDecl> TemplateFunction, std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset, std::map<std::string, TypeInfo *> TemplateArgumentMapping) {
+    // Important here is that resolving the template arguments in one template instantiation doen't affect the template arguments in the template function
+    // We have to make sure all objects/properties being mutated are copied!
+    
+    precondition(!TemplateArgumentMapping.empty());
+    
+#if 0
+    for (auto &[Name, Type] : TemplateArgumentMapping) {
+        std::cout << Name << ": " << Type->Str() << std::endl;
+    }
+#endif
+    
+    auto SpecializedFunction = std::make_shared<ast::FunctionDecl>();
+    SpecializedFunction->Signature = std::make_shared<ast::FunctionSignature>(*TemplateFunction->Signature);
+    SpecializedFunction->Body = TemplateFunction->Body; // TODO can we safely copy this pointer? // TODO: make sure function bodies are *never* mutated!!!!
+    
+    for (auto Idx = ArgumentOffset; Idx < Call->Arguments.size(); Idx++) {
+        auto ParameterDecl = std::make_shared<ast::VariableDecl>(*SpecializedFunction->Signature->Parameters[Idx]);
+        SpecializedFunction->Signature->Parameters[Idx] = ParameterDecl;
+        
+        if (auto T = util::map::get_opt(TemplateArgumentMapping, ParameterDecl->Type->getName())) {
+            ParameterDecl->Type = *T;
+        }
+    }
+    
+    if (auto T = util::map::get_opt(TemplateArgumentMapping, SpecializedFunction->Signature->ReturnType->getName())) {
+        precondition(T != TypeInfo::Unresolved); // TODO why is this check here? Why not also above when resolving parameter types?
+        SpecializedFunction->Signature->ReturnType = *T;
+    }
+    
+    
+    for (auto &[Name, Type] : TemplateArgumentMapping) {
+        if (Type != TypeInfo::Unresolved) {
+            auto It = std::find(SpecializedFunction->Signature->TemplateArgumentNames.begin(),
+                                SpecializedFunction->Signature->TemplateArgumentNames.end(), Name);
+            SpecializedFunction->Signature->TemplateArgumentNames.erase(It);
+        } else {
+            LKFatalError("Unresolved argument type in template function: %s (%s)", Name.c_str(), mangling::MangleCanonicalNameForSignature(TemplateFunction->Signature).c_str());
+        }
+    }
+    
+#if 0
+    for (auto &[N, T] : TemplateArgumentsMappings) {
+        std::cout << N << ": " << T->Str() << std::endl;
+    }
+    std::cout << "TempSig: " << TemplateFunction->Signature << std::endl;
+    std::cout << "SpecSig: " << SpecializedFunction->Signature << std::endl;
+#endif
+    
+    RegisterFunction(SpecializedFunction);
+    auto LLVMFunction = WithCleanSlate([&]() { return llvm::dyn_cast<llvm::Function>(Codegen(SpecializedFunction)); });
+    return ResolvedFunction(SpecializedFunction, LLVMFunction);
+}
+
+
+
+
+
 // Returns the function most closely matching the call
-FunctionResolutionInfo IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset) {
+ResolvedFunction IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset) {
     auto &PossibleTargets = Functions[Call->Target->Value];
     precondition(!PossibleTargets.empty());
     
     if (PossibleTargets.size() == 1) {
-        return PossibleTargets[0];
+        auto &Target = PossibleTargets[0];
+        if (Target.Decl->Signature->IsTemplateFunction) {
+            auto TemplateArgumentMapping = AttemptToResolveTemplateArgumentTypesForCall(Target.Decl, Call, ArgumentOffset);
+            precondition(TemplateArgumentMapping.has_value());
+            return InstantiateTemplateFunctionForCall(Target.Decl, Call, ArgumentOffset, TemplateArgumentMapping.value());
         }
-        LKFatalError("unable to resolve function call");
+        return Target;
     }
     
     
-    std::vector<std::pair<uint32_t, FunctionResolutionInfo>> Matches;
+    // More than one potential target
+    
+    struct FunctionResolutionMatchInfo {
+        uint32_t Score;
+        std::shared_ptr<ast::FunctionDecl> Decl;
+        llvm::Function *LLVMFunction; // nullptr if this is a not yet instantiated template function
+        std::map<std::string, TypeInfo *> TemplateArgumentMapping;
+    };
+    
+    std::vector<std::shared_ptr<ast::FunctionDecl>> TemplateFunctionTargets; // List of uninstantiated template functions that might be potential targets
+//    std::vector<std::pair<uint32_t, FunctionResolutionInfo>> Matches; // List of potential targets, with a score indicating how close a match they are
+    std::vector<FunctionResolutionMatchInfo> Matches;
+    bool HasPerfectMatch = false;
+    
     
     for (auto &Target : PossibleTargets) {
-        auto Signature = Target.Decl->Signature;
+        auto &Decl = Target.Decl;
+        auto Signature = Decl->Signature;
         
         if (Signature->Parameters.size() != Call->Arguments.size()) {
-            Matches.push_back({0, Target});
             continue;
         }
         
-        uint32_t Score = 10; // initial score is 0, +10 because argument counts match
+        if (Signature->IsTemplateFunction && !Signature->IsFullSpecialization()) {
+            TemplateFunctionTargets.push_back(Decl);
+            continue;
+        }
+        
+        uint32_t Score = 0;
         
         for (auto I = 0; I < Call->Arguments.size(); I++) {
             auto Arg = Call->Arguments[I];
             auto Type_Passed = GuessType(Arg);
-            auto Type_Expected = Target.Decl->Signature->Parameters[I]->Type;
+            auto Type_Expected = Decl->Signature->Parameters[I]->Type;
             
             if (Type_Passed->Equals(Type_Expected)) {
                 Score += 10;
@@ -856,19 +985,57 @@ FunctionResolutionInfo IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCal
             }
         }
         
-        Matches.push_back({Score, Target});
+        Matches.push_back({Score, Decl, Target.LLVMFunction, {}});
+        
+        //Matches.push_back({Score, Target});
+        
+        if (Score == Call->Arguments.size() * 10) {
+            // TODO does this mean we might miss other ambigious functions?
+            HasPerfectMatch = true;
+            break;
+        }
     }
     
-    std::sort(Matches.begin(), Matches.end(), [](auto Arg0, auto Arg1) { return Arg0.first > Arg1.first; });
     
+    if (!HasPerfectMatch) {
+        for (auto &Target : TemplateFunctionTargets) {
+            if (auto TemplateArgMapping = AttemptToResolveTemplateArgumentTypesForCall(Target, Call, ArgumentOffset)) {
+                auto argc = Target->Signature->Parameters.size();
+                uint32_t Score = argc * 10;
+                Matches.push_back({Score, Target, nullptr, TemplateArgMapping.value()});
+            } else {
+                std::cout << "(skipped bc unable to resolve): " << Target->Signature << std::endl;
+            }
+        }
+    }
+    
+    
+    // TODO this seems like a bad idea
+    std::sort(Matches.begin(), Matches.end(), [](auto &Arg0, auto &Arg1) { return Arg0.Score > Arg1.Score; });
+    
+#if 0
     std::cout << "Matching overloads:\n";
-    for (auto &[Score, Info] : Matches) {
-        std::cout << "- " << Score << ": " << Info.Decl->Signature << std::endl;
+    for (auto &Match : Matches) {
+        std::cout << "- " << Match.Score << ": " << Match.Decl->Signature << std::endl;
+    }
+#endif
+    
+    if (Matches.size() > 1 && Matches[0].Score == Matches[1].Score) {
+        std::cout << "Error: ambiguous function call. unable to resolve. Potential candidates are:\n";
+        for (auto &Match : Matches) {
+            std::cout << "- " << Match.Score << ": " << Match.Decl->Signature << std::endl;
+        }
+        throw;
     }
     
-    auto BestMatch = Matches.front().second;
-    precondition(!BestMatch.Decl->Signature->IsTemplateFunction);
-    return BestMatch;
+    
+    auto BestMatch = Matches.front();
+    
+    if (BestMatch.Decl->Signature->IsTemplateFunction && !BestMatch.LLVMFunction) {
+        return InstantiateTemplateFunctionForCall(BestMatch.Decl, Call, ArgumentOffset, BestMatch.TemplateArgumentMapping);
+    }
+    
+    return ResolvedFunction(BestMatch.Decl, BestMatch.LLVMFunction);
 }
 
 
@@ -882,14 +1049,12 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsig
     llvm::Function *F;
     
     auto TargetName = Call->Target->Value;
-    std::cout << "CallTarget: " << TargetName << std::endl;
+    auto ResolvedTarget = ResolveCall(Call, ArgumentOffset);
+    F = ResolvedTarget.LLVMFunction;
     
-    auto ResolvedCall = ResolveCall(Call, ArgumentOffset);
-    F = ResolvedCall.LLVMFunction;
     if (SelectedOverload) {
-        *SelectedOverload = ResolvedCall.Decl->Signature;
+        *SelectedOverload = ResolvedTarget.Decl->Signature;
     }
-    //F = ResolveCall(Call, ArgumentOffset);
     
     if (!F) {
         F = M->getFunction(TargetName);
@@ -910,7 +1075,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsig
 
     
     for (auto I = ArgumentOffset; I < NumFixedArgs; I++) {
-        auto ExpectedType = ResolvedCall.Decl->Signature->Parameters[I]->Type;
+        auto ExpectedType = ResolvedTarget.Decl->Signature->Parameters[I]->Type;
         
         auto Expr = Call->Arguments[I];
         TypeInfo *T;
@@ -1260,10 +1425,9 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess
                 Type = Scope.GetType(Member->Data.Ident->Value);
                 break;
             
-            case MK::Initial_FunctionCall:{
-                auto R = ResolveCall(Member->Data.Call, 0);
+            case MK::Initial_FunctionCall:
                 Type = ResolveCall(Member->Data.Call, 0).Decl->Signature->ReturnType;
-                break;}
+                break;
             
             case MK::Initial_StaticCall:
                 Type = ResolveCall(Member->Data.Call, 0).Decl->Signature->ReturnType;
@@ -1275,12 +1439,8 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess
                 break;
             
             case MK::MemberFunctionCall: {
-                std::cout << "XX:" << Member->Data.Call << std::endl;
                 precondition(Type->IsComplex() && TypeCache.Contains(Type->getName()));
                 auto Call = Member->Data.Call;
-                //precondition(Call->Target->Value[0] != '-'); // make sure the name is still unmangled
-                //Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(Type->Data.Name, Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
-                
                 if (Call->Target->Value[0] != '-') { // Call still unmangled
                     Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(Type->getName(), Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
                 }

@@ -46,11 +46,11 @@ NS_START(irgen)
 //    void Reset() { Value = InitialValue; }
 //};
 
-struct FunctionResolutionInfo {
+struct ResolvedFunction {
     std::shared_ptr<ast::FunctionDecl> Decl;
-    llvm::Function *LLVMFunction;
+    llvm::Function *LLVMFunction; // nullptr if Decl is a template function
     
-    FunctionResolutionInfo(std::shared_ptr<ast::FunctionDecl> Decl, llvm::Function *LLVMFunction) : Decl(Decl), LLVMFunction(LLVMFunction) {}
+    ResolvedFunction(std::shared_ptr<ast::FunctionDecl> Decl, llvm::Function *LLVMFunction) : Decl(Decl), LLVMFunction(LLVMFunction) {}
 };
 
 class IRGenerator {
@@ -69,7 +69,7 @@ class IRGenerator {
     
     
     // key: canonical function name
-    std::map<std::string, std::vector<FunctionResolutionInfo>> Functions;
+    std::map<std::string, std::vector<ResolvedFunction>> Functions;
     // key: fully resolved function name
     std::map<std::string, std::shared_ptr<ast::FunctionSignature>> ResolvedFunctions;
     
@@ -160,17 +160,38 @@ private:
     
     // Other stuff
     std::shared_ptr<ast::FunctionSignature> GetResolvedFunctionWithName(std::string &Name);
+    ResolvedFunction ResolveCall(std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset);
+    std::optional<std::map<std::string, TypeInfo *>> AttemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> TemplateFunction, std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset);
     
+    ResolvedFunction InstantiateTemplateFunctionForCall(std::shared_ptr<ast::FunctionDecl> TemplateFunction, std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset, std::map<std::string, TypeInfo *> TemplateArgumentMapping);
     
     TypeInfo *GuessType(std::shared_ptr<ast::Expr> Expr);
     TypeInfo *GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess);
-    FunctionResolutionInfo ResolveCall(std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset);
     
     // Returns true if SrcType is trivially convertible to DestType
     bool IsTriviallyConvertible(TypeInfo *SrcType, TypeInfo *DestType);
     bool IsIntegerType(TypeInfo *TI);
     
     bool ValueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiteral> Number, TypeInfo *TI);
+    
+    
+    
+    // Utils
+    
+    template <typename F>
+    std::invoke_result_t<F> WithCleanSlate(F Fn) {
+        auto PrevScope = Scope;
+        auto PrevInsertBlock = Builder.GetInsertBlock();
+        
+        Scope = irgen::Scope();
+        
+        auto Retval = Fn();
+        
+        Scope = PrevScope;
+        Builder.SetInsertPoint(PrevInsertBlock);
+        
+        return Retval;
+    }
 };
 
 

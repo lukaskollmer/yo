@@ -13,6 +13,8 @@
 #include <functional>
 #include <ostream>
 #include <csignal>
+#include <map>
+#include <optional>
 
 
 inline void noop() {}
@@ -149,6 +151,30 @@ namespace util::vector {
         return Mapped;
     }
     
+    
+    template <typename T, typename F>
+    std::pair<std::vector<T>, std::vector<T>> filter_keeping_all(std::vector<T> &vector, F f) {
+        std::vector<T> matched, unmatched;
+        for (auto &element : vector) {
+            (f(element) == true ? matched : unmatched).push_back(element);
+        }
+        return {matched, unmatched};
+    }
+
+}
+
+
+namespace util::map {
+    template <typename K, typename V>
+    inline bool contains_key(const std::map<K, V> &Map, const K &Key) {
+        return Map.find(Key) != Map.end();
+    }
+    
+    template <typename K, typename V>
+    inline std::optional<V> get_opt(const std::map<K, V> &Map, const K &Key) {
+        if (contains_key(Map, Key)) return Map.at(Key);
+        else return std::nullopt;
+    }
 }
 
 
