@@ -1,0 +1,5 @@
+// runtime/casts.yo
+
+fn static_cast<T, R>(arg: T): R {
+    return 0;
+}

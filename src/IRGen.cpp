@@ -20,6 +20,10 @@ using namespace util_llvm;
 inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
 
 
+static std::vector<std::string_view> Intrinsics = {
+    "static_cast"
+};
+
 // ast utils
 
 std::ostream& operator<<(std::ostream &OS, const std::shared_ptr<ast::FunctionSignature> &Signature) {
@@ -922,8 +926,13 @@ ResolvedFunction IRGenerator::InstantiateTemplateFunctionForCall(std::shared_ptr
     std::cout << "SpecSig: " << SpecializedFunction->Signature << std::endl;
 #endif
     
-    RegisterFunction(SpecializedFunction);
-    auto LLVMFunction = WithCleanSlate([&]() { return llvm::dyn_cast<llvm::Function>(Codegen(SpecializedFunction)); });
+    llvm::Function *LLVMFunction;
+    if (util::vector::contains(Intrinsics, std::string_view(mangling::MangleCanonicalNameForSignature(TemplateFunction->Signature)))) {
+        LLVMFunction = nullptr;
+    } else {
+        RegisterFunction(SpecializedFunction);
+        LLVMFunction = WithCleanSlate([&]() { return llvm::dyn_cast<llvm::Function>(Codegen(SpecializedFunction)); });
+    }
     return ResolvedFunction(SpecializedFunction, LLVMFunction);
 }
 
@@ -1057,12 +1066,16 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsig
     
     auto TargetName = Call->Target->Value;
     auto ResolvedTarget = ResolveCall(Call, ArgumentOffset);
-    F = ResolvedTarget.LLVMFunction;
     
     if (SelectedOverload) {
         *SelectedOverload = ResolvedTarget.Decl->Signature;
     }
     
+    if (auto Name = std::string_view(mangling::MangleCanonicalNameForSignature(ResolvedTarget.Decl->Signature));  util::vector::contains(Intrinsics, Name)) {
+        return Codegen_HandleIntrinsic(Name, Call, ArgumentOffset, SelectedOverload);
+    }
+    
+    F = ResolvedTarget.LLVMFunction;
     if (!F) {
         F = M->getFunction(TargetName);
     }
@@ -1105,6 +1118,20 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsig
 }
 
 
+
+llvm::Value *IRGenerator::Codegen_HandleIntrinsic(std::string_view Name, std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset, std::shared_ptr<ast::FunctionSignature> *SelectedOverload) {
+    if (Name == "static_cast") {
+        auto SrcTy = Call->ExplicitTemplateArgumentTypes[0];
+        auto DstTy = Call->ExplicitTemplateArgumentTypes[1];
+        auto Arg = Call->Arguments[0];
+        
+        precondition(GuessType(Arg)->Equals(SrcTy));
+        return Codegen(std::make_shared<ast::Typecast>(Arg, DstTy, ast::Typecast::CastKind::StaticCast));
+    }
+    
+    std::cout << "Unhandled call to intrinsic: " << Name << std::endl;
+    LKFatalError("");
+}
 
 
 
