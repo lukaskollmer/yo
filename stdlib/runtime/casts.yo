@@ -1,5 +1,6 @@
 // runtime/casts.yo
 
 fn static_cast<T, R>(arg: T): R {
+    // Implemented as a compile-time intrinsic
     return 0;
 }
