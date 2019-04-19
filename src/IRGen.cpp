@@ -824,15 +824,6 @@ FunctionResolutionInfo IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCal
     
     if (PossibleTargets.size() == 1) {
         return PossibleTargets[0];
-    }
-    
-    // Skip function resolution if the call has no parameters
-    
-    if (Call->Arguments.empty()) {
-        for (auto &Target : PossibleTargets) {
-            if (Target.Decl->Signature->Parameters.empty()) {
-                throw;
-            }
         }
         LKFatalError("unable to resolve function call");
     }
@@ -848,7 +839,7 @@ FunctionResolutionInfo IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCal
             continue;
         }
         
-        uint32_t Score = 0;
+        uint32_t Score = 10; // initial score is 0, +10 because argument counts matche
         
         for (auto I = 0; I < Call->Arguments.size(); I++) {
             auto Arg = Call->Arguments[I];
