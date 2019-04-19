@@ -770,7 +770,7 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
 
 
 static TokenSet MemberAccessSeparatingTokens = {
-    TK::OpeningParens, TK::OpeningSquareBrackets, TK::Period, TK::Colon
+    TK::LessThanSign, TK::OpeningParens, TK::OpeningSquareBrackets, TK::Period, TK::Colon
 };
 
 
@@ -793,6 +793,48 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
     
     while (MemberAccessSeparatingTokens.Contains(CurrentTokenKind())) {
         switch (CurrentTokenKind()) {
+            case TK::LessThanSign:
+            case TK::OpeningParens: {
+                precondition(IsInitialIdentifier);
+                // We reach here in the following cases:
+                // 1. foo() ...
+                // 2. foo< ...
+                // Issue: the 2nd case isn't necessarily a function call, it might very well just be an identifier that's part of a comparison
+                
+                bool IsTemplateArgumentListSpecfication = false;
+                std::vector<TypeInfo *> ExplicitlySpecifiedTemplateArgumentTypes;
+                
+                
+                if (CurrentTokenKind() == TK::LessThanSign) {
+                    save_pos(pos_saved_after_ident);
+                    IsTemplateArgumentListSpecfication = true;
+                    Consume();
+                    while (CurrentTokenKind() != TK::GreaterSign) { // TODO this might become a problem if we introduce an `<>` operator
+                        ExplicitlySpecifiedTemplateArgumentTypes.push_back(ParseType());
+                        if (CurrentTokenKind() == TK::Comma) {
+                            Consume(); continue;
+                        } else if (CurrentTokenKind() == TK::GreaterSign) {
+                            Consume(); break;
+                        } else {
+                            unhandled_token(CurrentToken()); // TODO this is where we need to backtrace, right?
+                        }
+                    }
+                }
+                
+                if (CurrentTokenKind() != TK::OpeningParens) {
+                    unhandled_token(CurrentToken());
+                }
+                Consume();
+                
+                auto Args = ParseExpressionList(TK::ClosingParens);
+                assert_current_token_and_consume(TK::ClosingParens);
+                auto Call = std::make_shared<ast::FunctionCall>(Ident, Args, false);
+                Call->ExplicitTemplateArgumentTypes = ExplicitlySpecifiedTemplateArgumentTypes;
+                Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::Initial_FunctionCall, Call));
+                continue;
+            }
+            
+            
             case TK::Colon: { // Static method call
                 Consume();
                 assert_current_token_and_consume(TK::Colon);
@@ -823,16 +865,6 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
                 } else { // Attribute Access
                     Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::MemberAttributeRead, Ident));
                 }
-                continue;
-            }
-            
-            case TK::OpeningParens: { // Initial Function Call
-                precondition(IsInitialIdentifier);
-                Consume();
-                auto Args = ParseExpressionList(TK::ClosingParens);
-                assert_current_token_and_consume(TK::ClosingParens);
-                Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::Initial_FunctionCall,
-                                                                         std::make_shared<FunctionCall>(Ident, Args, false)));
                 continue;
             }
             

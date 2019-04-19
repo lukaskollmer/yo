@@ -845,15 +845,21 @@ std::optional<std::map<std::string, TypeInfo *>> IRGenerator::AttemptToResolveTe
     
     std::map<std::string, TypeInfo *> TemplateArgumentMapping;
     
-    for (auto Name : Sig->TemplateArgumentNames) {
-        TemplateArgumentMapping[Name] = TypeInfo::Unresolved;
+    for (auto Idx = 0; Idx < Sig->TemplateArgumentNames.size(); Idx++) {
+        auto Name = Sig->TemplateArgumentNames[Idx];
+        
+        if (Idx < Call->ExplicitTemplateArgumentTypes.size()) {
+            TemplateArgumentMapping[Name] = Call->ExplicitTemplateArgumentTypes[Idx];
+        } else {
+            TemplateArgumentMapping[Name] = TypeInfo::Unresolved;
+        }
     }
     
     for (auto Idx = ArgumentOffset; Idx < Call->Arguments.size(); Idx++) {
-        auto ParamTypename = Sig->Parameters[Idx]->Type->getName();
+        auto ParamTypename = Sig->Parameters[Idx]->Type->getName(); // Src
         if (auto Mapping = TemplateArgumentMapping.find(ParamTypename); Mapping != TemplateArgumentMapping.end()) {
             auto GuessedArgumentType = GuessType(Call->Arguments[Idx]);
-            if (!Mapping->second) {
+            if (Mapping->second == TypeInfo::Unresolved) {
                 Mapping->second = GuessedArgumentType;
             } else {
                 precondition(Mapping->second == GuessedArgumentType);
@@ -887,12 +893,13 @@ ResolvedFunction IRGenerator::InstantiateTemplateFunctionForCall(std::shared_ptr
         SpecializedFunction->Signature->Parameters[Idx] = ParameterDecl;
         
         if (auto T = util::map::get_opt(TemplateArgumentMapping, ParameterDecl->Type->getName())) {
+            precondition(*T != TypeInfo::Unresolved);
             ParameterDecl->Type = *T;
         }
     }
     
     if (auto T = util::map::get_opt(TemplateArgumentMapping, SpecializedFunction->Signature->ReturnType->getName())) {
-        precondition(T != TypeInfo::Unresolved); // TODO why is this check here? Why not also above when resolving parameter types?
+        precondition(*T != TypeInfo::Unresolved); // TODO why is this check here? Why not also above when resolving parameter types?
         SpecializedFunction->Signature->ReturnType = *T;
     }
     
