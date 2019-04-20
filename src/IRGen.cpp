@@ -12,7 +12,9 @@
 
 #include "Mangling.h"
 #include "util_llvm.h"
+#include "Annotations.h"
 
+using namespace yo;
 using namespace irgen;
 using namespace util_llvm;
 
@@ -20,11 +22,6 @@ using namespace util_llvm;
 inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
 
 
-namespace annotations {
-    static std::string intrinsic = "intrinsic";
-    static std::string variadic = "variadic";
-    static std::string no_mangle = "no_mangle";
-}
 
 
 // ast utils
