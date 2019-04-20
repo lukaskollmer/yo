@@ -85,6 +85,9 @@ public:
     }
 };
 
+std::ostream& operator<<(std::ostream&, const std::shared_ptr<ast::FunctionSignature>&);
+
+
 
 
 class FunctionDecl : public TopLevelStmt {

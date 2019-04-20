@@ -22,36 +22,6 @@ using namespace util_llvm;
 inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
 
 
-
-
-// ast utils
-
-std::ostream& operator<<(std::ostream &OS, const std::shared_ptr<ast::FunctionSignature> &Signature) {
-    OS << "fn " << Signature->Name;
-    if (Signature->IsTemplateFunction) {
-        OS << "<";
-        for (auto It = Signature->TemplateArgumentNames.begin(); It != Signature->TemplateArgumentNames.end(); It++) {
-            OS << *It;
-            if (It + 1 != Signature->TemplateArgumentNames.end()) {
-                OS << ", ";
-            }
-        }
-        OS << ">";
-    }
-    OS << "(";
-    
-    for (auto It = Signature->Parameters.begin(); It != Signature->Parameters.end(); It++) {
-        OS << (*It)->Type->getName();
-        if (It + 1 != Signature->Parameters.end()) {
-            OS << ", ";
-        }
-    }
-    OS << "): " << Signature->ReturnType->getName();
-    return OS;
-}
-
-
-
 // IRGen
 
 
