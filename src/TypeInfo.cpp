@@ -11,6 +11,8 @@
 
 #include "TypeInfo.h"
 
+#include "llvm/IR/Type.h"
+
 
 static std::map<std::string, TypeInfo *> Types = {
 #define builtin(name) { #name, TypeInfo::getType_##name() }
@@ -21,13 +23,16 @@ static std::map<std::string, TypeInfo *> Types = {
 };
 
 
-TypeInfo *TypeInfo::GetWithName(const std::string &Name) {
+TypeInfo *TypeInfo::GetWithName(const std::string &Name, bool *DidCreateNewType) {
     auto It = Types.find(Name);
     if (It != Types.end()) return It->second;
     
     auto TI = new TypeInfo();
-    TI->Name = Name;
+    TI->Name_ = Name;
     Types[Name] = TI;
+    if (DidCreateNewType) {
+        *DidCreateNewType = true;
+    }
     return TI;
 }
 
@@ -38,9 +43,9 @@ TypeInfo *TypeInfo::getType_##name() {          \
     static TypeInfo *TI = nullptr;              \
     if (!TI) {                                  \
         TI = new TypeInfo();                    \
-        TI->Name = #name;                       \
-        TI->Kind = TypeInfo::Kind::Primitive;   \
-        TI->Size = size;                        \
+        TI->Name_ = #name;                      \
+        TI->Kind_ = TypeInfo::Kind::Primitive;  \
+        TI->Size_ = size;                       \
     }                                           \
     return TI;                                  \
 }
@@ -61,37 +66,113 @@ TI_GETTER(bool, 1)
 TI_GETTER(double, 8)
 
 
+// Initializers
 
-bool TypeInfo::IsSigned() const {
-    return this == i8 || this == i16 || this == i32 || this == i64;
+TypeInfo *TypeInfo::MakeComplex(const std::string &Name) {
+    auto TI = GetWithName(Name);
+    TI->Name_ = Name;
+    TI->Size_ = 8;
+    TI->Kind_ = Kind::Complex;
+    return TI;
+}
+
+TypeInfo *TypeInfo::MakePointer(TypeInfo *Pointee) {
+    if (auto Ptr = Pointee->PointerTo_) return Ptr;
+    
+    auto Ptr = new TypeInfo();
+    Ptr->Kind_ = Kind::Pointer;
+    Ptr->Size_ = 8;
+    Ptr->Pointee_ = Pointee;
+    
+    if (Pointee->LLVMType_) {
+        // The cast is only necessary because TypeInfo.h forward declares llvm::Type
+        Ptr->LLVMType_ = reinterpret_cast<llvm::Type*>(Pointee->LLVMType_->getPointerTo());
+    }
+    Pointee->PointerTo_ = Ptr;
+    return Ptr;
+}
+
+TypeInfo *TypeInfo::MakeTypealias(const std::string &Name, TypeInfo *OtherType) {
+    bool DidCreateNewType = false;
+    auto TI = GetWithName(Name, &DidCreateNewType);
+    //precondition(DidCreateNewType && "Creating typealias for already existing typename");
+    TI->Kind_ = Kind::Typealias;
+    TI->Name_ = Name;
+    TI->Pointee_ = OtherType;
+    return TI;
+}
+
+
+
+unsigned TypeInfo::getIndirectionCount() {
+    if (!IsPointer()) return 0;
+    unsigned count = 0;
+    
+    auto T = this;
+    while (T->IsPointer()) {
+        count += 1;
+        T = T->getPointee();
+    }
+    return count;
+}
+
+
+bool TypeInfo::IsSigned() {
+    return this->Equals(i8) || this->Equals(i16) || this->Equals(i32) || this->Equals(i64);
+}
+
+static std::array<TypeInfo *, 8> IntegerTypes = {
+    TypeInfo::i8, TypeInfo::i16, TypeInfo::i32, TypeInfo::i64,
+    TypeInfo::u8, TypeInfo::u16, TypeInfo::u32, TypeInfo::u64
+};
+
+bool TypeInfo::IsIntegerType() {
+    return std::find_if(IntegerTypes.begin(), IntegerTypes.end(), [this](TypeInfo *TI) { return this->Equals(TI); }) != IntegerTypes.end();
 }
 
 
 bool TypeInfo::Equals(TypeInfo *Other) {
     if (this == Other) return true;
-    if (this->Kind != Other->Kind || this->Size != Other->Size) return false;
-    if (this->Kind == Kind::Primitive && this->IsSigned() != Other->IsSigned()) return false;
+    if (Other == Unresolved) return false; // we know that this is nonnull bc of the check above
     
-    if (auto Pointee = this->Pointee) {
-        return Pointee->Equals(Other->Pointee);
+    // Typealiases
+    if (Kind_ == Kind::Typealias && this->Pointee_->Equals(Other)) return true;
+    if (Other->Kind_ == Kind::Typealias && Other->Pointee_->Equals(this)) return true;
+    
+    
+    if (Kind_ != Other->Kind_ || Size_ != Other->Size_) return false;
+    if (Kind_ == Kind::Primitive && this->IsSigned() != Other->IsSigned()) return false;
+    
+    
+    if ((Kind_ == Kind::Pointer || Kind_ == Kind::Typealias) && Kind_ == Other->Kind_) {
+        return Pointee_->Equals(Other->Pointee_);
     }
     
-    if (this->Kind == Kind::Complex && Other->Kind == Kind::Complex) return this->Name == Other->Name;
+    if (Kind_ == Kind::Complex && Other->Kind_ == Kind::Complex) return this->Name_ == Other->Name_;
     
     throw; // TODO implement the rest
 }
 
 std::string TypeInfo::Str() {
-    if (this == TypeInfo::Unresolved || this->Kind == Kind::Unresolved) {
+    if (this == TypeInfo::Unresolved) {
         // We have to check this one first since `this` is a nullpointer for unresolved // TODO: don't map unresolved to the nullpointer
-        // TODO we also end up in this branch in some cases where the type isn't actually unresolved (template arguments, etc!)
         return "<unresolved>";
     }
-    if (this->Kind == Kind::Primitive || this->Kind == Kind::Complex) {
-        return this->Name;
+    
+    if (Kind_ == Kind::Unresolved && !Name_.empty()) {
+        return Name_;
     }
-    if (auto Pointee = this->Pointee) {
-        return std::string("*").append(Pointee->Str());
+    
+    if (Kind_ == Kind::Primitive || Kind_ == Kind::Complex) {
+        return Name_;
+    }
+    
+    if (Kind_ == Kind::Pointer) {
+        return std::string("*").append(Pointee_->Str());
+    }
+    
+    if (Kind_ == Kind::Typealias) {
+        return std::string(Name_).append(" (alias for ").append(Pointee_->Str()).append(")");
     }
     
     throw;

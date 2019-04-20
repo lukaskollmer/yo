@@ -10,17 +10,24 @@
 
 using namespace irgen;
 
-void TypeCache::Insert(std::string Name, std::shared_ptr<ast::StructDecl> Struct) {
-    Types.insert({Name, Struct});
+
+
+void TypeCache::Insert(std::string Name, TypeInfo *Type) {
+    Types[Name] = Type;
 }
 
-bool TypeCache::Contains(std::string Name) {
-    return Get(Name) != nullptr;
+
+void TypeCache::RegisterStruct(std::string Name, std::shared_ptr<ast::StructDecl> Struct) {
+    Structs.insert({Name, Struct});
 }
 
-std::shared_ptr<ast::StructDecl> TypeCache::Get(std::string Name) {
+bool TypeCache::Contains(const std::string &Name) {
+    return util::map::contains_key(Types, Name);
+}
+
+std::shared_ptr<ast::StructDecl> TypeCache::GetStruct(std::string Name) {
     try {
-        return Types.at(Name);
+        return Structs.at(Name);
     } catch (...) {
         return nullptr;
     }

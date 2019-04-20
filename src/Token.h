@@ -64,7 +64,7 @@ public:
         Fn, Extern,
         Let, Return,
         If, Else, While,
-        As,
+        As, Using
     };
     
     union TokenData {

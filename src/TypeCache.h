@@ -20,15 +20,19 @@ NS_START(irgen)
 
 class TypeCache {
     // TODO what about enums?
-    std::map<std::string, std::shared_ptr<ast::StructDecl>> Types;
+    std::map<std::string, std::shared_ptr<ast::StructDecl>> Structs;
+    std::map<std::string, TypeInfo *> Types;
     
 public:
     TypeCache() {}
     
-    void Insert(std::string Name, std::shared_ptr<ast::StructDecl> Struct);
+    void Insert(std::string Name, TypeInfo *Type);
     
-    bool Contains(std::string Name);
-    std::shared_ptr<ast::StructDecl> Get(std::string Name);
+    void RegisterStruct(std::string Name, std::shared_ptr<ast::StructDecl> Struct);
+    
+    bool Contains(const std::string &Name);
+    TypeInfo *Get(const std::string &Name) { return Types.at(Name); }
+    std::shared_ptr<ast::StructDecl> GetStruct(std::string Name);
     
 };
 

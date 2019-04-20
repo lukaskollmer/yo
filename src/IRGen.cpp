@@ -69,7 +69,12 @@ std::string MangleFullyResolved(T Function) {
 
 void IRGenerator::Preflight(ast::AST &Ast) {
     for (auto &Node : Ast) {
-        if (auto FunctionDecl = std::dynamic_pointer_cast<ast::FunctionDecl>(Node)) {
+        if (auto Typealias = std::dynamic_pointer_cast<ast::TypealiasDecl>(Node)) {
+            // TODO is this a good idea?
+            // TODO prevent circular aliases!
+            TypeCache.Insert(Typealias->Typename, TypeInfo::MakeTypealias(Typealias->Typename, Typealias->Type));
+            
+        } else if (auto FunctionDecl = std::dynamic_pointer_cast<ast::FunctionDecl>(Node)) {
             RegisterFunction(FunctionDecl);
         
         } else if (auto EFD = std::dynamic_pointer_cast<ast::ExternFunctionDecl>(Node)) {
@@ -164,8 +169,8 @@ std::shared_ptr<ast::FunctionSignature> IRGenerator::GetResolvedFunctionWithName
 
 void IRGenerator::RegisterStructDecl(std::shared_ptr<ast::StructDecl> Struct) {
     auto Name = Struct->Name->Value;
-    TypeCache.Insert(Name, Struct);
-    TypeInfo::MakeComplex(Name);
+    TypeCache.Insert(Name, TypeInfo::MakeComplex(Name));
+    TypeCache.RegisterStruct(Name, Struct);
 }
 
 
@@ -187,7 +192,7 @@ void IRGenerator::RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock) {
             }
         }
         F->Signature->Kind = Kind;
-        F->Signature->ImplType = TypeCache.Get(Typename);
+        F->Signature->ImplType = TypeCache.GetStruct(Typename);
         
         RegisterFunction(F);
     }
@@ -225,6 +230,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
     IGNORE(TLS, ExternFunctionDecl)
     HANDLE(TLS, StructDecl)
     HANDLE(TLS, ImplBlock)
+    IGNORE(TLS, TypealiasDecl)
     
     unhandled_node(TLS)
 }
@@ -685,7 +691,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
                 precondition(CurrentType->IsComplex() && TypeCache.Contains(CurrentType->getName()));
                 auto MemberName = Member->Data.Ident->Value;
                 auto StructName = CurrentType->getName();
-                auto StructType = TypeCache.Get(StructName);
+                auto StructType = TypeCache.GetStruct(StructName);
                 
                 uint32_t Offset = 0;
                 auto DidFindMember = false;
@@ -1299,7 +1305,7 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
             auto LLVMStructType = llvm::StructType::create(C, Name);
             
             std::vector<llvm::Type *> Types;
-            for (auto &Attr : TypeCache.Get(Name)->Attributes) {
+            for (auto &Attr : TypeCache.GetStruct(Name)->Attributes) {
                 Types.push_back(GetLLVMType(Attr->Type));
             }
             
@@ -1312,8 +1318,11 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
         case TypeInfo::Kind::Function:
             throw;
         
+        case TypeInfo::Kind::Typealias:
+            return GetLLVMType(TI->getPointee());
+        
         case TypeInfo::Kind::Unresolved:
-            LKFatalError("unresolved type");
+            LKFatalError("unresolved type '%s'", TI->getName().c_str());
     }
     throw;
 }
@@ -1455,7 +1464,7 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess
             case MK::MemberAttributeRead:
                 precondition(Type->IsComplex());
                 auto DidFind = false;
-                for (auto &Attr : TypeCache.Get(Type->getName())->Attributes) {
+                for (auto &Attr : TypeCache.GetStruct(Type->getName())->Attributes) {
                     if (Attr->Name->Value == Member->Data.Ident->Value) {
                         Type = Attr->Type;
                         DidFind = true;

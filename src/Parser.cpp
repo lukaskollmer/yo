@@ -218,6 +218,9 @@ std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
         case TK::Use:
             ResolveImport(); // TODO can/should imports have annotations?
             return ParseTopLevelStmt();
+        case TK::Using:
+            Stmt = ParseTypealias();
+            break;
         default: unhandled_token(CurrentToken());
     }
     
@@ -384,6 +387,17 @@ TypeInfo *Parser::ParseType() {
         return TypeInfo::MakePointer(ParseType());
     }
     throw 0;
+}
+
+
+
+std::shared_ptr<ast::TypealiasDecl> Parser::ParseTypealias() {
+    assert_current_token_and_consume(TK::Using);
+    auto Name = ParseIdentifier()->Value;
+    assert_current_token_and_consume(TK::EqualsSign);
+    auto Type = ParseType();
+    assert_current_token_and_consume(TK::Semicolon);
+    return std::make_shared<TypealiasDecl>(Name, Type);
 }
 
 

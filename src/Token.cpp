@@ -55,6 +55,7 @@ std::string TokenKindToString(Token::TokenKind Kind) {
         CASE(Hashtag)
         CASE(Use)
         CASE(While)
+        CASE(Using)
     }
 #undef CASE
 }

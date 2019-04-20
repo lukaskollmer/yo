@@ -111,8 +111,11 @@ class StructDecl : public TopLevelStmt {
 public:
     std::shared_ptr<Identifier> Name;
     std::vector<std::shared_ptr<VariableDecl>> Attributes;
+    std::vector<std::string> TemplateArguments;
     
-    StructDecl(std::shared_ptr<Identifier> Name, std::vector<std::shared_ptr<VariableDecl>> Attributes) : Name(Name), Attributes(Attributes) {}
+    StructDecl() {}
+    
+    bool IsTemplateStruct() { return !TemplateArguments.empty(); }
 };
 
 class ImplBlock : public TopLevelStmt {
@@ -124,6 +127,14 @@ public:
     ImplBlock(std::string Typename, std::vector<std::shared_ptr<FunctionDecl>> Methods) : Typename(Typename), Methods(Methods) {}
 };
 
+
+class TypealiasDecl : public TopLevelStmt {
+public:
+    std::string Typename;
+    TypeInfo *Type;
+    
+    TypealiasDecl(std::string Typename, TypeInfo *Type) : Typename(Typename), Type(Type) {}
+};
 
 
 # pragma mark - Local Statements

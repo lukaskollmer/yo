@@ -26,60 +26,60 @@ public:
         Pointer,    // A pointer to some other type
         Complex,    // A struct
         Function,    // A function pointer
+        Typealias,
         Unresolved  // tbd
     };
     
 private:
-
-    Kind Kind;
-    uint8_t Size; // Size in bytes
-    std::string Name;
-    TypeInfo *Pointee;
-    llvm::Type *LLVMType;
+    Kind Kind_;
+    uint8_t Size_; // Size in bytes
+    std::string Name_;
+    TypeInfo *Pointee_; // The fact that Pointee_ is nonnull doesn't mean that this is in fact a pointer type
+    TypeInfo *PointerTo_;
+    llvm::Type *LLVMType_;
     
-    TypeInfo() : Kind(Kind::Unresolved), Size(0), Pointee(nullptr), LLVMType(nullptr) {}
+    TypeInfo() : Kind_(Kind::Unresolved), Size_(0), Pointee_(nullptr), PointerTo_(nullptr), LLVMType_(nullptr) {}
     
 public:
-    static TypeInfo *GetWithName(const std::string &Name);
-
-    static TypeInfo *MakeComplex(std::string Name) {
-        auto TI = GetWithName(Name);
-        TI->Name = Name;
-        TI->Size = 8;
-        TI->Kind = Kind::Complex;
-        return TI;
+    static TypeInfo *GetWithName(const std::string &Name, bool *DidCreateNewType = nullptr);
+    static TypeInfo *MakeComplex(const std::string &Name);
+    static TypeInfo *MakePointer(TypeInfo *Pointee);
+    static TypeInfo *MakeTypealias(const std::string &Name, TypeInfo *OtherType);
+    
+    Kind getKind() { return Kind_; }
+    uint8_t getSize() {
+        if (IsTypealias()) return Pointee_->getSize();
+        else return Size_;
     }
-
-    static TypeInfo *MakePointer(TypeInfo *Pointee) {
-        auto TI = new TypeInfo();
-        TI->Kind = Kind::Pointer;
-        TI->Size = 8;
-        TI->Pointee = Pointee;
-        return TI;
+    const std::string &getName() { return Name_; }
+    TypeInfo *getPointee() { return Pointee_; }
+    TypeInfo *getPointerTo() { return MakePointer(this); }
+    
+    
+    
+    llvm::Type *getLLVMType() {
+        if (IsTypealias()) return Pointee_->getLLVMType();
+        else return LLVMType_;
     }
-
     
-    
-    enum Kind getKind() { return Kind; }
-    uint8_t getSize() { return Size; }
-    const std::string& getName() { return Name; }
-    TypeInfo *getPointee() { return Kind == Kind::Pointer ? Pointee : nullptr; }
-    
-    llvm::Type *getLLVMType() { return LLVMType; }
-    void setLLVMType(llvm::Type *LLVMType) { this->LLVMType = LLVMType; }
+    void setLLVMType(llvm::Type *LLVMType) {
+        if (IsTypealias()) Pointee_->setLLVMType(LLVMType);
+        else LLVMType_ = LLVMType;
+    }
     
     
     std::string Str();
     bool Equals(TypeInfo *Other);
+    
+    unsigned getIndirectionCount();
 
-    bool IsSigned() const;
-    bool IsPointer() { return Kind == Kind::Pointer; }
-    bool IsComplex() { return Kind == Kind::Complex; }
-    bool IsPrimitive() { return Kind == Kind::Primitive; }
+    bool IsSigned();
+    bool IsPointer() { return Kind_ == Kind::Pointer; }
+    bool IsComplex() { return Kind_ == Kind::Complex; }
+    bool IsPrimitive() { return Kind_ == Kind::Primitive; }
+    bool IsTypealias() { return Kind_ == Kind::Typealias; }
 
-    bool IsIntegerType() {
-        return this == i8 || this == i16 || this == i32 || this == i64 || this == u8 || this == u16 || this == u32 || this == u64;
-    }
+    bool IsIntegerType();
     
     
     static TypeInfo *getType_void();
