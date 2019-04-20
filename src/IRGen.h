@@ -141,7 +141,7 @@ private:
     llvm::Value *Codegen(std::shared_ptr<ast::Comparison>);
     llvm::Value *Codegen(std::shared_ptr<ast::LogicalOperation>);
     
-    llvm::Value *Codegen_HandleIntrinsic(std::string_view Name, std::shared_ptr<ast::FunctionCall>, unsigned ArgumentOffset = 0, std::shared_ptr<ast::FunctionSignature> *SelectedOverload = nullptr);
+    llvm::Value *Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionSignature> Signature, std::shared_ptr<ast::FunctionCall>, unsigned ArgumentOffset = 0);
     
     
     // Types

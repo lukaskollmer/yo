@@ -20,9 +20,12 @@ using namespace util_llvm;
 inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
 
 
-static std::vector<std::string_view> Intrinsics = {
-    "static_cast"
-};
+namespace annotations {
+    static std::string intrinsic = "intrinsic";
+    static std::string variadic = "variadic";
+    static std::string no_mangle = "no_mangle";
+}
+
 
 // ast utils
 
@@ -89,14 +92,9 @@ void IRGenerator::Codegen(ast::AST &Ast) {
 
 
 
-bool is_variadic(std::shared_ptr<ast::Node> Node) {
-    return Node->HasAnnotation("variadic");
-}
-
-
 template <typename T>
 std::string MangleFullyResolved(T Function) {
-    if (Function->HasAnnotation("no_mangle")) {
+    if (Function->HasAnnotation(annotations::no_mangle)) {
         return Function->Signature->Name;
     }
     return mangling::MangleFullyResolvedNameForSignature(Function->Signature);
@@ -152,7 +150,7 @@ void IRGenerator::RegisterFunction(std::shared_ptr<ast::FunctionDecl> Function) 
     
     precondition(M->getFunction(ResolvedName) == nullptr);
     
-    auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, is_variadic(Function));
+    auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->HasAnnotation(annotations::variadic));
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, ResolvedName, M);
     
     unsigned Idx = 0;
@@ -174,7 +172,7 @@ void IRGenerator::RegisterFunction(std::shared_ptr<ast::ExternFunctionDecl> Func
     }
     
     precondition(M->getFunction(Signature->Name) == nullptr);
-    auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, is_variadic(Function));
+    auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->HasAnnotation(annotations::variadic));
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, Signature->Name, M);
     
     // we can't really append this to the `Functions` vector since that stores an ast::FunctionDecl, but external functions don't have a body :/
@@ -866,7 +864,7 @@ std::optional<std::map<std::string, TypeInfo *>> IRGenerator::AttemptToResolveTe
             if (Mapping->second == TypeInfo::Unresolved) {
                 Mapping->second = GuessedArgumentType;
             } else {
-                precondition(Mapping->second == GuessedArgumentType);
+                precondition(Mapping->second->Equals(GuessedArgumentType));
             }
         }
     }
@@ -891,6 +889,7 @@ ResolvedFunction IRGenerator::InstantiateTemplateFunctionForCall(std::shared_ptr
     auto SpecializedFunction = std::make_shared<ast::FunctionDecl>();
     SpecializedFunction->Signature = std::make_shared<ast::FunctionSignature>(*TemplateFunction->Signature);
     SpecializedFunction->Body = TemplateFunction->Body; // TODO can we safely copy this pointer? // TODO: make sure function bodies are *never* mutated!!!!
+    SpecializedFunction->Annotations = TemplateFunction->Annotations;
     
     for (auto Idx = ArgumentOffset; Idx < Call->Arguments.size(); Idx++) {
         auto ParameterDecl = std::make_shared<ast::VariableDecl>(*SpecializedFunction->Signature->Parameters[Idx]);
@@ -927,7 +926,7 @@ ResolvedFunction IRGenerator::InstantiateTemplateFunctionForCall(std::shared_ptr
 #endif
     
     llvm::Function *LLVMFunction;
-    if (util::vector::contains(Intrinsics, std::string_view(mangling::MangleCanonicalNameForSignature(TemplateFunction->Signature)))) {
+    if (TemplateFunction->HasAnnotation(annotations::intrinsic)) {
         LLVMFunction = nullptr;
     } else {
         RegisterFunction(SpecializedFunction);
@@ -1003,8 +1002,6 @@ ResolvedFunction IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCall> Cal
         
         Matches.push_back({Score, Decl, Target.LLVMFunction, {}});
         
-        //Matches.push_back({Score, Target});
-        
         if (Score == Call->Arguments.size() * 10) {
             // TODO does this mean we might miss other ambigious functions?
             HasPerfectMatch = true;
@@ -1071,8 +1068,9 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsig
         *SelectedOverload = ResolvedTarget.Decl->Signature;
     }
     
-    if (auto Name = std::string_view(mangling::MangleCanonicalNameForSignature(ResolvedTarget.Decl->Signature));  util::vector::contains(Intrinsics, Name)) {
-        return Codegen_HandleIntrinsic(Name, Call, ArgumentOffset, SelectedOverload);
+    
+    if (ResolvedTarget.Decl->HasAnnotation(annotations::intrinsic)) {
+        return Codegen_HandleIntrinsic(ResolvedTarget.Decl->Signature, Call, ArgumentOffset);
     }
     
     F = ResolvedTarget.LLVMFunction;
@@ -1119,14 +1117,19 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsig
 
 
 
-llvm::Value *IRGenerator::Codegen_HandleIntrinsic(std::string_view Name, std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset, std::shared_ptr<ast::FunctionSignature> *SelectedOverload) {
-    if (Name == "static_cast") {
+llvm::Value *IRGenerator::Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionSignature> Signature, std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset) {
+    auto Name = mangling::MangleCanonicalNameForSignature(Signature);
+    
+    if (Name == "static_cast" || Name == "reinterpret_cast") {
         auto SrcTy = Call->ExplicitTemplateArgumentTypes[0];
         auto DstTy = Call->ExplicitTemplateArgumentTypes[1];
         auto Arg = Call->Arguments[0];
         
         precondition(GuessType(Arg)->Equals(SrcTy));
-        return Codegen(std::make_shared<ast::Typecast>(Arg, DstTy, ast::Typecast::CastKind::StaticCast));
+        auto CastKind = Name == "static_cast"
+            ? ast::Typecast::CastKind::StaticCast
+            : ast::Typecast::CastKind::Bitcast;
+        return Codegen(std::make_shared<ast::Typecast>(Arg, DstTy, CastKind));
     }
     
     std::cout << "Unhandled call to intrinsic: " << Name << std::endl;
