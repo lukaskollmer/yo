@@ -145,6 +145,7 @@ public:
     std::vector<std::shared_ptr<LocalStmt>> Statements;
     
     Composite() {}
+    Composite(std::vector<std::shared_ptr<LocalStmt>> Statements) : Statements(Statements) {}
 };
 
 
