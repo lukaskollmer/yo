@@ -12,23 +12,24 @@
 #include <iostream>
 #include "stdlib_sources.h"
 
+#include "util.h"
+
 
 #define MODULE(name) std::string_view(reinterpret_cast<const char *>(stdlib_##name##_yo), stdlib_##name##_yo_len)
 
 static std::map<std::string, std::string_view> StdlibModules = {
-    { ":std/array",     MODULE(std_array)     },
-    { ":std/string",    MODULE(std_string)    },
-    { ":runtime/casts", MODULE(runtime_casts) }
+    { ":std/array",      MODULE(std_array)      },
+    { ":std/string",     MODULE(std_string)     },
+    { ":runtime/casts",  MODULE(runtime_casts)  },
+    { ":runtime/memory", MODULE(runtime_memory) },
 };
 
 #undef MODULE
 
 
 std::string_view stdlib_resolution::GetContentsOfModuleWithName(const std::string &Name) {
-    try {
-        return StdlibModules.at(Name);
-    } catch(...) {
-        std::cout << "Error: Unable to find stdlib module '" << Name << "'\n";
-        throw;
+    if (auto Module = util::map::get_opt(StdlibModules, Name)) {
+        return *Module;
     }
+    LKFatalError("Unable to resolve import of stdlib module '%s'", Name.c_str());
 }
