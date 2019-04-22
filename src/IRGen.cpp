@@ -361,7 +361,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::VariableDecl> Decl) {
         if (!HasInferredType) {
             precondition(GuessType(Expr)->Equals(Type));
         }
-        Binding.Write(Codegen(Expr));
+        Codegen(std::make_shared<ast::Assignment>(Decl->Name, Decl->InitialValue));
     }
     
     return Alloca;
@@ -485,27 +485,28 @@ bool IRGenerator::TypecheckAndApplyTrivialCastIfPossible(std::shared_ptr<ast::Ex
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> Assignment) {
     // TODO should assignments return something?
     
+    auto runTypechecksForStore = [&](std::shared_ptr<ast::Expr> expr, TypeInfo *expectedType) -> auto {
+        TypeInfo *T;
+        if (!this->TypecheckAndApplyTrivialCastIfPossible(&expr, expectedType, &T)) {
+            LKFatalError("unable to store value of type '%s' into '%s'", T->Str().c_str(), expectedType->Str().c_str());
+        }
+        return expr;
+    };
+    
     if (auto Ident = std::dynamic_pointer_cast<ast::Identifier>(Assignment->Target)) {
         auto Binding = Scope.GetBinding(Ident->Value);
         if (!Binding) throw;
         
-        Binding->Write(Codegen(Assignment->Value));
+        Binding->Write(Codegen(runTypechecksForStore(Assignment->Value, Scope.GetType(Ident->Value))));
         return nullptr;
     }
     
     if (auto MemberAccess = std::dynamic_pointer_cast<ast::MemberAccess>(Assignment->Target)) {
         // In this case, the member access needs to be an lvalue, and should return an address, instead of a dereferenced
-        
         auto Dest = Codegen(MemberAccess, CodegenReturnValueKind::Address);
         precondition(Dest->getType()->isPointerTy());
-        auto DestTy = GuessType(Assignment->Target);
         
-        auto Expr = Assignment->Value;
-        TypeInfo *T;
-        if (!TypecheckAndApplyTrivialCastIfPossible(&Expr, DestTy, &T)) {
-            LKFatalError("unable to store value of type '%s' into '%s'", T->Str().c_str(), DestTy->Str().c_str());
-        }
-        
+        auto Expr = runTypechecksForStore(Assignment->Value, GuessType(MemberAccess));
         Builder.CreateStore(Codegen(Expr), Dest);
         return nullptr;
     }
