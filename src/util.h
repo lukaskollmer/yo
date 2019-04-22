@@ -97,6 +97,25 @@ private:
 #define defer(imp) LKDeferHandle CONCAT(__defer_handle__, __COUNTER__)(imp);
 
 
+
+
+namespace util {
+    struct _LKExitHandler {
+        std::function<void()> invoke;
+        _LKExitHandler(std::function<void()> invoke) : invoke(invoke) {}
+    };
+    
+    inline std::ostream& operator<<(std::ostream &OS, const _LKExitHandler &EH) {
+        OS << std::endl;
+        EH.invoke();
+        return OS;
+    }
+}
+
+#define fatalError util::_LKExitHandler([]() { raise(SIGABRT); });
+
+
+
 namespace util::typeinfo {
     // Demangling (forward to __cxa_demangle)
     std::string demangle(const char *name);
