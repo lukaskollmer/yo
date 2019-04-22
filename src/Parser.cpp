@@ -384,9 +384,9 @@ TypeInfo *Parser::ParseType() {
     }
     if (CurrentTokenKind() == TK::Asterisk) {
         Consume();
-        return TypeInfo::MakePointer(ParseType());
+        return ParseType()->getPointerTo();
     }
-    throw 0;
+    return nullptr;
 }
 
 
@@ -824,13 +824,19 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
                     IsTemplateArgumentListSpecfication = true;
                     Consume();
                     while (CurrentTokenKind() != TK::GreaterSign) { // TODO this might become a problem if we introduce an `<>` operator
-                        ExplicitlySpecifiedTemplateArgumentTypes.push_back(ParseType());
+                        auto Type = ParseType();
+                        if (!Type) {
+                            restore_pos(pos_saved_after_ident);
+                            return Ident;
+                        }
+                        ExplicitlySpecifiedTemplateArgumentTypes.push_back(Type);
                         if (CurrentTokenKind() == TK::Comma) {
                             Consume(); continue;
                         } else if (CurrentTokenKind() == TK::GreaterSign) {
                             Consume(); break;
                         } else {
-                            unhandled_token(CurrentToken()); // TODO this is where we need to backtrace, right?
+                            restore_pos(pos_saved_after_ident);
+                            return Ident;
                         }
                     }
                 }

@@ -12,6 +12,7 @@
 
 #include "Mangling.h"
 #include "util_llvm.h"
+#include "TemplateResolution.h"
 #include "Annotations.h"
 
 using namespace yo;
@@ -24,9 +25,7 @@ inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
 
 // IRGen
 
-
 llvm::LLVMContext IRGenerator::C;
-
 
 IRGenerator::IRGenerator(const std::string ModuleName) : Builder(C) {
     Module = llvm::make_unique<llvm::Module>(ModuleName, C);
@@ -832,10 +831,34 @@ std::optional<std::map<std::string, TypeInfo *>> IRGenerator::AttemptToResolveTe
     }
     
     for (auto Idx = ArgumentOffset; Idx < Call->Arguments.size(); Idx++) {
-        auto ParamTypename = Sig->Parameters[Idx]->Type->getName(); // Src
+        std::string ParamTypename;
+        auto ParamType = Sig->Parameters[Idx]->Type;
+        unsigned ParamIndirectionCount = 0;
+        
+        if (ParamType->IsPointer()) {
+            auto TI = ParamType;
+            while (TI->IsPointer()) {
+                ParamIndirectionCount += 1;
+                TI = TI->getPointee();
+            }
+            ParamTypename = TI->getName();
+        } else {
+            ParamTypename = ParamType->getName();
+        }
+        
+        // FUCK FUCK FUCK FUCK FUCK what if it is a fucking pointer
+        
+        // ParamType: *T
+        // ArgType  : *i64
+        // -> T := i64
+        
         if (auto Mapping = TemplateArgumentMapping.find(ParamTypename); Mapping != TemplateArgumentMapping.end()) {
             auto GuessedArgumentType = GuessType(Call->Arguments[Idx]);
             if (Mapping->second == TypeInfo::Unresolved) {
+                while (ParamIndirectionCount-- > 0) {
+                    precondition(GuessedArgumentType->IsPointer());
+                    GuessedArgumentType = GuessedArgumentType->getPointee();
+                }
                 Mapping->second = GuessedArgumentType;
             } else {
                 precondition(Mapping->second->Equals(GuessedArgumentType));
@@ -923,7 +946,18 @@ ResolvedFunction IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCall> Cal
         if (Target.Decl->Signature->IsTemplateFunction) {
             auto TemplateArgumentMapping = AttemptToResolveTemplateArgumentTypesForCall(Target.Decl, Call, ArgumentOffset);
             precondition(TemplateArgumentMapping.has_value());
-            return InstantiateTemplateFunctionForCall(Target.Decl, Call, ArgumentOffset, TemplateArgumentMapping.value());
+            //return InstantiateTemplateFunctionForCall(Target.Decl, Call, ArgumentOffset, TemplateArgumentMapping.value());
+            
+            auto ResolvedDecl = TemplateResolver::SpecializeWithTemplateMapping(Target.Decl, TemplateArgumentMapping.value());
+            llvm::Function *LLVMFunction;
+            if (ResolvedDecl->HasAnnotation(annotations::intrinsic)) {
+                LLVMFunction = nullptr;
+            } else {
+                RegisterFunction(ResolvedDecl);
+                LLVMFunction = WithCleanSlate([&]() { return llvm::dyn_cast<llvm::Function>(Codegen(ResolvedDecl)); });
+            }
+            
+            return ResolvedFunction(ResolvedDecl, LLVMFunction);
         }
         return Target;
     }
@@ -939,8 +973,7 @@ ResolvedFunction IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCall> Cal
     };
     
     std::vector<std::shared_ptr<ast::FunctionDecl>> TemplateFunctionTargets; // List of uninstantiated template functions that might be potential targets
-//    std::vector<std::pair<uint32_t, FunctionResolutionInfo>> Matches; // List of potential targets, with a score indicating how close a match they are
-    std::vector<FunctionResolutionMatchInfo> Matches;
+    std::vector<FunctionResolutionMatchInfo> Matches; // List of potential targets, with a score indicating how close a match they are
     bool HasPerfectMatch = false;
     
     
@@ -1019,6 +1052,7 @@ ResolvedFunction IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCall> Cal
     auto BestMatch = Matches.front();
     
     if (BestMatch.Decl->Signature->IsTemplateFunction && !BestMatch.LLVMFunction) {
+        throw; // TODO use the new template resolver instead!!!
         return InstantiateTemplateFunctionForCall(BestMatch.Decl, Call, ArgumentOffset, BestMatch.TemplateArgumentMapping);
     }
     
@@ -1042,6 +1076,9 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsig
         *SelectedOverload = ResolvedTarget.Decl->Signature;
     }
     
+    // TODO:
+    // - run argument type checks for intrinsics as well
+    // - check that the number of supplied explicit template arguments does't exceed the total number of supplied template arguments
     
     if (ResolvedTarget.Decl->HasAnnotation(annotations::intrinsic)) {
         return Codegen_HandleIntrinsic(ResolvedTarget.Decl->Signature, Call, ArgumentOffset);
@@ -1104,6 +1141,11 @@ llvm::Value *IRGenerator::Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionS
             ? ast::Typecast::CastKind::StaticCast
             : ast::Typecast::CastKind::Bitcast;
         return Codegen(std::make_shared<ast::Typecast>(Arg, DstTy, CastKind));
+    }
+    
+    if (Name == "sizeof") {
+        auto T = GetLLVMType(Call->ExplicitTemplateArgumentTypes[0]);
+        return llvm::ConstantInt::get(i8, Module->getDataLayout().getTypeAllocSize(T));
     }
     
     std::cout << "Unhandled call to intrinsic: " << Name << std::endl;
