@@ -357,9 +357,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::VariableDecl> Decl) {
     Scope.Insert(Decl->Name->Value, Type, Binding);
     
     if (auto Expr = Decl->InitialValue) {
-        if (!HasInferredType) {
-            precondition(GuessType(Expr)->Equals(Type));
-        }
+        // Q: Why create and handle an assignment to set the initial value, instead of just calling Binding.Write?
+        // A: The Assignment codegen also includes the trivial type transformations, whish we'd otherwise have to implement again in here
         Codegen(std::make_shared<ast::Assignment>(Decl->Name, Decl->InitialValue));
     }
     
@@ -425,7 +424,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ReturnStmt> ReturnStmt) {
     
     if (auto Expr = ReturnStmt->Expression) {
         TypeInfo *T;
-        if (!TypecheckAndApplyTrivialCastIfPossible(&Expr, F->ReturnType, &T)) {
+        if (!TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&Expr, F->ReturnType, &T)) {
             LKFatalError("Error: Can't return value of type '%s' from function '%s' returning '%s'", T->Str().c_str(), FName.c_str(), F->ReturnType->Str().c_str());
         }
         
@@ -461,7 +460,7 @@ bool IntegerLiteralFitsInType(uint64_t Value, TypeInfo *Type) {
 }
 
 
-bool IRGenerator::TypecheckAndApplyTrivialCastIfPossible(std::shared_ptr<ast::Expr> *Expr, TypeInfo *ExpectedType, TypeInfo **InitialTypeOfExpr) {
+bool IRGenerator::TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *Expr, TypeInfo *ExpectedType, TypeInfo **InitialTypeOfExpr) {
     auto Type = GuessType(*Expr);
     if (InitialTypeOfExpr) *InitialTypeOfExpr = Type;
     
@@ -486,7 +485,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> Assignment) {
     
     auto runTypechecksForStore = [&](std::shared_ptr<ast::Expr> expr, TypeInfo *expectedType) -> auto {
         TypeInfo *T;
-        if (!this->TypecheckAndApplyTrivialCastIfPossible(&expr, expectedType, &T)) {
+        if (!this->TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, expectedType, &T)) {
             LKFatalError("unable to store value of type '%s' into '%s'", T->Str().c_str(), expectedType->Str().c_str());
         }
         return expr;
@@ -786,29 +785,52 @@ llvm::Instruction::BinaryOps GetLLVMBinaryOpInstruction_Double(ast::BinaryOperat
 }
 
 
+bool IRGenerator::TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *Lhs, std::shared_ptr<ast::Expr> *Rhs, TypeInfo **LhsTy_out, TypeInfo **RhsTy_out) {
+    precondition(LhsTy_out && RhsTy_out);
+    
+    auto LhsTy = GuessType(*Lhs);
+    auto RhsTy = GuessType(*Rhs);
+    
+    *LhsTy_out = LhsTy;
+    *RhsTy_out = RhsTy;
+    
+    if (LhsTy->Equals(RhsTy)) {
+        return true;
+    }
+    
+    // TODO add some kind of "types are compatible for this kind of binary operation" check
+    
+    if (!LhsTy->IsIntegerType() || !RhsTy->IsIntegerType()) {
+        LKFatalError("oh no");
+    }
+    
+    if (std::dynamic_pointer_cast<ast::NumberLiteral>(*Lhs)) {
+        // lhs is literal, cast to type of ths
+        *Lhs = std::make_shared<ast::Typecast>(*Lhs, RhsTy, ast::Typecast::CastKind::StaticCast);
+        *LhsTy_out = RhsTy;
+    } else if (std::dynamic_pointer_cast<ast::NumberLiteral>(*Rhs)) {
+        // rhs is literal, cast to type of lhs
+        *Rhs = std::make_shared<ast::Typecast>(*Rhs, LhsTy, ast::Typecast::CastKind::StaticCast);
+        *RhsTy_out = LhsTy;
+    } else {
+        return false;
+    }
+    
+    return true;
+}
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::BinaryOperation> Binop) {
-    auto LHS = Codegen(Binop->LHS);
-    auto RHS = Codegen(Binop->RHS);
+    auto Lhs = Binop->LHS;
+    auto Rhs = Binop->RHS;
+    TypeInfo *LhsTy, *RhsTy;
     
-    if (!Binop_AttemptToResolvePotentialIntTypeMismatchesByCastingNumberLiteralsIfPossible(&LHS, &RHS)) {
-        llvm::outs() << "Unable to resolve type mismatch between comparison operands " << LHS->getType() << " and " << RHS->getType() << "\n";
-        throw;
+    if (!TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&Lhs, &Rhs, &LhsTy, &RhsTy)) {
+        LKFatalError("unable to create binop for supplied operand types '%s' and '%s'", LhsTy->Str().c_str(), RhsTy->Str().c_str());
     }
     
-    llvm::Instruction::BinaryOps Op;
-    auto T = LHS->getType(); // same as RHS->getType()
-    if (T->isIntegerTy()) {
-        Op = GetLLVMBinaryOpInstruction_Int(Binop->Op, IsSignedType(T));
-    } else if (T->isDoubleTy()) {
-        Op = GetLLVMBinaryOpInstruction_Double(Binop->Op);
-    } else {
-        llvm::outs() << "Unhandled tyoe in binop: " << T << "\n";
-        throw;
-    }
-    
-    return Builder.CreateBinOp(Op, LHS, RHS);
+    precondition(LhsTy->Equals(RhsTy));
+    return Builder.CreateBinOp(GetLLVMBinaryOpInstruction_Int(Binop->Op, LhsTy->IsSigned()), Codegen(Lhs), Codegen(Rhs));
 }
 
 
@@ -1108,7 +1130,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsig
         
         auto Expr = Call->Arguments[I];
         TypeInfo *T;
-        if (!TypecheckAndApplyTrivialCastIfPossible(&Expr, ExpectedType, &T)) {
+        if (!TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&Expr, ExpectedType, &T)) {
             LKFatalError("Type mismatch in call to '%s'. Arg #%i: expected '%s', got '%s'", Call->Target->Value.c_str(), I, ExpectedType->Str().c_str(), T->Str().c_str());
         }
         
@@ -1157,37 +1179,77 @@ llvm::Value *IRGenerator::Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionS
 #pragma mark - Conditions
 
 
-llvm::CmpInst::Predicate GetMatchingLLVMCmpInstPredicateForComparisonOperator(ast::Comparison::Operation Op) {
+llvm::CmpInst::Predicate GetMatchingLLVMCmpInstPredicateForComparisonOperator_Float(ast::Comparison::Operation Op) {
+    using Operation = ast::Comparison::Operation;
+    using Predicate = llvm::CmpInst::Predicate;
+    
+    switch (Op) {
+        case Operation::EQ: return Predicate::FCMP_OEQ;
+        case Operation::NE: return Predicate::FCMP_ONE;
+        case Operation::LT: return Predicate::FCMP_OLT;
+        case Operation::LE: return Predicate::FCMP_OLE;
+        case Operation::GT: return Predicate::FCMP_OGT;
+        case Operation::GE: return Predicate::FCMP_OGE;
+    }
+}
+
+llvm::CmpInst::Predicate GetMatchingLLVMCmpInstPredicateForComparisonOperator_Int(ast::Comparison::Operation Op, bool Signed) {
     using Operation = ast::Comparison::Operation;
     using Predicate = llvm::CmpInst::Predicate;
     
     switch (Op) {
         case Operation::EQ: return Predicate::ICMP_EQ;
         case Operation::NE: return Predicate::ICMP_NE;
-        case Operation::LT: return Predicate::ICMP_SLT; // TODO differentiate between signed and unsigned
-        case Operation::LE: return Predicate::ICMP_SLE;
-        case Operation::GT: return Predicate::ICMP_SGT;
-        case Operation::GE: return Predicate::ICMP_SGE;
+        case Operation::LT: return Signed ? Predicate::ICMP_SLT : Predicate::ICMP_ULT;
+        case Operation::LE: return Signed ? Predicate::ICMP_SLE : Predicate::ICMP_ULE;
+        case Operation::GT: return Signed ? Predicate::ICMP_SGT : Predicate::ICMP_UGT;
+        case Operation::GE: return Signed ? Predicate::ICMP_SGE : Predicate::ICMP_UGE;
     }
 }
 
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Comparison> Comparison) {
-    auto LHS = Codegen(Comparison->LHS);
-    auto RHS = Codegen(Comparison->RHS);
+    auto LhsTy = GuessType(Comparison->LHS);
+    auto RhsTy = GuessType(Comparison->RHS);
     
-    precondition(LHS->getType()->isIntegerTy());
+    llvm::CmpInst::Predicate Pred;
+    llvm::Value *LHS, *RHS;
     
-    // TODO signed/unsigned types
-    //assert_implication(IsSignedType(LHS->getType()), IsSignedType(RHS->getType()));
-    
-    if (!Binop_AttemptToResolvePotentialIntTypeMismatchesByCastingNumberLiteralsIfPossible(&LHS, &RHS)) {
-        llvm::outs() << "Type mismatch: Unable to compare incompatible types '" << LHS->getType() << "' and '" << RHS->getType() << "'\n";
-        throw;
+    // Floats?
+    if (LhsTy->Equals(TypeInfo::Double) && RhsTy->Equals(TypeInfo::Double)) {
+        return Builder.CreateFCmp(GetMatchingLLVMCmpInstPredicateForComparisonOperator_Float(Comparison->Op),
+                                  Codegen(Comparison->LHS), Codegen(Comparison->RHS));
     }
     
-    auto Pred = GetMatchingLLVMCmpInstPredicateForComparisonOperator(Comparison->Op);
+    // Are both integers?
+    if (!LhsTy->IsIntegerType() || !RhsTy->IsIntegerType()) {
+        LKFatalError("Cannot compare unrelated types '%s' and '%s'", LhsTy->Str().c_str(), RhsTy->Str().c_str());
+    }
+    
+    if (LhsTy->Equals(RhsTy)) {
+        Pred = GetMatchingLLVMCmpInstPredicateForComparisonOperator_Int(Comparison->Op, LhsTy->IsSigned());
+        LHS = Codegen(Comparison->LHS);
+        RHS = Codegen(Comparison->RHS);
+    } else {
+        // Both are integers, but different types
+        
+        TypeInfo *CastDestTy = TypeInfo::Unresolved;
+        auto LargerSize = std::max(LhsTy->getSize(), RhsTy->getSize());
+        
+        if (LargerSize <= TypeInfo::kSizeof_i32) {
+            CastDestTy = TypeInfo::i32;
+        } else {
+            precondition(LargerSize == TypeInfo::kSizeof_i64);
+            CastDestTy = TypeInfo::i64;
+        }
+        
+        LHS = Codegen(std::make_shared<ast::Typecast>(Comparison->LHS, CastDestTy, ast::Typecast::CastKind::StaticCast));
+        RHS = Codegen(std::make_shared<ast::Typecast>(Comparison->RHS, CastDestTy, ast::Typecast::CastKind::StaticCast));
+        
+        Pred = GetMatchingLLVMCmpInstPredicateForComparisonOperator_Int(Comparison->Op, LhsTy->IsSigned() || RhsTy->IsSigned());
+    }
+    
     return Builder.CreateICmp(Pred, LHS, RHS);
 }
 
@@ -1313,14 +1375,14 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
 
     switch (TI->getKind()) {
         case TypeInfo::Kind::Primitive: {
-#define HANDLE(name) if (TI->Equals(TypeInfo::name)) { TI->setLLVMType(name); return name; }
-            HANDLE(i8)
-            HANDLE(i16)
-            HANDLE(i32)
-            HANDLE(i64)
-            HANDLE(Bool)
-            HANDLE(Double)
-            HANDLE(Void)
+#define HANDLE(name, _llvmtype) if (TI->Equals(TypeInfo::name)) { TI->setLLVMType(_llvmtype); return _llvmtype; }
+            HANDLE(i8, i8)      HANDLE(u8, i8)
+            HANDLE(i16, i16)    HANDLE(u16, i16)
+            HANDLE(i32, i32)    HANDLE(u32, i32)
+            HANDLE(i64, i64)    HANDLE(u64, i64)
+            HANDLE(Bool, Bool)
+            HANDLE(Double, Double)
+            HANDLE(Void, Void)
 #undef HANDLE
             LKFatalError("Unhandled primitive type");
         }
@@ -1372,43 +1434,11 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
 
 
 
-// Inserts casts if operand types mismatch
-// For example, the expression `x` + 5` wouldn't compile if `x` was i8 (since the literal is inferred to be i64)
-// But literals can trivially be cast to the expected type
-// Returns false if there is a type mismatch, but we were unable to resolve it
-bool IRGenerator::Binop_AttemptToResolvePotentialIntTypeMismatchesByCastingNumberLiteralsIfPossible(llvm::Value **LHS, llvm::Value **RHS) {
-    auto T_LHS = (*LHS)->getType();
-    auto T_RHS = (*RHS)->getType();
-    
-    if (T_LHS == T_RHS) return true;
-    
-    // There's no need to check for doubles here, since there's only one double type
-    if (!(T_LHS->isIntegerTy() && T_RHS->isIntegerTy())) {
-        llvm::outs() << "Unable to compare incompatible types " << T_LHS << " and " << T_RHS << "\n" ;
-        throw;
-    }
-    
-    if ((*LHS)->getValueID() == llvm::Value::ValueTy::ConstantIntVal) {
-        // lhs is literal, cast to type of rhs
-        *LHS = Builder.CreateIntCast(*LHS, T_RHS, IsSignedType(T_RHS));
-    } else if ((*RHS)->getValueID() == llvm::Value::ValueTy::ConstantIntVal) {
-        // rhs is literal, cast to type of lhs
-        *RHS = Builder.CreateIntCast(*RHS, T_LHS, IsSignedType(T_LHS));
-    } else {
-        return false;
-    }
-    return true;
-}
-
-
-bool IRGenerator::IsIntegerType(TypeInfo *TI) {
-    return TI == TypeInfo::i8 || TI == TypeInfo::i16 || TI == TypeInfo::i32 || TI == TypeInfo::i64;
-}
-
+// TODO what does this do / why is it here / is it still needed?
 bool IRGenerator::IsTriviallyConvertible(TypeInfo *SrcType, TypeInfo *DestType) {
     if (SrcType->Equals(DestType)) return true;
     
-    if (IsIntegerType(SrcType) && IsIntegerType(DestType)) {
+    if (SrcType->IsIntegerType() && DestType->IsIntegerType()) {
         throw;
     }
     
@@ -1418,7 +1448,7 @@ bool IRGenerator::IsTriviallyConvertible(TypeInfo *SrcType, TypeInfo *DestType) 
 
 
 bool IRGenerator::ValueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiteral> Number, TypeInfo *TI) {
-    precondition(Number->Type == ast::NumberLiteral::NumberType::Integer && IsIntegerType(TI));
+    precondition(Number->Type == ast::NumberLiteral::NumberType::Integer && TI->IsIntegerType());
     precondition(!Number->IsSigned);
     
     auto Value = Number->Value;

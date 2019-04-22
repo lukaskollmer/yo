@@ -146,15 +146,22 @@ private:
     
     // Types
     llvm::Type *GetLLVMType(TypeInfo *TI);
-    bool IsSignedType(llvm::Type *T) {
-        return true;
-    }
     
-    bool Binop_AttemptToResolvePotentialIntTypeMismatchesByCastingNumberLiteralsIfPossible(llvm::Value **LHS, llvm::Value **RHS);
+    //bool Binop_AttemptToResolvePotentialIntTypeMismatchesByCastingNumberLiteralsIfPossible(llvm::Value **LHS, llvm::Value **RHS);
     
-    // returns true on success
-    // TypeofExpr: Initial (unchanged) type of `Expr`
-    bool TypecheckAndApplyTrivialCastIfPossible(std::shared_ptr<ast::Expr> *Expr, TypeInfo *ExpectedType, TypeInfo **InitialTypeOfExpr = nullptr);
+    // Applying trivial number literal casts
+    
+    // The following 2 methods to two things:
+    // 1. Check whether the type of `Expr` is the same as `ExpectedType`
+    // 2. Apply a trivial cast to Expr, if and only if Expr is a number literal that can fit in the expected type
+    // Version 2 does the same thing, but for binops. if necessary, it might cast either `Lhs` or `Rhs` to the type of `Rhs` or `Lhs` (respectively)
+    // both return true on success
+    
+    // `TypeOfExpr`: initial (unchanged) type of `Expr`
+    bool TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *Expr, TypeInfo *ExpectedType, TypeInfo **InitialTypeOfExpr = nullptr);
+    
+    // `{Lhs|Rhs}Ty`: type of lhs/rhs, after applying typecasts, if casts were applied
+    bool TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *Lhs, std::shared_ptr<ast::Expr> *Rhs, TypeInfo **LhsTy, TypeInfo **RhsTy);
     
     
     llvm::Value *GenerateStructInitializer(std::shared_ptr<ast::StructDecl> Struct);
@@ -172,8 +179,6 @@ private:
     
     // Returns true if SrcType is trivially convertible to DestType
     bool IsTriviallyConvertible(TypeInfo *SrcType, TypeInfo *DestType);
-    bool IsIntegerType(TypeInfo *TI);
-    
     bool ValueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiteral> Number, TypeInfo *TI);
     
     

@@ -51,15 +51,15 @@ TypeInfo *TypeInfo::getType_##name() {          \
 }
 
 
-TI_GETTER(i8, 1)
-TI_GETTER(i16, 2)
-TI_GETTER(i32, 4)
-TI_GETTER(i64, 8)
+TI_GETTER(i8, kSizeof_i8)
+TI_GETTER(i16, kSizeof_i16)
+TI_GETTER(i32, kSizeof_i32)
+TI_GETTER(i64, kSizeof_i64)
 
-TI_GETTER(u8, 1)
-TI_GETTER(u16, 2)
-TI_GETTER(u32, 4)
-TI_GETTER(u64, 8)
+TI_GETTER(u8, kSizeof_u8)
+TI_GETTER(u16, kSizeof_u16)
+TI_GETTER(u32, kSizeof_u32)
+TI_GETTER(u64, kSizeof_u64)
 
 TI_GETTER(void, 0)
 TI_GETTER(bool, 1)
@@ -134,14 +134,15 @@ bool TypeInfo::IsIntegerType() {
 bool TypeInfo::Equals(TypeInfo *Other) {
     if (this == Other) return true;
     if (Other == Unresolved) return false; // we know that this is nonnull bc of the check above
+    if (this->Name_ != Other->Name_) return false;
     
     // Typealiases
     if (Kind_ == Kind::Typealias && this->Pointee_->Equals(Other)) return true;
     if (Other->Kind_ == Kind::Typealias && Other->Pointee_->Equals(this)) return true;
     
-    
+    //std::cout << this->Str() << ", " << Other->Str() << std::endl;
     if (Kind_ != Other->Kind_ || Size_ != Other->Size_) return false;
-    if (Kind_ == Kind::Primitive && this->IsSigned() != Other->IsSigned()) return false;
+    //if (Kind_ == Kind::Primitive && this->IsSigned() != Other->IsSigned()) return false;
     
     
     if ((Kind_ == Kind::Pointer || Kind_ == Kind::Typealias) && Kind_ == Other->Kind_) {
@@ -153,7 +154,7 @@ bool TypeInfo::Equals(TypeInfo *Other) {
     throw; // TODO implement the rest
 }
 
-std::string TypeInfo::Str() {
+std::string TypeInfo::Str() const {
     if (this == TypeInfo::Unresolved) {
         // We have to check this one first since `this` is a nullpointer for unresolved // TODO: don't map unresolved to the nullpointer
         return "<unresolved>";

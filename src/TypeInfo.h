@@ -68,7 +68,7 @@ public:
     }
     
     
-    std::string Str();
+    std::string Str() const;
     bool Equals(TypeInfo *Other);
     
     unsigned getIndirectionCount();
@@ -126,3 +126,7 @@ public:
     static inline constexpr uint8_t kSizeof_u32 = 4;
     static inline constexpr uint8_t kSizeof_u64 = 8;
 };
+
+inline std::ostream &operator<<(std::ostream &OS, const TypeInfo *TI) {
+    return OS << TI->Str();
+}
