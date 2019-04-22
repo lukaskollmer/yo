@@ -77,6 +77,8 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
                 return append("l");
             } else if (TI->Equals(TypeInfo::i64)) {
                 return append("I");
+            } else if (TI->Equals(TypeInfo::Void)) {
+                return append("v");
             }
             throw;
         }
