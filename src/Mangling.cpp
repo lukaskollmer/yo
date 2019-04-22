@@ -88,6 +88,7 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
             return append("{").append(TI->getName()).append("}");
         
         case TypeInfo::Kind::Function:
+        case TypeInfo::Kind::Typealias:
             throw;
         
         case TypeInfo::Kind::Unresolved:
