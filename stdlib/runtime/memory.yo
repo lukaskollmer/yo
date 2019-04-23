@@ -6,7 +6,7 @@ extern fn malloc(i64): *i8;
 fn sizeof<T>(): u8 {}
 
 fn alloc<T>(count: i64): *T {
-    let allocCount = count * sizeof<T>();
+    let allocCount = count * static_cast<u8, i64>(sizeof<T>());
     let base = malloc(allocCount);
     let i = 0;
     while i < allocCount {
