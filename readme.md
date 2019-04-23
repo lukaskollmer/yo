@@ -25,6 +25,7 @@ You can find some documentation [here](https://yo.lukaskollmer.me)
 Build requirements:
 - cmake, make
 - llvm 8
+- python 3.6+
 - clang (gcc probably works as well)
 
 
