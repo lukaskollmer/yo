@@ -3,7 +3,7 @@ use ":runtime/casts";
 extern fn malloc(i64): *i8;
 
 #[intrinsic]
-fn sizeof<T>(): i8 {}
+fn sizeof<T>(): u8 {}
 
 fn alloc<T>(count: i64): *T {
     let allocCount = count * sizeof<T>();
