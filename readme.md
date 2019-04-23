@@ -1,8 +1,6 @@
 # yo
 > the yo programming language
 
-> **Note:** There's a partially working llvm-based version in the [`rewrite`](https://github.com/lukaskollmer/yo/tree/rewrite) branch
-
 <br>
 
 Yo is a compiled programming language with strong static typing.
