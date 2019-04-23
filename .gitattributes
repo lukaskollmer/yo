@@ -1,2 +1,1 @@
 *.yo linguist-language=Rust
-yo/deps/* linguist-vendored=true

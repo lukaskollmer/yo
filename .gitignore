@@ -1,3 +1,27 @@
-build/
+# CMake
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+
+# Xcode
+yo.xcodeproj/
+
+# Other
 temp/
-*.xcuserstate
+yo.build/
+Debug/
+a.out
+
+stdlib_old/
+
+# Automatically generated files
+src/Version.h
+src/stdlib_sources.h

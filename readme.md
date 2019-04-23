@@ -5,7 +5,7 @@
 
 <br>
 
-Yo is an interpreted, statically typed programming language with a rust-inspired syntax. This repo includes a parser, compiler and interpreter, as well as a small standard library.
+Yo is a compiled programming language with strong static typing.
 
 ## Example
 
@@ -13,30 +13,21 @@ Yo is an interpreted, statically typed programming language with a rust-inspired
 use "runtime";
 use "io";
 
-fn main(): int {
+fn main(): i32 {
     io::print("Hello World");
 }
 ```
 
 
 ## Documentation
-You can find some documentation [here](https://lukaskollmer.me/yo)
+You can find some documentation [here](https://yo.lukaskollmer.me)
 
 
 ## Usage
-Build requirements: Swift 4.2, make, xcodebuild, xcpretty
-
-```bash
-# Get the source code
-$ git clone https://github.com/lukaskollmer/yo && cd yo
-
-# Build
-$ make build [CONFIG=Debug|Release]  # default config is Debug
-
-# Run
-$ ./build/Debug/yo [options] <input>  # pass --help for a list of all options
-```
-
+Build requirements:
+- cmake, make
+- llvm 7
+- clang (gcc probably works as well)
 
 
 ## License

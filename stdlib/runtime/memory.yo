@@ -1,0 +1,18 @@
+use ":runtime/casts";
+
+extern fn malloc(i64): *i8;
+
+#[intrinsic]
+fn sizeof<T>(): i8 {}
+
+fn alloc<T>(count: i64): *T {
+    let allocCount = count * sizeof<T>();
+    let base = malloc(allocCount);
+    let i = 0;
+    while i < allocCount {
+        base[i] = 0;
+        i += 1;
+    }
+    return reinterpret_cast<*i8, *T>(base);
+}
+
