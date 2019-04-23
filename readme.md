@@ -24,7 +24,7 @@ You can find some documentation [here](https://yo.lukaskollmer.me)
 ## Usage
 Build requirements:
 - cmake, make
-- llvm 7
+- llvm 8
 - clang (gcc probably works as well)
 
 

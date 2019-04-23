@@ -7,7 +7,7 @@ set(YO_STDLIB_PATH "${CMAKE_BINARY_DIR}/stdlib")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE Debug)
 
-find_package(LLVM 7 REQUIRED CONFIG)
+find_package(LLVM 8 REQUIRED CONFIG)
 find_package(PythonInterp 3.6 REQUIRED)
 
 include_directories(${LLVM_INCLUDE_DIRS})
