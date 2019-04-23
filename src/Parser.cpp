@@ -232,14 +232,22 @@ std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
 std::shared_ptr<StructDecl> Parser::ParseStructDecl() {
     assert_current_token_and_consume(TK::Struct);
     
-    auto Name = ParseIdentifier();
+    auto Decl = std::make_shared<StructDecl>();
+    Decl->Name = ParseIdentifier();
+    
+    if (CurrentTokenKind() == TK::LessThanSign) {
+        Consume();
+        while (CurrentTokenKind() != TK::GreaterSign) {
+            Decl->TemplateArguments.push_back(ParseIdentifier()->Value);
+            if (CurrentTokenKind() == TK::Comma) Consume();
+        }
+        assert_current_token_and_consume(TK::GreaterSign);
+    }
     assert_current_token_and_consume(TK::OpeningCurlyBraces);
     
-    auto Attributes = ParseParameterList();
+    Decl->Attributes = ParseParameterList();
     assert_current_token_and_consume(TK::ClosingCurlyBraces);
-    
-    return std::make_shared<StructDecl>(Name, Attributes);
-    
+    return Decl;
 }
 
 

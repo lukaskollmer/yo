@@ -390,4 +390,17 @@ public:
     LogicalOperation(Operation Op, std::shared_ptr<Expr> LHS, std::shared_ptr<Expr> RHS) : Op(Op), LHS(LHS), RHS(RHS) {}
 };
 
+
+class UnaryExpr : public Expr {
+public:
+    enum class Operation {
+        Negate, BitwiseNot, LogicalNegation
+    };
+    
+    Operation Op;
+    std::shared_ptr<ast::Expr> Expr;
+    
+    UnaryExpr(Operation Op, std::shared_ptr<ast::Expr> Expr) : Op(Op), Expr(Expr) {}
+};
+
 NS_END
