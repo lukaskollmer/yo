@@ -1125,10 +1125,10 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsig
     auto NumFixedArgs = FT->getNumParams() - ArgumentOffset;
 
     
-    for (auto I = ArgumentOffset; I < NumFixedArgs; I++) {
+    for (auto I = ArgumentOffset; I < FT->getNumParams(); I++) {
         auto ExpectedType = ResolvedTarget.Decl->Signature->Parameters[I]->Type;
         
-        auto Expr = Call->Arguments[I];
+        auto Expr = Call->Arguments[I - ArgumentOffset];
         TypeInfo *T;
         if (!TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&Expr, ExpectedType, &T)) {
             LKFatalError("Type mismatch in call to '%s'. Arg #%i: expected '%s', got '%s'", Call->Target->Value.c_str(), I, ExpectedType->Str().c_str(), T->Str().c_str());
