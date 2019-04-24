@@ -102,8 +102,6 @@ private:
     void RegisterStructDecl(std::shared_ptr<ast::StructDecl> Struct);
     void RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock);
     
-    void VerifyFunctionDeclarations();
-    
     
     // lvalue/rvalue
     enum class CodegenReturnValueKind {

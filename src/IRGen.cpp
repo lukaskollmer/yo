@@ -51,7 +51,6 @@ IRGenerator::IRGenerator(const std::string ModuleName) : Builder(C) {
 
 void IRGenerator::Codegen(ast::AST &Ast) {
     Preflight(Ast);
-    VerifyFunctionDeclarations();
     
     for (auto &Node : Ast) {
         Codegen(Node);
@@ -69,7 +68,7 @@ std::string MangleFullyResolved(T Function) {
 }
 
 void IRGenerator::Preflight(ast::AST &Ast) {
-    // Q: Why collect the different kinds of top level decls first and then process them, instead of simply processing them, in the for loop?
+    // Q: Why collect the different kinds of top level decls first and then process them, instead of simply processing them all in a single for loop?
     // A: What if a function uses a type that is declared at some later point, or in another module? it's important all of these are processed in the correct order
     std::vector<std::shared_ptr<ast::TypealiasDecl>>        Typealiases;
     std::vector<std::shared_ptr<ast::FunctionDecl>>         FunctionDecls;
@@ -144,7 +143,7 @@ void IRGenerator::RegisterFunction(std::shared_ptr<ast::FunctionDecl> Function) 
     std::string CanonicalName = mangling::MangleCanonicalNameForSignature(Signature);
     std::string ResolvedName = MangleFullyResolved(Function);
     
-    precondition(M->getFunction(ResolvedName) == nullptr);
+    precondition(M->getFunction(ResolvedName) == nullptr, fmt_c("Redefinition of function '%s'", ResolvedName.c_str())); // TODO print the signature instead!
     
     auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->HasAnnotation(annotations::variadic));
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, ResolvedName, M);
@@ -222,17 +221,6 @@ void IRGenerator::RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock) {
     }
 }
 
-
-
-
-
-#pragma mark - FunctionDecl Verification
-
-// Make sure there's no ambiguity
-void IRGenerator::VerifyFunctionDeclarations() {
-    // TODO
-    // make sure all function signatures are unique
-}
 
 
 # pragma mark - Codegen
