@@ -1149,11 +1149,9 @@ llvm::Value *IRGenerator::Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionS
     auto Name = mangling::MangleCanonicalNameForSignature(Signature);
     
     if (Name == "static_cast" || Name == "reinterpret_cast") {
-        auto SrcTy = Call->ExplicitTemplateArgumentTypes[0];
-        auto DstTy = Call->ExplicitTemplateArgumentTypes[1];
+        // TODO somehow use the SrcTy, if explicitly given?
+        auto DstTy = Call->ExplicitTemplateArgumentTypes[0];
         auto Arg = Call->Arguments[0];
-        
-        precondition(GuessType(Arg)->Equals(SrcTy));
         auto CastKind = Name == "static_cast"
             ? ast::Typecast::CastKind::StaticCast
             : ast::Typecast::CastKind::Bitcast;
