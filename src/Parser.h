@@ -32,6 +32,8 @@ enum class PrecedenceGroup : uint8_t {
     Addition,
     Multiplication,
     Bitshift,
+    
+    PrefixOperator
 };
 
 
@@ -99,6 +101,7 @@ private:
     
     std::shared_ptr<ast::NumberLiteral> ParseNumberLiteral();
     std::shared_ptr<ast::StringLiteral> ParseStringLiteral();
+    std::shared_ptr<ast::UnaryExpr> ParseUnaryExpr();
     
     // Why do these return optional?
     // Binop and Comparison operators can have the same initial token (ie, << and <, or & and &&)

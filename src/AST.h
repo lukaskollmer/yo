@@ -239,6 +239,10 @@ public:
     const NumberType Type;
     
     explicit NumberLiteral(uint64_t Value, NumberType Type) : Value(Value), Type(Type) {}
+    
+    static std::shared_ptr<NumberLiteral> Integer(uint64_t Value) {
+        return std::make_shared<NumberLiteral>(Value, NumberType::Integer);
+    }
 };
 
 

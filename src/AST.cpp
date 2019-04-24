@@ -163,6 +163,15 @@ std::string NumberTypeToString(NumberLiteral::NumberType Type) {
     }
 }
 
+std::string UnaryExprOpToString(UnaryExpr::Operation Op) {
+    using E = UnaryExpr::Operation;
+    switch (Op) {
+        CASE(Negate)
+        CASE(BitwiseNot)
+        CASE(LogicalNegation)
+    }
+}
+
 #undef CASE
 
 
@@ -244,6 +253,9 @@ std::string to_string(T arg) {
         
     } else if constexpr(std::is_same_v<T, NumberLiteral::NumberType>) {
         return NumberTypeToString(arg);
+        
+    } else if constexpr(std::is_same_v<T, UnaryExpr::Operation>) {
+        return UnaryExprOpToString(arg);
     
     } else if constexpr(std::is_convertible_v<T, std::shared_ptr<Node>> || (std::is_pointer_v<T> && std::is_base_of_v<Node, typename std::remove_pointer_t<T>>)) {
         if (!arg) return "<nullptr>";
@@ -276,6 +288,7 @@ using Mirror = std::vector<AttributeDescription>;
 
 
 Mirror Reflect(FunctionSignature *Signature) {
+    // TODO use the << operator instead?
     return {
         { "name", Signature->Name },
         { "kind", Signature->Kind },
@@ -446,6 +459,13 @@ Mirror Reflect(StringLiteral *String) {
     };
 }
 
+Mirror Reflect(UnaryExpr *UnaryExpr) {
+    return {
+        { "operation", UnaryExpr->Op },
+        { "expr", UnaryExpr->Expr }
+    };
+}
+
 
 Mirror Reflect(Node *Node) {
 #define HANDLE(T) if (auto X = dynamic_cast<T*>(Node)) return Reflect(X);
@@ -470,6 +490,8 @@ Mirror Reflect(Node *Node) {
     HANDLE(StructDecl)
     HANDLE(ImplBlock)
     HANDLE(StringLiteral)
+    HANDLE(FunctionSignature)
+    HANDLE(UnaryExpr)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;

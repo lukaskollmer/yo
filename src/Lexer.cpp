@@ -54,6 +54,7 @@ static std::map<std::string, Token::TokenKind> TokenKindMappings = {
     { "-" , TK::Minus },
     { "/" , TK::ForwardSlash },
     { "%" , TK::PercentageSign },
+    { "~" , TK::Tilde },
     
     { "&" , TK::Ampersand },
     { "|" , TK::Pipe },

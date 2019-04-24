@@ -8,7 +8,10 @@
 
 #include "Parser.h"
 
+#include <string>
+#include <vector>
 #include <map>
+#include <array>
 #include <fstream>
 #include <sstream>
 #include "Mangling.h"
@@ -698,6 +701,10 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
     }
     
     if (!E) {
+        E = ParseUnaryExpr();
+    }
+    
+    if (!E) {
         // TODO support string literals as first elements in a ast::MemberAccess?
         E = ParseStringLiteral();
     }
@@ -966,4 +973,19 @@ std::shared_ptr<StringLiteral> Parser::ParseStringLiteral() {
     
     Consume();
     return std::make_shared<StringLiteral>(Value, Kind);
+}
+
+
+static MappedTokenSet<ast::UnaryExpr::Operation> UnaryOperators = {
+    { TK::Minus, UnaryExpr::Operation::Negate },
+    { TK::Tilde, UnaryExpr::Operation::BitwiseNot },
+    { TK::ExclamationMark, UnaryExpr::Operation::LogicalNegation}
+};
+
+std::shared_ptr<UnaryExpr> Parser::ParseUnaryExpr() {
+    if (!UnaryOperators.Contains(CurrentTokenKind())) return nullptr;
+    auto Op = UnaryOperators[CurrentTokenKind()];
+    Consume();
+    auto Expr = ParseExpression(PrecedenceGroup::PrefixOperator);
+    return std::make_shared<UnaryExpr>(Op, Expr);
 }

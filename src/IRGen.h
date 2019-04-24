@@ -131,8 +131,9 @@ private:
     
     llvm::Value *Codegen(std::shared_ptr<ast::Typecast>);
     llvm::Value *Codegen(std::shared_ptr<ast::BinaryOperation>);
-    llvm::Value *Codegen(std::shared_ptr<ast::Identifier>, CodegenReturnValueKind);
+    llvm::Value *Codegen(std::shared_ptr<ast::UnaryExpr>);
     
+    llvm::Value *Codegen(std::shared_ptr<ast::Identifier>, CodegenReturnValueKind);
     llvm::Value *Codegen(std::shared_ptr<ast::MemberAccess>, CodegenReturnValueKind);
     
     llvm::Value *Codegen(std::shared_ptr<ast::Comparison>);

@@ -51,7 +51,7 @@ public:
         ClosingCurlyBraces,
         OpeningSquareBrackets,
         ClosingSquareBrackets,
-        Period, Hashtag,
+        Period, Hashtag, Tilde,
         Comma, Colon, Semicolon, EqualsSign, ExclamationMark,
         
         Asterisk, Plus, Minus, ForwardSlash, PercentageSign,

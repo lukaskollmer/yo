@@ -268,6 +268,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr, CodegenReturn
     HANDLE(Expr, Typecast)
     HANDLE(Expr, MemberAccess, ReturnValueKind)
     HANDLE(Expr, StringLiteral)
+    HANDLE(Expr, UnaryExpr);
     
     unhandled_node(Expr)
 }
@@ -1174,6 +1175,31 @@ llvm::Value *IRGenerator::Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionS
 
 
 
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::UnaryExpr> UnaryExpr) {
+    auto Expr = UnaryExpr->Expr;
+    
+    switch (UnaryExpr->Op) {
+        case ast::UnaryExpr::Operation::Negate:
+            return Builder.CreateNeg(Codegen(Expr));
+        
+        case ast::UnaryExpr::Operation::BitwiseNot:
+            return Builder.CreateNot(Codegen(Expr));
+        
+        case ast::UnaryExpr::Operation::LogicalNegation: {
+            // TODO if Expr is a pointer, maybe use something like Builder.CreateIsNotNull?
+            auto T = GuessType(Expr);
+            precondition(T->Equals(TypeInfo::Bool) || T->IsPointer() || T->IsIntegerType());
+            return Builder.CreateIsNull(Codegen(Expr)); // TODO this seems like a cop-out answer?
+        }
+    }
+}
+
+
+
+
+
+
 #pragma mark - Conditions
 
 
@@ -1512,6 +1538,10 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::Expr> Expr) {
             case ast::StringLiteral::StringLiteralKind::ByteString:
                 return TypeInfo::i8_ptr;
         }
+    }
+    
+    IF(UnaryExpr, ast::UnaryExpr) {
+        return GuessType(UnaryExpr->Expr);
     }
     
     LKFatalError("Unhandled node %s", util::typeinfo::GetTypename(*Expr).c_str());
