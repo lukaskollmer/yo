@@ -64,23 +64,33 @@ std::string mangling::MangleCanonicalNameForSignature(std::shared_ptr<ast::Funct
 }
 
 
-
+/*
+ type encodings:
+ 
+ i8     c
+ i16    s
+ i32    i
+ i64    q
+ 
+ u8     C
+ u16    S
+ u32    I
+ u64    Q
+ 
+ */
 
 ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
     switch (TI->getKind()) {
         case TypeInfo::Kind::Primitive: {
-            if (TI->Equals(TypeInfo::i8)) {
-                return append("i");
-            } else if (TI->Equals(TypeInfo::i16)) {
-                return append("s");
-            } else if (TI->Equals(TypeInfo::i32)) {
-                return append("l");
-            } else if (TI->Equals(TypeInfo::i64)) {
-                return append("I");
-            } else if (TI->Equals(TypeInfo::Void)) {
-                return append("v");
-            }
-            throw;
+#define HANDLE(t, s) if (TI->Equals(TypeInfo::t)) { return append(s); }
+            HANDLE(i8,  "c") HANDLE(u8,  "C")
+            HANDLE(i16, "s") HANDLE(u16, "S")
+            HANDLE(i32, "i") HANDLE(u32, "I")
+            HANDLE(i64, "q") HANDLE(u64, "Q")
+            HANDLE(Void, "v")
+            HANDLE(Bool, "b")
+            LKFatalError("unhandled type: %s", TI->Str().c_str());
+#undef HANDLE
         }
         
         case TypeInfo::Kind::Pointer:
