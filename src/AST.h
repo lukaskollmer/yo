@@ -48,7 +48,6 @@ protected:
 };
 
 
-
 class TopLevelStmt : virtual public Node {};
 
 class LocalStmt : virtual public Node {};
@@ -86,7 +85,6 @@ public:
 };
 
 std::ostream& operator<<(std::ostream&, const std::shared_ptr<ast::FunctionSignature>&);
-
 
 
 

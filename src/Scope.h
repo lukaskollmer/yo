@@ -16,11 +16,7 @@
 
 #include "util.h"
 
-
-
 NS_START(irgen)
-
-
 
 
 struct ValueBinding {
@@ -62,9 +58,5 @@ public:
     Marker GetMarker();
     V GetEntriesSinceMarker(Marker M);
 };
-
-
-
-
 
 NS_END

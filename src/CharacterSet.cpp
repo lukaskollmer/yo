@@ -16,7 +16,6 @@ void AssertValidCharRange(char A, char B) {
 
 CharacterSet::CharacterSet(char Start, char End) {
     AssertValidCharRange(Start, End);
-    
     for (char C = Start; C <= End; C++) {
         Characters.push_back(C);
     }
@@ -59,6 +58,5 @@ CharacterSet CharacterSet::Joined(CharacterSet Other) {
     auto Chars = Characters;
     Chars.reserve(Chars.size() + Other.Characters.size());
     Chars.insert(Chars.end(), Other.Characters.begin(), Other.Characters.end());
-    
     return CharacterSet(Chars);
 }

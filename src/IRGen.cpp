@@ -31,7 +31,6 @@ IRGenerator::IRGenerator(const std::string ModuleName) : Builder(C) {
     Module = llvm::make_unique<llvm::Module>(ModuleName, C);
     M = Module.get();
     
-    
     i8  = llvm::Type::getInt8Ty(C);
     i16 = llvm::Type::getInt16Ty(C);
     i32 = llvm::Type::getInt32Ty(C);
@@ -48,7 +47,6 @@ IRGenerator::IRGenerator(const std::string ModuleName) : Builder(C) {
 
 void IRGenerator::Codegen(ast::AST &Ast) {
     Preflight(Ast);
-    
     VerifyFunctionDeclarations();
     
     for (auto &Node : Ast) {
@@ -118,7 +116,6 @@ void IRGenerator::RegisterFunction(std::shared_ptr<ast::FunctionDecl> Function) 
     std::string CanonicalName = mangling::MangleCanonicalNameForSignature(Signature);
     std::string ResolvedName = MangleFullyResolved(Function);
     
-    
     precondition(M->getFunction(ResolvedName) == nullptr);
     
     auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->HasAnnotation(annotations::variadic));
@@ -179,7 +176,6 @@ void IRGenerator::RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock) {
     
     auto Typename = ImplBlock->Typename;
     precondition(TypeCache.Contains(Typename));
-    
     auto T = TypeInfo::MakeComplex(Typename);
     
     for (auto &F : ImplBlock->Methods) {
@@ -192,7 +188,6 @@ void IRGenerator::RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock) {
         }
         F->Signature->Kind = Kind;
         F->Signature->ImplType = TypeCache.GetStruct(Typename);
-        
         RegisterFunction(F);
     }
 }
@@ -276,12 +271,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
     if (FunctionDecl->Signature->IsTemplateFunction && !FunctionDecl->Signature->IsFullSpecialization()) {
         return nullptr;
     }
-    
     precondition(Scope.IsEmpty());
-    
     auto ResolvedName = MangleFullyResolved(FunctionDecl);
-    
-    //auto Name = !Options.ShouldMangleName ? FunctionDecl->Name : MangleFunctionName(FunctionDecl, Options.Typename);
     
     auto F = M->getFunction(ResolvedName);
     if (!F) {
@@ -290,20 +281,17 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
     
     for (auto I = 0; I < FunctionDecl->Signature->Parameters.size(); I++) {
         auto &Arg = F->arg_begin()[I];
-        
         auto Binding = ValueBinding(&Arg, [&Arg]() {
             return &Arg;
         }, [=, &Arg](llvm::Value *V) {
             LKFatalError("Function arguments are read-only (%s in %s)", Arg.getName().str().c_str(), ResolvedName.c_str());
         });
-        
         auto Param = FunctionDecl->Signature->Parameters[I];
         Scope.Insert(Param->Name->Value, Param->Type, Binding);
     }
     
     auto BB = llvm::BasicBlock::Create(C, "entry", F);
     Builder.SetInsertPoint(BB);
-    
     Codegen(FunctionDecl->Body, true);
     return F;
 }
@@ -438,8 +426,6 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ReturnStmt> ReturnStmt) {
 
 
 bool IntegerLiteralFitsInType(uint64_t Value, TypeInfo *Type) {
-    assert_implication(static_cast<int64_t>(Value) < 0, Type->IsSigned());
-    
     uint64_t MaxValue;
     
     if (!Type->IsSigned()) { // unsigned
@@ -575,9 +561,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Typecast> Cast) {
         return Codegen(Cast->Expression);
     }
     
-    
     llvm::Instruction::CastOps Op;
-    
     switch (Cast->Kind) {
         case ast::Typecast::CastKind::Bitcast: {
             precondition(M->getDataLayout().getTypeSizeInBits(GetLLVMType(SrcTy)) == M->getDataLayout().getTypeSizeInBits(GetLLVMType(DestTy)));
@@ -590,7 +574,6 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Typecast> Cast) {
             }
             break;
         }
-        
         case ast::Typecast::CastKind::StaticCast: {
             if (SrcTy->IsIntegerType() && DestTy->IsIntegerType()) {
                 auto SrcIntWidth  = GetLLVMType(SrcTy)->getIntegerBitWidth();
@@ -723,7 +706,6 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
         }
     }
     
-    
     switch (ReturnValueKind) {
         case CodegenReturnValueKind::Address:
             return V;
@@ -838,7 +820,9 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::BinaryOperation> Binop) {
 std::optional<std::map<std::string, TypeInfo *>> IRGenerator::AttemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> TemplateFunction, std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset) {
     auto Sig = TemplateFunction->Signature;
     
-    if (Sig->Parameters.size() != Call->Arguments.size()) return std::nullopt;
+    if (Sig->Parameters.size() != Call->Arguments.size()) {
+        return std::nullopt;
+    }
     
     std::map<std::string, TypeInfo *> TemplateArgumentMapping;
     
@@ -867,12 +851,6 @@ std::optional<std::map<std::string, TypeInfo *>> IRGenerator::AttemptToResolveTe
         } else {
             ParamTypename = ParamType->getName();
         }
-        
-        // FUCK FUCK FUCK FUCK FUCK what if it is a fucking pointer
-        
-        // ParamType: *T
-        // ArgType  : *i64
-        // -> T := i64
         
         if (auto Mapping = TemplateArgumentMapping.find(ParamTypename); Mapping != TemplateArgumentMapping.end()) {
             auto GuessedArgumentType = GuessType(Call->Arguments[Idx]);
@@ -978,7 +956,6 @@ ResolvedFunction IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCall> Cal
                 RegisterFunction(ResolvedDecl);
                 LLVMFunction = WithCleanSlate([&]() { return llvm::dyn_cast<llvm::Function>(Codegen(ResolvedDecl)); });
             }
-            
             return ResolvedFunction(ResolvedDecl, LLVMFunction);
         }
         return Target;
@@ -1119,21 +1096,16 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsig
     
     precondition(Call->Arguments.size() >= FT->getNumParams() - ArgumentOffset - IsVariadic);
     
-    
     std::vector<llvm::Value *> Args(ArgumentOffset, nullptr);
-    
     auto NumFixedArgs = FT->getNumParams() - ArgumentOffset;
 
-    
     for (auto I = ArgumentOffset; I < FT->getNumParams(); I++) {
         auto ExpectedType = ResolvedTarget.Decl->Signature->Parameters[I]->Type;
-        
         auto Expr = Call->Arguments[I - ArgumentOffset];
         TypeInfo *T;
         if (!TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&Expr, ExpectedType, &T)) {
             LKFatalError("Type mismatch in call to '%s'. Arg #%i: expected '%s', got '%s'", Call->Target->Value.c_str(), I, ExpectedType->Str().c_str(), T->Str().c_str());
         }
-        
         Args.push_back(Codegen(Expr));
     }
     
@@ -1255,6 +1227,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Comparison> Comparison) {
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LogicalOperation> LogOp) {
+    // TODO rewrite
     auto LHS = Codegen(LogOp->LHS);
     auto RHS = Codegen(LogOp->RHS);
     
@@ -1276,14 +1249,11 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LogicalOperation> LogOp) 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
     auto F = Builder.GetInsertBlock()->getParent();
     
-    
     std::vector<llvm::BasicBlock *> BranchBodyBlocks;
     for (auto I = 0; I < If->Branches.size(); I++) {
         auto Name = llvm::Twine(F->getName()).concat("_if_body_").concat(llvm::Twine(I));
         BranchBodyBlocks.push_back(llvm::BasicBlock::Create(C, Name));
     }
-    
-    
     
     // The entry points to each branch's condition
     // Note that if the last branch is a conditionless else branch, this points directly to the branch body

@@ -11,12 +11,10 @@
 using namespace irgen;
 
 
-
 void Scope::Insert(Ident Identifier, TypeInfo *Type, ValueBinding Binding) {
     auto B = std::make_shared<ValueBinding>(std::move(Binding));
     Symbols.push_back({Identifier, Type, B});
 }
-
 
 ValueBinding *Scope::GetBinding(Ident Identifier) {
     return std::get<2>(*_GetEntry(Identifier)).get();
@@ -26,14 +24,12 @@ TypeInfo *Scope::GetType(Ident Identifier) {
     return std::get<1>(*_GetEntry(Identifier));
 }
 
-
 Scope::Entry Scope::Remove(Ident Identifier) {
     V::const_iterator Pos;
     auto E = *_GetEntry(Identifier, &Pos);
     Symbols.erase(Pos);
     return E;
 }
-
 
 Scope::Entry *Scope::_GetEntry(Ident Identifier, V::const_iterator *Pos) {
     for (auto It = Symbols.end(); It-- != Symbols.begin();) {
@@ -45,15 +41,11 @@ Scope::Entry *Scope::_GetEntry(Ident Identifier, V::const_iterator *Pos) {
     return nullptr;
 }
 
-
 Scope::Marker Scope::GetMarker() {
     return Symbols.size();
 }
-
 
 Scope::V Scope::GetEntriesSinceMarker(Marker M) {
     if (M >= Symbols.size()) return {};
     return Scope::V(Symbols.begin() + M, Symbols.end());
 }
-
-

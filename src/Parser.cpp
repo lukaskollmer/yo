@@ -20,15 +20,12 @@ using TK = Token::TokenKind;
 
 #pragma mark - Parser Utils
 
-
-
 #define assert_current_token(Expected) \
 do { if (auto T = CurrentToken(); T.Kind != Expected) { \
     auto &S = T.SourceLocation; \
     std::cout << "[token assert] Expected: " << Expected << ", got: " << T.Kind << ". (file: " << S.Filename << ":" << S.Line << ":" << S.Column << ")\n";  \
     throw; \
 } } while (0)
-
 
 #define assert_current_token_and_consume(Expected) \
 do { if (auto T = CurrentToken(); T.Kind != Expected) { \
@@ -37,13 +34,11 @@ do { if (auto T = CurrentToken(); T.Kind != Expected) { \
     throw; \
 } else { Consume(); } } while (0)
 
-
 #define unhandled_token(T)                                                                                                      \
 {                                                                                                                               \
     auto &SL = T.SourceLocation;                                                                                                \
     std::cout << "Unhandled Token: " << T << " at " << SL.Filename << ":" << SL.Line << ":" << SL.Column << std::endl; throw;   \
 }
-
 
 
 class TokenSet {
@@ -101,11 +96,6 @@ static MappedTokenSet<ast::BinaryOperation::Operation> SingleTokenBinopOperatorT
     { TK::Pipe,           BinaryOperation::Operation::Or  },
     { TK::Circumflex,     BinaryOperation::Operation::Xor }
 };
-
-
-
-
-
 
 
 
@@ -199,7 +189,6 @@ void Parser::ResolveImport() {
 
 std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
     auto Annotations = ParseAnnotations();
-    
     std::shared_ptr<TopLevelStmt> Stmt;
     
     switch (CurrentToken().Kind) {
@@ -255,14 +244,13 @@ std::shared_ptr<ImplBlock> Parser::ParseImplBlock() {
     assert_current_token_and_consume(TK::Impl);
     
     auto Impl = std::make_shared<ImplBlock>(ParseIdentifier()->Value);
-    
     assert_current_token_and_consume(TK::OpeningCurlyBraces);
     
     while (CurrentTokenKind() == TK::Fn) {
         Impl->Methods.push_back(ParseFunctionDecl());
     }
-    assert_current_token_and_consume(TK::ClosingCurlyBraces);
     
+    assert_current_token_and_consume(TK::ClosingCurlyBraces);
     return Impl;
 }
 
@@ -273,13 +261,10 @@ std::vector<std::string> Parser::ParseAnnotations() {
     if (CurrentTokenKind() != TK::Hashtag) return {};
     Consume();
     assert_current_token_and_consume(TK::OpeningSquareBrackets);
-    
     std::vector<std::string> Annotations;
     
     while (CurrentTokenKind() == TK::Identifier) {
         Annotations.push_back(ParseIdentifier()->Value);
-        
-        
         switch (CurrentTokenKind()) {
             case TK::Comma:
                 Consume();
@@ -301,9 +286,9 @@ std::vector<std::string> Parser::ParseAnnotations() {
 
 
 std::shared_ptr<FunctionSignature> Parser::ParseFunctionSignature(bool IsExternal) {
-    auto S = std::make_shared<ast::FunctionSignature>();
-    
     assert_current_token_and_consume(TK::Fn);
+    
+    auto S = std::make_shared<ast::FunctionSignature>();
     S->Name = ParseIdentifier()->Value;
     
     if (CurrentTokenKind() == TK::LessThanSign) { // Template function
@@ -418,7 +403,6 @@ std::shared_ptr<Composite> Parser::ParseComposite() {
     assert_current_token_and_consume(TK::OpeningCurlyBraces);
     
     auto C = std::make_shared<Composite>();
-    
     while (CurrentTokenKind() != TK::ClosingCurlyBraces) {
         C->Statements.push_back(ParseLocalStmt());
     }
@@ -453,7 +437,6 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
     std::shared_ptr<Expr> E; // A partially-parsed part of a local statement
     
     E = ParseMemberAccess();
-    
     
     if (CurrentTokenKind() == TK::EqualsSign) { // Assignment
         Consume();
@@ -729,7 +712,6 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
         E = ParseMemberAccess();
     }
     
-    
     while (BinaryOperatorStartTokens.Contains(CurrentTokenKind())) {
         save_pos(fallback)
         
@@ -826,7 +808,6 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
                 bool IsTemplateArgumentListSpecfication = false;
                 std::vector<TypeInfo *> ExplicitlySpecifiedTemplateArgumentTypes;
                 
-                
                 if (CurrentTokenKind() == TK::LessThanSign) {
                     save_pos(pos_saved_after_ident);
                     IsTemplateArgumentListSpecfication = true;
@@ -861,7 +842,6 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
                 Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::Initial_FunctionCall, Call));
                 continue;
             }
-            
             
             case TK::Colon: { // Static method call
                 Consume();
@@ -911,7 +891,6 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
             default: unhandled_token(CurrentToken())
         }
     }
-    
     return std::make_shared<MemberAccess>(Members);
 }
 
@@ -956,7 +935,6 @@ std::shared_ptr<NumberLiteral> Parser::ParseNumberLiteral() {
 std::shared_ptr<StringLiteral> Parser::ParseStringLiteral() {
     auto &T = CurrentToken();
     
-    
     if (T.Kind != TK::StringLiteral && T.Kind != TK::ByteStringLiteral) {
         return nullptr;
     }
@@ -969,6 +947,3 @@ std::shared_ptr<StringLiteral> Parser::ParseStringLiteral() {
     Consume();
     return std::make_shared<StringLiteral>(Value, Kind);
 }
-
-
-

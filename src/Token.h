@@ -17,8 +17,6 @@
 class Token;
 using TokenList = std::vector<std::shared_ptr<Token>>;
 
-
-
 struct TokenSourceLocation {
     std::string Filename;
     uint64_t Line;
@@ -124,5 +122,3 @@ public:
 
 std::ostream &operator<<(std::ostream &OS, Token &T);
 std::ostream &operator<<(std::ostream &OS, Token::TokenKind TK);
-
-

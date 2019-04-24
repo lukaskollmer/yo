@@ -13,6 +13,6 @@
 
 namespace yo::annotations {
     const std::string intrinsic = "intrinsic";
-    const std::string variadic = "variadic";
+    const std::string variadic  = "variadic";
     const std::string no_mangle = "no_mangle";
 }

@@ -11,11 +11,9 @@
 using namespace irgen;
 
 
-
 void TypeCache::Insert(std::string Name, TypeInfo *Type) {
     Types[Name] = Type;
 }
-
 
 void TypeCache::RegisterStruct(std::string Name, std::shared_ptr<ast::StructDecl> Struct) {
     Structs.insert({Name, Struct});

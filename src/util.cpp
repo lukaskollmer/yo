@@ -35,8 +35,6 @@ char *LKStringUtils_FormatIntoNewBuffer(const char *format, ...) {
 
 
 
-
-
 std::string util::typeinfo::demangle(const char *name) {
     int status;
     
@@ -47,8 +45,6 @@ std::string util::typeinfo::demangle(const char *name) {
     
     return (status == 0) ? res.get() : name;
 }
-
-
 
 
 bool util::string::contains(const std::string_view String, const std::string_view Other) {

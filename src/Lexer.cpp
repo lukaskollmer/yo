@@ -19,9 +19,7 @@ using TK = Token::TokenKind;
 
 static constexpr char DOUBLE_QUOTE = '"';
 
-
 static CharacterSet Letters({{'a', 'z'}, {'A', 'Z'}});
-
 static CharacterSet IgnoredCharacters(" "); // TODO make this "all whitespace" instead
 static CharacterSet Delimiters(" .,+-*/;:=<>!&^#|~(){}[]@\n");
 static CharacterSet BinaryDigits("01");
@@ -30,7 +28,6 @@ static CharacterSet DecimalDigits("0123456789");
 static CharacterSet HexadecimalDigits("0123456789abcdef");
 static CharacterSet IdentifierStartCharacters = Letters.Joined(CharacterSet("_"));
 static CharacterSet IdentifierCharacters = IdentifierStartCharacters.Joined(DecimalDigits);
-
 static CharacterSet SingleCharTokens(".,+-*/;:=<>!&^#|~(){}[]@");
 
 
@@ -98,8 +95,6 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
             continue;
         }
         
-        
-        
         // Q: Why is this a lambda?
         // A: We also need to adjust the current source position if we're in multiline strings/comments
         auto HandleNewline = [&]() {
@@ -107,14 +102,11 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
             LineStart = Offset + 1;
         };
         
-        
         if (C == '\n') {
             // TODO this would be a good place to insert semicolons?
             HandleNewline();
             continue;
         }
-        
-        
         
         if (C == '/' && String[Offset + 1] == '/') {
             // Start of line comment
@@ -122,9 +114,6 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
             HandleNewline();
             continue;
         }
-        
-        
-        
         
         if (C == '/' && String[Offset + 1] == '*') {
             // start of comment block
@@ -136,27 +125,20 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
             continue;
         }
         
-        
-        
         // Offset after returning is the character after the end of the escaped character
         // For example, if we're parsing `'\123x`, the Offset after returhing would "point" to the x
         auto ParseEscapedCharacter = [&] () -> char {
             precondition(String[Offset] == '\\');
-            
             if (String[Offset + 1] == '\\') {
                 // Escaped backslash
                 Offset++;
                 return '\\';
             }
             
-            
             auto X = String[++Offset];
-            
             // Offset at this point is now the character after the backslash
-            
             if (X == 'x' || OctalDigits.Contains(X)) { // Hex or octal value
                 auto IsHex = X == 'x';
-                
                 std::string RawValue;
                 
                 if (IsHex) {
@@ -178,25 +160,18 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
                 }
                 
                 precondition(Length == RawValue.length());
-                
                 return Value;
-                
             }
-            
             
             switch (X) {
                 case 'n': Offset++; return '\n';
                 case 't': Offset++; return '\t';
                 default: break;
             }
-            
-            
-            throw;
+            LKFatalError("Unable to parse escaped character");
         };
         
-        
-        
-        
+
         if (C == '\'') { // Char literal
             C = String[++Offset];
             char content;
@@ -225,21 +200,15 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
             Offset++;
         }
         
-        
-        
         if (String[Offset] == 'r' && String[Offset + 1] == DOUBLE_QUOTE) { // Raw (unescaped) string literal
             IsRawStringLiteral = true;
             Offset++;
         }
         
-        
         if (String[Offset] == DOUBLE_QUOTE) { // String literal
             std::string Content;
-            
             Offset++;
-            
             // Offset is at first char after opening quotes
-            
             if (IsRawStringLiteral) {
                 for (auto C = String[Offset]; C != DOUBLE_QUOTE; C = String[++Offset]) {
                     Content.push_back(C);
@@ -256,7 +225,6 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
                     }
                 }
             }
-            
             precondition(String[Offset++] == DOUBLE_QUOTE);
             
             auto T = HandleRawToken("", IsByteStringLiteral ? TK::ByteStringLiteral : TK::StringLiteral);
@@ -275,28 +243,20 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
             continue;
         }
         
-        
-        
         if (IdentifierStartCharacters.Contains(C)) {
             std::string Ident;
-            
             do {
                 Ident.push_back(C);
                 C = String[++Offset];
             } while (IdentifierCharacters.Contains(C));
-            
             HandleRawToken(Ident);
             Offset--;
             continue;
         }
         
-        
-        
-        
         if (DecimalDigits.Contains(C)) { // Number literal
             uint8_t Base = 10;
             std::string RawValue;
-            
             auto Next = String[Offset + 1];
             
             if (C == '0') { // binary/octal/decimal/hex ?
@@ -340,12 +300,10 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
             Offset--; // unavoidable :/
             continue;
         }
-        
         LKFatalError("unhandled character: '%c'", String[Offset]);
     }
     
     HandleRawToken("", TK::EOF_);
-    
     return Tokens;
 }
 

@@ -22,11 +22,8 @@ using namespace irgen;
 
 
 std::shared_ptr<ast::FunctionDecl> TemplateResolver::SpecializeWithTemplateMapping(std::shared_ptr<ast::FunctionDecl> Decl, TemplateTypeMapping TemplateArgumentsMapping) {
-    TemplateResolver Resolver(TemplateArgumentsMapping);
-    
-    return Resolver.Specialize(Decl);
+    return TemplateResolver(TemplateArgumentsMapping).Specialize(Decl);
 }
-
 
 
 TypeInfo *TemplateResolver::ResolveType(TypeInfo *TI) {
@@ -42,7 +39,6 @@ TypeInfo *TemplateResolver::ResolveType(TypeInfo *TI) {
     }
     
     return TI;
-    //LKFatalError("unable to resolve: %s", TI->Str().c_str());
 }
 
 
@@ -84,12 +80,9 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::Specialize(std::shared_ptr<
     }
     
     SpecializedFunction->Body = Specialize(Decl->Body);
-    //for (auto &Stmt : Decl->Body->Statements) {
-    //    SpecializedFunction->Body->Statements.push_back(Specialize(Stmt));
-    //}
-    
     return SpecializedFunction;
 }
+
 
 #define HANDLE(node, T) if (auto X = std::dynamic_pointer_cast<ast::T>(node)) return Specialize(X);
 
@@ -180,7 +173,6 @@ std::shared_ptr<ast::MemberAccess> TemplateResolver::Specialize(std::shared_ptr<
         precondition(NewMember);
         SpecializedMembers.push_back(NewMember);
     }
-    
     return std::make_shared<ast::MemberAccess>(SpecializedMembers);
 }
 

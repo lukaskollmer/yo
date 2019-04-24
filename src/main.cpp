@@ -109,7 +109,6 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
         return EXIT_FAILURE;
     }
     
-    
     // Verify Module
     {
         std::string S;
@@ -147,7 +146,6 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
 
 
 
-
 int RunExecutable(const std::string &ExecutablePath, const char *const *envp) {
     auto argc = cl::RunArgs.size();
     auto argv = static_cast<char **>(calloc(argc + 2, sizeof(char *))); // +2 bc the first element is the executable path and the array is null terminated
@@ -172,7 +170,6 @@ int main(int argc, const char * argv[], const char *const *envp) {
     assert_implication(cl::RunArgs.size() > 0, cl::Run);
     
     std::string Filename = cl::InputFilename;
-    
     auto Ast = Parser().Parse(Filename);
     
     Filename = util::string::lastPathCompotent(Filename);

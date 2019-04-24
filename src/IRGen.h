@@ -81,7 +81,6 @@ public:
     
     explicit IRGenerator(const std::string ModuleName);
     
-    
     void Codegen(ast::AST &Ast);
     
     std::unique_ptr<llvm::Module> GetModule() {
@@ -106,7 +105,7 @@ private:
     void VerifyFunctionDeclarations();
     
     
-    // In some situations (for example when handling an lvalue), we need Codegen to return an address instead of a dereferenced value
+    // lvalue/rvalue
     enum class CodegenReturnValueKind {
         Value, Address
     };
@@ -143,11 +142,8 @@ private:
     
     llvm::Value *Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionSignature> Signature, std::shared_ptr<ast::FunctionCall>, unsigned ArgumentOffset = 0);
     
-    
     // Types
     llvm::Type *GetLLVMType(TypeInfo *TI);
-    
-    //bool Binop_AttemptToResolvePotentialIntTypeMismatchesByCastingNumberLiteralsIfPossible(llvm::Value **LHS, llvm::Value **RHS);
     
     // Applying trivial number literal casts
     
@@ -200,7 +196,5 @@ private:
         return Retval;
     }
 };
-
-
 
 NS_END

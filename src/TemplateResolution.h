@@ -42,11 +42,8 @@ class TemplateResolver {
     std::shared_ptr<ast::BinaryOperation> Specialize(std::shared_ptr<ast::BinaryOperation>);
     std::shared_ptr<ast::Comparison> Specialize(std::shared_ptr<ast::Comparison>);
     
-    
-    
 public:
     static std::shared_ptr<ast::FunctionDecl> SpecializeWithTemplateMapping(std::shared_ptr<ast::FunctionDecl>, TemplateTypeMapping);
 };
-
 
 NS_END
