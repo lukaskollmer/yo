@@ -914,6 +914,14 @@ std::vector<std::shared_ptr<Expr>> Parser::ParseExpressionList(Token::TokenKind 
 std::shared_ptr<NumberLiteral> Parser::ParseNumberLiteral() {
     uint64_t Value;
     NumberLiteral::NumberType Type;
+    bool IsNegated = false;
+    
+    save_pos(prev_pos)
+    
+    if (CurrentTokenKind() == TK::Minus) {
+        Consume();
+        IsNegated = true;
+    }
     
     switch (CurrentTokenKind()) {
         case TK::IntegerLiteral:
@@ -930,10 +938,14 @@ std::shared_ptr<NumberLiteral> Parser::ParseNumberLiteral() {
             Type = NumberLiteral::NumberType::Boolean;
             break;
         default:
+            restore_pos(prev_pos);
             return nullptr;
     }
     Consume();
     
+    if (IsNegated) {
+        Value *= -1;
+    }
     return std::make_shared<NumberLiteral>(Value, Type);
 }
 

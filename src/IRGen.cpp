@@ -9,6 +9,7 @@
 #include "IRGen.h"
 
 #include <optional>
+#include <limits>
 
 #include "Mangling.h"
 #include "util_llvm.h"
@@ -436,25 +437,29 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ReturnStmt> ReturnStmt) {
 }
 
 
+template <typename T>
+bool value_fits_in_type(uint64_t Value) {
+    auto Min = std::numeric_limits<T>::min();
+    auto Max = std::numeric_limits<T>::max();
+    return static_cast<T>(Value) >= Min && static_cast<T>(Value) <= Max;
+}
 
-bool IntegerLiteralFitsInType(uint64_t Value, TypeInfo *Type) {
-    uint64_t MaxValue;
+
+bool IntegerLiteralFitsInType(uint64_t Value, TypeInfo *TI) {
+    #define CASE(sizetype, signed_t, unsigned_t) case TypeInfo::sizetype: return Signed ? value_fits_in_type<signed_t>(Value) : value_fits_in_type<unsigned_t>(Value);
     
-    if (!Type->IsSigned()) { // unsigned
-        if (Type->Equals(TypeInfo::u8)) MaxValue = UINT8_MAX;
-        else if (Type->Equals(TypeInfo::u16)) MaxValue = UINT16_MAX;
-        else if (Type->Equals(TypeInfo::u32)) MaxValue = UINT32_MAX;
-        else if (Type->Equals(TypeInfo::u64)) MaxValue = UINT64_MAX;
-        else LKFatalError("should never reach here");
-    } else { // signed
-        if (Type->Equals(TypeInfo::i8)) MaxValue = INT8_MAX;
-        else if (Type->Equals(TypeInfo::i16)) MaxValue = INT16_MAX;
-        else if (Type->Equals(TypeInfo::i32)) MaxValue = INT32_MAX;
-        else if (Type->Equals(TypeInfo::i64)) MaxValue = INT64_MAX;
-        else LKFatalError("should never reach here");
+    precondition(TI->IsIntegerType());
+    bool Signed = TI->IsSigned();
+    
+    switch (TI->getSize()) {
+        CASE(kSizeof_u8,  int8_t,  uint8_t)
+        CASE(kSizeof_u16, int16_t, uint16_t)
+        CASE(kSizeof_u32, int32_t, uint32_t)
+        CASE(kSizeof_u64, int64_t, uint64_t)
+        default:
+            LKFatalError("should not reach here");
     }
-    
-    return Value <= MaxValue;
+#undef CASE
 }
 
 
