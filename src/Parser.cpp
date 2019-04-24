@@ -814,10 +814,6 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
                     Consume();
                     while (CurrentTokenKind() != TK::GreaterSign) { // TODO this might become a problem if we introduce an `<>` operator
                         auto Type = ParseType();
-                        if (!Type) {
-                            restore_pos(pos_saved_after_ident);
-                            return Ident;
-                        }
                         ExplicitlySpecifiedTemplateArgumentTypes.push_back(Type);
                         if (CurrentTokenKind() == TK::Comma) {
                             Consume(); continue;
@@ -825,7 +821,11 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
                             Consume(); break;
                         } else {
                             restore_pos(pos_saved_after_ident);
-                            return Ident;
+                            if (IsInitialIdentifier) {
+                                return Ident;
+                            } else {
+                                return std::make_shared<MemberAccess>(Members);
+                            }
                         }
                     }
                 }
