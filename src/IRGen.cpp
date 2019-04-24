@@ -1247,7 +1247,11 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LogicalOperation> LogOp) 
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
+    using BK = ast::IfStmt::Branch::BranchKind;
+    
     auto F = Builder.GetInsertBlock()->getParent();
+    auto MergeBB = llvm::BasicBlock::Create(C, "merge");
+    auto InitialBB = Builder.GetInsertBlock();
     
     std::vector<llvm::BasicBlock *> BranchBodyBlocks;
     for (auto I = 0; I < If->Branches.size(); I++) {
@@ -1260,15 +1264,19 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
     std::vector<llvm::BasicBlock *> BranchConditionBlocks;
     
     for (auto I = 0; I < If->Branches.size(); I++) {
-        if (If->Branches[I]->Kind == ast::IfStmt::Branch::BranchKind::Else) break;
+        if (If->Branches[I]->Kind == BK::Else) break;
         auto Name = llvm::Twine(F->getName()).concat("_if_cond_").concat(llvm::Twine(I));
         BranchConditionBlocks.push_back(llvm::BasicBlock::Create(C, Name));
     }
     
-    BranchConditionBlocks.push_back(BranchBodyBlocks.back());
+    if (If->Branches.back()->Kind == BK::Else) {
+        BranchConditionBlocks.push_back(BranchBodyBlocks.back());
+    } else {
+        BranchConditionBlocks.push_back(MergeBB);
+    }
     
     for (auto I = 0; I < If->Branches.size(); I++) {
-        if (If->Branches[I]->Kind == ast::IfStmt::Branch::BranchKind::Else) break;
+        if (If->Branches[I]->Kind == BK::Else) break;
         if (I > 0) {
             auto BB = BranchConditionBlocks[I];
             F->getBasicBlockList().push_back(BB);
@@ -1281,7 +1289,6 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
     }
     
     std::vector<llvm::Value *> BranchValues;
-    auto MergeBB = llvm::BasicBlock::Create(C, "merge");
     
     for (auto I = 0; I < If->Branches.size(); I++) {
         auto BB = BranchBodyBlocks[I];
@@ -1301,6 +1308,9 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
     
     for (auto I = 0; I < If->Branches.size(); I++) {
         PHI->addIncoming(BranchValues[I], BranchBodyBlocks[I]);
+    }
+    if (If->Branches.back()->Kind != BK::Else) {
+        PHI->addIncoming(llvm::ConstantInt::get(i8, 0), InitialBB);
     }
     return PHI;
 }
