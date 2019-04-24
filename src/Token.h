@@ -42,6 +42,7 @@ public:
         CharLiteral,
         IntegerLiteral,
         DoubleLiteral,
+        BoolLiteral,
         
         // Punctuation
         OpeningParens,
@@ -115,6 +116,12 @@ public:
     
     static std::shared_ptr<Token> CharLiteral(char Value) {
         auto T = WithKind(TokenKind::CharLiteral);
+        T->Data.C = Value;
+        return T;
+    }
+    
+    static std::shared_ptr<Token> BoolLiteral(bool Value) {
+        auto T = WithKind(TokenKind::BoolLiteral);
         T->Data.C = Value;
         return T;
     }

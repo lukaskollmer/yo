@@ -63,7 +63,7 @@ class IRGenerator {
     
     llvm::Type *i8, *i16, *i32, *i64;
     llvm::Type *i8_ptr;
-    llvm::Type *Void, *Bool, *Double;
+    llvm::Type *Void, *Bool, *Double, *i1;
     
     std::map<std::string, std::vector<std::shared_ptr<ast::FunctionDecl>>> TemplateFunctions;
     
@@ -130,7 +130,7 @@ private:
     
     llvm::Value *Codegen(std::shared_ptr<ast::NumberLiteral>);
     llvm::Value *Codegen(std::shared_ptr<ast::StringLiteral>);
-    llvm::Value *Codegen(std::shared_ptr<ast::CharLiteral>);
+    
     llvm::Value *Codegen(std::shared_ptr<ast::Typecast>);
     llvm::Value *Codegen(std::shared_ptr<ast::BinaryOperation>);
     llvm::Value *Codegen(std::shared_ptr<ast::Identifier>, CodegenReturnValueKind);
@@ -170,8 +170,9 @@ private:
     
     ResolvedFunction InstantiateTemplateFunctionForCall(std::shared_ptr<ast::FunctionDecl> TemplateFunction, std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset, std::map<std::string, TypeInfo *> TemplateArgumentMapping);
     
-    TypeInfo *GuessType(std::shared_ptr<ast::Expr> Expr);
-    TypeInfo *GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess);
+    TypeInfo *GuessType(std::shared_ptr<ast::Expr>);
+    TypeInfo *GuessType(std::shared_ptr<ast::MemberAccess>);
+    TypeInfo *GuessType(std::shared_ptr<ast::NumberLiteral>);
     
     // Returns true if SrcType is trivially convertible to DestType
     bool IsTriviallyConvertible(TypeInfo *SrcType, TypeInfo *DestType);

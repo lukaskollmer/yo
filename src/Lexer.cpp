@@ -308,6 +308,13 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
 }
 
 
+// this might seems stupid, but it does in fact save 2 string comparisons per identifier parsed
+uint8_t _isBoolLiteral(std::string_view str) {
+    if (str == "false") return 1;
+    else if (str == "true") return 2;
+    else return 0;
+}
+
 
 Token *Lexer::HandleRawToken(const std::string &RawToken, Token::TokenKind TokenKind) {
     std::shared_ptr<Token> Token;
@@ -321,7 +328,11 @@ Token *Lexer::HandleRawToken(const std::string &RawToken, Token::TokenKind Token
     }
     
     else if (IdentifierStartCharacters.Contains(RawToken.at(0)) && IdentifierCharacters.ContainsAllCharactersInString(RawToken.substr(1))) {
-        Token = Token::Identifier(RawToken);
+        if (auto Val = _isBoolLiteral(RawToken); Val != 0) {
+            Token = Token::BoolLiteral(Val - 1);
+        } else {
+            Token = Token::Identifier(RawToken);
+        }
     }
     
     

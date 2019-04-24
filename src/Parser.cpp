@@ -693,12 +693,6 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
         assert_current_token_and_consume(TK::ClosingParens);
     }
     
-    if (CurrentTokenKind() == TK::CharLiteral) {
-        auto Value = (char) CurrentToken().Data.I;
-        Consume();
-        return std::make_shared<CharLiteral>(Value); // TODO assign the char to E, which would allow using it in arithmetic expressions?
-    }
-    
     if (!E) {
         E = ParseNumberLiteral();
     }
@@ -799,7 +793,6 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
         switch (CurrentTokenKind()) {
             case TK::LessThanSign:
             case TK::OpeningParens: {
-                precondition(IsInitialIdentifier);
                 // We reach here in the following cases:
                 // 1. foo() ...
                 // 2. foo< ...
@@ -919,14 +912,29 @@ std::vector<std::shared_ptr<Expr>> Parser::ParseExpressionList(Token::TokenKind 
 
 
 std::shared_ptr<NumberLiteral> Parser::ParseNumberLiteral() {
-    if (CurrentTokenKind() != TK::IntegerLiteral) {
-        return nullptr;
-    }
+    uint64_t Value;
+    NumberLiteral::NumberType Type;
     
-    auto Value = CurrentToken().Data.I;
+    switch (CurrentTokenKind()) {
+        case TK::IntegerLiteral:
+            Value = CurrentToken().Data.I;
+            Type = NumberLiteral::NumberType::Integer;
+            break;
+        case TK::DoubleLiteral: throw;
+        case TK::CharLiteral:
+            Value = CurrentToken().Data.C;
+            Type = NumberLiteral::NumberType::Character;
+            break;
+        case TK::BoolLiteral:
+            Value = CurrentToken().Data.C;
+            Type = NumberLiteral::NumberType::Boolean;
+            break;
+        default:
+            return nullptr;
+    }
     Consume();
     
-    return std::make_shared<NumberLiteral>(Value);
+    return std::make_shared<NumberLiteral>(Value, Type);
 }
 
 

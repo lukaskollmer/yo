@@ -56,6 +56,7 @@ std::string TokenKindToString(Token::TokenKind Kind) {
         CASE(Use)
         CASE(While)
         CASE(Using)
+        CASE(BoolLiteral)
     }
 #undef CASE
 }

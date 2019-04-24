@@ -38,7 +38,7 @@ IRGenerator::IRGenerator(const std::string ModuleName) : Builder(C) {
     
     i8_ptr = i8->getPointerTo();
     Void = llvm::Type::getVoidTy(C);
-    Bool = llvm::Type::getInt1Ty(C);
+    i1 = Bool = llvm::Type::getInt1Ty(C);
     Double = llvm::Type::getDoubleTy(C);
 }
 
@@ -253,7 +253,6 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr, CodegenReturn
     HANDLE(Expr, Typecast)
     HANDLE(Expr, MemberAccess, ReturnValueKind)
     HANDLE(Expr, StringLiteral)
-    HANDLE(Expr, CharLiteral)
     
     unhandled_node(Expr)
 }
@@ -508,8 +507,24 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> Assignment) {
 #pragma mark - Expressions
 
 
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> Number) {
-    return llvm::ConstantInt::get(i64, Number->Value);
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> NumberLiteral) {
+    using NT = ast::NumberLiteral::NumberType;
+    
+    switch (NumberLiteral->Type) {
+        case NT::Boolean: {
+            return llvm::ConstantInt::get(i1, NumberLiteral->Value);
+        }
+        case NT::Character: {
+            precondition(IntegerLiteralFitsInType(NumberLiteral->Value, TypeInfo::i8));
+            return llvm::ConstantInt::get(i8, NumberLiteral->Value);
+        }
+        case NT::Integer: {
+            return llvm::ConstantInt::get(llvm::Type::getInt64Ty(C), NumberLiteral->Value);
+        }
+        case NT::Double: {
+            LKFatalError("TODO: implement");
+        }
+    }
 }
 
 
@@ -530,11 +545,6 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StringLiteral> StringLite
     }
 }
 
-
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::CharLiteral> CharLiteral) {
-    precondition(IntegerLiteralFitsInType(CharLiteral->Value, TypeInfo::i8));
-    return llvm::ConstantInt::get(i8, CharLiteral->Value);
-}
 
 
 // If TakeAddress is true, this returns a pointer to the identifier, instead of the value stored
@@ -1426,10 +1436,21 @@ bool IRGenerator::IsTriviallyConvertible(TypeInfo *SrcType, TypeInfo *DestType) 
 }
 
 
-
 bool IRGenerator::ValueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiteral> Number, TypeInfo *TI) {
-    precondition(Number->Type == ast::NumberLiteral::NumberType::Integer && TI->IsIntegerType());
-    precondition(!Number->IsSigned);
+    using NT = ast::NumberLiteral::NumberType;
+    
+    // Allowed trivial conversions:
+    // int literal to any int type (as long as the value fits)
+    // int literal to double
+    
+    if (Number->Type == NT::Boolean) return TI->Equals(TypeInfo::Bool);
+    
+    if (TI->Equals(TypeInfo::Double)) {
+        return Number->Type == NT::Double || Number->Type == NT::Integer;
+    }
+    
+    precondition(Number->Type == NT::Integer && TI->IsIntegerType());
+    precondition(Number->Value > 0);
     
     auto Value = Number->Value;
     uint8_t BitCount = 0;
@@ -1438,11 +1459,14 @@ bool IRGenerator::ValueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiter
     return BitCount <= TI->getSize();
 }
 
+
+
+
 TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::Expr> Expr) {
 #define IF(name, T) if (auto name = std::dynamic_pointer_cast<T>(Expr))
     
-    IF(_, ast::NumberLiteral) {
-        return TypeInfo::i64;
+    IF(NumberLiteral, ast::NumberLiteral) {
+        return GuessType(NumberLiteral);
     }
     
     IF(MemberAccess, ast::MemberAccess) {
@@ -1477,6 +1501,18 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::Expr> Expr) {
     LKFatalError("Unhandled node %s", util::typeinfo::GetTypename(*Expr).c_str());
     
 #undef IF
+}
+
+
+TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::NumberLiteral> NumberLiteral) {
+    using NT = ast::NumberLiteral::NumberType;
+    
+    switch (NumberLiteral->Type) {
+        case NT::Integer:   return TypeInfo::i64;
+        case NT::Boolean:   return TypeInfo::Bool;
+        case NT::Double:    return TypeInfo::Double;
+        case NT::Character: return TypeInfo::i8;
+    }
 }
 
 
@@ -1550,7 +1586,7 @@ namespace astgen {
     }
     
     std::shared_ptr<NumberLiteral> Number(uint64_t Value) {
-        return std::make_shared<NumberLiteral>(Value);
+        return std::make_shared<NumberLiteral>(Value, NumberLiteral::NumberType::Integer);
     }
     
     std::shared_ptr<FunctionCall> Call(std::shared_ptr<Identifier> Target, std::vector<std::shared_ptr<Expr>> Args, bool UnusedReturnValue) {

@@ -144,6 +144,10 @@ public:
     
     Composite() {}
     Composite(std::vector<std::shared_ptr<LocalStmt>> Statements) : Statements(Statements) {}
+    
+    bool isEmpty() const {
+        return Statements.empty();
+    }
 };
 
 
@@ -228,14 +232,13 @@ public:
 class NumberLiteral : public Expr {
 public:
     enum class NumberType {
-        Integer, Double, Boolean
+        Integer, Double, Boolean, Character
     };
     
     const uint64_t Value;
-    const bool IsSigned;
     const NumberType Type;
     
-    explicit NumberLiteral(uint64_t Value) : Value(Value), IsSigned(false), Type(NumberType::Integer) {}
+    explicit NumberLiteral(uint64_t Value, NumberType Type) : Value(Value), Type(Type) {}
 };
 
 
@@ -251,15 +254,6 @@ public:
     
     explicit StringLiteral(std::string Value, StringLiteralKind Kind) : Value(Value), Kind(Kind) {}
 };
-
-
-class CharLiteral : public Expr {
-public:
-    char Value;
-    
-    explicit CharLiteral(char Value) : Value(Value) {}
-};
-
 
 
 class FunctionCall : public Expr {

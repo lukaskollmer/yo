@@ -153,6 +153,16 @@ std::string StringLiteralKindToString(StringLiteral::StringLiteralKind Kind) {
     }
 }
 
+std::string NumberTypeToString(NumberLiteral::NumberType Type) {
+    using E = NumberLiteral::NumberType;
+    switch (Type) {
+        CASE(Integer)
+        CASE(Double)
+        CASE(Character)
+        CASE(Boolean)
+    }
+}
+
 #undef CASE
 
 
@@ -231,6 +241,9 @@ std::string to_string(T arg) {
         
     } else if constexpr(std::is_same_v<T, StringLiteral::StringLiteralKind>) {
         return StringLiteralKindToString(arg);
+        
+    } else if constexpr(std::is_same_v<T, NumberLiteral::NumberType>) {
+        return NumberTypeToString(arg);
     
     } else if constexpr(std::is_convertible_v<T, std::shared_ptr<Node>> || (std::is_pointer_v<T> && std::is_base_of_v<Node, typename std::remove_pointer_t<T>>)) {
         if (!arg) return "<nullptr>";
@@ -299,6 +312,7 @@ Mirror Reflect(ReturnStmt *Return) {
 
 Mirror Reflect(NumberLiteral *Number) {
     return {
+        { "type", Number->Type },
         { "value", Number->Value }
     };
 }
@@ -432,12 +446,6 @@ Mirror Reflect(StringLiteral *String) {
     };
 }
 
-Mirror Reflect(CharLiteral *CharLiteral) {
-    return {
-        { "value", CharLiteral->Value }
-    };
-}
-
 
 Mirror Reflect(Node *Node) {
 #define HANDLE(T) if (auto X = dynamic_cast<T*>(Node)) return Reflect(X);
@@ -462,7 +470,6 @@ Mirror Reflect(Node *Node) {
     HANDLE(StructDecl)
     HANDLE(ImplBlock)
     HANDLE(StringLiteral)
-    HANDLE(CharLiteral)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;
