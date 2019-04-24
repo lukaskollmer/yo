@@ -1187,7 +1187,6 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::UnaryExpr> UnaryExpr) {
             return Builder.CreateNot(Codegen(Expr));
         
         case ast::UnaryExpr::Operation::LogicalNegation: {
-            // TODO if Expr is a pointer, maybe use something like Builder.CreateIsNotNull?
             auto T = GuessType(Expr);
             precondition(T->Equals(TypeInfo::Bool) || T->IsPointer() || T->IsIntegerType());
             return Builder.CreateIsNull(Codegen(Expr)); // TODO this seems like a cop-out answer?
