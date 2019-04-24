@@ -22,6 +22,10 @@ using namespace util_llvm;
 
 inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
 
+#define unhandled_node(node) \
+{ std::cout << __PRETTY_FUNCTION__ << ": Unhandled Node: " << util::typeinfo::GetTypename(*(node)) << std::endl; \
+throw; }
+
 
 // IRGen
 
@@ -65,36 +69,60 @@ std::string MangleFullyResolved(T Function) {
 }
 
 void IRGenerator::Preflight(ast::AST &Ast) {
+    // Q: Why collect the different kinds of top level decls first and then process them, instead of simply processing them, in the for loop?
+    // A: What if a function uses a type that is declared at some later point, or in another module? it's important all of these are processed in the correct order
+    std::vector<std::shared_ptr<ast::TypealiasDecl>>        Typealiases;
+    std::vector<std::shared_ptr<ast::FunctionDecl>>         FunctionDecls;
+    std::vector<std::shared_ptr<ast::StructDecl>>           StructDecls;
+    std::vector<std::shared_ptr<ast::ImplBlock>>            ImplBlocks;
+    std::vector<std::shared_ptr<ast::ExternFunctionDecl>>   ExternalFunctionDecls;
+    
+#define HANDLE(T, Dest) if (auto X = std::dynamic_pointer_cast<ast::T>(Node)) { Dest.push_back(X); continue; }
+    
     for (auto &Node : Ast) {
-        if (auto Typealias = std::dynamic_pointer_cast<ast::TypealiasDecl>(Node)) {
-            // TODO is this a good idea?
-            // TODO prevent circular aliases!
-            TypeCache.Insert(Typealias->Typename, TypeInfo::MakeTypealias(Typealias->Typename, Typealias->Type));
-            
-        } else if (auto FunctionDecl = std::dynamic_pointer_cast<ast::FunctionDecl>(Node)) {
-            RegisterFunction(FunctionDecl);
+        HANDLE(TypealiasDecl, Typealiases)
+        HANDLE(FunctionDecl, FunctionDecls)
+        HANDLE(ExternFunctionDecl, ExternalFunctionDecls)
+        HANDLE(StructDecl, StructDecls)
+        HANDLE(ImplBlock, ImplBlocks)
         
-        } else if (auto EFD = std::dynamic_pointer_cast<ast::ExternFunctionDecl>(Node)) {
-            // No potential conflict w/ other non-external already resolved functions, since their resolved name will be mangled (unlike the external function's name)
-            if (auto EFS2Sig = GetResolvedFunctionWithName(EFD->Signature->Name)) {
-                precondition(EFD->Signature->ReturnType->Equals(EFS2Sig->ReturnType)
-                             && EFD->Signature->Parameters.size() == EFS2Sig->Parameters.size()
-                             && std::equal(EFD->Signature->Parameters.begin(), EFD->Signature->Parameters.end(), EFS2Sig->Parameters.begin(),
-                                           [] (auto Arg1, auto Arg2) -> bool {
-                                               return Arg1->Type->Equals(Arg2->Type);
-                                           })
-                             && "Multiple external function declarations w/ same name, but different signatures"
-                             );
-                continue;
-            }
-            RegisterFunction(EFD);
-        
-        } else if (auto StructDecl = std::dynamic_pointer_cast<ast::StructDecl>(Node)) {
-            RegisterStructDecl(StructDecl);
-        
-        } else if (auto ImplBlock = std::dynamic_pointer_cast<ast::ImplBlock>(Node)) {
-            RegisterImplBlock(ImplBlock);
+        unhandled_node(Node)
+    }
+    
+#undef HANDLE
+    
+    for (auto &Typealias : Typealiases) {
+        // TODO is this a good idea?
+        // TODO prevent circular aliases!
+        TypeCache.Insert(Typealias->Typename, TypeInfo::MakeTypealias(Typealias->Typename, Typealias->Type));
+    }
+    
+    for (auto &StructDecl : StructDecls) {
+        RegisterStructDecl(StructDecl);
+    }
+    
+    for (auto &EFD : ExternalFunctionDecls) {
+        // No potential conflict w/ other non-external already resolved functions, since their resolved name will be mangled (unlike the external function's name)
+        if (auto EFS2Sig = GetResolvedFunctionWithName(EFD->Signature->Name)) {
+            precondition(EFD->Signature->ReturnType->Equals(EFS2Sig->ReturnType)
+                         && EFD->Signature->Parameters.size() == EFS2Sig->Parameters.size()
+                         && std::equal(EFD->Signature->Parameters.begin(), EFD->Signature->Parameters.end(), EFS2Sig->Parameters.begin(),
+                                       [] (auto Arg1, auto Arg2) -> bool {
+                                           return Arg1->Type->Equals(Arg2->Type);
+                                       })
+                         && "Multiple external function declarations w/ same name, but different signatures"
+                         );
+            continue;
         }
+        RegisterFunction(EFD);
+    }
+    
+    for (auto &FunctionDecl : FunctionDecls) {
+        RegisterFunction(FunctionDecl);
+    }
+    
+    for (auto &ImplBlock : ImplBlocks) {
+        RegisterImplBlock(ImplBlock);
     }
 }
 
@@ -167,6 +195,8 @@ void IRGenerator::RegisterStructDecl(std::shared_ptr<ast::StructDecl> Struct) {
     auto Name = Struct->Name->Value;
     TypeCache.Insert(Name, TypeInfo::MakeComplex(Name));
     TypeCache.RegisterStruct(Name, Struct);
+    
+    // TODO forward-declare the struct's default initializer!
 }
 
 
@@ -214,10 +244,6 @@ if (auto X = std::dynamic_pointer_cast<ast::T>(node)) return Codegen(X, ## __VA_
 #define IGNORE(node, T) \
 if (std::dynamic_pointer_cast<ast::T>(node)) return nullptr;
 
-#define unhandled_node(node) \
-{ std::cout << "[IRGenerator::Codegen] Unhandled Node: " << util::typeinfo::GetTypename(*(node)) << std::endl; \
-throw; }
-
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
     HANDLE(TLS, FunctionDecl)
@@ -259,7 +285,6 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr, CodegenReturn
 
 #undef HANDLE
 #undef IGNORE
-#undef unhandled_node
 
 
 
@@ -949,7 +974,7 @@ ResolvedFunction IRGenerator::InstantiateTemplateFunctionForCall(std::shared_ptr
 // Returns the function most closely matching the call
 ResolvedFunction IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset) {
     auto &PossibleTargets = Functions[Call->Target->Value];
-    precondition(!PossibleTargets.empty());
+    precondition(!PossibleTargets.empty(), fmt_c("Unable to resolve call to %s", Call->Target->Value.c_str()));
     
     if (PossibleTargets.size() == 1) {
         auto &Target = PossibleTargets[0];
