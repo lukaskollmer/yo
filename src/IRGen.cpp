@@ -683,9 +683,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
                 precondition(CurrentType->IsComplex());
 
                 auto Call = Member->Data.Call;
-                //precondition(Call->Target->Value[0] == '-'); // The name should already be mangled
                 
-                if (Call->Target->Value[0] != '-') { // Call still unmangled
+                if (!mangling::IsCanonicalInstanceMethodName(Call->Target->Value)) {
                     Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(CurrentType->getName(), Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
                 }
                 
@@ -1596,7 +1595,7 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess
             case MK::MemberFunctionCall: {
                 precondition(Type->IsComplex() && TypeCache.Contains(Type->getName()));
                 auto Call = Member->Data.Call;
-                if (Call->Target->Value[0] != '-') { // Call still unmangled
+                if (!mangling::IsCanonicalInstanceMethodName(Call->Target->Value)) {
                     Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(Type->getName(), Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
                 }
                 Type = ResolveCall(Call, kInstanceMethodCallArgumentOffset).Decl->Signature->ReturnType;

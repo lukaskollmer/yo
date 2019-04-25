@@ -14,4 +14,6 @@ namespace mangling {
     std::string MangleFullyResolvedNameForSignature(std::shared_ptr<ast::FunctionSignature>);
     std::string MangleCanonicalNameForSignature(std::shared_ptr<ast::FunctionSignature>);
     std::string MangleCanonicalName(std::string_view Type, std::string_view Method, ast::FunctionSignature::FunctionKind Kind);
+    
+    bool IsCanonicalInstanceMethodName(std::string_view Ident);
 }

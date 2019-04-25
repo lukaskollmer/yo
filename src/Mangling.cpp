@@ -11,12 +11,28 @@
 #include <map>
 
 
+namespace mangling {
+    inline constexpr char kCommonPrefix = '_';
+    inline constexpr char kFunctionAttributeGlobalFunction = 'F';
+    inline constexpr char kFunctionAttributeInstanceMethod = 'I';
+    inline constexpr char kFunctionAttributeStaticMethod   = 'S';
+
+}
+
+
+bool mangling::IsCanonicalInstanceMethodName(std::string_view Ident) {
+    return Ident[0] == kFunctionAttributeInstanceMethod
+        && Ident[1] == kFunctionAttributeInstanceMethod;
+    ;
+}
+
 
 class ManglingStringBuilder {
     std::string Buffer;
   
 public:
     ManglingStringBuilder() {}
+    ManglingStringBuilder(char Initial) : Buffer(std::string(1, Initial)) {}
     
     ManglingStringBuilder& appendWithCount(std::string_view Str) {
         Buffer.append(std::to_string(Str.length()));
@@ -26,6 +42,11 @@ public:
     
     ManglingStringBuilder& append(std::string_view Str) {
         Buffer.append(Str);
+        return *this;
+    }
+    
+    ManglingStringBuilder& append(char Char) {
+        Buffer.push_back(Char);
         return *this;
     }
     
@@ -94,10 +115,11 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
         }
         
         case TypeInfo::Kind::Pointer:
-            return append("^").appendEncodedType(TI->getPointee());
+            return append("P").appendEncodedType(TI->getPointee());
         
         case TypeInfo::Kind::Complex:
-            return append("{").append(TI->getName()).append("}");
+            return appendWithCount(TI->getName());
+            //return append("{").append(TI->getName()).append("}");
         
         case TypeInfo::Kind::Function:
         case TypeInfo::Kind::Typealias:
@@ -117,17 +139,18 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
 // Mangled name includes type encodings for return- & parameter types
 std::string mangling::MangleFullyResolvedNameForSignature(std::shared_ptr<ast::FunctionSignature> Signature) {
     using FK = ast::FunctionSignature::FunctionKind;
-    ManglingStringBuilder Mangler;
+    ManglingStringBuilder Mangler(kCommonPrefix);
     
     switch (Signature->Kind) {
         case FK::GlobalFunction:
-            Mangler.append("~"); break;
+            Mangler.append(mangling::kFunctionAttributeGlobalFunction);
+            break;
         case FK::InstanceMethod:
-            Mangler.append("-");
+            Mangler.append(mangling::kFunctionAttributeInstanceMethod);
             Mangler.appendWithCount(Signature->ImplType->Name->Value);
             break;
         case FK::StaticMethod:
-            Mangler.append("+");
+            Mangler.append(mangling::kFunctionAttributeStaticMethod);
             Mangler.appendWithCount(Signature->ImplType->Name->Value);
             break;
     }
