@@ -1540,7 +1540,13 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::Expr> Expr) {
     }
     
     IF(UnaryExpr, ast::UnaryExpr) {
-        return GuessType(UnaryExpr->Expr);
+        switch (UnaryExpr->Op) {
+            case ast::UnaryExpr::Operation::Negate:
+            case ast::UnaryExpr::Operation::BitwiseNot:
+                return GuessType(UnaryExpr->Expr);
+            case ast::UnaryExpr::Operation::LogicalNegation:
+                return TypeInfo::Bool;
+        }
     }
     
     LKFatalError("Unhandled node %s", util::typeinfo::GetTypename(*Expr).c_str());
