@@ -6,6 +6,8 @@
 //  Copyright © 2019 Lukas Kollmer. All rights reserved.
 //
 
+// NOTE: Most (all?) of this is crap and will be rewritten eventually, once i know how parsers are actually supposed to work (ideally some time after passing theo and/or cc?)
+
 #include "Parser.h"
 
 #include <string>
