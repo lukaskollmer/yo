@@ -438,6 +438,10 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
         return ParseWhileStmt();
     }
     
+    if (CurrentTokenKind() == TK::For) {
+        return ParseForLoop();
+    }
+    
     std::shared_ptr<LocalStmt> S;
     std::shared_ptr<Expr> E; // A partially-parsed part of a local statement
     
@@ -558,6 +562,16 @@ std::shared_ptr<ast::WhileStmt> Parser::ParseWhileStmt() {
 }
 
 
+
+std::shared_ptr<ForLoop> Parser::ParseForLoop() {
+    assert_current_token_and_consume(TK::For);
+    auto Ident = ParseIdentifier();
+    assert_current_token_and_consume(TK::In);
+    auto Expr = ParseExpression();
+    assert_current_token(TK::OpeningCurlyBraces);
+    auto Body = ParseComposite();
+    return std::make_shared<ForLoop>(Ident, Expr, Body);
+}
 
 
 

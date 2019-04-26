@@ -212,6 +212,15 @@ public:
 };
 
 
+class ForLoop : public LocalStmt {
+public:
+    std::shared_ptr<ast::Identifier> Ident;
+    std::shared_ptr<ast::Expr> Expr;
+    std::shared_ptr<ast::Composite> Body;
+    
+    ForLoop(std::shared_ptr<ast::Identifier> Ident, std::shared_ptr<ast::Expr> Expr, std::shared_ptr<ast::Composite> Body) : Ident(Ident), Expr(Expr), Body(Body) {}
+};
+
 
 
 

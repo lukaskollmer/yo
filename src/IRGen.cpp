@@ -255,6 +255,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LocalStmt> LocalStmt) {
     HANDLE(LocalStmt, Assignment)
     HANDLE(LocalStmt, MemberAccess, CodegenReturnValueKind::Value);
     HANDLE(LocalStmt, WhileStmt)
+    HANDLE(LocalStmt, ForLoop)
     
     unhandled_node(LocalStmt);
 }
@@ -1369,8 +1370,6 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
 
 
 
-
-
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::WhileStmt> WhileStmt) {
     auto F = Builder.GetInsertBlock()->getParent();
     
@@ -1396,6 +1395,14 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::WhileStmt> WhileStmt) {
     return nullptr;
 }
 
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ForLoop> ForLoop) {
+    auto T = GuessType(ForLoop->Expr);
+    std::cout << T << std::endl;
+    // TODO get iterator, turn that into a while loop or something like that
+    throw;
+}
 
 
 
