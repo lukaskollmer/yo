@@ -132,7 +132,7 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
         llvm::outs() << "Error creating output directory: " << EC.message();
         return EXIT_FAILURE;
     }
-    auto cmd = LKStringUtils_FormatIntoNewBuffer("%s %s -o %s -lSystem",
+    auto cmd = LKStringUtils_FormatIntoNewBuffer("%s %s -o %s -lc",
                                                  clangPath->c_str(),
                                                  ObjectFilePath,
                                                  ExecutablePath);
