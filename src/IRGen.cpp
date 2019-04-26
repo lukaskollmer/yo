@@ -1540,7 +1540,7 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::Expr> Expr) {
     IF(StringLiteral, ast::StringLiteral) {
         switch (StringLiteral->Kind) {
             case ast::StringLiteral::StringLiteralKind::NormalString:
-                return TypeInfo::MakeComplex("String");
+                return TypeInfo::GetWithName("String");
             case ast::StringLiteral::StringLiteralKind::ByteString:
                 return TypeInfo::i8_ptr;
         }
