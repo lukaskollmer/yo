@@ -1201,103 +1201,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::UnaryExpr> UnaryExpr) {
 
 
 
-#pragma mark - Conditions
-
-
-llvm::CmpInst::Predicate GetMatchingLLVMCmpInstPredicateForComparisonOperator_Float(ast::Comparison::Operation Op) {
-    using Operation = ast::Comparison::Operation;
-    using Predicate = llvm::CmpInst::Predicate;
-    
-    switch (Op) {
-        case Operation::EQ: return Predicate::FCMP_OEQ;
-        case Operation::NE: return Predicate::FCMP_ONE;
-        case Operation::LT: return Predicate::FCMP_OLT;
-        case Operation::LE: return Predicate::FCMP_OLE;
-        case Operation::GT: return Predicate::FCMP_OGT;
-        case Operation::GE: return Predicate::FCMP_OGE;
-    }
-}
-
-llvm::CmpInst::Predicate GetMatchingLLVMCmpInstPredicateForComparisonOperator_Int(ast::Comparison::Operation Op, bool Signed) {
-    using Operation = ast::Comparison::Operation;
-    using Predicate = llvm::CmpInst::Predicate;
-    
-    switch (Op) {
-        case Operation::EQ: return Predicate::ICMP_EQ;
-        case Operation::NE: return Predicate::ICMP_NE;
-        case Operation::LT: return Signed ? Predicate::ICMP_SLT : Predicate::ICMP_ULT;
-        case Operation::LE: return Signed ? Predicate::ICMP_SLE : Predicate::ICMP_ULE;
-        case Operation::GT: return Signed ? Predicate::ICMP_SGT : Predicate::ICMP_UGT;
-        case Operation::GE: return Signed ? Predicate::ICMP_SGE : Predicate::ICMP_UGE;
-    }
-}
-
-
-
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Comparison> Comparison) {
-    auto LhsTy = GuessType(Comparison->LHS);
-    auto RhsTy = GuessType(Comparison->RHS);
-    
-    llvm::CmpInst::Predicate Pred;
-    llvm::Value *LHS, *RHS;
-    
-    // Floats?
-    if (LhsTy->Equals(TypeInfo::Double) && RhsTy->Equals(TypeInfo::Double)) {
-        return Builder.CreateFCmp(GetMatchingLLVMCmpInstPredicateForComparisonOperator_Float(Comparison->Op),
-                                  Codegen(Comparison->LHS), Codegen(Comparison->RHS));
-    }
-    
-    // Are both integers?
-    if (!LhsTy->IsIntegerType() || !RhsTy->IsIntegerType()) {
-        LKFatalError("Cannot compare unrelated types '%s' and '%s'", LhsTy->Str().c_str(), RhsTy->Str().c_str());
-    }
-    
-    if (LhsTy->Equals(RhsTy)) {
-        Pred = GetMatchingLLVMCmpInstPredicateForComparisonOperator_Int(Comparison->Op, LhsTy->IsSigned());
-        LHS = Codegen(Comparison->LHS);
-        RHS = Codegen(Comparison->RHS);
-    } else {
-        // Both are integers, but different types
-        
-        TypeInfo *CastDestTy = TypeInfo::Unresolved;
-        auto LargerSize = std::max(LhsTy->getSize(), RhsTy->getSize());
-        
-        if (LargerSize <= TypeInfo::kSizeof_i32) {
-            CastDestTy = TypeInfo::i32;
-        } else {
-            precondition(LargerSize == TypeInfo::kSizeof_i64);
-            CastDestTy = TypeInfo::i64;
-        }
-        
-        LHS = Codegen(std::make_shared<ast::Typecast>(Comparison->LHS, CastDestTy, ast::Typecast::CastKind::StaticCast));
-        RHS = Codegen(std::make_shared<ast::Typecast>(Comparison->RHS, CastDestTy, ast::Typecast::CastKind::StaticCast));
-        
-        Pred = GetMatchingLLVMCmpInstPredicateForComparisonOperator_Int(Comparison->Op, LhsTy->IsSigned() || RhsTy->IsSigned());
-    }
-    
-    return Builder.CreateICmp(Pred, LHS, RHS);
-}
-
-
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LogicalOperation> LogOp) {
-    // TODO rewrite
-    auto LHS = Codegen(LogOp->LHS);
-    auto RHS = Codegen(LogOp->RHS);
-    
-    precondition(LHS->getType() == Bool && RHS->getType() == Bool);
-    
-    auto Op = LogOp->Op == ast::LogicalOperation::Operation::And
-        ? llvm::Instruction::BinaryOps::And
-        : llvm::Instruction::BinaryOps::Or;
-    
-    return Builder.CreateBinOp(Op, LHS, RHS);
-}
-
-
-
-
-
-
+#pragma mark - Control Flow
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
     using BK = ast::IfStmt::Branch::BranchKind;
@@ -1403,6 +1307,101 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ForLoop> ForLoop) {
     // TODO get iterator, turn that into a while loop or something like that
     throw;
 }
+
+
+
+#pragma mark - Comparisons/Conditions
+
+llvm::CmpInst::Predicate GetMatchingLLVMCmpInstPredicateForComparisonOperator_Float(ast::Comparison::Operation Op) {
+    using Operation = ast::Comparison::Operation;
+    using Predicate = llvm::CmpInst::Predicate;
+    
+    switch (Op) {
+        case Operation::EQ: return Predicate::FCMP_OEQ;
+        case Operation::NE: return Predicate::FCMP_ONE;
+        case Operation::LT: return Predicate::FCMP_OLT;
+        case Operation::LE: return Predicate::FCMP_OLE;
+        case Operation::GT: return Predicate::FCMP_OGT;
+        case Operation::GE: return Predicate::FCMP_OGE;
+    }
+}
+
+llvm::CmpInst::Predicate GetMatchingLLVMCmpInstPredicateForComparisonOperator_Int(ast::Comparison::Operation Op, bool Signed) {
+    using Operation = ast::Comparison::Operation;
+    using Predicate = llvm::CmpInst::Predicate;
+    
+    switch (Op) {
+        case Operation::EQ: return Predicate::ICMP_EQ;
+        case Operation::NE: return Predicate::ICMP_NE;
+        case Operation::LT: return Signed ? Predicate::ICMP_SLT : Predicate::ICMP_ULT;
+        case Operation::LE: return Signed ? Predicate::ICMP_SLE : Predicate::ICMP_ULE;
+        case Operation::GT: return Signed ? Predicate::ICMP_SGT : Predicate::ICMP_UGT;
+        case Operation::GE: return Signed ? Predicate::ICMP_SGE : Predicate::ICMP_UGE;
+    }
+}
+
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Comparison> Comparison) {
+    auto LhsTy = GuessType(Comparison->LHS);
+    auto RhsTy = GuessType(Comparison->RHS);
+    
+    llvm::CmpInst::Predicate Pred;
+    llvm::Value *LHS, *RHS;
+    
+    // Floats?
+    if (LhsTy->Equals(TypeInfo::Double) && RhsTy->Equals(TypeInfo::Double)) {
+        return Builder.CreateFCmp(GetMatchingLLVMCmpInstPredicateForComparisonOperator_Float(Comparison->Op),
+                                  Codegen(Comparison->LHS), Codegen(Comparison->RHS));
+    }
+    
+    // Are both integers?
+    if (!LhsTy->IsIntegerType() || !RhsTy->IsIntegerType()) {
+        LKFatalError("Cannot compare unrelated types '%s' and '%s'", LhsTy->Str().c_str(), RhsTy->Str().c_str());
+    }
+    
+    if (LhsTy->Equals(RhsTy)) {
+        Pred = GetMatchingLLVMCmpInstPredicateForComparisonOperator_Int(Comparison->Op, LhsTy->IsSigned());
+        LHS = Codegen(Comparison->LHS);
+        RHS = Codegen(Comparison->RHS);
+    } else {
+        // Both are integers, but different types
+        
+        TypeInfo *CastDestTy = TypeInfo::Unresolved;
+        auto LargerSize = std::max(LhsTy->getSize(), RhsTy->getSize());
+        
+        if (LargerSize <= TypeInfo::kSizeof_i32) {
+            CastDestTy = TypeInfo::i32;
+        } else {
+            precondition(LargerSize == TypeInfo::kSizeof_i64);
+            CastDestTy = TypeInfo::i64;
+        }
+        
+        LHS = Codegen(std::make_shared<ast::Typecast>(Comparison->LHS, CastDestTy, ast::Typecast::CastKind::StaticCast));
+        RHS = Codegen(std::make_shared<ast::Typecast>(Comparison->RHS, CastDestTy, ast::Typecast::CastKind::StaticCast));
+        
+        Pred = GetMatchingLLVMCmpInstPredicateForComparisonOperator_Int(Comparison->Op, LhsTy->IsSigned() || RhsTy->IsSigned());
+    }
+    
+    return Builder.CreateICmp(Pred, LHS, RHS);
+}
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LogicalOperation> LogOp) {
+    // TODO rewrite
+    auto LHS = Codegen(LogOp->LHS);
+    auto RHS = Codegen(LogOp->RHS);
+    
+    precondition(LHS->getType() == Bool && RHS->getType() == Bool);
+    
+    auto Op = LogOp->Op == ast::LogicalOperation::Operation::And
+    ? llvm::Instruction::BinaryOps::And
+    : llvm::Instruction::BinaryOps::Or;
+    
+    return Builder.CreateBinOp(Op, LHS, RHS);
+}
+
+
 
 
 
