@@ -122,9 +122,10 @@ private:
     llvm::Value *Codegen(std::shared_ptr<ast::ReturnStmt>);
     llvm::Value *Codegen(std::shared_ptr<ast::FunctionCall>, unsigned ArgumentOffset = 0, std::shared_ptr<ast::FunctionSignature> *SelectedOverload = nullptr);
     llvm::Value *Codegen(std::shared_ptr<ast::VariableDecl>);
+    llvm::Value *Codegen(std::shared_ptr<ast::Assignment>);
     llvm::Value *Codegen(std::shared_ptr<ast::IfStmt>);
     llvm::Value *Codegen(std::shared_ptr<ast::WhileStmt>);
-    llvm::Value *Codegen(std::shared_ptr<ast::Assignment>);
+    llvm::Value *Codegen(std::shared_ptr<ast::ForLoop>);
     
     llvm::Value *Codegen(std::shared_ptr<ast::NumberLiteral>);
     llvm::Value *Codegen(std::shared_ptr<ast::StringLiteral>);
