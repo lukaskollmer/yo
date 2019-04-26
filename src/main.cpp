@@ -91,10 +91,10 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     }
     
     
-    auto ObjectFilePath = LKStringUtils_FormatIntoNewBuffer("%s/%s",
+    auto ObjectFilePath = LKStringUtils_FormatIntoNewBuffer("%s/%s.o",
                                                             DebugDirPath.c_str(),
                                                             util::string::excludingFileExtension(Filename).c_str());
-    llvm::raw_fd_ostream dest(ObjectFilePath, EC, llvm::sys::fs::F_None);
+    llvm::raw_fd_ostream dest(ObjectFilePath, EC, llvm::sys::fs::CreationDisposition::CD_OpenAlways);
     
     if (EC) {
         llvm::outs() << "Could not open file: " << EC.message();
