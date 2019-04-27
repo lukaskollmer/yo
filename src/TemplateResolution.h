@@ -36,11 +36,14 @@ class TemplateResolver {
     std::shared_ptr<ast::Assignment> Specialize(std::shared_ptr<ast::Assignment>);
     std::shared_ptr<ast::ReturnStmt> Specialize(std::shared_ptr<ast::ReturnStmt>);
     std::shared_ptr<ast::WhileStmt> Specialize(std::shared_ptr<ast::WhileStmt>);
+    std::shared_ptr<ast::IfStmt> Specialize(std::shared_ptr<ast::IfStmt>);
     std::shared_ptr<ast::Composite> Specialize(std::shared_ptr<ast::Composite>);
     std::shared_ptr<ast::MemberAccess> Specialize(std::shared_ptr<ast::MemberAccess>);
+    
     std::shared_ptr<ast::FunctionCall> Specialize(std::shared_ptr<ast::FunctionCall>);
-    std::shared_ptr<ast::BinaryOperation> Specialize(std::shared_ptr<ast::BinaryOperation>);
     std::shared_ptr<ast::Comparison> Specialize(std::shared_ptr<ast::Comparison>);
+    std::shared_ptr<ast::BinaryOperation> Specialize(std::shared_ptr<ast::BinaryOperation>);
+    std::shared_ptr<ast::LogicalOperation> Specialize(std::shared_ptr<ast::LogicalOperation>);
     
 public:
     static std::shared_ptr<ast::FunctionDecl> SpecializeWithTemplateMapping(std::shared_ptr<ast::FunctionDecl>, TemplateTypeMapping);

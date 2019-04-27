@@ -89,7 +89,7 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::Specialize(std::shared_ptr<
 #define IGNORE(node, T) if (std::dynamic_pointer_cast<ast::T>(node)) return (node);
 
 #define unhandled_node(node) \
-{ std::cout << "[IRGenerator::Codegen] Unhandled Node: " << util::typeinfo::GetTypename(*(node)) << std::endl; \
+{ std::cout << "[TemplateResolver::Specialize] Unhandled Node: " << util::typeinfo::GetTypename(*(node)) << std::endl; \
 throw; }
 
 std::shared_ptr<ast::LocalStmt> TemplateResolver::Specialize(std::shared_ptr<ast::LocalStmt> Stmt) {
@@ -97,6 +97,7 @@ std::shared_ptr<ast::LocalStmt> TemplateResolver::Specialize(std::shared_ptr<ast
     HANDLE(Stmt, Assignment)
     HANDLE(Stmt, VariableDecl)
     HANDLE(Stmt, WhileStmt)
+    HANDLE(Stmt, IfStmt)
     HANDLE(Stmt, MemberAccess)
     unhandled_node(Stmt)
 }
@@ -110,6 +111,7 @@ std::shared_ptr<ast::Expr> TemplateResolver::Specialize(std::shared_ptr<ast::Exp
     HANDLE(Expr, BinaryOperation)
     HANDLE(Expr, Comparison)
     IGNORE(Expr, StringLiteral)
+    HANDLE(Expr, LogicalOperation)
     unhandled_node(Expr)
 }
 
@@ -130,13 +132,22 @@ std::shared_ptr<ast::ReturnStmt> TemplateResolver::Specialize(std::shared_ptr<as
     return std::make_shared<ast::ReturnStmt>(Specialize(ReturnStmt->Expression));
 }
 
+std::shared_ptr<ast::Assignment> TemplateResolver::Specialize(std::shared_ptr<ast::Assignment> Assignment) {
+    return std::make_shared<ast::Assignment>(Specialize(Assignment->Target), Specialize(Assignment->Value));
+}
+
+
 
 std::shared_ptr<ast::WhileStmt> TemplateResolver::Specialize(std::shared_ptr<ast::WhileStmt> WhileStmt) {
     return std::make_shared<ast::WhileStmt>(Specialize(WhileStmt->Condition), Specialize(WhileStmt->Body));
 }
 
-std::shared_ptr<ast::Assignment> TemplateResolver::Specialize(std::shared_ptr<ast::Assignment> Assignment) {
-    return std::make_shared<ast::Assignment>(Specialize(Assignment->Target), Specialize(Assignment->Value));
+std::shared_ptr<ast::IfStmt> TemplateResolver::Specialize(std::shared_ptr<ast::IfStmt> IfStmt) {
+    auto Branches = util::vector::map(IfStmt->Branches, [this](auto Branch) -> auto {
+        return std::make_shared<ast::IfStmt::Branch>(Branch->Kind, Specialize(Branch->Condition), Specialize(Branch->Body));
+    });
+    
+    return std::make_shared<ast::IfStmt>(Branches);
 }
 
 
@@ -198,11 +209,17 @@ std::shared_ptr<ast::VariableDecl> TemplateResolver::Specialize(std::shared_ptr<
 }
 
 
+
+std::shared_ptr<ast::Comparison> TemplateResolver::Specialize(std::shared_ptr<ast::Comparison> Comparison) {
+    return std::make_shared<ast::Comparison>(Comparison->Op, Specialize(Comparison->LHS), Specialize(Comparison->RHS));
+}
+
+
 std::shared_ptr<ast::BinaryOperation> TemplateResolver::Specialize(std::shared_ptr<ast::BinaryOperation> Binop) {
     return std::make_shared<ast::BinaryOperation>(Binop->Op, Specialize(Binop->LHS), Specialize(Binop->RHS));
 }
 
 
-std::shared_ptr<ast::Comparison> TemplateResolver::Specialize(std::shared_ptr<ast::Comparison> Comparison) {
-    return std::make_shared<ast::Comparison>(Comparison->Op, Specialize(Comparison->LHS), Specialize(Comparison->RHS));
+std::shared_ptr<ast::LogicalOperation> TemplateResolver::Specialize(std::shared_ptr<ast::LogicalOperation> LogicalOperation) {
+    return std::make_shared<ast::LogicalOperation>(LogicalOperation->Op, Specialize(LogicalOperation->LHS), Specialize(LogicalOperation->RHS));
 }
