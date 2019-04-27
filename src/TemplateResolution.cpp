@@ -27,7 +27,7 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::SpecializeWithTemplateMappi
 
 
 TypeInfo *TemplateResolver::ResolveType(TypeInfo *TI) {
-    if (TI->Equals(TypeInfo::Unresolved)) return TI;
+    if (TI->equals(TypeInfo::Unresolved)) return TI;
     
     if (util::map::contains_key(TemplateArgumentMapping, TI->getName())) {
         auto X = TemplateArgumentMapping.at(TI->getName());
@@ -63,7 +63,7 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::Specialize(std::shared_ptr<
     SpecializedFunction->Signature->ReturnType = ResolveType(SpecializedFunction->Signature->ReturnType);
     
     for (auto &[Name, Type] : TemplateArgumentMapping) {
-        if (!Type->Equals(TypeInfo::Unresolved)) {
+        if (!Type->equals(TypeInfo::Unresolved)) {
             auto It = std::find(SpecializedFunction->Signature->TemplateArgumentNames.begin(),
                                 SpecializedFunction->Signature->TemplateArgumentNames.end(), Name);
             SpecializedFunction->Signature->TemplateArgumentNames.erase(It);

@@ -106,11 +106,11 @@ void IRGenerator::Preflight(ast::AST &Ast) {
     for (auto &EFD : ExternalFunctionDecls) {
         // No potential conflict w/ other non-external already resolved functions, since their resolved name will be mangled (unlike the external function's name)
         if (auto EFS2Sig = GetResolvedFunctionWithName(EFD->Signature->Name)) {
-            precondition(EFD->Signature->ReturnType->Equals(EFS2Sig->ReturnType)
+            precondition(EFD->Signature->ReturnType->equals(EFS2Sig->ReturnType)
                          && EFD->Signature->Parameters.size() == EFS2Sig->Parameters.size()
                          && std::equal(EFD->Signature->Parameters.begin(), EFD->Signature->Parameters.end(), EFS2Sig->Parameters.begin(),
                                        [] (auto Arg1, auto Arg2) -> bool {
-                                           return Arg1->Type->Equals(Arg2->Type);
+                                           return Arg1->Type->equals(Arg2->Type);
                                        })
                          && "Multiple external function declarations w/ same name, but different signatures"
                          );
@@ -214,7 +214,7 @@ void IRGenerator::RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock) {
         auto Kind = FK::StaticMethod;
         if (!F->Signature->Parameters.empty()) {
             auto First = F->Signature->Parameters[0];
-            if (First->Name->Value == "self" && First->Type->Equals(T)) {
+            if (First->Name->Value == "self" && First->Type->equals(T)) {
                 Kind = FK::InstanceMethod;
             }
         }
@@ -430,13 +430,13 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ReturnStmt> ReturnStmt) {
     if (auto Expr = ReturnStmt->Expression) {
         TypeInfo *T;
         if (!TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&Expr, F->ReturnType, &T)) {
-            LKFatalError("Error: Can't return value of type '%s' from function '%s' returning '%s'", T->Str().c_str(), FName.c_str(), F->ReturnType->Str().c_str());
+            LKFatalError("Error: Can't return value of type '%s' from function '%s' returning '%s'", T->str().c_str(), FName.c_str(), F->ReturnType->str().c_str());
         }
         
         return Builder.CreateRet(Codegen(Expr));
     }
     
-    precondition(F->ReturnType->Equals(TypeInfo::Void));
+    precondition(F->ReturnType->equals(TypeInfo::Void));
     return Builder.CreateRetVoid();
 }
 
@@ -452,8 +452,8 @@ bool value_fits_in_type(uint64_t Value) {
 bool IntegerLiteralFitsInType(uint64_t Value, TypeInfo *TI) {
     #define CASE(sizetype, signed_t, unsigned_t) case TypeInfo::sizetype: return Signed ? value_fits_in_type<signed_t>(Value) : value_fits_in_type<unsigned_t>(Value);
     
-    precondition(TI->IsIntegerType());
-    bool Signed = TI->IsSigned();
+    precondition(TI->isIntegerType());
+    bool Signed = TI->isSigned();
     
     switch (TI->getSize()) {
         CASE(kSizeof_u8,  int8_t,  uint8_t)
@@ -471,18 +471,18 @@ bool IRGenerator::TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
     auto Type = GuessType(*Expr);
     if (InitialTypeOfExpr) *InitialTypeOfExpr = Type;
     
-    if (Type->Equals(ExpectedType)) return true;
+    if (Type->equals(ExpectedType)) return true;
     
     // at this point, both are integers
     if (auto NumberLiteral = std::dynamic_pointer_cast<ast::NumberLiteral>(*Expr)) {
-        precondition(ExpectedType->IsIntegerType());
+        precondition(ExpectedType->isIntegerType());
         precondition(IntegerLiteralFitsInType(NumberLiteral->Value, ExpectedType));
         
         *Expr = std::make_shared<ast::Typecast>(*Expr, ExpectedType, ast::Typecast::CastKind::StaticCast);
         return true;
     }
     
-    std::cout << "input: " << Type->Str() << ", expected: " << ExpectedType->Str() << std::endl;
+    std::cout << "input: " << Type->str() << ", expected: " << ExpectedType->str() << std::endl;
     throw;
 }
 
@@ -493,7 +493,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> Assignment) {
     auto runTypechecksForStore = [&](std::shared_ptr<ast::Expr> expr, TypeInfo *expectedType) -> auto {
         TypeInfo *T;
         if (!this->TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, expectedType, &T)) {
-            LKFatalError("unable to store value of type '%s' into '%s'", T->Str().c_str(), expectedType->Str().c_str());
+            LKFatalError("unable to store value of type '%s' into '%s'", T->str().c_str(), expectedType->str().c_str());
         }
         return expr;
     };
@@ -589,7 +589,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Typecast> Cast) {
     auto SrcTy = GuessType(Cast->Expression);
     auto DestTy = Cast->DestType;
     
-    if (SrcTy->Equals(DestTy)) {
+    if (SrcTy->equals(DestTy)) {
         return Codegen(Cast->Expression);
     }
     
@@ -597,9 +597,9 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Typecast> Cast) {
     switch (Cast->Kind) {
         case ast::Typecast::CastKind::Bitcast: {
             precondition(M->getDataLayout().getTypeSizeInBits(GetLLVMType(SrcTy)) == M->getDataLayout().getTypeSizeInBits(GetLLVMType(DestTy)));
-            if (SrcTy->IsPointer() && DestTy->IsIntegerType()) {
+            if (SrcTy->isPointer() && DestTy->isIntegerType()) {
                 Op = llvm::Instruction::CastOps::PtrToInt;
-            } else if (SrcTy->IsIntegerType() && DestTy->IsPointer()) {
+            } else if (SrcTy->isIntegerType() && DestTy->isPointer()) {
                 Op = llvm::Instruction::CastOps::IntToPtr;
             } else {
                 Op = llvm::Instruction::CastOps::BitCast;
@@ -607,7 +607,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Typecast> Cast) {
             break;
         }
         case ast::Typecast::CastKind::StaticCast: {
-            if (SrcTy->IsIntegerType() && DestTy->IsIntegerType()) {
+            if (SrcTy->isIntegerType() && DestTy->isIntegerType()) {
                 auto SrcIntWidth  = GetLLVMType(SrcTy)->getIntegerBitWidth();
                 auto DestIntWidth = GetLLVMType(DestTy)->getIntegerBitWidth();
                 
@@ -616,7 +616,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Typecast> Cast) {
                     Op = llvm::Instruction::CastOps::Trunc;
                 } else {
                     // casting to a larger type
-                    if (SrcTy->IsSigned()) {
+                    if (SrcTy->isSigned()) {
                         Op = llvm::Instruction::CastOps::SExt;
                     } else {
                         Op = llvm::Instruction::CastOps::ZExt;
@@ -667,7 +667,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
             }
             
             case MK::OffsetRead: {
-                precondition(CurrentType->IsPointer());
+                precondition(CurrentType->isPointer());
                 
                 if (llvm::isa<llvm::GetElementPtrInst>(V)) {
                     V = Builder.CreateLoad(V);
@@ -681,7 +681,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
             }
             
             case MK::MemberFunctionCall: {
-                precondition(CurrentType->IsComplex());
+                precondition(CurrentType->isComplex());
 
                 auto Call = Member->Data.Call;
                 
@@ -701,7 +701,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
             }
             
             case MK::MemberAttributeRead: {
-                precondition(CurrentType->IsComplex() && TypeCache.Contains(CurrentType->getName()));
+                precondition(CurrentType->isComplex() && TypeCache.Contains(CurrentType->getName()));
                 auto MemberName = Member->Data.Ident->Value;
                 auto StructName = CurrentType->getName();
                 auto StructType = TypeCache.GetStruct(StructName);
@@ -807,13 +807,13 @@ bool IRGenerator::TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
     *LhsTy_out = LhsTy;
     *RhsTy_out = RhsTy;
     
-    if (LhsTy->Equals(RhsTy)) {
+    if (LhsTy->equals(RhsTy)) {
         return true;
     }
     
     // TODO add some kind of "types are compatible for this kind of binary operation" check
     
-    if (!LhsTy->IsIntegerType() || !RhsTy->IsIntegerType()) {
+    if (!LhsTy->isIntegerType() || !RhsTy->isIntegerType()) {
         LKFatalError("oh no");
     }
     
@@ -839,11 +839,11 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::BinaryOperation> Binop) {
     TypeInfo *LhsTy, *RhsTy;
     
     if (!TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&Lhs, &Rhs, &LhsTy, &RhsTy)) {
-        LKFatalError("unable to create binop for supplied operand types '%s' and '%s'", LhsTy->Str().c_str(), RhsTy->Str().c_str());
+        LKFatalError("unable to create binop for supplied operand types '%s' and '%s'", LhsTy->str().c_str(), RhsTy->str().c_str());
     }
     
-    precondition(LhsTy->Equals(RhsTy));
-    return Builder.CreateBinOp(GetLLVMBinaryOpInstruction_Int(Binop->Op, LhsTy->IsSigned()), Codegen(Lhs), Codegen(Rhs));
+    precondition(LhsTy->equals(RhsTy));
+    return Builder.CreateBinOp(GetLLVMBinaryOpInstruction_Int(Binop->Op, LhsTy->isSigned()), Codegen(Lhs), Codegen(Rhs));
 }
 
 
@@ -872,9 +872,9 @@ std::optional<std::map<std::string, TypeInfo *>> IRGenerator::AttemptToResolveTe
         auto ParamType = Sig->Parameters[Idx]->Type;
         unsigned ParamIndirectionCount = 0;
         
-        if (ParamType->IsPointer()) {
+        if (ParamType->isPointer()) {
             auto TI = ParamType;
-            while (TI->IsPointer()) {
+            while (TI->isPointer()) {
                 ParamIndirectionCount += 1;
                 TI = TI->getPointee();
             }
@@ -887,12 +887,12 @@ std::optional<std::map<std::string, TypeInfo *>> IRGenerator::AttemptToResolveTe
             auto GuessedArgumentType = GuessType(Call->Arguments[Idx]);
             if (Mapping->second == TypeInfo::Unresolved) {
                 while (ParamIndirectionCount-- > 0) {
-                    precondition(GuessedArgumentType->IsPointer());
+                    precondition(GuessedArgumentType->isPointer());
                     GuessedArgumentType = GuessedArgumentType->getPointee();
                 }
                 Mapping->second = GuessedArgumentType;
             } else {
-                precondition(Mapping->second->Equals(GuessedArgumentType));
+                precondition(Mapping->second->equals(GuessedArgumentType));
             }
         }
     }
@@ -1027,7 +1027,7 @@ ResolvedFunction IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCall> Cal
             auto Type_Passed = GuessType(Arg);
             auto Type_Expected = Decl->Signature->Parameters[I]->Type;
             
-            if (Type_Passed->Equals(Type_Expected)) {
+            if (Type_Passed->equals(Type_Expected)) {
                 Score += 10;
             } else if (auto NumberLiteral = std::dynamic_pointer_cast<ast::NumberLiteral>(Arg)) {
                 precondition(NumberLiteral->Type == ast::NumberLiteral::NumberType::Integer);
@@ -1135,7 +1135,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsig
         auto Expr = Call->Arguments[I - ArgumentOffset];
         TypeInfo *T;
         if (!TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&Expr, ExpectedType, &T)) {
-            LKFatalError("Type mismatch in call to '%s'. Arg #%i: expected '%s', got '%s'", Call->Target->Value.c_str(), I, ExpectedType->Str().c_str(), T->Str().c_str());
+            LKFatalError("Type mismatch in call to '%s'. Arg #%i: expected '%s', got '%s'", Call->Target->Value.c_str(), I, ExpectedType->str().c_str(), T->str().c_str());
         }
         Args.push_back(Codegen(Expr));
     }
@@ -1190,7 +1190,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::UnaryExpr> UnaryExpr) {
         
         case ast::UnaryExpr::Operation::LogicalNegation: {
             auto T = GuessType(Expr);
-            precondition(T->Equals(TypeInfo::Bool) || T->IsPointer() || T->IsIntegerType());
+            precondition(T->equals(TypeInfo::Bool) || T->isPointer() || T->isIntegerType());
             return Builder.CreateIsNull(Codegen(Expr)); // TODO this seems like a cop-out answer?
         }
     }
@@ -1350,18 +1350,18 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Comparison> Comparison) {
     llvm::Value *LHS, *RHS;
     
     // Floats?
-    if (LhsTy->Equals(TypeInfo::Double) && RhsTy->Equals(TypeInfo::Double)) {
+    if (LhsTy->equals(TypeInfo::Double) && RhsTy->equals(TypeInfo::Double)) {
         return Builder.CreateFCmp(GetMatchingLLVMCmpInstPredicateForComparisonOperator_Float(Comparison->Op),
                                   Codegen(Comparison->LHS), Codegen(Comparison->RHS));
     }
     
     // Are both integers?
-    if (!LhsTy->IsIntegerType() || !RhsTy->IsIntegerType()) {
-        LKFatalError("Cannot compare unrelated types '%s' and '%s'", LhsTy->Str().c_str(), RhsTy->Str().c_str());
+    if (!LhsTy->isIntegerType() || !RhsTy->isIntegerType()) {
+        LKFatalError("Cannot compare unrelated types '%s' and '%s'", LhsTy->str().c_str(), RhsTy->str().c_str());
     }
     
-    if (LhsTy->Equals(RhsTy)) {
-        Pred = GetMatchingLLVMCmpInstPredicateForComparisonOperator_Int(Comparison->Op, LhsTy->IsSigned());
+    if (LhsTy->equals(RhsTy)) {
+        Pred = GetMatchingLLVMCmpInstPredicateForComparisonOperator_Int(Comparison->Op, LhsTy->isSigned());
         LHS = Codegen(Comparison->LHS);
         RHS = Codegen(Comparison->RHS);
     } else {
@@ -1380,7 +1380,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Comparison> Comparison) {
         LHS = Codegen(std::make_shared<ast::Typecast>(Comparison->LHS, CastDestTy, ast::Typecast::CastKind::StaticCast));
         RHS = Codegen(std::make_shared<ast::Typecast>(Comparison->RHS, CastDestTy, ast::Typecast::CastKind::StaticCast));
         
-        Pred = GetMatchingLLVMCmpInstPredicateForComparisonOperator_Int(Comparison->Op, LhsTy->IsSigned() || RhsTy->IsSigned());
+        Pred = GetMatchingLLVMCmpInstPredicateForComparisonOperator_Int(Comparison->Op, LhsTy->isSigned() || RhsTy->isSigned());
     }
     
     return Builder.CreateICmp(Pred, LHS, RHS);
@@ -1413,7 +1413,7 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
 
     switch (TI->getKind()) {
         case TypeInfo::Kind::Primitive: {
-#define HANDLE(name, _llvmtype) if (TI->Equals(TypeInfo::name)) { TI->setLLVMType(_llvmtype); return _llvmtype; }
+#define HANDLE(name, _llvmtype) if (TI->equals(TypeInfo::name)) { TI->setLLVMType(_llvmtype); return _llvmtype; }
             HANDLE(i8, i8)      HANDLE(u8, i8)
             HANDLE(i16, i16)    HANDLE(u16, i16)
             HANDLE(i32, i32)    HANDLE(u32, i32)
@@ -1474,9 +1474,9 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
 
 // TODO what does this do / why is it here / is it still needed?
 bool IRGenerator::IsTriviallyConvertible(TypeInfo *SrcType, TypeInfo *DestType) {
-    if (SrcType->Equals(DestType)) return true;
+    if (SrcType->equals(DestType)) return true;
     
-    if (SrcType->IsIntegerType() && DestType->IsIntegerType()) {
+    if (SrcType->isIntegerType() && DestType->isIntegerType()) {
         throw;
     }
     
@@ -1491,14 +1491,14 @@ bool IRGenerator::ValueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiter
     // int literal to any int type (as long as the value fits)
     // int literal to double
     
-    if (Number->Type == NT::Boolean) return TI->Equals(TypeInfo::Bool);
+    if (Number->Type == NT::Boolean) return TI->equals(TypeInfo::Bool);
     
-    if (TI->Equals(TypeInfo::Double)) {
+    if (TI->equals(TypeInfo::Double)) {
         return Number->Type == NT::Double || Number->Type == NT::Integer;
     }
     
-    precondition(Number->Type == NT::Integer && TI->IsIntegerType());
-    precondition(Number->Value > 0);
+    precondition(Number->Type == NT::Integer && TI->isIntegerType());
+    precondition(Number->Value > 0); // TODO whatthefuc? this will never be false since ast::NumberLitera::Value is unsigned!!!!!
     
     auto Value = Number->Value;
     uint8_t BitCount = 0;
@@ -1594,12 +1594,12 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess
                 break;
             
             case MK::OffsetRead:
-                precondition(Type->IsPointer());
+                precondition(Type->isPointer());
                 Type = Type->getPointee();
                 break;
             
             case MK::MemberFunctionCall: {
-                precondition(Type->IsComplex() && TypeCache.Contains(Type->getName()));
+                precondition(Type->isComplex() && TypeCache.Contains(Type->getName()));
                 auto Call = Member->Data.Call;
                 if (!mangling::IsCanonicalInstanceMethodName(Call->Target->Value)) {
                     Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(Type->getName(), Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
@@ -1609,7 +1609,7 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess
             }
             
             case MK::MemberAttributeRead:
-                precondition(Type->IsComplex());
+                precondition(Type->isComplex());
                 auto DidFind = false;
                 for (auto &Attr : TypeCache.GetStruct(Type->getName())->Attributes) {
                     if (Attr->Name->Value == Member->Data.Ident->Value) {

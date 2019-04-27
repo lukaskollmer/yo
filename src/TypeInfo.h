@@ -48,7 +48,7 @@ public:
     
     Kind getKind() { return Kind_; }
     uint8_t getSize() {
-        if (IsTypealias()) return Pointee_->getSize();
+        if (isTypealias()) return Pointee_->getSize();
         else return Size_;
     }
     const std::string &getName() { return Name_; }
@@ -58,28 +58,28 @@ public:
     
     
     llvm::Type *getLLVMType() {
-        if (IsTypealias()) return Pointee_->getLLVMType();
+        if (isTypealias()) return Pointee_->getLLVMType();
         else return LLVMType_;
     }
     
     void setLLVMType(llvm::Type *LLVMType) {
-        if (IsTypealias()) Pointee_->setLLVMType(LLVMType);
+        if (isTypealias()) Pointee_->setLLVMType(LLVMType);
         else LLVMType_ = LLVMType;
     }
     
     
-    std::string Str() const;
-    bool Equals(TypeInfo *Other);
+    std::string str() const;
+    bool equals(TypeInfo *Other);
     
     unsigned getIndirectionCount();
 
-    bool IsSigned();
-    bool IsPointer() { return Kind_ == Kind::Pointer; }
-    bool IsComplex() { return Kind_ == Kind::Complex; }
-    bool IsPrimitive() { return Kind_ == Kind::Primitive; }
-    bool IsTypealias() { return Kind_ == Kind::Typealias; }
+    bool isSigned();
+    bool isPointer() { return Kind_ == Kind::Pointer; }
+    bool isComplex() { return Kind_ == Kind::Complex; }
+    bool isPrimitive() { return Kind_ == Kind::Primitive; }
+    bool isTypealias() { return Kind_ == Kind::Typealias; }
 
-    bool IsIntegerType();
+    bool isIntegerType();
     
     
     static TypeInfo *getType_void();
@@ -128,5 +128,5 @@ public:
 };
 
 inline std::ostream &operator<<(std::ostream &OS, const TypeInfo *TI) {
-    return OS << TI->Str();
+    return OS << TI->str();
 }

@@ -105,11 +105,11 @@ TypeInfo *TypeInfo::MakeTypealias(const std::string &Name, TypeInfo *OtherType) 
 
 
 unsigned TypeInfo::getIndirectionCount() {
-    if (!IsPointer()) return 0;
+    if (!isPointer()) return 0;
     unsigned count = 0;
     
     auto T = this;
-    while (T->IsPointer()) {
+    while (T->isPointer()) {
         count += 1;
         T = T->getPointee();
     }
@@ -117,8 +117,8 @@ unsigned TypeInfo::getIndirectionCount() {
 }
 
 
-bool TypeInfo::IsSigned() {
-    return this->Equals(i8) || this->Equals(i16) || this->Equals(i32) || this->Equals(i64);
+bool TypeInfo::isSigned() {
+    return this->equals(i8) || this->equals(i16) || this->equals(i32) || this->equals(i64);
 }
 
 static std::array<TypeInfo *, 8> IntegerTypes = {
@@ -126,19 +126,19 @@ static std::array<TypeInfo *, 8> IntegerTypes = {
     TypeInfo::u8, TypeInfo::u16, TypeInfo::u32, TypeInfo::u64
 };
 
-bool TypeInfo::IsIntegerType() {
-    return std::find_if(IntegerTypes.begin(), IntegerTypes.end(), [this](TypeInfo *TI) { return this->Equals(TI); }) != IntegerTypes.end();
+bool TypeInfo::isIntegerType() {
+    return std::find_if(IntegerTypes.begin(), IntegerTypes.end(), [this](TypeInfo *TI) { return this->equals(TI); }) != IntegerTypes.end();
 }
 
 
-bool TypeInfo::Equals(TypeInfo *Other) {
+bool TypeInfo::equals(TypeInfo *Other) {
     if (this == Other) return true;
     if (Other == Unresolved) return false; // we know that this is nonnull bc of the check above
     if (this->Name_ != Other->Name_) return false;
     
     // Typealiases
-    if (Kind_ == Kind::Typealias && this->Pointee_->Equals(Other)) return true;
-    if (Other->Kind_ == Kind::Typealias && Other->Pointee_->Equals(this)) return true;
+    if (Kind_ == Kind::Typealias && this->Pointee_->equals(Other)) return true;
+    if (Other->Kind_ == Kind::Typealias && Other->Pointee_->equals(this)) return true;
     
     //std::cout << this->Str() << ", " << Other->Str() << std::endl;
     if (Kind_ != Other->Kind_ || Size_ != Other->Size_) return false;
@@ -146,7 +146,7 @@ bool TypeInfo::Equals(TypeInfo *Other) {
     
     
     if ((Kind_ == Kind::Pointer || Kind_ == Kind::Typealias) && Kind_ == Other->Kind_) {
-        return Pointee_->Equals(Other->Pointee_);
+        return Pointee_->equals(Other->Pointee_);
     }
     
     if (Kind_ == Kind::Complex && Other->Kind_ == Kind::Complex) return this->Name_ == Other->Name_;
@@ -154,7 +154,7 @@ bool TypeInfo::Equals(TypeInfo *Other) {
     throw; // TODO implement the rest
 }
 
-std::string TypeInfo::Str() const {
+std::string TypeInfo::str() const {
     if (this == TypeInfo::Unresolved) {
         // We have to check this one first since `this` is a nullpointer for unresolved // TODO: don't map unresolved to the nullpointer
         return "<unresolved>";
@@ -169,11 +169,11 @@ std::string TypeInfo::Str() const {
     }
     
     if (Kind_ == Kind::Pointer) {
-        return std::string("*").append(Pointee_->Str());
+        return std::string("*").append(Pointee_->str());
     }
     
     if (Kind_ == Kind::Typealias) {
-        return std::string(Name_).append(" (alias for ").append(Pointee_->Str()).append(")");
+        return std::string(Name_).append(" (alias for ").append(Pointee_->str()).append(")");
     }
     
     throw;

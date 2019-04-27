@@ -59,12 +59,12 @@ std::ostream& ast::operator<<(std::ostream &OS, const std::shared_ptr<ast::Funct
     OS << "(";
     
     for (auto It = Signature->Parameters.begin(); It != Signature->Parameters.end(); It++) {
-        OS << (*It)->Type->Str();
+        OS << (*It)->Type->str();
         if (It + 1 != Signature->Parameters.end()) {
             OS << ", ";
         }
     }
-    OS << "): " << Signature->ReturnType->Str();
+    OS << "): " << Signature->ReturnType->str();
     return OS;
 }
 
@@ -228,7 +228,7 @@ std::string to_string(T arg) {
         return std::to_string(arg);
     
     } else if constexpr(std::is_same_v<T, TypeInfo *>) {
-        return arg->Str();
+        return arg->str();
     
     } else if constexpr(std::is_same_v<T, FunctionSignature::FunctionKind>) {
         return FunctionKindToString(arg);
