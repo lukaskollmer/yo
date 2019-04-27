@@ -53,6 +53,19 @@ struct ResolvedFunction {
     ResolvedFunction(std::shared_ptr<ast::FunctionDecl> Decl, llvm::Function *LLVMFunction) : Decl(Decl), LLVMFunction(LLVMFunction) {}
 };
 
+
+// State of the function currently being generated
+struct FunctionState {
+    std::shared_ptr<ast::FunctionDecl> Decl;
+    llvm::Value *LLVMFunction;
+    llvm::BasicBlock *ReturnBB;
+    llvm::Value *RetvalAlloca;
+    
+    FunctionState() : Decl(nullptr), LLVMFunction(nullptr), ReturnBB(nullptr), RetvalAlloca(nullptr) {}
+    FunctionState(std::shared_ptr<ast::FunctionDecl> Decl, llvm::Value *LLVMFunction, llvm::BasicBlock *ReturnBB, llvm::Value *RetvalAlloca)
+    : Decl(Decl), LLVMFunction(LLVMFunction), ReturnBB(ReturnBB), RetvalAlloca(RetvalAlloca) {}
+};
+
 class IRGenerator {
     std::unique_ptr<llvm::Module> Module;
     llvm::Module *M;
@@ -74,7 +87,9 @@ class IRGenerator {
     std::map<std::string, std::shared_ptr<ast::FunctionSignature>> ResolvedFunctions;
     
     
-//    irgen::Counter Counter;
+    // The function currently being generated
+    irgen::FunctionState CurrentFunction;
+
     
 public:
     static llvm::LLVMContext C;
@@ -185,6 +200,7 @@ private:
     template <typename F>
     std::invoke_result_t<F> WithCleanSlate(F Fn) {
         auto PrevScope = Scope;
+        auto PrevCurrentFunction = CurrentFunction;
         auto PrevInsertBlock = Builder.GetInsertBlock();
         
         Scope = irgen::Scope();
@@ -192,6 +208,7 @@ private:
         auto Retval = Fn();
         
         Scope = PrevScope;
+        CurrentFunction = PrevCurrentFunction;
         Builder.SetInsertPoint(PrevInsertBlock);
         
         return Retval;

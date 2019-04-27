@@ -33,30 +33,37 @@ struct ValueBinding {
 
 
 class Scope {
-    using Ident = std::string;
-    using Entry = std::tuple<std::string, TypeInfo *, std::shared_ptr<ValueBinding>>;
-    using V = std::vector<Entry>;
+    struct Entry {
+        std::string Ident;
+        TypeInfo *Type;
+        std::shared_ptr<ValueBinding> Binding;
+    };
     
-    V Symbols;
+    std::vector<Entry> Entries;
     
 public:
     using Marker = uint64_t;
     
-    void Insert(Ident Identifier, TypeInfo *Type, ValueBinding Binding);
+    void Insert(const std::string &Identifier, TypeInfo *Type, ValueBinding Binding);
     
     // All of these return null if the scope doesn't contain the identifier
-    ValueBinding *GetBinding(Ident Identifier);
-    TypeInfo *GetType(Ident Identifier);
+    ValueBinding *GetBinding(const std::string &Identifier);
+    TypeInfo *GetType(const std::string &Identifier);
     
-    Entry Remove(Ident Identifier);
-    Entry *_GetEntry(Ident Identifier, V::const_iterator *Pos = nullptr);
+    Entry Remove(const std::string &Identifier);
+    Entry *_GetEntry(const std::string &Identifier, std::vector<Entry>::const_iterator *Pos = nullptr);
     
-    bool IsEmpty() { return Symbols.empty(); }
-    void Clear() { Symbols.clear(); }
+    uint64_t size() { return Entries.size(); }
+    bool isEmpty() { return Entries.empty(); }
     
+    std::vector<Entry> GetAllEntries() {
+        return Entries;
+    }
     
     Marker GetMarker();
-    V GetEntriesSinceMarker(Marker M);
+    std::vector<Entry> GetEntriesSinceMarker(Marker M);
+
+
 };
 
 NS_END

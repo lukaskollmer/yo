@@ -130,6 +130,10 @@ bool TypeInfo::isIntegerType() {
     return std::find_if(IntegerTypes.begin(), IntegerTypes.end(), [this](TypeInfo *TI) { return this->equals(TI); }) != IntegerTypes.end();
 }
 
+bool TypeInfo::isVoidType() {
+    return this->equals(Void);
+}
+
 
 bool TypeInfo::equals(TypeInfo *Other) {
     if (this == Other) return true;

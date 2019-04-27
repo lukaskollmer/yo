@@ -80,6 +80,7 @@ public:
     bool isTypealias() { return Kind_ == Kind::Typealias; }
 
     bool isIntegerType();
+    bool isVoidType();
     
     
     static TypeInfo *getType_void();

@@ -11,29 +11,29 @@
 using namespace irgen;
 
 
-void Scope::Insert(Ident Identifier, TypeInfo *Type, ValueBinding Binding) {
+void Scope::Insert(const std::string &Identifier, TypeInfo *Type, ValueBinding Binding) {
     auto B = std::make_shared<ValueBinding>(std::move(Binding));
-    Symbols.push_back({Identifier, Type, B});
+    Entries.push_back({Identifier, Type, B});
 }
 
-ValueBinding *Scope::GetBinding(Ident Identifier) {
-    return std::get<2>(*_GetEntry(Identifier)).get();
+ValueBinding *Scope::GetBinding(const std::string &Identifier) {
+    return _GetEntry(Identifier)->Binding.get();
 }
 
-TypeInfo *Scope::GetType(Ident Identifier) {
-    return std::get<1>(*_GetEntry(Identifier));
+TypeInfo *Scope::GetType(const std::string &Identifier) {
+    return _GetEntry(Identifier)->Type;
 }
 
-Scope::Entry Scope::Remove(Ident Identifier) {
-    V::const_iterator Pos;
+Scope::Entry Scope::Remove(const std::string &Identifier) {
+    std::vector<Entry>::const_iterator Pos;
     auto E = *_GetEntry(Identifier, &Pos);
-    Symbols.erase(Pos);
+    Entries.erase(Pos);
     return E;
 }
 
-Scope::Entry *Scope::_GetEntry(Ident Identifier, V::const_iterator *Pos) {
-    for (auto It = Symbols.end(); It-- != Symbols.begin();) {
-        if (std::get<0>(*It) == Identifier) {
+Scope::Entry *Scope::_GetEntry(const std::string &Identifier, std::vector<Entry>::const_iterator *Pos) {
+    for (auto It = Entries.end(); It-- != Entries.begin();) {
+        if (It->Ident == Identifier) {
             if (Pos) *Pos = It;
             return &*It;
         }
@@ -42,10 +42,10 @@ Scope::Entry *Scope::_GetEntry(Ident Identifier, V::const_iterator *Pos) {
 }
 
 Scope::Marker Scope::GetMarker() {
-    return Symbols.size();
+    return Entries.size();
 }
 
-Scope::V Scope::GetEntriesSinceMarker(Marker M) {
-    if (M >= Symbols.size()) return {};
-    return Scope::V(Symbols.begin() + M, Symbols.end());
+std::vector<Scope::Entry> Scope::GetEntriesSinceMarker(Marker M) {
+    if (M >= Entries.size()) return {};
+    return std::vector<Entry>(Entries.begin() + M, Entries.end());
 }

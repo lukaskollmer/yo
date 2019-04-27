@@ -24,6 +24,7 @@ using namespace util_llvm;
 
 
 inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
+static const std::string kRetvalAllocaIdentifier = "%retval";
 
 #define unhandled_node(node) \
 { std::cout << __PRETTY_FUNCTION__ << ": Unhandled Node: " << util::typeinfo::GetTypename(*(node)) << std::endl; \
@@ -288,7 +289,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
     if (FunctionDecl->Signature->IsTemplateFunction && !FunctionDecl->Signature->IsFullSpecialization()) {
         return nullptr;
     }
-    precondition(Scope.IsEmpty());
+    precondition(Scope.isEmpty());
     auto ResolvedName = MangleFullyResolved(FunctionDecl);
     
     auto F = M->getFunction(ResolvedName);
@@ -307,9 +308,46 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
         Scope.Insert(Param->Name->Value, Param->Type, Binding);
     }
     
-    auto BB = llvm::BasicBlock::Create(C, "entry", F);
-    Builder.SetInsertPoint(BB);
+    auto EntryBB = llvm::BasicBlock::Create(C, "entry", F);
+    auto ReturnBB = llvm::BasicBlock::Create(C, "return");
+    Builder.SetInsertPoint(EntryBB);
+    
+    llvm::Value *RetvalAlloca = nullptr;
+    auto ReturnType = FunctionDecl->Signature->ReturnType;
+    
+    if (!ReturnType->isVoidType()) {
+        RetvalAlloca = Builder.CreateAlloca(F->getFunctionType()->getReturnType());
+        auto RetvalBinding = ValueBinding(RetvalAlloca, []() {
+            LKFatalError("retval is write-only");
+            return nullptr;
+        }, [this, RetvalAlloca](llvm::Value *V) {
+            Builder.CreateStore(V, RetvalAlloca);
+        });
+        Scope.Insert(kRetvalAllocaIdentifier, ReturnType, RetvalBinding);
+    }
+    
+    CurrentFunction = FunctionState(FunctionDecl, F, ReturnBB, RetvalAlloca);
+    
     Codegen(FunctionDecl->Body, true);
+    
+    F->getBasicBlockList().push_back(ReturnBB);
+    Builder.SetInsertPoint(ReturnBB);
+    
+    if (ReturnType->isVoidType()) {
+        Builder.CreateRetVoid();
+    } else {
+        Builder.CreateRet(Builder.CreateLoad(RetvalAlloca));
+    }
+    
+    precondition(Scope.size() == FunctionDecl->Signature->Parameters.size() + static_cast<uint8_t>(!ReturnType->isVoidType()));
+    
+    for (auto &Entry : Scope.GetEntriesSinceMarker(0)) {
+        //std::cout << std::get<0>(Entry) << std::endl;
+        // TODO: release
+        Scope.Remove(Entry.Ident);
+    }
+    
+    CurrentFunction = FunctionState();
     return F;
 }
 
@@ -381,16 +419,17 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> Composite, boo
     
     bool DidReturn = false;
     
-    if (IsFunctionBody && Composite->Statements.empty()) {
-        // Empty body -> no return statement
-        auto F = Builder.GetInsertBlock()->getParent();
-        if (F->getReturnType() == Void) {
-            Builder.CreateRetVoid();
-            DidReturn = true;
-        } else {
-            LKFatalError("Missing return statement in function '%s' w/ return type '%s'", F->getName().str().c_str(), util_llvm::to_string(F->getReturnType()).c_str());
-        }
-    }
+//    if (IsFunctionBody && Composite->Statements.empty()) {
+//        // Empty body -> no return statement
+//        auto F = Builder.GetInsertBlock()->getParent();
+//        if (F->getReturnType() == Void) {
+//            //Builder.CreateRetVoid();
+//            Builder.CreateBr(CurrentFunction.ReturnBB);
+//            DidReturn = true;
+//        } else {
+//            LKFatalError("Missing return statement in function '%s' w/ return type '%s'", F->getName().str().c_str(), util_llvm::to_string(F->getReturnType()).c_str());
+//        }
+//    }
     
     for (auto It = Composite->Statements.begin(); !DidReturn && It != Composite->Statements.end(); It++) {
         auto &Stmt = *It;
@@ -399,27 +438,30 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> Composite, boo
             DidReturn = true;
         } else {
             Codegen(Stmt);
-            if (IsFunctionBody && It + 1 == Composite->Statements.end()) {
-                // Reached the end of the composite w/out a return statement
-                auto F = Builder.GetInsertBlock()->getParent();
-                precondition(F->getReturnType() == Void, fmt_c("Function %s doesn't have a return statement", F->getName().str().c_str()));
-                Builder.CreateRetVoid();
-                DidReturn = true;
-            }
+//            if (IsFunctionBody && It + 1 == Composite->Statements.end()) {
+//                // Reached the end of the composite w/out a return statement
+//                auto F = Builder.GetInsertBlock()->getParent();
+//                precondition(F->getReturnType() == Void, fmt_c("Function %s doesn't have a return statement", F->getName().str().c_str()));
+//                Builder.CreateRetVoid();
+//                DidReturn = true;
+//            }
         }
     }
     
-    if (DidReturn) {
-        Scope.Clear();
-    } else {
-        auto Entries = Scope.GetEntriesSinceMarker(M);
-        for (auto &E : Entries) {
-            Scope.Remove(std::get<0>(E));
-        }
+    for (auto &Entry : Scope.GetEntriesSinceMarker(M)) {
+        Scope.Remove(Entry.Ident);
     }
     
-    // if statements are implemented as phi nodes, which means that we need every branch to return _something_
-    return llvm::ConstantInt::get(i8, 0);
+//    if (DidReturn) {
+//        Scope.Clear();
+//    } else {
+//        auto Entries = Scope.GetEntriesSinceMarker(M);
+//        for (auto &E : Entries) {
+//            Scope.Remove(std::get<0>(E));
+//        }
+//    }
+    
+    return nullptr;
 }
 
 
@@ -433,11 +475,13 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ReturnStmt> ReturnStmt) {
             LKFatalError("Error: Can't return value of type '%s' from function '%s' returning '%s'", T->str().c_str(), FName.c_str(), F->ReturnType->str().c_str());
         }
         
-        return Builder.CreateRet(Codegen(Expr));
+        Codegen(std::make_shared<ast::Assignment>(std::make_shared<ast::Identifier>(kRetvalAllocaIdentifier), Expr));
+        return Builder.CreateBr(CurrentFunction.ReturnBB);
     }
     
     precondition(F->ReturnType->equals(TypeInfo::Void));
-    return Builder.CreateRetVoid();
+    //return Builder.CreateRetVoid();
+    return Builder.CreateBr(CurrentFunction.ReturnBB);
 }
 
 
@@ -499,6 +543,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> Assignment) {
     };
     
     if (auto Ident = std::dynamic_pointer_cast<ast::Identifier>(Assignment->Target)) {
+        auto E = Scope._GetEntry(Ident->Value);
         auto Binding = Scope.GetBinding(Ident->Value);
         if (!Binding) throw;
         
@@ -1207,30 +1252,29 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
     using BK = ast::IfStmt::Branch::BranchKind;
     
     auto F = Builder.GetInsertBlock()->getParent();
-    auto MergeBB = llvm::BasicBlock::Create(C, "merge");
     auto InitialBB = Builder.GetInsertBlock();
-    
-    std::vector<llvm::BasicBlock *> BranchBodyBlocks;
-    for (auto I = 0; I < If->Branches.size(); I++) {
-        auto Name = llvm::Twine(F->getName()).concat("_if_body_").concat(llvm::Twine(I));
-        BranchBodyBlocks.push_back(llvm::BasicBlock::Create(C, Name));
-    }
+    auto MergeBB = llvm::BasicBlock::Create(C, "merge");
+    bool NeedsMergeBB = false;
     
     // The entry points to each branch's condition
     // Note that if the last branch is a conditionless else branch, this points directly to the branch body
-    std::vector<llvm::BasicBlock *> BranchConditionBlocks;
+    std::vector<llvm::BasicBlock *> BranchConditionBlocks(1, nullptr);
+    std::vector<llvm::BasicBlock *> BranchBodyBlocks;
     
-    for (auto I = 0; I < If->Branches.size(); I++) {
-        if (If->Branches[I]->Kind == BK::Else) break;
-        auto Name = llvm::Twine(F->getName()).concat("_if_cond_").concat(llvm::Twine(I));
-        BranchConditionBlocks.push_back(llvm::BasicBlock::Create(C, Name));
+    for (auto &Branch : If->Branches) {
+        BranchBodyBlocks.push_back(llvm::BasicBlock::Create(C, "if_body"));
+        if (Branch->Kind == BK::Else) {
+            BranchConditionBlocks.push_back(llvm::BasicBlock::Create(C, "if_cond"));
+        }
     }
     
     if (If->Branches.back()->Kind == BK::Else) {
         BranchConditionBlocks.push_back(BranchBodyBlocks.back());
     } else {
+        NeedsMergeBB = true;
         BranchConditionBlocks.push_back(MergeBB);
     }
+    
     
     for (auto I = 0; I < If->Branches.size(); I++) {
         if (If->Branches[I]->Kind == BK::Else) break;
@@ -1239,42 +1283,35 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
             F->getBasicBlockList().push_back(BB);
             Builder.SetInsertPoint(BB);
         }
-        
-        auto Cond = If->Branches[I]->Condition;
-        auto CondV = Codegen(Cond);
+        auto CondV = Codegen(If->Branches[I]->Condition);
         Builder.CreateCondBr(CondV, BranchBodyBlocks[I], BranchConditionBlocks[I + 1]);
     }
     
-    std::vector<llvm::Value *> BranchValues;
     
     for (auto I = 0; I < If->Branches.size(); I++) {
         auto BB = BranchBodyBlocks[I];
         F->getBasicBlockList().push_back(BB);
         Builder.SetInsertPoint(BB);
         
-        BranchValues.push_back(Codegen(If->Branches[I]->Body));
-        Builder.CreateBr(MergeBB);
-        BranchBodyBlocks[I] = Builder.GetInsertBlock();
+        Codegen(If->Branches[I]->Body);
+        if (!Builder.GetInsertBlock()->back().isTerminator()) {
+            NeedsMergeBB = true;
+            Builder.CreateBr(MergeBB);
+        }
     }
     
-    F->getBasicBlockList().push_back(MergeBB);
-    Builder.SetInsertPoint(MergeBB);
-    
-    // the result of the phi instruction is currently unused, might be useful though in the future
-    auto PHI = Builder.CreatePHI(i8, If->Branches.size());
-    
-    for (auto I = 0; I < If->Branches.size(); I++) {
-        PHI->addIncoming(BranchValues[I], BranchBodyBlocks[I]);
+    if (NeedsMergeBB) {
+        F->getBasicBlockList().push_back(MergeBB);
+        Builder.SetInsertPoint(MergeBB);
     }
-    if (If->Branches.back()->Kind != BK::Else) {
-        PHI->addIncoming(llvm::ConstantInt::get(i8, 0), InitialBB);
-    }
-    return PHI;
+    
+    return nullptr;
 }
 
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::WhileStmt> WhileStmt) {
+    // TODO what if there;s a return statement in the body!
     auto F = Builder.GetInsertBlock()->getParent();
     
     // TODO add unique ids to the branch names!, add the current function name?
