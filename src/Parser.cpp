@@ -737,6 +737,7 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
         
         if (auto Op = ParseLogicalOperationOperator()) {
             std::cout << E->Description() << std::endl;
+        if (auto Op = ParseLogicalOperationOperator()) { // `||` or `&&`
             auto Op_Precedence = GetOperatorPrecedenceGroup(*Op);
             
             if (Op_Precedence > PrecedenceGroupConstraint) {
@@ -746,6 +747,15 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
                 restore_pos(fallback);
                 return E;
             }
+            
+        } else if (CurrentTokenKind() == TK::Pipe && PeekKind() == TK::GreaterSign) { // `|>`
+            // Function pipelines
+            // eg: `argv[1] |> atoi |> fib`
+            // TODO reimplement to support any callable expression as rhs, multiple arguments (tuples?), template specialization, etc
+            Consume(2);
+            auto TargetFn = ParseIdentifier();
+            std::vector<std::shared_ptr<ast::Expr>> Arg = { E };
+            E = std::make_shared<ast::FunctionCall>(TargetFn, Arg, false);
         
         } else if (auto Op = ParseBinopOperator()) {
             auto Op_Precedence = GetOperatorPrecedenceGroup(*Op);
