@@ -1,11 +1,15 @@
 cmake_minimum_required(VERSION 3.10)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_BUILD_TYPE Debug)
+
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+
 project(yo)
 
 set(YO_VERSION "0.0.1")
 set(YO_STDLIB_PATH "${CMAKE_BINARY_DIR}/stdlib")
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_BUILD_TYPE Debug)
 
 find_package(LLVM 8 REQUIRED CONFIG)
 find_package(PythonInterp 3.6 REQUIRED)
