@@ -807,7 +807,12 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MatchExpr> MatchExpr) {
     auto IsValidPatternForType = [this](std::shared_ptr<ast::Expr> Expr, TypeInfo *TargetType) -> bool {
         // TODO:
         // a) only allow patterns that can be trivially matched and have no side effects
-        auto ExprType = GuessType(Expr);
+        
+        if (std::dynamic_pointer_cast<ast::Identifier>(Expr) != nullptr) {
+            return true;
+        }
+        
+        //auto ExprType = GuessType(Expr);
         
         if (TargetType->isIntegerType()) {
             return std::dynamic_pointer_cast<ast::NumberLiteral>(Expr) != nullptr;
