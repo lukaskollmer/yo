@@ -579,6 +579,23 @@ std::shared_ptr<ForLoop> Parser::ParseForLoop() {
 
 
 
+// Parses a (potentially empty) list of expressions separated by commas, until Delimiter is reached
+// The delimiter is not consumed
+std::vector<std::shared_ptr<Expr>> Parser::ParseExpressionList(Token::TokenKind Delimiter) {
+    if (CurrentTokenKind() == Delimiter) return {};
+    
+    std::vector<std::shared_ptr<Expr>> Expressions;
+    
+    do {
+        Expressions.push_back(ParseExpression());
+        precondition(CurrentTokenKind() == TK::Comma || CurrentTokenKind() == Delimiter);
+        if (CurrentTokenKind() == TK::Comma) Consume();
+    } while (CurrentTokenKind() != Delimiter);
+    
+    assert_current_token(Delimiter);
+    return Expressions;
+}
+
 
 
 std::shared_ptr<Identifier> Parser::ParseIdentifier() {
@@ -699,17 +716,25 @@ PrecedenceGroup GetOperatorPrecedenceGroup(ast::LogicalOperation::Operation Op) 
 
 // Tokens that, if they appear on their own, mark the end of an expression
 static TokenSet ExpressionDelimitingTokens = {
-    TK::ClosingParens, TK::Semicolon, TK::Comma, TK::OpeningCurlyBraces, TK::ClosingSquareBrackets
+    TK::ClosingParens, TK::Semicolon, TK::Comma, TK::OpeningCurlyBraces, TK::ClosingSquareBrackets, TK::EqualsSign, TK::ClosingCurlyBraces
 };
 
 
 std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupConstraint) {
     std::shared_ptr<Expr> E;
     
+    if (ExpressionDelimitingTokens.Contains(CurrentTokenKind())) {
+        return nullptr;
+    }
+    
     if (CurrentTokenKind() == TK::OpeningParens) {
         Consume();
         E = ParseExpression();
         assert_current_token_and_consume(TK::ClosingParens);
+    }
+    
+    if (CurrentTokenKind() == TK::Match) {
+        E = ParseMatchExpr();
     }
     
     if (!E) {
@@ -773,7 +798,7 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
         
         } else {
             // We reach here if the current token is a binary operator starting token, but we didn't manage to parse a binop or a comparison
-            throw;
+            break;
         }
     }
     
@@ -811,7 +836,7 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
     
     // Initial Member
     auto Ident = ParseIdentifier();
-    if (!Ident) throw;
+    precondition(Ident && "Member access must start w/ identifier"); // TODO allow other starting expressions
     
     if (!MemberAccessSeparatingTokens.Contains(CurrentTokenKind())) {
         // Member Access that simply is a single identifier
@@ -922,24 +947,39 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
 
 
 
-
-// Parses a (potentially empty) list of expressions separated by commas, until Delimiter is reached
-// The delimiter is not consumed
-std::vector<std::shared_ptr<Expr>> Parser::ParseExpressionList(Token::TokenKind Delimiter) {
-    if (CurrentTokenKind() == Delimiter) return {};
+std::shared_ptr<ast::MatchExpr> Parser::ParseMatchExpr() {
+    assert_current_token_and_consume(TK::Match);
+    auto Target = ParseExpression();
+    assert_current_token_and_consume(TK::OpeningCurlyBraces);
+    std::vector<std::shared_ptr<ast::MatchExpr::MatchExprBranch>> Branches;
     
-    std::vector<std::shared_ptr<Expr>> Expressions;
-    
-    do {
-        Expressions.push_back(ParseExpression());
-        precondition(CurrentTokenKind() == TK::Comma || CurrentTokenKind() == Delimiter);
-        if (CurrentTokenKind() == TK::Comma) Consume();
-    } while (CurrentTokenKind() != Delimiter);
-    
-    assert_current_token(Delimiter);
-    return Expressions;
+    while (true) {
+        auto Patterns = ParseExpressionList(TK::EqualsSign);
+        assert_current_token_and_consume(TK::EqualsSign);
+        assert_current_token_and_consume(TK::GreaterSign);
+        auto Expr = ParseExpression();
+        Branches.push_back(std::make_shared<ast::MatchExpr::MatchExprBranch>(Patterns, Expr));
+        
+        switch (CurrentTokenKind()) {
+            case TK::Comma:
+                Consume();
+                continue;
+            case TK::ClosingCurlyBraces:
+                goto ret;
+            default:
+                unhandled_token(CurrentToken());
+        }
+    }
+ret:
+    assert_current_token_and_consume(TK::ClosingCurlyBraces);
+    return std::make_shared<ast::MatchExpr>(Target, Branches);
 }
 
+
+
+
+
+// MARK: Literals
 
 
 std::shared_ptr<NumberLiteral> Parser::ParseNumberLiteral() {

@@ -272,7 +272,9 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr, CodegenReturn
     HANDLE(Expr, Typecast)
     HANDLE(Expr, MemberAccess, ReturnValueKind)
     HANDLE(Expr, StringLiteral)
-    HANDLE(Expr, UnaryExpr);
+    HANDLE(Expr, UnaryExpr)
+    HANDLE(Expr, MatchExpr)
+    HANDLE(Expr, RawLLVMValueExpr)
     
     unhandled_node(Expr)
 }
@@ -543,7 +545,6 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> Assignment) {
     };
     
     if (auto Ident = std::dynamic_pointer_cast<ast::Identifier>(Assignment->Target)) {
-        auto E = Scope._GetEntry(Ident->Value);
         auto Binding = Scope.GetBinding(Ident->Value);
         if (!Binding) throw;
         
@@ -572,6 +573,11 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> Assignment) {
 
 
 #pragma mark - Expressions
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::RawLLVMValueExpr> RawExpr) {
+    return RawExpr->Value;
+}
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> NumberLiteral) {
@@ -795,12 +801,116 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
 }
 
 
+// TODO should this go in the control flow section?
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MatchExpr> MatchExpr) {
+    // TODO turn this into a proper function
+    auto IsValidPatternForType = [this](std::shared_ptr<ast::Expr> Expr, TypeInfo *TargetType) -> bool {
+        // TODO:
+        // a) only allow patterns that can be trivially matched and have no side effects
+        auto ExprType = GuessType(Expr);
+        
+        if (TargetType->isIntegerType()) {
+            return std::dynamic_pointer_cast<ast::NumberLiteral>(Expr) != nullptr;
+        } else {
+            return false;
+        }
+    };
+    
+    
+    
+    precondition(!MatchExpr->Branches.empty());
+    auto NumBranches = MatchExpr->Branches.size();
+    
+    auto F = CurrentFunction.LLVMFunction;
+    auto T = GuessType(MatchExpr->Branches.front()->Expression);
+    auto V = Codegen(MatchExpr->Target);
+    
+    std::vector<llvm::BasicBlock *> BranchConditionBlocks;
+    std::vector<llvm::BasicBlock *> BranchBodyBlocks;
+    std::vector<llvm::Value *> BranchValues;
+    auto MergeBB = llvm::BasicBlock::Create(C, "match_merge");
+    int64_t WildcardBranchIndex = -1;
+    
+    for (auto I = 0; I < NumBranches; I++) {
+        BranchConditionBlocks.push_back(llvm::BasicBlock::Create(C));
+        BranchBodyBlocks.push_back(llvm::BasicBlock::Create(C));
+    }
+    
+    
+    // Handle branch patterns
+    
+    for (auto I = 0; I < NumBranches; I++) {
+        if (I > 0) {
+            auto BB = BranchConditionBlocks[I];
+            F->getBasicBlockList().push_back(BB);
+            Builder.SetInsertPoint(BB);
+        }
+        auto &Branch = MatchExpr->Branches[I];
+        precondition(!Branch->Patterns.empty() && "match expr branch pattern cannot be empty");
+        
+        llvm::Value *Cond;
+        bool IsWildcardPattern = false;
+        
+        for (auto I = 0; I < Branch->Patterns.size(); I++) {
+            auto Pattern = Branch->Patterns[I];
+            precondition(IsValidPatternForType(Pattern, GuessType(MatchExpr->Target)));
+            
+            if (auto Ident = std::dynamic_pointer_cast<ast::Identifier>(Pattern)) {
+                precondition(Branch->Patterns.size() == 1 && "wildcards can only appear in single-pattern branches");
+                Cond = llvm::ConstantInt::getTrue(C);
+                IsWildcardPattern = true;
+            } else {
+                llvm::Value *Comp = Codegen(std::make_shared<ast::Comparison>(ast::Comparison::Operation::EQ,
+                                                                              std::make_shared<ast::RawLLVMValueExpr>(V, T),
+                                                                              Pattern));
+                if (I == 0) {
+                    Cond = Comp;
+                } else {
+                    Cond = Builder.CreateBinOp(llvm::Instruction::BinaryOps::Or, Cond, Comp);
+                }
+            }
+        }
+        
+        if (IsWildcardPattern) {
+            WildcardBranchIndex = I;
+            Builder.CreateBr(BranchBodyBlocks[I]);
+            break;
+        } else {
+            Builder.CreateCondBr(Cond, BranchBodyBlocks[I], BranchConditionBlocks[I + 1]);
+        }
+    }
+    
+    precondition(WildcardBranchIndex >= 0);
+    
+    
+    // Handle branch expressions
+    
+    for (auto I = 0; I <= WildcardBranchIndex; I++) {
+        auto BB = BranchBodyBlocks[I];
+        F->getBasicBlockList().push_back(BB);
+        Builder.SetInsertPoint(BB);
+        
+        // TODO assign wildcard ident to local variable for scope of expression?
+        BranchValues.push_back(Codegen(MatchExpr->Branches[I]->Expression));
+        Builder.CreateBr(MergeBB);
+        BranchBodyBlocks[I] = Builder.GetInsertBlock();
+    }
+    
+    F->getBasicBlockList().push_back(MergeBB);
+    Builder.SetInsertPoint(MergeBB);
+    
+    auto PHI = Builder.CreatePHI(GetLLVMType(T), MatchExpr->Branches.size());
+    for (auto I = 0; I <= WildcardBranchIndex; I++) {
+        PHI->addIncoming(BranchValues[I], BranchBodyBlocks[I]);
+    }
+    return PHI;
+}
 
 
 
 
 
-
+// MARK: Binops
 
 
 
@@ -1263,7 +1373,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
     
     for (auto &Branch : If->Branches) {
         BranchBodyBlocks.push_back(llvm::BasicBlock::Create(C, "if_body"));
-        if (Branch->Kind == BK::Else) {
+        if (Branch->Kind != BK::Else) {
             BranchConditionBlocks.push_back(llvm::BasicBlock::Create(C, "if_cond"));
         }
     }
@@ -1591,6 +1701,14 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::Expr> Expr) {
             case ast::UnaryExpr::Operation::LogicalNegation:
                 return TypeInfo::Bool;
         }
+    }
+    
+    IF(MatchExpr, ast::MatchExpr) {
+        return GuessType(MatchExpr->Branches.front()->Expression); // TODO somehow ensure all branches return the same type
+    }
+    
+    IF(RawLLVMValueExpr, ast::RawLLVMValueExpr) {
+        return RawLLVMValueExpr->Type;
     }
     
     LKFatalError("Unhandled node %s", util::typeinfo::GetTypename(*Expr).c_str());

@@ -14,6 +14,10 @@
 #include "util.h"
 #include "TypeInfo.h"
 
+namespace llvm {
+    class Value;
+}
+
 NS_START(ast)
 
 
@@ -52,7 +56,10 @@ class TopLevelStmt : virtual public Node {};
 
 class LocalStmt : virtual public Node {};
 
-class Expr : virtual public Node {};
+class Expr : virtual public Node {
+public:
+    virtual bool isLiteral() const;
+};
 
 
 // Note: some of the nested subclasses also inherit from ast::Node. one could argue that this is philosophically wrong, but it greatly simplifies ast printing
@@ -228,6 +235,15 @@ public:
 # pragma mark - Expressions
 
 
+class RawLLVMValueExpr : public Expr {
+public:
+    llvm::Value *Value;
+    TypeInfo *Type;
+    
+    RawLLVMValueExpr(llvm::Value *Value, TypeInfo *TI) : Value(Value), Type(TI) {}
+};
+
+
 class Identifier : public Expr {
 public:
     const std::string Value;
@@ -348,6 +364,23 @@ public:
     MemberAccess(std::vector<std::shared_ptr<Member>> Members) : Members(Members) {}
 };
 
+
+
+class MatchExpr : public Expr {
+public:
+    class MatchExprBranch : public Node {
+    public:
+        std::vector<std::shared_ptr<Expr>> Patterns;
+        std::shared_ptr<Expr> Expression;
+        
+        MatchExprBranch(std::vector<std::shared_ptr<Expr>> Patterns, std::shared_ptr<Expr> Expression) : Patterns(Patterns), Expression(Expression) {}
+    };
+    
+    std::shared_ptr<Expr> Target;
+    std::vector<std::shared_ptr<MatchExprBranch>> Branches;
+    
+    MatchExpr(std::shared_ptr<Expr> Target, std::vector<std::shared_ptr<MatchExprBranch>> Branches) : Target(Target), Branches(Branches) {}
+};
 
 
 class BinaryOperation : public Expr {

@@ -25,6 +25,11 @@
 using namespace ast;
 
 
+bool ast::Expr::isLiteral() const {
+    return dynamic_cast<const ast::NumberLiteral *>(this)
+        || dynamic_cast<const ast::StringLiteral *>(this);
+}
+
 
 MemberAccess::Member::~Member() {
     switch (Kind) {
@@ -466,6 +471,20 @@ Mirror Reflect(UnaryExpr *UnaryExpr) {
     };
 }
 
+Mirror Reflect(MatchExpr *MatchExpr) {
+    return {
+        { "target", MatchExpr->Target },
+        { "branches", MatchExpr->Branches }
+    };
+}
+
+Mirror Reflect(MatchExpr::MatchExprBranch *Branch) {
+    return {
+        { "patterns", Branch->Patterns },
+        { "expr", Branch->Expression }
+    };
+}
+
 
 Mirror Reflect(Node *Node) {
 #define HANDLE(T) if (auto X = dynamic_cast<T*>(Node)) return Reflect(X);
@@ -492,6 +511,8 @@ Mirror Reflect(Node *Node) {
     HANDLE(StringLiteral)
     HANDLE(FunctionSignature)
     HANDLE(UnaryExpr)
+    HANDLE(MatchExpr)
+    HANDLE(MatchExpr::MatchExprBranch)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;

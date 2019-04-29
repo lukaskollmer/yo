@@ -112,6 +112,7 @@ std::shared_ptr<ast::Expr> TemplateResolver::Specialize(std::shared_ptr<ast::Exp
     HANDLE(Expr, Comparison)
     IGNORE(Expr, StringLiteral)
     HANDLE(Expr, LogicalOperation)
+    HANDLE(Expr, MatchExpr)
     unhandled_node(Expr)
 }
 
@@ -190,8 +191,6 @@ std::shared_ptr<ast::MemberAccess> TemplateResolver::Specialize(std::shared_ptr<
 
 
 std::shared_ptr<ast::FunctionCall> TemplateResolver::Specialize(std::shared_ptr<ast::FunctionCall> Call) {
-    std::cout << Call->Target->Value << std::endl;
-    
     auto InstantiatedCall = std::make_shared<ast::FunctionCall>(*Call);
     InstantiatedCall->Arguments = util::vector::map(Call->Arguments, [this](auto &Expr) -> auto {
         return Specialize(Expr);
@@ -201,6 +200,19 @@ std::shared_ptr<ast::FunctionCall> TemplateResolver::Specialize(std::shared_ptr<
     });
     
     return InstantiatedCall;
+}
+
+
+std::shared_ptr<ast::MatchExpr> TemplateResolver::Specialize(std::shared_ptr<ast::MatchExpr> MatchExpr) {
+    // TODO file a radar ?!
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-lambda-capture"
+    auto Branches = util::vector::map(MatchExpr->Branches, [this](auto Branch) -> auto {
+        auto Patterns = util::vector::map(Branch->Patterns, [this](auto Pattern) -> auto { return Specialize(Pattern); });
+        return std::make_shared<ast::MatchExpr::MatchExprBranch>(Patterns, Specialize(Branch->Expression));
+    });
+#pragma clang diagnostic pop
+    return std::make_shared<ast::MatchExpr>(Specialize(MatchExpr->Target), Branches);
 }
 
 

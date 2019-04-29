@@ -99,6 +99,7 @@ private:
     std::shared_ptr<ast::Identifier> ParseIdentifier();
     
     std::shared_ptr<ast::Expr> ParseMemberAccess();
+    std::shared_ptr<ast::MatchExpr> ParseMatchExpr();
     
     std::shared_ptr<ast::NumberLiteral> ParseNumberLiteral();
     std::shared_ptr<ast::StringLiteral> ParseStringLiteral();

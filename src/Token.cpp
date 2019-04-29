@@ -60,6 +60,7 @@ std::string TokenKindToString(Token::TokenKind Kind) {
         CASE(Tilde)
         CASE(For)
         CASE(In)
+        CASE(Match)
     }
 #undef CASE
 }

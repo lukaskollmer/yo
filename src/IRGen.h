@@ -57,12 +57,12 @@ struct ResolvedFunction {
 // State of the function currently being generated
 struct FunctionState {
     std::shared_ptr<ast::FunctionDecl> Decl;
-    llvm::Value *LLVMFunction;
+    llvm::Function *LLVMFunction;
     llvm::BasicBlock *ReturnBB;
     llvm::Value *RetvalAlloca;
     
     FunctionState() : Decl(nullptr), LLVMFunction(nullptr), ReturnBB(nullptr), RetvalAlloca(nullptr) {}
-    FunctionState(std::shared_ptr<ast::FunctionDecl> Decl, llvm::Value *LLVMFunction, llvm::BasicBlock *ReturnBB, llvm::Value *RetvalAlloca)
+    FunctionState(std::shared_ptr<ast::FunctionDecl> Decl, llvm::Function *LLVMFunction, llvm::BasicBlock *ReturnBB, llvm::Value *RetvalAlloca)
     : Decl(Decl), LLVMFunction(LLVMFunction), ReturnBB(ReturnBB), RetvalAlloca(RetvalAlloca) {}
 };
 
@@ -151,6 +151,8 @@ private:
     
     llvm::Value *Codegen(std::shared_ptr<ast::Identifier>, CodegenReturnValueKind);
     llvm::Value *Codegen(std::shared_ptr<ast::MemberAccess>, CodegenReturnValueKind);
+    llvm::Value *Codegen(std::shared_ptr<ast::MatchExpr>);
+    llvm::Value *Codegen(std::shared_ptr<ast::RawLLVMValueExpr>);
     
     llvm::Value *Codegen(std::shared_ptr<ast::Comparison>);
     llvm::Value *Codegen(std::shared_ptr<ast::LogicalOperation>);
