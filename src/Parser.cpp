@@ -735,8 +735,6 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
         // Since there are multitple binary operators starting with the same initial token (`|` vs `||`, `<` vs `<<`, etc),
         // it's important we parse the different kinds of binary operators in the correct order
         
-        if (auto Op = ParseLogicalOperationOperator()) {
-            std::cout << E->Description() << std::endl;
         if (auto Op = ParseLogicalOperationOperator()) { // `||` or `&&`
             auto Op_Precedence = GetOperatorPrecedenceGroup(*Op);
             
