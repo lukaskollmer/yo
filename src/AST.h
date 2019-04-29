@@ -290,10 +290,9 @@ public:
     std::shared_ptr<Identifier> Target;
     std::vector<std::shared_ptr<Expr>> Arguments;
     std::vector<TypeInfo *> ExplicitTemplateArgumentTypes;
-    bool UnusedReturnValue;
     
-    FunctionCall(std::shared_ptr<Identifier> Target, std::vector<std::shared_ptr<Expr>> Arguments, bool UnusedReturnValue)
-    : Target(Target), Arguments(Arguments), UnusedReturnValue(UnusedReturnValue) {}
+    FunctionCall(std::shared_ptr<Identifier> Target, std::vector<std::shared_ptr<Expr>> Arguments)
+    : Target(Target), Arguments(Arguments) {}
 };
 
 

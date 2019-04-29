@@ -612,7 +612,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StringLiteral> StringLite
             precondition(TypeCache.Contains("String"));
             StringLiteral->Kind = SLK::ByteString;
             auto Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName("String", "new", ast::FunctionSignature::FunctionKind::StaticMethod));
-            auto Call = std::make_shared<ast::FunctionCall>(Target, std::vector<std::shared_ptr<ast::Expr>>(1, StringLiteral), false);
+            auto Call = std::make_shared<ast::FunctionCall>(Target, std::vector<std::shared_ptr<ast::Expr>>(1, StringLiteral));
             return Codegen(Call);
         }
     }
@@ -1807,8 +1807,8 @@ namespace astgen {
         return std::make_shared<NumberLiteral>(Value, NumberLiteral::NumberType::Integer);
     }
     
-    std::shared_ptr<FunctionCall> Call(std::shared_ptr<Identifier> Target, std::vector<std::shared_ptr<Expr>> Args, bool UnusedReturnValue) {
-        return std::make_shared<FunctionCall>(Target, Args, UnusedReturnValue);
+    std::shared_ptr<FunctionCall> Call(std::shared_ptr<Identifier> Target, std::vector<std::shared_ptr<Expr>> Args) {
+        return std::make_shared<FunctionCall>(Target, Args);
     }
     
     std::shared_ptr<Assignment> Assign(std::shared_ptr<Expr> Target, std::shared_ptr<Expr> Value) {
@@ -1841,8 +1841,7 @@ llvm::Value *IRGenerator::GenerateStructInitializer(std::shared_ptr<ast::StructD
         F->Body->Statements.push_back(std::make_shared<ast::VariableDecl>(self, T));
         
         auto Malloc = astgen::Call(astgen::Ident("malloc"),
-                                   astgen::ExprVec({astgen::Number(M->getDataLayout().getTypeAllocSize(GetLLVMType(T)))}),
-                                   false);
+                                   astgen::ExprVec({astgen::Number(M->getDataLayout().getTypeAllocSize(GetLLVMType(T)))}));
         
         auto X = std::make_shared<ast::Typecast>(Malloc, T, ast::Typecast::CastKind::Bitcast);
         F->Body->Statements.push_back(astgen::Assign(self, X));

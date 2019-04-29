@@ -778,7 +778,7 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
             Consume(2);
             auto TargetFn = ParseIdentifier();
             std::vector<std::shared_ptr<ast::Expr>> Arg = { E };
-            E = std::make_shared<ast::FunctionCall>(TargetFn, Arg, false);
+            E = std::make_shared<ast::FunctionCall>(TargetFn, Arg);
         
         } else if (auto Op = ParseBinopOperator()) {
             auto Op_Precedence = GetOperatorPrecedenceGroup(*Op);
@@ -886,7 +886,7 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
                 
                 auto Args = ParseExpressionList(TK::ClosingParens);
                 assert_current_token_and_consume(TK::ClosingParens);
-                auto Call = std::make_shared<ast::FunctionCall>(Ident, Args, false);
+                auto Call = std::make_shared<ast::FunctionCall>(Ident, Args);
                 Call->ExplicitTemplateArgumentTypes = ExplicitlySpecifiedTemplateArgumentTypes;
                 Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::Initial_FunctionCall, Call));
                 continue;
@@ -900,7 +900,7 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
                 auto Args = ParseExpressionList(TK::ClosingParens);
                 assert_current_token_and_consume(TK::ClosingParens);
                 Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::Initial_StaticCall,
-                                                                         std::make_shared<FunctionCall>(CanonicalName, Args, false)));
+                                                                         std::make_shared<FunctionCall>(CanonicalName, Args)));
                 continue;
             }
             
@@ -918,7 +918,7 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
                     auto Args = ParseExpressionList(TK::ClosingParens);
                     assert_current_token_and_consume(TK::ClosingParens);
                     Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::MemberFunctionCall,
-                                                                             std::make_shared<FunctionCall>(Ident, Args, false)));
+                                                                             std::make_shared<FunctionCall>(Ident, Args)));
                 } else { // Attribute Access
                     Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::MemberAttributeRead, Ident));
                 }

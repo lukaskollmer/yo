@@ -344,7 +344,6 @@ Mirror Reflect(Identifier *Ident) {
 Mirror Reflect(FunctionCall *Call) {
     return {
         { "Target", Call->Target },
-        { "UnusedReturnValue", Call->UnusedReturnValue },
         { "Arguments", Call->Arguments }
     };
 }
