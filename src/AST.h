@@ -296,11 +296,11 @@ public:
 
 class FunctionCall : public Expr {
 public:
-    std::shared_ptr<Identifier> Target;
+    std::string Target;
     std::vector<std::shared_ptr<Expr>> Arguments;
     std::vector<TypeInfo *> ExplicitTemplateArgumentTypes;
     
-    FunctionCall(std::shared_ptr<Identifier> Target, std::vector<std::shared_ptr<Expr>> Arguments)
+    FunctionCall(const std::string &Target, std::vector<std::shared_ptr<Expr>> Arguments)
     : Target(Target), Arguments(Arguments) {}
 };
 

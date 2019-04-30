@@ -612,7 +612,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StringLiteral> StringLite
         case SLK::NormalString: {
             precondition(TypeCache.Contains("String"));
             StringLiteral->Kind = SLK::ByteString;
-            auto Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName("String", "new", ast::FunctionSignature::FunctionKind::StaticMethod));
+            auto Target = mangling::MangleCanonicalName("String", "new", ast::FunctionSignature::FunctionKind::StaticMethod);
             auto Call = std::make_shared<ast::FunctionCall>(Target, std::vector<std::shared_ptr<ast::Expr>>(1, StringLiteral));
             return Codegen(Call);
         }
@@ -737,8 +737,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
                 precondition(CurrentType->isComplex());
                 auto Call = std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value);
                 
-                if (!mangling::IsCanonicalInstanceMethodName(Call->Target->Value)) {
-                    Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(CurrentType->getName(), Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
+                if (!mangling::IsCanonicalInstanceMethodName(Call->Target)) {
+                    Call->Target = mangling::MangleCanonicalName(CurrentType->getName(), Call->Target, ast::FunctionSignature::FunctionKind::InstanceMethod);
                 }
                 
                 std::shared_ptr<ast::FunctionSignature> SelectedOverload;
@@ -1130,8 +1130,8 @@ ResolvedFunction IRGenerator::InstantiateTemplateFunctionForCall(std::shared_ptr
 
 // Returns the function most closely matching the call
 ResolvedFunction IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset) {
-    auto &PossibleTargets = Functions[Call->Target->Value];
-    precondition(!PossibleTargets.empty(), fmt_c("Unable to resolve call to %s", Call->Target->Value.c_str()));
+    auto &PossibleTargets = Functions[Call->Target];
+    precondition(!PossibleTargets.empty(), fmt_c("Unable to resolve call to %s", Call->Target.c_str()));
     
     if (PossibleTargets.size() == 1) {
         auto &Target = PossibleTargets[0];
@@ -1270,7 +1270,7 @@ bool CallerCalleeSideEffectsCompatible(const std::vector<yo::attributes::SideEff
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset, std::shared_ptr<ast::FunctionSignature> *SelectedOverload) {
     llvm::Function *F;
     
-    auto TargetName = Call->Target->Value;
+    auto TargetName = Call->Target;
     auto ResolvedTarget = ResolveCall(Call, ArgumentOffset);
     
     if (SelectedOverload) {
@@ -1310,7 +1310,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsig
         auto Expr = Call->Arguments[I - ArgumentOffset];
         TypeInfo *T;
         if (!TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&Expr, ExpectedType, &T)) {
-            LKFatalError("Type mismatch in call to '%s'. Arg #%i: expected '%s', got '%s'", Call->Target->Value.c_str(), I, ExpectedType->str().c_str(), T->str().c_str());
+            LKFatalError("Type mismatch in call to '%s'. Arg #%i: expected '%s', got '%s'", Call->Target.c_str(), I, ExpectedType->str().c_str(), T->str().c_str());
         }
         Args.push_back(Codegen(Expr));
     }
@@ -1777,8 +1777,8 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess
             case MK::MemberFunctionCall: {
                 precondition(Type->isComplex() && TypeCache.Contains(Type->getName()));
                 auto Call = std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value);
-                if (!mangling::IsCanonicalInstanceMethodName(Call->Target->Value)) {
-                    Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(Type->getName(), Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
+                if (!mangling::IsCanonicalInstanceMethodName(Call->Target)) {
+                    Call->Target = mangling::MangleCanonicalName(Type->getName(), Call->Target, ast::FunctionSignature::FunctionKind::InstanceMethod);
                 }
                 Type = ResolveCall(Call, kInstanceMethodCallArgumentOffset).Decl->Signature->ReturnType;
                 break;
@@ -1824,7 +1824,7 @@ namespace astgen {
         return std::make_shared<NumberLiteral>(Value, NumberLiteral::NumberType::Integer);
     }
     
-    std::shared_ptr<FunctionCall> Call(std::shared_ptr<Identifier> Target, std::vector<std::shared_ptr<Expr>> Args) {
+    std::shared_ptr<FunctionCall> Call(const std::string &Target, std::vector<std::shared_ptr<Expr>> Args) {
         return std::make_shared<FunctionCall>(Target, Args);
     }
     
@@ -1857,8 +1857,7 @@ llvm::Value *IRGenerator::GenerateStructInitializer(std::shared_ptr<ast::StructD
         // Allocate Self
         F->Body->Statements.push_back(std::make_shared<ast::VariableDecl>(self, T));
         
-        auto Malloc = astgen::Call(astgen::Ident("malloc"),
-                                   astgen::ExprVec({astgen::Number(M->getDataLayout().getTypeAllocSize(GetLLVMType(T)))}));
+        auto Malloc = astgen::Call("malloc", astgen::ExprVec({astgen::Number(M->getDataLayout().getTypeAllocSize(GetLLVMType(T)))}));
         
         auto X = std::make_shared<ast::Typecast>(Malloc, T, ast::Typecast::CastKind::Bitcast);
         F->Body->Statements.push_back(astgen::Assign(self, X));

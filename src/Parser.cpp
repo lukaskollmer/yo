@@ -801,7 +801,7 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
             // eg: `argv[1] |> atoi |> fib`
             // TODO reimplement to support any callable expression as rhs, multiple arguments (tuples?), template specialization, etc
             Consume(2);
-            auto TargetFn = ParseIdentifier();
+            auto TargetFn = ParseIdentifier()->Value;
             std::vector<std::shared_ptr<ast::Expr>> Arg = { E };
             E = std::make_shared<ast::FunctionCall>(TargetFn, Arg);
         
@@ -908,7 +908,7 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
                     Consume();
                     auto Args = ParseExpressionList(TK::ClosingParens);
                     assert_current_token_and_consume(TK::ClosingParens);
-                    auto Call = std::make_shared<ast::FunctionCall>(Ident, Args);
+                    auto Call = std::make_shared<ast::FunctionCall>(Ident->Value, Args);
                     Call->ExplicitTemplateArgumentTypes = ExplicitlySpecifiedTemplateArgumentTypes;
                     Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::Initial_FunctionCall, Call));
                 } else if (CurrentTokenKind() == TK::Colon) {
@@ -921,7 +921,7 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
             case TK::Colon: { // Static method call
                 Consume();
                 assert_current_token_and_consume(TK::Colon);
-                auto CanonicalName = std::make_shared<Identifier>(mangling::MangleCanonicalName(Ident->Value, ParseIdentifier()->Value, FunctionSignature::FunctionKind::StaticMethod));
+                auto CanonicalName = mangling::MangleCanonicalName(Ident->Value, ParseIdentifier()->Value, FunctionSignature::FunctionKind::StaticMethod);
                 assert_current_token_and_consume(TK::OpeningParens);
                 auto Args = ParseExpressionList(TK::ClosingParens);
                 assert_current_token_and_consume(TK::ClosingParens);
@@ -944,7 +944,7 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
                     auto Args = ParseExpressionList(TK::ClosingParens);
                     assert_current_token_and_consume(TK::ClosingParens);
                     Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::MemberFunctionCall,
-                                                                             std::make_shared<FunctionCall>(Ident, Args)));
+                                                                             std::make_shared<FunctionCall>(Ident->Value, Args)));
                 } else { // Attribute Access
                     Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::MemberAttributeRead, Ident));
                 }
