@@ -9,6 +9,7 @@
 #pragma once
 
 #include "util.h"
+#include "Token.h"
 #include "TypeInfo.h"
 #include "Attributes.h"
 
@@ -42,15 +43,16 @@ class Node {
 public:
     virtual std::string Description();
     
-    std::vector<std::string> Annotations;
+    std::shared_ptr<TokenSourceLocation> startLocation, endLocation;
+    
+    //std::vector<std::string> Annotations;
     //std::vector<yo::attributes::Attribute> attributes;
     
-    bool HasAnnotation(const std::string &Annotation) {
-        return util::vector::contains(Annotations, Annotation);
-    }
+    //bool HasAnnotation(const std::string &Annotation) {
+    //    return util::vector::contains(Annotations, Annotation);
+    //}
     
 protected:
-    Node() {}
     virtual ~Node() = default;
 };
 
@@ -71,12 +73,14 @@ public:
 
 #pragma mark - Top Level Statements
 
+
 class AttributeList : public Node {
 public:
     const std::vector<yo::attributes::Attribute> attributes;
     
     explicit AttributeList(std::vector<yo::attributes::Attribute> attributes) : attributes(attributes) {}
 };
+
 
 
 class FunctionSignature : public Node {
@@ -107,6 +111,7 @@ std::ostream& operator<<(std::ostream&, const std::shared_ptr<ast::FunctionSigna
 
 class FunctionDecl : public TopLevelStmt {
 public:
+    std::shared_ptr<yo::attributes::FunctionAttributes> attributes;
     std::shared_ptr<FunctionSignature> Signature;
     std::shared_ptr<Composite> Body;
     
@@ -116,6 +121,7 @@ public:
 
 class ExternFunctionDecl : public TopLevelStmt {
 public:
+    std::shared_ptr<yo::attributes::FunctionAttributes> attributes;
     std::shared_ptr<FunctionSignature> Signature;
     
     ExternFunctionDecl() {}
@@ -125,7 +131,7 @@ public:
 class StructDecl : public TopLevelStmt {
 public:
     std::shared_ptr<Identifier> Name;
-    std::vector<std::shared_ptr<VariableDecl>> Attributes;
+    std::vector<std::shared_ptr<VariableDecl>> Members;
     std::vector<std::string> TemplateArguments;
     
     StructDecl() {}

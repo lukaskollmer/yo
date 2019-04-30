@@ -13,22 +13,15 @@
 #include <variant>
 #include "util.h"
 
-
-namespace yo::annotations {
-    // legacy
-    const std::string intrinsic = "intrinsic";
-    const std::string variadic  = "variadic";
-    const std::string no_mangle = "no_mangle";
-}
-
 namespace yo::attributes {
     class Attribute {
+    public:
         enum class DataKind { Bool, String, Array };
         
-        std::string key;
+        const std::string key;
         DataKind dataKind;
         
-        std::variant<
+        const std::variant<
             bool,
             std::string,
             std::vector<std::string>
@@ -49,33 +42,16 @@ namespace yo::attributes {
         const std::string variadic  = "variadic";
     }
     
-    enum class SideEffects {
-        All, None, IO
+    enum class SideEffect {
+        Unknown, None, IO
     };
     
-    struct FunctionDeclAttributes {
+    struct FunctionAttributes {
         bool variadic;
         bool no_mangle;
         bool intrinsic;
-        std::vector<SideEffects> side_effects;
+        std::vector<SideEffect> side_effects;
         
-        FunctionDeclAttributes() : variadic(false), no_mangle(false), intrinsic(false), side_effects({SideEffects::All}) {}
-        
-        explicit FunctionDeclAttributes(const std::vector<Attribute>&); // TODO implement
+        explicit FunctionAttributes(const std::vector<Attribute>&);
     };
-    
-    
-    // default attributes
-    
-    //std::vector<Attribute> getFunctionDeclDefaultAttributes() {
-    //
-    //    std::vector<Attribute> X = {
-    //        Attribute("no_mangle", false),
-    //        Attribute("intrinsic", false),
-    //        Attribute("variadic", false)
-    //    };
-    //
-    //    return {};
-    //}
-    
 }

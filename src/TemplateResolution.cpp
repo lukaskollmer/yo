@@ -50,7 +50,7 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::Specialize(std::shared_ptr<
 #endif
     
     auto SpecializedFunction = std::make_shared<ast::FunctionDecl>();
-    SpecializedFunction->Annotations = Decl->Annotations;
+    SpecializedFunction->attributes = Decl->attributes;
     SpecializedFunction->Signature = std::make_shared<ast::FunctionSignature>(*Decl->Signature);
     SpecializedFunction->Body = std::make_shared<ast::Composite>();
     
@@ -74,7 +74,7 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::Specialize(std::shared_ptr<
     
     //std::cout << "Before:\n" << Decl->Signature << "\nAfter:\n" << SpecializedFunction->Signature << std::endl;
     
-    if (SpecializedFunction->HasAnnotation(annotations::intrinsic)) {
+    if (SpecializedFunction->attributes->intrinsic) {
         precondition(Decl->Body->Statements.empty() && "intrinsic functions must have an empty body");
         return SpecializedFunction;
     }

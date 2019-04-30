@@ -407,7 +407,7 @@ Mirror Reflect(MemberAccess::Member *Member) {
 Mirror Reflect(StructDecl *Struct) {
     return {
         { "name", Struct->Name },
-        { "attributes", Struct->Attributes }
+        { "members", Struct->Members }
     };
 }
 

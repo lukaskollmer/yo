@@ -193,17 +193,22 @@ void Parser::ResolveImport() {
 
 
 std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
-    auto Annotations = ParseAnnotations();
-    //auto Attributes = ParseAttributes();
     std::shared_ptr<TopLevelStmt> Stmt;
+    auto attributeList = ParseAttributes();
     
     switch (CurrentToken().Kind) {
-        case TK::Fn:
-            Stmt = ParseFunctionDecl();
+        case TK::Fn: {
+            auto F = ParseFunctionDecl();
+            F->attributes = std::make_shared<yo::attributes::FunctionAttributes>(attributeList);
+            Stmt = F;
             break;
-        case TK::Extern:
-            Stmt = ParseExternFunctionDecl();
+        }
+        case TK::Extern: {
+            auto F = ParseExternFunctionDecl();
+            F->attributes = std::make_shared<yo::attributes::FunctionAttributes>(attributeList);
+            Stmt = F;
             break;
+        }
         case TK::Struct:
             Stmt = ParseStructDecl();
             break;
@@ -218,9 +223,6 @@ std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
             break;
         default: unhandled_token(CurrentToken());
     }
-    
-    Stmt->Annotations = Annotations;
-    //Stmt->attributes = Attributes;
     return Stmt;
 }
 
@@ -241,7 +243,7 @@ std::shared_ptr<StructDecl> Parser::ParseStructDecl() {
     }
     assert_current_token_and_consume(TK::OpeningCurlyBraces);
     
-    Decl->Attributes = ParseParameterList();
+    Decl->Members = ParseParameterList();
     assert_current_token_and_consume(TK::ClosingCurlyBraces);
     return Decl;
 }

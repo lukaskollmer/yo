@@ -65,7 +65,7 @@ void IRGenerator::Codegen(ast::AST &Ast) {
 
 template <typename T>
 std::string MangleFullyResolved(T Function) {
-    if (Function->HasAnnotation(annotations::no_mangle)) {
+    if (Function->attributes->no_mangle) {
         return Function->Signature->Name;
     }
     return mangling::MangleFullyResolvedNameForSignature(Function->Signature);
@@ -149,7 +149,7 @@ void IRGenerator::RegisterFunction(std::shared_ptr<ast::FunctionDecl> Function) 
     
     precondition(M->getFunction(ResolvedName) == nullptr, fmt_c("Redefinition of function '%s'", ResolvedName.c_str())); // TODO print the signature instead!
     
-    auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->HasAnnotation(annotations::variadic));
+    auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->attributes->variadic);
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, ResolvedName, M);
     
     unsigned Idx = 0;
@@ -171,7 +171,7 @@ void IRGenerator::RegisterFunction(std::shared_ptr<ast::ExternFunctionDecl> Func
     }
     
     precondition(M->getFunction(Signature->Name) == nullptr);
-    auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->HasAnnotation(annotations::variadic));
+    auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->attributes->variadic);
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, Signature->Name, M);
     
     // we can't really append this to the `Functions` vector since that stores an ast::FunctionDecl, but external functions don't have a body :/
@@ -181,6 +181,7 @@ void IRGenerator::RegisterFunction(std::shared_ptr<ast::ExternFunctionDecl> Func
     
     auto Decl = std::make_shared<ast::FunctionDecl>();
     Decl->Signature = Function->Signature;
+    Decl->attributes = Function->attributes;
     Functions[Signature->Name].push_back(ResolvedFunction(Decl, F));
 }
 
@@ -759,8 +760,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
                 
                 uint32_t Offset = 0;
                 auto DidFindMember = false;
-                for (auto &Attr : StructType->Attributes) {
-                    if (Attr->Name->Value == MemberName) {
+                for (auto &Member : StructType->Members) {
+                    if (Member->Name->Value == MemberName) {
                         DidFindMember = true;
                         break;
                     }
@@ -771,7 +772,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
                     std::cout << "Unable to find member '" << MemberName << "' in struct '" << StructName << std::endl;
                     throw;
                 }
-                CurrentType = StructType->Attributes[Offset]->Type;
+                CurrentType = StructType->Members[Offset]->Type;
                 
                 llvm::Value *Offsets[] = {
                     llvm::ConstantInt::get(i64, 0),
@@ -1077,7 +1078,7 @@ ResolvedFunction IRGenerator::InstantiateTemplateFunctionForCall(std::shared_ptr
     auto SpecializedFunction = std::make_shared<ast::FunctionDecl>();
     SpecializedFunction->Signature = std::make_shared<ast::FunctionSignature>(*TemplateFunction->Signature);
     SpecializedFunction->Body = TemplateFunction->Body; // TODO can we safely copy this pointer? // TODO: make sure function bodies are *never* mutated!!!!
-    SpecializedFunction->Annotations = TemplateFunction->Annotations;
+    SpecializedFunction->attributes = TemplateFunction->attributes;
     
     for (auto Idx = ArgumentOffset; Idx < Call->Arguments.size(); Idx++) {
         auto ParameterDecl = std::make_shared<ast::VariableDecl>(*SpecializedFunction->Signature->Parameters[Idx]);
@@ -1114,7 +1115,7 @@ ResolvedFunction IRGenerator::InstantiateTemplateFunctionForCall(std::shared_ptr
 #endif
     
     llvm::Function *LLVMFunction;
-    if (TemplateFunction->HasAnnotation(annotations::intrinsic)) {
+    if (TemplateFunction->attributes->intrinsic) {
         LLVMFunction = nullptr;
     } else {
         RegisterFunction(SpecializedFunction);
@@ -1141,7 +1142,7 @@ ResolvedFunction IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCall> Cal
             
             auto ResolvedDecl = TemplateResolver::SpecializeWithTemplateMapping(Target.Decl, TemplateArgumentMapping.value());
             llvm::Function *LLVMFunction;
-            if (ResolvedDecl->HasAnnotation(annotations::intrinsic)) {
+            if (ResolvedDecl->attributes->intrinsic) {
                 LLVMFunction = nullptr;
             } else {
                 RegisterFunction(ResolvedDecl);
@@ -1251,8 +1252,18 @@ ResolvedFunction IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCall> Cal
 
 
 
-
-
+bool CallerCalleeSideEffectsCompatible(const std::vector<yo::attributes::SideEffect> &callerSideEffects,
+                                       const std::vector<yo::attributes::SideEffect> &calleeSideEffects) {
+    if (callerSideEffects.size() == 1 && callerSideEffects[0] == yo::attributes::SideEffect::Unknown) {
+        return true;
+    }
+    
+    for (auto &sideEffect : calleeSideEffects) {
+        if (!util::vector::contains(callerSideEffects, sideEffect)) return false;
+    }
+    
+    return true;
+}
 
 
 // ArgumentOffset: indicates the number of skipped arguments at the start of the argumens list
@@ -1270,7 +1281,11 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsig
     // - run argument type checks for intrinsics as well
     // - check that the number of supplied explicit template arguments does't exceed the total number of supplied template arguments
     
-    if (ResolvedTarget.Decl->HasAnnotation(annotations::intrinsic)) {
+    if (!CallerCalleeSideEffectsCompatible(CurrentFunction.Decl->attributes->side_effects, ResolvedTarget.Decl->attributes->side_effects)) {
+        LKFatalError("cannot call '%s' because side effects", TargetName.c_str());
+    }
+    
+    if (ResolvedTarget.Decl->attributes->intrinsic) {
         return Codegen_HandleIntrinsic(ResolvedTarget.Decl->Signature, Call, ArgumentOffset);
     }
     
@@ -1600,8 +1615,8 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
             auto LLVMStructType = llvm::StructType::create(C, Name);
             
             std::vector<llvm::Type *> Types;
-            for (auto &Attr : TypeCache.GetStruct(Name)->Attributes) {
-                Types.push_back(GetLLVMType(Attr->Type));
+            for (auto &Member : TypeCache.GetStruct(Name)->Members) {
+                Types.push_back(GetLLVMType(Member->Type));
             }
             
             LLVMStructType->setBody(Types);
@@ -1773,9 +1788,9 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess
                 precondition(Type->isComplex());
                 auto DidFind = false;
                 auto MemberName = std::dynamic_pointer_cast<ast::Identifier>(Member->Value)->Value;
-                for (auto &Attr : TypeCache.GetStruct(Type->getName())->Attributes) {
-                    if (Attr->Name->Value == MemberName) {
-                        Type = Attr->Type;
+                for (auto &Member : TypeCache.GetStruct(Type->getName())->Members) {
+                    if (Member->Name->Value == MemberName) {
+                        Type = Member->Type;
                         DidFind = true;
                         break;
                     }
@@ -1831,7 +1846,7 @@ llvm::Value *IRGenerator::GenerateStructInitializer(std::shared_ptr<ast::StructD
     F->Signature = std::make_shared<ast::FunctionSignature>();
     F->Signature->Name = "init";
     F->Signature->Kind = ast::FunctionSignature::FunctionKind::StaticMethod;
-    F->Signature->Parameters = Struct->Attributes;
+    F->Signature->Parameters = Struct->Members;
     F->Signature->ReturnType = T;
     F->Signature->ImplType = Struct;
     F->Body = std::make_shared<ast::Composite>();
@@ -1851,12 +1866,12 @@ llvm::Value *IRGenerator::GenerateStructInitializer(std::shared_ptr<ast::StructD
     }
     
     // Set Attributes
-    for (auto &Attr : Struct->Attributes) {
+    for (auto &Member : Struct->Members) {
         auto M1 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::Initial_Identifier, self);
-        auto M2 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::MemberAttributeRead, Attr->Name);
+        auto M2 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::MemberAttributeRead, Member->Name);
         
         auto M = std::make_shared<ast::MemberAccess>(std::vector<std::shared_ptr<ast::MemberAccess::Member>>({M1, M2}));
-        F->Body->Statements.push_back(std::make_shared<ast::Assignment>(M, Attr->Name));
+        F->Body->Statements.push_back(std::make_shared<ast::Assignment>(M, Member->Name));
         
     }
     
