@@ -8,7 +8,7 @@
 
 #include "TemplateResolution.h"
 #include "Mangling.h"
-#include "Annotations.h"
+#include "Attributes.h"
 
 // Template Instantiation
 

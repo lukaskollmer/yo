@@ -18,6 +18,7 @@
 #include "util.h"
 #include "Lexer.h"
 #include "AST.h"
+#include "Attributes.h"
 
 
 
@@ -72,6 +73,7 @@ private:
     std::shared_ptr<ast::TopLevelStmt> ParseTopLevelStmt();
     
     std::vector<std::string> ParseAnnotations();
+    std::vector<yo::attributes::Attribute> ParseAttributes();
     std::shared_ptr<ast::FunctionSignature> ParseFunctionSignature(bool IsExternal);
     
     std::shared_ptr<ast::FunctionDecl> ParseFunctionDecl();

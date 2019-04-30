@@ -63,7 +63,8 @@ add_executable(yo
         src/StdlibResolution.h
         src/TemplateResolution.cpp
         src/TemplateResolution.h
-        src/Annotations.h
+        src/Attributes.cpp
+        src/Attributes.h
         src/util_llvm.h
         src/main.cpp
 )

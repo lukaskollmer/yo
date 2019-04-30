@@ -194,6 +194,7 @@ void Parser::ResolveImport() {
 
 std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
     auto Annotations = ParseAnnotations();
+    //auto Attributes = ParseAttributes();
     std::shared_ptr<TopLevelStmt> Stmt;
     
     switch (CurrentToken().Kind) {
@@ -219,6 +220,7 @@ std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
     }
     
     Stmt->Annotations = Annotations;
+    //Stmt->attributes = Attributes;
     return Stmt;
 }
 
@@ -286,6 +288,56 @@ std::vector<std::string> Parser::ParseAnnotations() {
     }
     
     return Annotations;
+}
+
+
+
+std::vector<yo::attributes::Attribute> Parser::ParseAttributes() {
+    if (CurrentTokenKind() != TK::Hashtag) return {};
+    Consume();
+    assert_current_token_and_consume(TK::OpeningSquareBrackets);
+    
+    std::vector<yo::attributes::Attribute> attributes;
+    
+    
+    while (auto Ident = ParseIdentifier()) {
+        auto key = Ident->Value;
+        
+        if (CurrentTokenKind() == TK::OpeningParens) {
+            Consume();
+            std::vector<std::string> members;
+            while (auto Ident = ParseIdentifier()) {
+                members.push_back(Ident->Value);
+                if (CurrentTokenKind() == TK::Comma) {
+                    Consume();
+                } else if (CurrentTokenKind() == TK::ClosingParens) {
+                    break;
+                } else {
+                    unhandled_token(CurrentToken());
+                }
+            }
+            assert_current_token_and_consume(TK::ClosingParens);
+            attributes.push_back(yo::attributes::Attribute(key, members));
+        } else {
+            attributes.push_back(yo::attributes::Attribute(key));
+        }
+
+        if (CurrentTokenKind() == TK::Comma) {
+            Consume();
+            assert_current_token(TK::Identifier); // Comma must be followed by another attribute
+            continue;
+        } else if (CurrentTokenKind() == TK::ClosingSquareBrackets) {
+            Consume();
+            if (CurrentTokenKind() == TK::Hashtag && PeekKind() == TK::OpeningSquareBrackets) {
+                Consume(2);
+                continue;
+            } else {
+                break;
+            }
+        }
+    }
+    
+    return attributes;
 }
 
 

@@ -16,7 +16,7 @@
 #include "Mangling.h"
 #include "util_llvm.h"
 #include "TemplateResolution.h"
-#include "Annotations.h"
+#include "Attributes.h"
 
 using namespace yo;
 using namespace irgen;

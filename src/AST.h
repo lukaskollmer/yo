@@ -13,6 +13,7 @@
 
 #include "util.h"
 #include "TypeInfo.h"
+#include "Attributes.h"
 
 namespace llvm {
     class Value;
@@ -41,6 +42,7 @@ public:
     virtual std::string Description();
     
     std::vector<std::string> Annotations;
+    //std::vector<yo::attributes::Attribute> attributes;
     
     bool HasAnnotation(const std::string &Annotation) {
         return util::vector::contains(Annotations, Annotation);
@@ -67,6 +69,13 @@ public:
 
 
 #pragma mark - Top Level Statements
+
+class AttributeList : public Node {
+public:
+    const std::vector<yo::attributes::Attribute> attributes;
+    
+    explicit AttributeList(std::vector<yo::attributes::Attribute> attributes) : attributes(attributes) {}
+};
 
 
 class FunctionSignature : public Node {
