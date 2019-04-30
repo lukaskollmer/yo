@@ -696,23 +696,24 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
     for (auto &Member : MemberAccess->Members) {
         switch (Member->Kind) {
             case MK::Initial_Identifier: {
-                auto Ident = Member->Data.Ident;
+                auto Ident = std::dynamic_pointer_cast<ast::Identifier>(Member->Value);
                 V = Codegen(Ident);
                 CurrentType = Scope.GetType(Ident->Value);
                 break;
             }
             
+            // TODO initial_staticCall and initial_functioncall seem to be ecaxtly the same. refactor into a single switch case?
+            
             case MK::Initial_StaticCall: {
                 std::shared_ptr<ast::FunctionSignature> SelectedOverload;
-                V = Codegen(Member->Data.Call, 0, &SelectedOverload);
+                V = Codegen(std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value), 0, &SelectedOverload);
                 CurrentType = SelectedOverload->ReturnType;
-                
                 break;
             }
             
             case MK::Initial_FunctionCall: {
                 std::shared_ptr<ast::FunctionSignature> Signature;
-                V = Codegen(Member->Data.Call, 0, &Signature);
+                V = Codegen(std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value), 0, &Signature);
                 CurrentType = Signature->ReturnType;
                 break;
             }
@@ -726,15 +727,14 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
                 
                 // We need V to be a pointer
                 precondition(V->getType()->isPointerTy());
-                V = Builder.CreateGEP(V, Codegen(Member->Data.Offset));
+                V = Builder.CreateGEP(V, Codegen(Member->Value));
                 CurrentType = CurrentType->getPointee();
                 break;
             }
             
             case MK::MemberFunctionCall: {
                 precondition(CurrentType->isComplex());
-
-                auto Call = Member->Data.Call;
+                auto Call = std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value);
                 
                 if (!mangling::IsCanonicalInstanceMethodName(Call->Target->Value)) {
                     Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(CurrentType->getName(), Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
@@ -753,7 +753,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAcces
             
             case MK::MemberAttributeRead: {
                 precondition(CurrentType->isComplex() && TypeCache.Contains(CurrentType->getName()));
-                auto MemberName = Member->Data.Ident->Value;
+                auto MemberName = std::dynamic_pointer_cast<ast::Identifier>(Member->Value)->Value;
                 auto StructName = CurrentType->getName();
                 auto StructType = TypeCache.GetStruct(StructName);
                 
@@ -1742,15 +1742,16 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess
     for (auto &Member : MemberAccess->Members) {
         switch (Member->Kind) {
             case MK::Initial_Identifier:
-                Type = Scope.GetType(Member->Data.Ident->Value);
+                Type = Scope.GetType(std::dynamic_pointer_cast<ast::Identifier>(Member->Value)->Value);
                 break;
             
+            // TODO these switch cases are identical?
             case MK::Initial_FunctionCall:
-                Type = ResolveCall(Member->Data.Call, 0).Decl->Signature->ReturnType;
+                Type = ResolveCall(std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value), 0).Decl->Signature->ReturnType;
                 break;
             
             case MK::Initial_StaticCall:
-                Type = ResolveCall(Member->Data.Call, 0).Decl->Signature->ReturnType;
+                Type = ResolveCall(std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value), 0).Decl->Signature->ReturnType;
                 break;
             
             case MK::OffsetRead:
@@ -1760,7 +1761,7 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess
             
             case MK::MemberFunctionCall: {
                 precondition(Type->isComplex() && TypeCache.Contains(Type->getName()));
-                auto Call = Member->Data.Call;
+                auto Call = std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value);
                 if (!mangling::IsCanonicalInstanceMethodName(Call->Target->Value)) {
                     Call->Target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName(Type->getName(), Call->Target->Value, ast::FunctionSignature::FunctionKind::InstanceMethod));
                 }
@@ -1771,8 +1772,9 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess
             case MK::MemberAttributeRead:
                 precondition(Type->isComplex());
                 auto DidFind = false;
+                auto MemberName = std::dynamic_pointer_cast<ast::Identifier>(Member->Value)->Value;
                 for (auto &Attr : TypeCache.GetStruct(Type->getName())->Attributes) {
-                    if (Attr->Name->Value == Member->Data.Ident->Value) {
+                    if (Attr->Name->Value == MemberName) {
                         Type = Attr->Type;
                         DidFind = true;
                         break;

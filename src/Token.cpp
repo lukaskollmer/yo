@@ -80,16 +80,16 @@ std::ostream &operator<<(std::ostream &OS, Token &T) {
         case Token::TokenKind::Identifier:
         case Token::TokenKind::StringLiteral:
         case Token::TokenKind::ByteStringLiteral:
-            OS << " '" << T.Data.S << "'";
+            OS << " '" << std::get<std::string>(T.Data) << "'";
             break;
         case Token::TokenKind::IntegerLiteral:
-            OS << " " << T.Data.I;
+            OS << " " << std::get<uint64_t>(T.Data);
             break;
         case Token::TokenKind::CharLiteral:
-            OS << " '" << escape_char(T.Data.C) << "'";
+            OS << " '" << escape_char(std::get<char>(T.Data)) << "'";
             break;
         case Token::TokenKind::DoubleLiteral:
-            OS << " " << T.Data.D;
+            OS << " " << std::get<double>(T.Data);
             break;
         default: break;
     }

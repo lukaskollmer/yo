@@ -8,10 +8,13 @@
 
 #pragma once
 
+#include "util.h"
+
 #include <string>
 #include <iostream>
-#include "util.h"
 #include <memory>
+#include <variant>
+
 // TODO rename Token -> SourceToken, Kind -> Token?
 
 class Token;
@@ -66,31 +69,19 @@ public:
         As, Using
     };
     
-    union TokenData {
-        char C;
-        double D;
-        int64_t I;
-        std::string *S;
-        
-        TokenData() : I(0) {}
-        ~TokenData() {}
-        
-        static_assert(sizeof(I) == sizeof(S), "");
-    };
+    std::variant<
+        bool,
+        char,
+        double,
+        uint64_t,
+        std::string
+    > Data;
     
     TokenKind Kind;
-    TokenData Data;
     TokenSourceLocation SourceLocation;
     
     
     Token(TokenKind Kind) : Kind(Kind) {}
-    ~Token() {
-        if (Kind == TokenKind::Identifier
-            || Kind == TokenKind::StringLiteral
-            || Kind == TokenKind::ByteStringLiteral) {
-            delete Data.S;
-        }
-    }
     
     static std::shared_ptr<Token> WithKind(TokenKind Kind) {
         return std::make_shared<Token>(Kind);
@@ -98,31 +89,31 @@ public:
     
     static std::shared_ptr<Token> Identifier(std::string Name) {
         auto T = WithKind(TokenKind::Identifier);
-        T->Data.S = new std::string(Name);
+        T->Data = Name;
         return T;
     }
     
-    static std::shared_ptr<Token> IntegerLiteral(int64_t Value) {
+    static std::shared_ptr<Token> IntegerLiteral(uint64_t Value) {
         auto T = WithKind(TokenKind::IntegerLiteral);
-        T->Data.I = Value;
+        T->Data = Value;
         return T;
     }
     
     static std::shared_ptr<Token> StringLiteral(std::string Value) {
         auto T = WithKind(TokenKind::StringLiteral);
-        T->Data.S = new std::string(Value);
+        T->Data = Value;
         return T;
     }
     
     static std::shared_ptr<Token> CharLiteral(char Value) {
         auto T = WithKind(TokenKind::CharLiteral);
-        T->Data.C = Value;
+        T->Data = Value;
         return T;
     }
     
     static std::shared_ptr<Token> BoolLiteral(bool Value) {
         auto T = WithKind(TokenKind::BoolLiteral);
-        T->Data.C = Value;
+        T->Data = Value;
         return T;
     }
 };

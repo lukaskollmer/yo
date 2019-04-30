@@ -8,12 +8,13 @@
 
 #pragma once
 
-#include <memory>
-#include <iostream>
-
 #include "util.h"
 #include "TypeInfo.h"
 #include "Attributes.h"
+
+#include <memory>
+#include <iostream>
+#include <variant>
 
 namespace llvm {
     class Value;
@@ -327,44 +328,33 @@ public:
     class Member : public Node {
     public:
         enum class MemberKind {
-            Initial_Identifier,     // Value in Data.Ident
-            Initial_FunctionCall,   // Value in Data.Call
-            Initial_StaticCall,     // Value in Data.Call (Call.Target contains both the type, and the method name, separated by `~`. TODO come up w/ a better solution)
+            Initial_Identifier,     // Value is ast::Identifier
+            Initial_FunctionCall,   // Value is ast::FunctionCall
+            Initial_StaticCall,     // Value is ast::FunctionCall (Call.Target contains both the type, and the method name, separated by `~`. TODO come up w/ a better solution)
             
-            OffsetRead,             // Value in Data.Offset
-            MemberFunctionCall,     // Value in Data.Call (call target is name of the method being called)
-            MemberAttributeRead     // Value in Data.Ident
-        };
-        
-        union MemberData {
-            std::shared_ptr<Identifier> Ident;
-            std::shared_ptr<FunctionCall> Call;
-            std::shared_ptr<Expr> Offset;
-            
-            // https://stackoverflow.com/a/40302092/2513803
-            MemberData() : Ident{} {}
-            ~MemberData() {}
+            OffsetRead,             // Value is ast::Expr
+            MemberFunctionCall,     // Value is ast::FunctionCall (call target is name of the method being called)
+            MemberAttributeRead     // Value is ast::Identifier
         };
         
         MemberKind Kind;
-        MemberData Data;
+        std::shared_ptr<Expr> Value;
         
         Member(MemberKind Kind) : Kind(Kind) {}
         Member(MemberKind Kind, std::shared_ptr<Identifier> Ident) : Kind(Kind) {
             precondition(Kind == MemberKind::Initial_Identifier || Kind == MemberKind::MemberAttributeRead);
-            Data.Ident = Ident;
+            Value = Ident;
         }
         Member(MemberKind Kind, std::shared_ptr<FunctionCall> Call) : Kind(Kind) {
             precondition(Kind == MemberKind::Initial_FunctionCall
                          || Kind == MemberKind::Initial_StaticCall
                          || Kind == MemberKind::MemberFunctionCall);
-            Data.Call = Call;
+            Value = Call;
         }
         Member(MemberKind Kind, std::shared_ptr<Expr> Offset) : Kind(Kind) {
             precondition(Kind == MemberKind::OffsetRead);
-            Data.Offset = Offset;
+            Value = Offset;
         }
-        ~Member();
     };
     
     std::vector<std::shared_ptr<Member>> Members;

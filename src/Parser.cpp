@@ -652,9 +652,10 @@ std::vector<std::shared_ptr<Expr>> Parser::ParseExpressionList(Token::TokenKind 
 
 std::shared_ptr<Identifier> Parser::ParseIdentifier() {
     if (CurrentTokenKind() != TK::Identifier) return nullptr;
-    auto R = std::make_shared<Identifier>(*CurrentToken().Data.S);
+    auto value = std::get<std::string>(CurrentToken().Data);
+    auto retval = std::make_shared<Identifier>(value);
     Consume();
-    return R;
+    return retval;
 }
 
         
@@ -1049,16 +1050,16 @@ std::shared_ptr<NumberLiteral> Parser::ParseNumberLiteral() {
     
     switch (CurrentTokenKind()) {
         case TK::IntegerLiteral:
-            Value = CurrentToken().Data.I;
+            Value = std::get<uint64_t>(CurrentToken().Data);
             Type = NumberLiteral::NumberType::Integer;
             break;
         case TK::DoubleLiteral: throw;
         case TK::CharLiteral:
-            Value = CurrentToken().Data.C;
+            Value = std::get<char>(CurrentToken().Data);
             Type = NumberLiteral::NumberType::Character;
             break;
         case TK::BoolLiteral:
-            Value = CurrentToken().Data.C;
+            Value = std::get<bool>(CurrentToken().Data);
             Type = NumberLiteral::NumberType::Boolean;
             break;
         default:
@@ -1083,13 +1084,13 @@ std::shared_ptr<StringLiteral> Parser::ParseStringLiteral() {
         return nullptr;
     }
     
-    auto Value = *T.Data.S;
-    StringLiteral::StringLiteralKind Kind = T.Kind == TK::StringLiteral
+    auto value = std::get<std::string>(T.Data);
+    auto kind = T.Kind == TK::StringLiteral
         ? StringLiteral::StringLiteralKind::NormalString
         : StringLiteral::StringLiteralKind::ByteString;
     
     Consume();
-    return std::make_shared<StringLiteral>(Value, Kind);
+    return std::make_shared<StringLiteral>(value, kind);
 }
 
 

@@ -168,14 +168,15 @@ std::shared_ptr<ast::MemberAccess> TemplateResolver::Specialize(std::shared_ptr<
                 break;
             
             case MK::Initial_FunctionCall:
-                NewMember = std::make_shared<ast::MemberAccess::Member>(MK::Initial_FunctionCall, Specialize(Member->Data.Call));
+                NewMember = std::make_shared<ast::MemberAccess::Member>(MK::Initial_FunctionCall,
+                                                                        Specialize(std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value)));
                 break;
             
             case MK::Initial_StaticCall:
                 LKFatalError("TODO");
             
             case MK::OffsetRead:
-                NewMember = std::make_shared<ast::MemberAccess::Member>(Member->Kind, Specialize(Member->Data.Offset));
+                NewMember = std::make_shared<ast::MemberAccess::Member>(Member->Kind, Specialize(Member->Value));
                 break;
             
             case MK::MemberFunctionCall:

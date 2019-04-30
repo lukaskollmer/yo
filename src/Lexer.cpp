@@ -191,7 +191,7 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
             
             precondition(String[Offset] == '\'');
             auto T = HandleRawToken("", TK::CharLiteral);
-            T->Data.C = content;
+            T->Data = content;
             continue;
         }
         
@@ -232,8 +232,7 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
             precondition(String[Offset++] == DOUBLE_QUOTE);
             
             auto T = HandleRawToken("", IsByteStringLiteral ? TK::ByteStringLiteral : TK::StringLiteral);
-            precondition(T->Data.S == nullptr);
-            T->Data.S = new std::string(Content);
+            T->Data = Content;
             Offset--; // unavoidable :/
             continue;
         }
@@ -300,7 +299,7 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
             precondition(Length == RawValue.length()); // The string contained illegal characters (eg: 0b110012)
             
             auto T = HandleRawToken("", TK::IntegerLiteral);
-            T->Data.I = Value;
+            T->Data = Value;
             Offset--; // unavoidable :/
             continue;
         }

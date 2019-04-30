@@ -25,27 +25,10 @@
 using namespace ast;
 
 
+// TODO this is stupid
 bool ast::Expr::isLiteral() const {
     return dynamic_cast<const ast::NumberLiteral *>(this)
         || dynamic_cast<const ast::StringLiteral *>(this);
-}
-
-
-MemberAccess::Member::~Member() {
-    switch (Kind) {
-        case MemberKind::Initial_Identifier:
-        case MemberKind::MemberAttributeRead:
-            Data.Ident.~shared_ptr();
-            break;
-        case MemberKind::Initial_FunctionCall:
-        case MemberKind::MemberFunctionCall:
-        case MemberKind::Initial_StaticCall:
-            Data.Call.~shared_ptr();
-            break;
-        case MemberKind::OffsetRead:
-            Data.Offset.~shared_ptr();
-            break;
-    }
 }
 
 
@@ -415,30 +398,9 @@ Mirror Reflect(MemberAccess *MemberAccess) {
 }
 
 Mirror Reflect(MemberAccess::Member *Member) {
-    std::shared_ptr<Node> Data;
-    
-    using MK = ast::MemberAccess::Member::MemberKind;
-    
-    switch (Member->Kind) {
-        case MK::Initial_Identifier:
-        case MK::MemberAttributeRead:
-            Data = Member->Data.Ident;
-            break;
-        
-        case MK::Initial_FunctionCall:
-        case MK::MemberFunctionCall:
-        case MK::Initial_StaticCall:
-            Data = Member->Data.Call;
-            break;
-        
-        case MK::OffsetRead:
-            Data = Member->Data.Offset;
-            break;
-    }
-    
     return {
         { "kind", Member->Kind },
-        { "data", Data }
+        { "value", Member->Value }
     };
 }
 
