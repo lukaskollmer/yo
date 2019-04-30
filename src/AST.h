@@ -41,16 +41,9 @@ class StructDecl;
 
 class Node {
 public:
-    virtual std::string Description();
-    
     std::shared_ptr<TokenSourceLocation> startLocation, endLocation;
     
-    //std::vector<std::string> Annotations;
-    //std::vector<yo::attributes::Attribute> attributes;
-    
-    //bool HasAnnotation(const std::string &Annotation) {
-    //    return util::vector::contains(Annotations, Annotation);
-    //}
+    virtual std::string Description();
     
 protected:
     virtual ~Node() = default;

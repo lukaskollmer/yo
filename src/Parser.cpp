@@ -264,36 +264,6 @@ std::shared_ptr<ImplBlock> Parser::ParseImplBlock() {
 }
 
 
-
-
-std::vector<std::string> Parser::ParseAnnotations() {
-    if (CurrentTokenKind() != TK::Hashtag) return {};
-    Consume();
-    assert_current_token_and_consume(TK::OpeningSquareBrackets);
-    std::vector<std::string> Annotations;
-    
-    while (CurrentTokenKind() == TK::Identifier) {
-        Annotations.push_back(ParseIdentifier()->Value);
-        switch (CurrentTokenKind()) {
-            case TK::Comma:
-                Consume();
-                continue;
-            case TK::ClosingSquareBrackets:
-                Consume();
-                if (CurrentTokenKind() == TK::Hashtag) {
-                    Consume(); continue;
-                } else {
-                    return Annotations;
-                }
-            default: unhandled_token(CurrentToken())
-        }
-    }
-    
-    return Annotations;
-}
-
-
-
 std::vector<yo::attributes::Attribute> Parser::ParseAttributes() {
     if (CurrentTokenKind() != TK::Hashtag) return {};
     Consume();

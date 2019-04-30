@@ -72,7 +72,6 @@ private:
     
     std::shared_ptr<ast::TopLevelStmt> ParseTopLevelStmt();
     
-    std::vector<std::string> ParseAnnotations();
     std::vector<yo::attributes::Attribute> ParseAttributes();
     std::shared_ptr<ast::FunctionSignature> ParseFunctionSignature(bool IsExternal);
     
