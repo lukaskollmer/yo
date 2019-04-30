@@ -28,45 +28,45 @@ configure_file(
 
 
 add_custom_target(gen_stdlib
-    COMMAND ${PYTHON_EXECUTABLE} stdlib_gen.py "${CMAKE_BINARY_DIR}" "${YO_STDLIB_PATH}"
+  COMMAND ${PYTHON_EXECUTABLE} stdlib_gen.py "${CMAKE_BINARY_DIR}" "${YO_STDLIB_PATH}"
 )
 
 
 
 # TODO split this up into proper subfolders and shit
 add_executable(yo
-        src/CommandLine.h
-        src/CommandLine.cpp
-        src/CharacterSet.h
-        src/CharacterSet.cpp
-        src/Token.h
-        src/Token.cpp
-        src/Lexer.h
-        src/Lexer.cpp
-        src/AST.h
-        src/AST.cpp
-        src/Parser.h
-        src/Parser.cpp
-        src/TypeInfo.h
-        src/TypeInfo.cpp
-        src/Mangling.h
-        src/Mangling.cpp
-        src/Scope.h
-        src/Scope.cpp
-        src/TypeCache.h
-        src/TypeCache.cpp
-        src/IRGen.h
-        src/IRGen.cpp
-        src/util.h
-        src/util.cpp
-        src/StdlibResolution.cpp
-        src/StdlibResolution.h
-        src/TemplateResolution.cpp
-        src/TemplateResolution.h
-        src/Attributes.cpp
-        src/Attributes.h
-        src/util_llvm.h
-        src/main.cpp
+  src/CommandLine.h
+  src/CommandLine.cpp
+  src/CharacterSet.h
+  src/CharacterSet.cpp
+  src/Token.h
+  src/Token.cpp
+  src/Lexer.h
+  src/Lexer.cpp
+  src/AST.h
+  src/AST.cpp
+  src/Parser.h
+  src/Parser.cpp
+  src/TypeInfo.h
+  src/TypeInfo.cpp
+  src/Mangling.h
+  src/Mangling.cpp
+  src/Scope.h
+  src/Scope.cpp
+  src/TypeCache.h
+  src/TypeCache.cpp
+  src/IRGen.h
+  src/IRGen.cpp
+  src/util.h
+  src/util.cpp
+  src/StdlibResolution.cpp
+  src/StdlibResolution.h
+  src/TemplateResolution.cpp
+  src/TemplateResolution.h
+  src/Attributes.cpp
+  src/Attributes.h
+  src/util_llvm.h
+  src/main.cpp
 )
 
 
