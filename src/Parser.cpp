@@ -879,16 +879,17 @@ std::shared_ptr<Expr> Parser::ParseMemberAccess() {
                     }
                 }
                 
-                if (CurrentTokenKind() != TK::OpeningParens) {
-                    unhandled_token(CurrentToken());
+                if (CurrentTokenKind() == TK::OpeningParens) { //
+                    Consume();
+                    auto Args = ParseExpressionList(TK::ClosingParens);
+                    assert_current_token_and_consume(TK::ClosingParens);
+                    auto Call = std::make_shared<ast::FunctionCall>(Ident, Args);
+                    Call->ExplicitTemplateArgumentTypes = ExplicitlySpecifiedTemplateArgumentTypes;
+                    Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::Initial_FunctionCall, Call));
+                } else if (CurrentTokenKind() == TK::Colon) {
+                    unhandled_token(CurrentToken())
                 }
-                Consume();
                 
-                auto Args = ParseExpressionList(TK::ClosingParens);
-                assert_current_token_and_consume(TK::ClosingParens);
-                auto Call = std::make_shared<ast::FunctionCall>(Ident, Args);
-                Call->ExplicitTemplateArgumentTypes = ExplicitlySpecifiedTemplateArgumentTypes;
-                Members.push_back(std::make_shared<MemberAccess::Member>(MemberKind::Initial_FunctionCall, Call));
                 continue;
             }
             
