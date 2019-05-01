@@ -21,9 +21,7 @@ namespace mangling {
 
 
 bool mangling::IsCanonicalInstanceMethodName(std::string_view Ident) {
-    return Ident[0] == kFunctionAttributeInstanceMethod
-        && Ident[1] == kFunctionAttributeInstanceMethod;
-    ;
+    return Ident[0] == '-';
 }
 
 
