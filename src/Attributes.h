@@ -52,6 +52,8 @@ namespace yo::attributes {
         bool intrinsic;
         std::vector<SideEffect> side_effects;
         
+        FunctionAttributes() : variadic(false), no_mangle(false), intrinsic(false), side_effects({SideEffect::Unknown}) {}
+        
         explicit FunctionAttributes(const std::vector<Attribute>&);
     };
 }

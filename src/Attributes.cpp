@@ -103,13 +103,7 @@ std::vector<SideEffect> HandleSideEffectsAttribute(const Attribute &attribute) {
 
 
 
-FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes) {
-    // default values
-    variadic = false;
-    intrinsic = false;
-    no_mangle = false;
-    side_effects = { SideEffect::Unknown };
-    
+FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes) : FunctionAttributes() {    
     if (attributes.empty()) return;
     
     std::vector<std::string_view> handledAttributes;

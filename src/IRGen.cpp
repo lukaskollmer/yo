@@ -213,6 +213,7 @@ void IRGenerator::RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock) {
     auto T = TypeInfo::MakeComplex(Typename);
     
     for (auto &F : ImplBlock->Methods) {
+        precondition(!F->attributes->no_mangle && "invalid attribute for function in impl block: no_mangle");
         auto Kind = FK::StaticMethod;
         if (!F->Signature->Parameters.empty()) {
             auto First = F->Signature->Parameters[0];
@@ -1843,6 +1844,7 @@ llvm::Value *IRGenerator::GenerateStructInitializer(std::shared_ptr<ast::StructD
     
     auto T = TypeInfo::MakeComplex(Typename);
     auto F = std::make_shared<ast::FunctionDecl>();
+    F->attributes = std::make_shared<yo::attributes::FunctionAttributes>();
     F->Signature = std::make_shared<ast::FunctionSignature>();
     F->Signature->Name = "init";
     F->Signature->Kind = ast::FunctionSignature::FunctionKind::StaticMethod;

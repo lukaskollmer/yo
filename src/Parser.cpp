@@ -252,15 +252,17 @@ std::shared_ptr<StructDecl> Parser::ParseStructDecl() {
 std::shared_ptr<ImplBlock> Parser::ParseImplBlock() {
     assert_current_token_and_consume(TK::Impl);
     
-    auto Impl = std::make_shared<ImplBlock>(ParseIdentifier()->Value);
+    auto impl = std::make_shared<ImplBlock>(ParseIdentifier()->Value);
     assert_current_token_and_consume(TK::OpeningCurlyBraces);
     
     while (CurrentTokenKind() == TK::Fn) {
-        Impl->Methods.push_back(ParseFunctionDecl());
+        auto functionDecl = ParseFunctionDecl();
+        functionDecl->attributes = std::make_shared<yo::attributes::FunctionAttributes>();
+        impl->Methods.push_back(functionDecl);
     }
     
     assert_current_token_and_consume(TK::ClosingCurlyBraces);
-    return Impl;
+    return impl;
 }
 
 
