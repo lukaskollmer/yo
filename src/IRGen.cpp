@@ -1400,7 +1400,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
     }
     
     if (If->Branches.back()->Kind == BK::Else) {
-        BranchConditionBlocks.push_back(BranchBodyBlocks.back());
+        BranchConditionBlocks.back() = BranchBodyBlocks.back();
     } else {
         NeedsMergeBB = true;
         BranchConditionBlocks.push_back(MergeBB);
