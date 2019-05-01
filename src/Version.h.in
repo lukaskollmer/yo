@@ -18,9 +18,9 @@
 
 // Clang pretends to be gcc, so we have to check for that first
 #if defined(__clang__)
-#define COMPILER "Clang: " __clang_version__
+#define COMPILER "Clang " __clang_version__
 #elif defined(__GNUC__)
-#define COMPILER "GCC: " __VERSION__
+#define COMPILER "GCC " __VERSION__
 #else
-#define COMPILER "CXX: " __VERSION__
+#define COMPILER "CXX " __VERSION__
 #endif

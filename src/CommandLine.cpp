@@ -42,7 +42,7 @@ llvm::cl::list<std::string> cl::RunArgs(llvm::cl::ConsumeAfter,
 void print_version(llvm::raw_ostream &OS) {
     OS << "yo " << YO_VERSION << " (" << __DATE__ << ", " << __TIME__ << ")\n";
     OS << "- LLVM: " << YO_LLVM_VERSION << "\n";
-    OS << "- " << COMPILER << "\n";
+    OS << "- Compiled with: " << COMPILER << "\n";
 }
 
 void cl::Init(int argc, const char *const *argv) {
