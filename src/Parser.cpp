@@ -19,7 +19,9 @@
 #include "Mangling.h"
 #include "StdlibResolution.h"
 
-using namespace ast;
+using namespace yo;
+using namespace yo::ast;
+using namespace yo::parser;
 
 using TK = Token::TokenKind;
 

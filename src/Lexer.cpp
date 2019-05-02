@@ -15,6 +15,9 @@
 //#include "util.h"
 
 
+using namespace yo;
+using namespace yo::parser;
+
 using TK = Token::TokenKind;
 
 static constexpr char DOUBLE_QUOTE = '"';

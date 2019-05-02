@@ -21,7 +21,7 @@ namespace llvm {
     class Value;
 }
 
-NS_START(ast)
+NS_START(yo::ast)
 
 
 class TopLevelStmt;
@@ -41,7 +41,7 @@ class StructDecl;
 
 class Node {
 public:
-    std::shared_ptr<TokenSourceLocation> startLocation, endLocation;
+    std::shared_ptr<parser::TokenSourceLocation> startLocation, endLocation;
     
     virtual std::string Description();
     

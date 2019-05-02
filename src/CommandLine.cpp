@@ -10,6 +10,8 @@
 #include "Version.h"
 #include <iostream>
 
+using namespace yo;
+
 static llvm::cl::OptionCategory CLIOptionsCategory("General Options");
 
 

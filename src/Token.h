@@ -17,6 +17,8 @@
 
 // TODO rename Token -> SourceToken, Kind -> Token?
 
+NS_START(yo::parser)
+
 class Token;
 using TokenList = std::vector<std::shared_ptr<Token>>;
 
@@ -120,3 +122,6 @@ public:
 
 std::ostream &operator<<(std::ostream &OS, Token &T);
 std::ostream &operator<<(std::ostream &OS, Token::TokenKind TK);
+
+
+NS_END

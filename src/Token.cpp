@@ -6,9 +6,10 @@
 //  Copyright © 2019 Lukas Kollmer. All rights reserved.
 //
 
-
 #include "Token.h"
 #include <map>
+
+using namespace yo::parser;
 
 std::string TokenKindToString(Token::TokenKind Kind) {
 #define CASE(x) case Token::TokenKind::x: return #x;
@@ -74,7 +75,7 @@ std::string escape_char(char C) {
     }
 }
 
-std::ostream &operator<<(std::ostream &OS, Token &T) {
+std::ostream& yo::parser::operator<<(std::ostream &OS, Token &T) {
     OS << "<Token " << TokenKindToString(T.Kind);
     switch (T.Kind) {
         case Token::TokenKind::Identifier:
@@ -99,6 +100,6 @@ std::ostream &operator<<(std::ostream &OS, Token &T) {
 
 
 
-std::ostream &operator<<(std::ostream &OS, Token::TokenKind TK) {
+std::ostream &yo::parser::operator<<(std::ostream &OS, Token::TokenKind TK) {
     return OS << TokenKindToString(TK);
 }

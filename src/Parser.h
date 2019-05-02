@@ -21,6 +21,8 @@
 #include "Attributes.h"
 
 
+NS_START(yo::parser)
+
 
 // Operator precedence groups, in increasing order
 enum class PrecedenceGroup : uint8_t {
@@ -112,3 +114,5 @@ private:
     std::optional<ast::Comparison::Operation> ParseComparisonOperator();
     std::optional<ast::LogicalOperation::Operation> ParseLogicalOperationOperator();
 };
+
+NS_END

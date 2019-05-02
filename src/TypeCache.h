@@ -16,7 +16,7 @@
 #include "util.h"
 
 
-NS_START(irgen)
+NS_START(yo::irgen)
 
 class TypeCache {
     // TODO what about enums?

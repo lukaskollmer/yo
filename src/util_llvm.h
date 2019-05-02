@@ -15,7 +15,8 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/raw_ostream.h"
 
-namespace util_llvm {
+
+namespace yo::util::llvm_utils {
     inline llvm::raw_ostream& operator<<(llvm::raw_ostream &OS, llvm::Value *V) {
         V->print(OS);
         return OS;

@@ -15,7 +15,9 @@
 #include <cstdarg>
 
 
-char *LKStringUtils_FormatIntoNewBuffer(const char *format, ...) {
+using namespace yo;
+
+char *util::fmt_cstr(const char *format, ...) {
     if (format && strlen(format) > 0) {
         va_list args;
         va_start(args, format);

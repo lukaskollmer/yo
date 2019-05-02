@@ -16,6 +16,7 @@
 
 #include "util.h"
 
+NS_START(yo::parser)
 
 class Lexer {
 public:
@@ -35,3 +36,5 @@ private:
     
     Token *HandleRawToken(const std::string &RawToken, Token::TokenKind TokenKind = Token::TokenKind::Unknown);
 };
+
+NS_END

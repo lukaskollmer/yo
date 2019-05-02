@@ -21,7 +21,7 @@
 
 
 
-NS_START(irgen)
+NS_START(yo::irgen)
 
 
 

@@ -22,8 +22,8 @@
 
 
 
-using namespace ast;
-
+using namespace yo;
+using namespace yo::ast;
 
 // TODO this is stupid
 bool ast::Expr::isLiteral() const {

@@ -8,6 +8,7 @@
 
 #include "Scope.h"
 
+using namespace yo;
 using namespace irgen;
 
 

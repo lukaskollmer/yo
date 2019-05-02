@@ -17,6 +17,13 @@
 #include <optional>
 
 
+#define NS_START(x) namespace x {
+#define NS_END }
+
+
+NS_START(yo::util)
+
+
 inline void noop() {}
 
 using LKInteger = std::int64_t;
@@ -25,12 +32,12 @@ using LKUInteger = std::uint64_t;
 #define LKLog(fmt, ...) printf("[%s] " fmt "\n", __PRETTY_FUNCTION__, ## __VA_ARGS__)
 
 
+//#define LK_PUSH_CLANG_IGNORE(name) \
+//_Pragma(
+//#pragma clang diagnostic push
+//#pragma clang diagnostic ignored "-Wunused-lambda-capture"
 
 #define getter(name) auto &get##name() { return name; }
-
-
-#define NS_START(x) namespace x {
-#define NS_END }
 
 
 #define STR(x) #x
@@ -64,9 +71,7 @@ if (__builtin_expect(!(bool)(e), 0)) {                                          
 
 
 __attribute__((format(printf, 1, 2)))
-char *LKStringUtils_FormatIntoNewBuffer(const char *format, ...);
-
-#define fmt_c LKStringUtils_FormatIntoNewBuffer
+char *fmt_cstr(const char *format, ...);
 
 
 struct Range {
@@ -98,25 +103,23 @@ private:
 
 
 
+struct _LKExitHandler {
+    std::function<void()> invoke;
+    _LKExitHandler(std::function<void()> invoke) : invoke(invoke) {}
+};
 
-namespace util {
-    struct _LKExitHandler {
-        std::function<void()> invoke;
-        _LKExitHandler(std::function<void()> invoke) : invoke(invoke) {}
-    };
-    
-    inline std::ostream& operator<<(std::ostream &OS, const _LKExitHandler &EH) {
-        OS << std::endl;
-        EH.invoke();
-        return OS;
-    }
+inline std::ostream& operator<<(std::ostream &OS, const _LKExitHandler &EH) {
+    OS << std::endl;
+    EH.invoke();
+    return OS;
 }
 
-#define fatalError util::_LKExitHandler([]() { raise(SIGABRT); });
+
+#define fatalError yo::util::_LKExitHandler([]() { raise(SIGABRT); });
 
 
 
-namespace util::typeinfo {
+namespace typeinfo {
     // Demangling (forward to __cxa_demangle)
     std::string demangle(const char *name);
     
@@ -151,16 +154,29 @@ namespace util::typeinfo {
     
     template <typename T>
     const std::string LKTypeInfo<T>::Name = demangle(typeid(T).name());
-    
-    
-
 }
 
 
-namespace util::vector {
+namespace vector {
     template <typename T>
     inline bool contains(const std::vector<T> &Vector, const T &Element) {
         return std::find(Vector.begin(), Vector.end(), Element) != Vector.end();
+    }
+    
+    template <typename T, typename F>
+    bool contains_where(const std::vector<T> &vector, F fn) {
+        for (auto &elem : vector) {
+            if (fn(elem)) return true;
+        }
+        return false;
+    }
+    
+    template <typename T, typename F>
+    std::optional<T> first_where(const std::vector<T> &vector, F fn) {
+        for (auto &elem : vector) {
+            if (fn(elem)) return elem;
+        }
+        return std::nullopt;
     }
     
     template <typename T, typename F>
@@ -169,7 +185,6 @@ namespace util::vector {
         std::transform(Vector.begin(), Vector.end(), Mapped.begin(), Fn);
         return Mapped;
     }
-    
     
     template <typename T, typename F>
     std::pair<std::vector<T>, std::vector<T>> filter_keeping_all(std::vector<T> &vector, F f) {
@@ -183,7 +198,7 @@ namespace util::vector {
 }
 
 
-namespace util::map {
+namespace map {
     template <typename K, typename V>
     inline bool contains_key(const std::map<K, V> &Map, const K &Key) {
         return Map.find(Key) != Map.end();
@@ -197,7 +212,7 @@ namespace util::map {
 }
 
 
-namespace util::string {
+namespace string {
     std::string repeating(const char C, std::string::size_type N);
     bool contains(const std::string_view String, const std::string_view Other);
     
@@ -226,3 +241,4 @@ namespace util::string {
     std::string excludingFileExtension(const std::string &Path);
 }
 
+NS_END

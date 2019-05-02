@@ -14,6 +14,9 @@
 #include "llvm/IR/Type.h"
 
 
+using namespace yo;
+
+
 static std::map<std::string, TypeInfo *> Types = {
 #define builtin(name) { #name, TypeInfo::getType_##name() }
     builtin(i8), builtin(i16), builtin(i32), builtin(i64),

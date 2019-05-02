@@ -10,6 +10,6 @@
 
 #include <string>
 
-namespace stdlib_resolution {
+namespace yo::stdlib_resolution {
     std::string_view GetContentsOfModuleWithName(const std::string &Name);
 }

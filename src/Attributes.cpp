@@ -7,54 +7,21 @@
 //
 
 #include "Attributes.h"
-
+#include "util.h"
 #include <optional>
 
 using namespace yo::attributes;
 
 
-namespace util::vector {
-    template <typename T, typename F>
-    bool contains_where(const std::vector<T> &vector, F fn) {
-        for (auto &elem : vector) {
-            if (fn(elem)) return true;
-        }
-        return false;
-    }
-    
-    template <typename T, typename F>
-    std::optional<T> first_where(const std::vector<T> &vector, F fn) {
-        for (auto &elem : vector) {
-            if (fn(elem)) return elem;
-        }
-        return std::nullopt;
-    }
-}
-
-
-
 namespace attr_vec_utils {
     std::optional<Attribute> get_with_key(const std::vector<Attribute> &attributes, std::string_view key) {
-        return util::vector::first_where(attributes, [&key](auto &attr) { return attr.getKey() == key; });
+        return yo::util::vector::first_where(attributes, [&key](auto &attr) { return attr.getKey() == key; });
     }
     
     bool contains_key(const std::vector<Attribute> &attributes, std::string_view key) {
         return get_with_key(attributes, key).has_value();
     }
-    
-    template <typename T>
-    T value_of_key(const std::vector<Attribute> &attributes, const std::string &key, T&& defaultValue) {
-//        auto attr = get_with_key(<#const std::vector<Attribute> &attributes#>, <#std::string_view key#>)
-//        if (!attr) return defaultValue;
-//
-//        if constexpr(std::is_same_v<T, bool>) {
-//
-//        }
-    }
-    
 }
-
-//#define ATTRIBUTE(scope, name) const std::string_view k##scope##AttributeKey__##name = #name;
 
 
 #define ATTRIBUTE(scope, name) \

@@ -9,6 +9,8 @@
 
 #include "CharacterSet.h"
 
+using namespace yo;
+
 void AssertValidCharRange(char A, char B) {
     precondition(A <= B);
 }

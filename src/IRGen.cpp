@@ -19,8 +19,8 @@
 #include "Attributes.h"
 
 using namespace yo;
-using namespace irgen;
-using namespace util_llvm;
+using namespace yo::irgen;
+using namespace yo::util::llvm_utils;
 
 
 inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
@@ -147,7 +147,7 @@ void IRGenerator::RegisterFunction(std::shared_ptr<ast::FunctionDecl> Function) 
     std::string CanonicalName = mangling::MangleCanonicalNameForSignature(Signature);
     std::string ResolvedName = MangleFullyResolved(Function);
     
-    precondition(M->getFunction(ResolvedName) == nullptr, fmt_c("Redefinition of function '%s'", ResolvedName.c_str())); // TODO print the signature instead!
+    precondition(M->getFunction(ResolvedName) == nullptr, util::fmt_cstr("Redefinition of function '%s'", ResolvedName.c_str())); // TODO print the signature instead!
     
     auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->attributes->variadic);
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, ResolvedName, M);
@@ -1132,7 +1132,7 @@ ResolvedFunction IRGenerator::InstantiateTemplateFunctionForCall(std::shared_ptr
 // Returns the function most closely matching the call
 ResolvedFunction IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset) {
     auto &PossibleTargets = Functions[Call->Target];
-    precondition(!PossibleTargets.empty(), fmt_c("Unable to resolve call to %s", Call->Target.c_str()));
+    precondition(!PossibleTargets.empty(), util::fmt_cstr("Unable to resolve call to %s", Call->Target.c_str()));
     
     if (PossibleTargets.size() == 1) {
         auto &Target = PossibleTargets[0];

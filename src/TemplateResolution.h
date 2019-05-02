@@ -17,7 +17,7 @@
 #include "TypeInfo.h"
 
 
-NS_START(irgen)
+NS_START(yo::irgen)
 
 class TemplateResolver {
     using TemplateTypeMapping = std::map<std::string, TypeInfo *>;

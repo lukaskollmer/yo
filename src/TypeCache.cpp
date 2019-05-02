@@ -8,6 +8,7 @@
 
 #include "TypeCache.h"
 
+using namespace yo;
 using namespace irgen;
 
 

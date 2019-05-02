@@ -10,8 +10,9 @@
 #include "util.h"
 #include <map>
 
+using namespace yo;
 
-namespace mangling {
+namespace yo::mangling {
     inline constexpr char kCommonPrefix = '_';
     inline constexpr char kFunctionAttributeGlobalFunction = 'F';
     inline constexpr char kFunctionAttributeInstanceMethod = 'I';
@@ -20,7 +21,7 @@ namespace mangling {
 }
 
 
-bool mangling::IsCanonicalInstanceMethodName(std::string_view Ident) {
+bool yo::mangling::IsCanonicalInstanceMethodName(std::string_view Ident) {
     return Ident[0] == '-';
 }
 

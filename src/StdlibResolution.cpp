@@ -23,7 +23,7 @@ static std::map<std::string, std::string_view> StdlibModules = {
 };
 #undef MODULE
 
-std::string_view stdlib_resolution::GetContentsOfModuleWithName(const std::string &Name) {
+std::string_view yo::stdlib_resolution::GetContentsOfModuleWithName(const std::string &Name) {
     if (auto Module = util::map::get_opt(StdlibModules, Name)) {
         return *Module;
     }

@@ -19,6 +19,8 @@ namespace llvm {
 }
 
 
+NS_START(yo)
+
 class TypeInfo {
 public:
     enum class Kind {
@@ -131,3 +133,5 @@ public:
 inline std::ostream &operator<<(std::ostream &OS, const TypeInfo *TI) {
     return OS << TI->str();
 }
+
+NS_END

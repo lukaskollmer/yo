@@ -12,7 +12,7 @@
 #include "llvm/Support/CommandLine.h"
 
 
-namespace cl {
+namespace yo::cl {
     extern llvm::cl::opt<bool> Run;
     extern llvm::cl::opt<std::string> InputFilename;
     extern llvm::cl::opt<bool> PrintAST;

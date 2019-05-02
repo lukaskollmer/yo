@@ -16,8 +16,8 @@
 
 #include "util.h"
 
-NS_START(irgen)
 
+NS_START(yo::irgen)
 
 struct ValueBinding {
     using ReadImp  = std::function<llvm::Value*(void)>;

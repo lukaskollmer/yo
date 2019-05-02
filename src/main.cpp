@@ -68,7 +68,7 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     Module->setTargetTriple(TargetTriple);
     
     
-    if (cl::DumpLLVM) {
+    if (yo::cl::DumpLLVM) {
         Module->print(llvm::outs(), nullptr, true, true);
     }
     
@@ -91,9 +91,9 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     }
     
     
-    auto ObjectFilePath = LKStringUtils_FormatIntoNewBuffer("%s/%s.o",
-                                                            DebugDirPath.c_str(),
-                                                            util::string::excludingFileExtension(Filename).c_str());
+    auto ObjectFilePath = yo::util::fmt_cstr("%s/%s.o",
+                                             DebugDirPath.c_str(),
+                                             yo::util::string::excludingFileExtension(Filename).c_str());
     llvm::raw_fd_ostream dest(ObjectFilePath, EC, llvm::sys::fs::CreationDisposition::CD_OpenAlways);
     
     if (EC) {
@@ -122,20 +122,21 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     pass.run(*Module);
     dest.flush();
     
+    
     auto clangPath = llvm::sys::findProgramByName("clang");
-    const auto ExecutablePath = LKStringUtils_FormatIntoNewBuffer("%s/%s",
-                                                                  DebugDirPath.c_str(),
-                                                                  util::string::excludingFileExtension(Filename).c_str());
+    const auto ExecutablePath = yo::util::fmt_cstr("%s/%s",
+                                                   DebugDirPath.c_str(),
+                                                   yo::util::string::excludingFileExtension(Filename).c_str());
     ExecutableOutputPath = ExecutablePath;
     
     if (EC) {
         llvm::outs() << "Error creating output directory: " << EC.message();
         return EXIT_FAILURE;
     }
-    auto cmd = LKStringUtils_FormatIntoNewBuffer("%s %s -o %s -lc",
-                                                 clangPath->c_str(),
-                                                 ObjectFilePath,
-                                                 ExecutablePath);
+    auto cmd = yo::util::fmt_cstr("%s %s -o %s -lc",
+                                  clangPath->c_str(),
+                                  ObjectFilePath,
+                                  ExecutablePath);
     
     if (system(cmd) != 0) {
         return EXIT_FAILURE;
@@ -147,12 +148,12 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
 
 
 int RunExecutable(const std::string &ExecutablePath, const char *const *envp) {
-    auto argc = cl::RunArgs.size();
+    auto argc = yo::cl::RunArgs.size();
     auto argv = static_cast<char **>(calloc(argc + 2, sizeof(char *))); // +2 bc the first element is the executable path and the array is null terminated
     argv[0] = strdup(ExecutablePath.c_str());
     
     for (auto I = 0; I < argc; I++) {
-        argv[I + 1] = strdup(cl::RunArgs[I].c_str());
+        argv[I + 1] = strdup(yo::cl::RunArgs[I].c_str());
     }
     llvm::llvm_shutdown();
     
@@ -166,25 +167,25 @@ int RunExecutable(const std::string &ExecutablePath, const char *const *envp) {
 
 
 int main(int argc, const char * argv[], const char *const *envp) {
-    cl::Init(argc, argv);
-    assert_implication(cl::RunArgs.size() > 0, cl::Run);
+    yo::cl::Init(argc, argv);
+    assert_implication(yo::cl::RunArgs.size() > 0, yo::cl::Run);
     
-    std::string Filename = cl::InputFilename;
-    auto Ast = Parser().Parse(Filename);
+    std::string Filename = yo::cl::InputFilename;
+    auto Ast = yo::parser::Parser().Parse(Filename);
     
-    Filename = util::string::lastPathCompotent(Filename);
+    Filename = yo::util::string::lastPathCompotent(Filename);
     
-    if (cl::PrintAST) {
-        std::cout << ast::Description(Ast) << std::endl;
+    if (yo::cl::PrintAST) {
+        std::cout << yo::ast::Description(Ast) << std::endl;
         return EXIT_SUCCESS;
     }
     
-    irgen::IRGenerator Codegen("main");
+    yo::irgen::IRGenerator Codegen("main");
     Codegen.Codegen(Ast);
     
     auto M = Codegen.GetModule();
     
-    if (cl::EmitLLVM) {
+    if (yo::cl::EmitLLVM) {
         std::error_code EC;
         auto OutputFile = Filename.append(".ll");
         llvm::raw_fd_ostream OS(OutputFile, EC);
@@ -198,7 +199,7 @@ int main(int argc, const char * argv[], const char *const *envp) {
         return Status;
     }
     
-    if (cl::Run) {
+    if (yo::cl::Run) {
         // Only returns if execve failed
         return RunExecutable(ExecutablePath, envp);
     }

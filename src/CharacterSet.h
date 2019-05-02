@@ -15,6 +15,8 @@
 #include "util.h"
 
 
+NS_START(yo)
+
 class CharacterSet {
 public:
     using Character = char;
@@ -34,5 +36,5 @@ private:
 };
 
 
-
+NS_END
 
