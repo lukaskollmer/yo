@@ -1383,7 +1383,6 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
     using BK = ast::IfStmt::Branch::BranchKind;
     
     auto F = Builder.GetInsertBlock()->getParent();
-    auto InitialBB = Builder.GetInsertBlock();
     auto MergeBB = llvm::BasicBlock::Create(C, "merge");
     bool NeedsMergeBB = false;
     
@@ -1403,7 +1402,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
         BranchConditionBlocks.back() = BranchBodyBlocks.back();
     } else {
         NeedsMergeBB = true;
-        BranchConditionBlocks.push_back(MergeBB);
+        BranchConditionBlocks.back() = MergeBB;
     }
     
     
