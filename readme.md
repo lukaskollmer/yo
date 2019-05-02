@@ -31,7 +31,8 @@ You can find some documentation [here](https://yo.lukaskollmer.me)
 
 ## Usage
 Build requirements:
-- cmake, make
+- make
+- cmake 3.10+
 - llvm 8
 - python 3.6+
 - clang (gcc probably works as well)
