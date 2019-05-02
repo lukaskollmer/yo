@@ -1469,10 +1469,14 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::WhileStmt> WhileStmt) {
 
 
 
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ForLoop> ForLoop) {
-    auto T = GuessType(ForLoop->Expr);
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ForLoop> forLoop) {
+    auto T = GuessType(forLoop->expr);
     std::cout << T << std::endl;
     // TODO get iterator, turn that into a while loop or something like that
+    
+    auto iteratorCallTarget = mangling::MangleCanonicalName(T->getName(), "iterator", ast::FunctionSignature::FunctionKind::InstanceMethod);
+    auto call = std::make_shared<ast::FunctionCall>(iteratorCallTarget, std::vector<std::shared_ptr<ast::Expr>>{forLoop->expr});
+    
     throw;
 }
 
