@@ -1468,16 +1468,38 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::WhileStmt> WhileStmt) {
 }
 
 
+template <typename T>
+void vec_append(std::vector<T> &dest, const std::vector<T> &src) {
+    dest.insert(dest.end(), src.begin(), src.end());
+}
+
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ForLoop> forLoop) {
-    auto T = GuessType(forLoop->expr);
-    std::cout << T << std::endl;
-    // TODO get iterator, turn that into a while loop or something like that
+    // TODO this is disgusting
     
+    auto T = GuessType(forLoop->expr);
     auto iteratorCallTarget = mangling::MangleCanonicalName(T->getName(), "iterator", ast::FunctionSignature::FunctionKind::InstanceMethod);
     auto call = std::make_shared<ast::FunctionCall>(iteratorCallTarget, std::vector<std::shared_ptr<ast::Expr>>{forLoop->expr});
     
-    throw;
+    auto forStmtScope = std::make_shared<ast::Composite>();
+    auto it_ident = std::make_shared<ast::Identifier>("$it");
+    forStmtScope->Statements.push_back(std::make_shared<ast::VariableDecl>(it_ident, TypeInfo::Unresolved, call));
+    
+    // while loop
+    auto call_on_ident = [] (const std::shared_ptr<ast::Identifier> &ident, const std::string &fn_name) {
+        using MK = ast::MemberAccess::Member::MemberKind;
+        return std::make_shared<ast::MemberAccess>(std::vector<std::shared_ptr<ast::MemberAccess::Member>>{
+            std::make_shared<ast::MemberAccess::Member>(MK::Initial_Identifier, ident),
+            std::make_shared<ast::MemberAccess::Member>(MK::MemberFunctionCall, std::make_shared<ast::FunctionCall>(fn_name))
+        });
+    };
+    
+    auto whileBody = std::make_shared<ast::Composite>();
+    whileBody->Statements.push_back(std::make_shared<ast::VariableDecl>(forLoop->ident, TypeInfo::Unresolved, call_on_ident(it_ident, "next")));
+    vec_append(whileBody->Statements, forLoop->body->Statements);
+    forStmtScope->Statements.push_back(std::make_shared<ast::WhileStmt>(call_on_ident(it_ident, "hasNext"), whileBody));
+    
+    return Codegen(forStmtScope);
 }
 
 

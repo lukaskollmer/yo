@@ -300,8 +300,8 @@ public:
     std::vector<std::shared_ptr<Expr>> Arguments;
     std::vector<TypeInfo *> ExplicitTemplateArgumentTypes;
     
-    FunctionCall(const std::string &Target, std::vector<std::shared_ptr<Expr>> Arguments)
-    : Target(Target), Arguments(Arguments) {}
+    FunctionCall(const std::string &Target) : Target(Target) {}
+    FunctionCall(const std::string &Target, std::vector<std::shared_ptr<Expr>> Arguments) : Target(Target), Arguments(Arguments) {}
 };
 
 
