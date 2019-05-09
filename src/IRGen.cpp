@@ -1297,7 +1297,16 @@ llvm::Value *IRGenerator::Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionS
         return llvm::ConstantInt::get(i64, Module->getDataLayout().getTypeAllocSize(T));
     }
     
-    std::cout << "Unhandled call to intrinsic: " << Name << std::endl;
+    if (name == "retain" || name == "release" || name == "markForRelease") {
+        precondition(call->arguments.size() == 1);
+        call->target = std::make_shared<ast::Identifier>(name + "_imp");
+        call->arguments[0] = std::make_shared<ast::Typecast>(call->arguments[0],
+                                                             TypeInfo::GetWithName("LKMetadataAccessor")->getPointerTo(),
+                                                             ast::Typecast::CastKind::Bitcast);
+        return Codegen(call);
+    }
+    
+    std::cout << "Unhandled call to intrinsic: " << name << std::endl;
     LKFatalError("");
 }
 

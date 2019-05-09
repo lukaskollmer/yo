@@ -1,0 +1,81 @@
+// WIP
+
+// Q: Why the templated intrinsics?
+// A: They basically just cast the argument and forward to the _imp functions
+//    Reason for this is avoiding code duplication
+
+#[intrinsic]
+fn retain<T>(obj: T): T {}
+
+#[intrinsic]
+fn release<T>(obj: T): void {}
+
+#[intrinsic]
+fn markForRelease<T>(obj: T): void {}
+
+
+#[no_init]
+struct LKMetadataAccessor {
+    retainCount: u64,
+    deallocPtr: fn#c(*i8): void
+}
+
+
+fn get_retainCount_imp(obj: *LKMetadataAccessor): u64 {
+    let rc = obj.retainCount;
+    rc &= static_cast<u64>(~(1 << 60));
+    return rc;
+}
+
+//fn unsetIsMarkedForReleaseBit_imp(obj: *LKMetadataAccessor) {
+//    obj.retainCount &= static_cast<u64>(~(1 << 60));
+//    return;
+//}
+
+fn retain_imp(obj: *LKMetadataAccessor): void {
+    if isMarkedForRelease_imp(obj) {
+        obj.retainCount &= static_cast<u64>(~(1 << 60));
+        //unsetIsMarkedForReleaseBit_imp(obj);
+        return;
+    }
+    obj.retainCount += 1;
+    printf(b"retain_imp: RC: %lu\n", get_retainCount_imp(obj));
+    return;
+}
+
+
+fn release_imp(obj: *LKMetadataAccessor): void {
+    if isMarkedForRelease_imp(obj) {
+        obj.retainCount &= static_cast<u64>(~(1 << 60));
+    }
+    let rc = obj.retainCount;
+
+    if rc == 1 {
+        printf(b"TODO DEALLOC\n");
+        printf(b"TODO CALL PTR\n");
+        //let x = obj.deallocPtr; x(reinterpret_cast<*i8>(obj));
+        obj.deallocPtr(reinterpret_cast<*i8>(obj));
+        return;
+    }
+
+    obj.retainCount -= 1;
+    printf(b"release_imp: RC: %lu\n", get_retainCount_imp(obj));
+    return;
+}
+
+
+fn isMarkedForRelease_imp(obj: *LKMetadataAccessor): bool {
+    let mask = static_cast<u64>(1 << 60);
+    let val = obj.retainCount & mask;
+    if val != 0 {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+
+fn markForRelease_imp(obj: *LKMetadataAccessor) {
+    obj.retainCount |= static_cast<u64>(1 << 60);
+    return;
+}
