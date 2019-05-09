@@ -121,8 +121,10 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
             //return append("{").append(TI->getName()).append("}");
         
         case TypeInfo::Kind::Function:
-        case TypeInfo::Kind::Typealias:
             throw;
+
+        case TypeInfo::Kind::Typealias:
+            return appendEncodedType(TI->getPointee());
         
         case TypeInfo::Kind::Unresolved:
             LKFatalError("should never reach here: %s", TI->str().c_str());

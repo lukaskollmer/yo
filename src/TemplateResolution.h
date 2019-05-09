@@ -38,10 +38,12 @@ class TemplateResolver {
     std::shared_ptr<ast::WhileStmt> Specialize(std::shared_ptr<ast::WhileStmt>);
     std::shared_ptr<ast::IfStmt> Specialize(std::shared_ptr<ast::IfStmt>);
     std::shared_ptr<ast::Composite> Specialize(std::shared_ptr<ast::Composite>);
-    std::shared_ptr<ast::MemberAccess> Specialize(std::shared_ptr<ast::MemberAccess>);
+    std::shared_ptr<ast::NEW_ExprStmt> Specialize(std::shared_ptr<ast::NEW_ExprStmt>);
     std::shared_ptr<ast::MatchExpr> Specialize(std::shared_ptr<ast::MatchExpr>);
     
-    std::shared_ptr<ast::FunctionCall> Specialize(std::shared_ptr<ast::FunctionCall>);
+    std::shared_ptr<ast::CallExpr> Specialize(std::shared_ptr<ast::CallExpr>);
+    std::shared_ptr<ast::SubscriptExpr> Specialize(std::shared_ptr<ast::SubscriptExpr>);
+    std::shared_ptr<ast::MemberExpr> Specialize(std::shared_ptr<ast::MemberExpr>);
     std::shared_ptr<ast::Comparison> Specialize(std::shared_ptr<ast::Comparison>);
     std::shared_ptr<ast::BinaryOperation> Specialize(std::shared_ptr<ast::BinaryOperation>);
     std::shared_ptr<ast::LogicalOperation> Specialize(std::shared_ptr<ast::LogicalOperation>);

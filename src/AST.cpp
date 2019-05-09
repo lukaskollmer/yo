@@ -32,6 +32,22 @@ bool ast::Expr::isLiteral() const {
 }
 
 
+
+static std::shared_ptr<ast::Identifier> _emptyIdent;
+
+std::shared_ptr<ast::Identifier> ast::Identifier::emptyIdent() {
+    if (!_emptyIdent) {
+        _emptyIdent = std::make_shared<ast::Identifier>("");
+    }
+    return _emptyIdent;
+}
+
+
+
+
+
+#pragma mark - AST Printing
+
 std::ostream& ast::operator<<(std::ostream &OS, const std::shared_ptr<ast::FunctionSignature> &Signature) {
     OS << "fn " << Signature->Name;
     if (Signature->IsTemplateFunction) {
@@ -56,9 +72,6 @@ std::ostream& ast::operator<<(std::ostream &OS, const std::shared_ptr<ast::Funct
     return OS;
 }
 
-
-
-#pragma mark - AST Printing
 
 #define CASE(n) case E::n: return #n;
 
@@ -116,19 +129,6 @@ std::string IfStmtBranchKindToString(IfStmt::Branch::BranchKind Kind) {
         CASE(If)
         CASE(ElseIf)
         CASE(Else)
-    }
-}
-
-
-std::string MemberAccessMemberKindToString(MemberAccess::Member::MemberKind Kind) {
-    using E = MemberAccess::Member::MemberKind;
-    switch (Kind) {
-        CASE(Initial_Identifier)
-        CASE(Initial_FunctionCall)
-        CASE(Initial_StaticCall)
-        CASE(OffsetRead)
-        CASE(MemberFunctionCall)
-        CASE(MemberAttributeRead)
     }
 }
 
@@ -233,9 +233,6 @@ std::string to_string(T arg) {
     } else if constexpr(std::is_same_v<T, IfStmt::Branch::BranchKind>) {
         return IfStmtBranchKindToString(arg);
     
-    } else if constexpr(std::is_same_v<T, MemberAccess::Member::MemberKind>) {
-        return MemberAccessMemberKindToString(arg);
-        
     } else if constexpr(std::is_same_v<T, StringLiteral::StringLiteralKind>) {
         return StringLiteralKindToString(arg);
         
@@ -324,18 +321,11 @@ Mirror Reflect(Identifier *Ident) {
     };
 }
 
-Mirror Reflect(FunctionCall *Call) {
-    return {
-        { "Target", Call->Target },
-        { "Arguments", Call->Arguments }
-    };
-}
-
 Mirror Reflect(BinaryOperation *Binop) {
     return {
-        { "Op", Binop->Op },
-        { "Lhs", Binop->LHS },
-        { "Rhs", Binop->RHS }
+        { "op", Binop->Op },
+        { "lhs", Binop->LHS },
+        { "rhs", Binop->RHS }
     };
 }
 
@@ -391,18 +381,6 @@ Mirror Reflect(Typecast *Cast) {
     };
 }
 
-Mirror Reflect(MemberAccess *MemberAccess) {
-    return {
-        { "members", MemberAccess->Members }
-    };
-}
-
-Mirror Reflect(MemberAccess::Member *Member) {
-    return {
-        { "kind", Member->Kind },
-        { "value", Member->Value }
-    };
-}
 
 Mirror Reflect(StructDecl *Struct) {
     return {
@@ -446,6 +424,59 @@ Mirror Reflect(MatchExpr::MatchExprBranch *Branch) {
     };
 }
 
+Mirror Reflect(ast::CallExpr *callExpr) {
+    std::string explicitTemplateArgumentTypes = "[ ";
+    for (auto it = callExpr->explicitTemplateArgumentTypes.begin(); it != callExpr->explicitTemplateArgumentTypes.end(); it++) {
+        explicitTemplateArgumentTypes.append((*it)->str());
+        if (it + 1 != callExpr->explicitTemplateArgumentTypes.end()) {
+            explicitTemplateArgumentTypes.append(", ");
+        }
+    }
+    explicitTemplateArgumentTypes.append(" ]");
+    
+    return {
+        { "target", callExpr->target },
+        { "arguments", callExpr->arguments },
+        { "explicitTemplateArgumentTypes", explicitTemplateArgumentTypes }
+    };
+}
+
+Mirror Reflect(ast::MemberExpr *memberExpr) {
+    return {
+        { "target", memberExpr->target },
+        { "memberName", memberExpr->memberName }
+    };
+}
+
+Mirror Reflect(ast::NEW_StaticDeclRefExpr *staticDeclRefExpr) {
+    return {
+        { "typeName", staticDeclRefExpr->typeName },
+        { "memberName", staticDeclRefExpr->memberName }
+    };
+}
+
+Mirror Reflect(ast::WhileStmt *whileStmt) {
+    return {
+        { "condition", whileStmt->Condition },
+        { "body", whileStmt->Body },
+    };
+}
+
+Mirror Reflect(ast::SubscriptExpr *subscriptExpr) {
+    return {
+        { "target", subscriptExpr->target },
+        { "offset", subscriptExpr->offset },
+    };
+}
+
+Mirror Reflect(ast::NEW_ExprStmt *exprStmt) {
+    return {
+        { "expr", exprStmt->expr }
+    };
+}
+
+
+
 
 Mirror Reflect(Node *Node) {
 #define HANDLE(T) if (auto X = dynamic_cast<T*>(Node)) return Reflect(X);
@@ -455,7 +486,6 @@ Mirror Reflect(Node *Node) {
     HANDLE(ReturnStmt)
     HANDLE(NumberLiteral)
     HANDLE(ExternFunctionDecl)
-    HANDLE(FunctionCall)
     HANDLE(Identifier)
     HANDLE(BinaryOperation)
     HANDLE(VariableDecl)
@@ -465,8 +495,6 @@ Mirror Reflect(Node *Node) {
     HANDLE(IfStmt::Branch)
     HANDLE(Assignment)
     HANDLE(Typecast)
-    HANDLE(MemberAccess)
-    HANDLE(MemberAccess::Member)
     HANDLE(StructDecl)
     HANDLE(ImplBlock)
     HANDLE(StringLiteral)
@@ -474,6 +502,12 @@ Mirror Reflect(Node *Node) {
     HANDLE(UnaryExpr)
     HANDLE(MatchExpr)
     HANDLE(MatchExpr::MatchExprBranch)
+    HANDLE(ast::CallExpr)
+    HANDLE(ast::MemberExpr)
+    HANDLE(ast::NEW_StaticDeclRefExpr)
+    HANDLE(ast::WhileStmt)
+    HANDLE(ast::SubscriptExpr)
+    HANDLE(ast::NEW_ExprStmt)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;

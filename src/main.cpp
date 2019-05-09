@@ -68,6 +68,17 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     Module->setTargetTriple(TargetTriple);
     
     
+    // Verify Module
+    {
+        std::string S;
+        llvm::raw_string_ostream OS(S);
+        if (llvm::verifyModule(*Module, &OS)) {
+            std::cout << "Error: Invalid IR:\n" << OS.str();
+            return EXIT_FAILURE;
+        }
+    }
+    
+    
     if (yo::cl::DumpLLVM) {
         Module->print(llvm::outs(), nullptr, true, true);
     }
@@ -107,16 +118,6 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     if (TargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
         llvm::errs() << "TargetMachine can't emit a file of this type";
         return EXIT_FAILURE;
-    }
-    
-    // Verify Module
-    {
-        std::string S;
-        llvm::raw_string_ostream OS(S);
-        if (llvm::verifyModule(*Module, &OS)) {
-            std::cout << "Error: Invalid IR:\n" << OS.str();
-            return EXIT_FAILURE;
-        }
     }
     
     pass.run(*Module);

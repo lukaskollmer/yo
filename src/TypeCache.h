@@ -32,7 +32,12 @@ public:
     
     bool Contains(const std::string &Name);
     TypeInfo *Get(const std::string &Name) { return Types.at(Name); }
-    std::shared_ptr<ast::StructDecl> GetStruct(std::string Name);
+    std::shared_ptr<ast::StructDecl> GetStruct(const std::string &name);
+    
+    bool StructHasMember(const std::string &structName, const std::string &memberName);
+    
+    // Returns (memberIndex, memberType)
+    std::pair<int64_t, TypeInfo *> GetMember(const std::string &structName, const std::string &memberName);
     
 };
 

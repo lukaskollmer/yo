@@ -56,6 +56,8 @@ IRGenerator::IRGenerator(const std::string ModuleName) : Builder(C) {
 void IRGenerator::Codegen(ast::AST &Ast) {
     Preflight(Ast);
     
+    VerifyDeclarations();
+    
     for (auto &Node : Ast) {
         Codegen(Node);
     }
@@ -63,12 +65,11 @@ void IRGenerator::Codegen(ast::AST &Ast) {
 
 
 
-template <typename T>
-std::string MangleFullyResolved(T Function) {
-    if (Function->attributes->no_mangle) {
-        return Function->Signature->Name;
+std::string MangleFullyResolved(const std::shared_ptr<ast::FunctionSignature> &signature) {
+    if (signature->attributes->no_mangle) {
+        return signature->Name;
     }
-    return mangling::MangleFullyResolvedNameForSignature(Function->Signature);
+    return mangling::MangleFullyResolvedNameForSignature(signature);
 }
 
 void IRGenerator::Preflight(ast::AST &Ast) {
@@ -145,11 +146,11 @@ void IRGenerator::RegisterFunction(std::shared_ptr<ast::FunctionDecl> Function) 
     }
     
     std::string CanonicalName = mangling::MangleCanonicalNameForSignature(Signature);
-    std::string ResolvedName = MangleFullyResolved(Function);
+    std::string ResolvedName = MangleFullyResolved(Signature);
     
     precondition(M->getFunction(ResolvedName) == nullptr, util::fmt_cstr("Redefinition of function '%s'", ResolvedName.c_str())); // TODO print the signature instead!
     
-    auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->attributes->variadic);
+    auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->Signature->attributes->variadic);
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, ResolvedName, M);
     
     unsigned Idx = 0;
@@ -171,7 +172,7 @@ void IRGenerator::RegisterFunction(std::shared_ptr<ast::ExternFunctionDecl> Func
     }
     
     precondition(M->getFunction(Signature->Name) == nullptr);
-    auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->attributes->variadic);
+    auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->Signature->attributes->variadic);
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, Signature->Name, M);
     
     // we can't really append this to the `Functions` vector since that stores an ast::FunctionDecl, but external functions don't have a body :/
@@ -181,13 +182,12 @@ void IRGenerator::RegisterFunction(std::shared_ptr<ast::ExternFunctionDecl> Func
     
     auto Decl = std::make_shared<ast::FunctionDecl>();
     Decl->Signature = Function->Signature;
-    Decl->attributes = Function->attributes;
     Functions[Signature->Name].push_back(ResolvedFunction(Decl, F));
 }
 
 
 
-std::shared_ptr<ast::FunctionSignature> IRGenerator::GetResolvedFunctionWithName(std::string &Name) {
+std::shared_ptr<ast::FunctionSignature> IRGenerator::GetResolvedFunctionWithName(const std::string &Name) {
     if (auto It = ResolvedFunctions.find(Name); It != ResolvedFunctions.end()) {
         return It->second;
     }
@@ -195,12 +195,40 @@ std::shared_ptr<ast::FunctionSignature> IRGenerator::GetResolvedFunctionWithName
 }
 
 
-void IRGenerator::RegisterStructDecl(std::shared_ptr<ast::StructDecl> Struct) {
-    auto Name = Struct->Name->Value;
-    TypeCache.Insert(Name, TypeInfo::MakeComplex(Name));
-    TypeCache.RegisterStruct(Name, Struct);
+void IRGenerator::RegisterStructDecl(std::shared_ptr<ast::StructDecl> structDecl) {
+    auto Name = structDecl->Name->Value;
+    auto T = TypeInfo::MakeComplex(Name);
+    TypeCache.Insert(Name, T);
+    TypeCache.RegisterStruct(Name, structDecl);
+    
+    auto LKYOObjectBase = TypeCache.GetStruct("LKMetadataAccessor");
+    
+    if (structDecl->attributes->arc) {
+        structDecl->Members.insert(structDecl->Members.begin(), LKYOObjectBase->Members.begin(), LKYOObjectBase->Members.end());
+    }
     
     // TODO forward-declare the struct's default initializer!
+    
+    
+    if (!structDecl->attributes->no_init) {
+        auto initializer = std::make_shared<ast::FunctionDecl>();
+        initializer->Signature = std::make_shared<ast::FunctionSignature>();
+        initializer->Signature->attributes = std::make_shared<attributes::FunctionAttributes>();
+        initializer->Body = std::make_shared<ast::Composite>();
+        initializer->Signature->Name = "init";
+        initializer->Signature->Kind = ast::FunctionSignature::FunctionKind::StaticMethod;
+        initializer->Signature->ReturnType = TypeInfo::MakePointer(T);
+        initializer->Signature->ImplType = structDecl;
+        
+        if (!structDecl->attributes->arc) {
+            initializer->Signature->Parameters = structDecl->Members;
+        } else {
+            initializer->Signature->Parameters = std::vector<std::shared_ptr<ast::VariableDecl>>(structDecl->Members.begin() + LKYOObjectBase->Members.size(),
+                                                                                                 structDecl->Members.end());
+        }
+        
+        RegisterFunction(initializer);
+    }
 }
 
 
@@ -213,11 +241,11 @@ void IRGenerator::RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock) {
     auto T = TypeInfo::MakeComplex(Typename);
     
     for (auto &F : ImplBlock->Methods) {
-        precondition(!F->attributes->no_mangle && "invalid attribute for function in impl block: no_mangle");
+        precondition(!F->Signature->attributes->no_mangle && "invalid attribute for function in impl block: no_mangle");
         auto Kind = FK::StaticMethod;
         if (!F->Signature->Parameters.empty()) {
             auto First = F->Signature->Parameters[0];
-            if (First->Name->Value == "self" && First->Type->equals(T)) {
+            if (First->Name->Value == "self" && First->Type->equals(T->getPointerTo())) { // TODO remove the T check, just look for self?
                 Kind = FK::InstanceMethod;
             }
         }
@@ -226,6 +254,19 @@ void IRGenerator::RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock) {
         RegisterFunction(F);
     }
 }
+
+
+
+
+
+
+#pragma mark - Decl Verification
+
+
+void IRGenerator::VerifyDeclarations() {
+    // TODO
+}
+
 
 
 
@@ -252,13 +293,12 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LocalStmt> LocalStmt) {
     HANDLE(LocalStmt, Composite)
-    HANDLE(LocalStmt, FunctionCall)
     HANDLE(LocalStmt, VariableDecl)
     HANDLE(LocalStmt, IfStmt)
     HANDLE(LocalStmt, Assignment)
-    HANDLE(LocalStmt, MemberAccess, CodegenReturnValueKind::Value);
     HANDLE(LocalStmt, WhileStmt)
     HANDLE(LocalStmt, ForLoop)
+    HANDLE(LocalStmt, NEW_ExprStmt)
     
     unhandled_node(LocalStmt);
 }
@@ -268,15 +308,16 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr, CodegenReturn
     HANDLE(Expr, NumberLiteral)
     HANDLE(Expr, BinaryOperation)
     HANDLE(Expr, Identifier, ReturnValueKind)
-    HANDLE(Expr, FunctionCall)
     HANDLE(Expr, Comparison)
     HANDLE(Expr, LogicalOperation)
     HANDLE(Expr, Typecast)
-    HANDLE(Expr, MemberAccess, ReturnValueKind)
     HANDLE(Expr, StringLiteral)
     HANDLE(Expr, UnaryExpr)
     HANDLE(Expr, MatchExpr)
     HANDLE(Expr, RawLLVMValueExpr)
+    HANDLE(Expr, MemberExpr, ReturnValueKind)
+    HANDLE(Expr, SubscriptExpr, ReturnValueKind)
+    HANDLE(Expr, CallExpr)
     
     unhandled_node(Expr)
 }
@@ -294,7 +335,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
         return nullptr;
     }
     precondition(Scope.isEmpty());
-    auto ResolvedName = MangleFullyResolved(FunctionDecl);
+    auto ResolvedName = MangleFullyResolved(FunctionDecl->Signature);
     
     auto F = M->getFunction(ResolvedName);
     if (!F) {
@@ -332,7 +373,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
     
     CurrentFunction = FunctionState(FunctionDecl, F, ReturnBB, RetvalAlloca);
     
-    Codegen(FunctionDecl->Body, true);
+    Codegen(FunctionDecl->Body);
     
     F->getBasicBlockList().push_back(ReturnBB);
     Builder.SetInsertPoint(ReturnBB);
@@ -358,8 +399,10 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
 
 
 
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StructDecl> Struct) {
-    GenerateStructInitializer(Struct);
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StructDecl> structDecl) {
+    if (!structDecl->attributes->no_init) {
+        GenerateStructInitializer(structDecl);
+    }
     return nullptr;
 }
 
@@ -418,52 +461,23 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::VariableDecl> Decl) {
 
 
 
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> Composite, bool IsFunctionBody) {
-    auto M = Scope.GetMarker();
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> composite) {
+    auto marker = Scope.GetMarker();
+    bool didReturn = false;
     
-    bool DidReturn = false;
-    
-//    if (IsFunctionBody && Composite->Statements.empty()) {
-//        // Empty body -> no return statement
-//        auto F = Builder.GetInsertBlock()->getParent();
-//        if (F->getReturnType() == Void) {
-//            //Builder.CreateRetVoid();
-//            Builder.CreateBr(CurrentFunction.ReturnBB);
-//            DidReturn = true;
-//        } else {
-//            LKFatalError("Missing return statement in function '%s' w/ return type '%s'", F->getName().str().c_str(), util_llvm::to_string(F->getReturnType()).c_str());
-//        }
-//    }
-    
-    for (auto It = Composite->Statements.begin(); !DidReturn && It != Composite->Statements.end(); It++) {
-        auto &Stmt = *It;
-        if (auto ReturnStmt = std::dynamic_pointer_cast<ast::ReturnStmt>(Stmt)) {
-            Codegen(ReturnStmt);
-            DidReturn = true;
+    for (auto it = composite->Statements.begin(); !didReturn && it != composite->Statements.end(); it++) {
+        auto &stmt = *it;
+        if (auto returnStmt = std::dynamic_pointer_cast<ast::ReturnStmt>(stmt)) {
+            Codegen(returnStmt);
+            didReturn = true;
         } else {
-            Codegen(Stmt);
-//            if (IsFunctionBody && It + 1 == Composite->Statements.end()) {
-//                // Reached the end of the composite w/out a return statement
-//                auto F = Builder.GetInsertBlock()->getParent();
-//                precondition(F->getReturnType() == Void, fmt_c("Function %s doesn't have a return statement", F->getName().str().c_str()));
-//                Builder.CreateRetVoid();
-//                DidReturn = true;
-//            }
+            Codegen(stmt);
         }
     }
     
-    for (auto &Entry : Scope.GetEntriesSinceMarker(M)) {
-        Scope.Remove(Entry.Ident);
+    for (auto &entry : Scope.GetEntriesSinceMarker(marker)) {
+        Scope.Remove(entry.Ident);
     }
-    
-//    if (DidReturn) {
-//        Scope.Clear();
-//    } else {
-//        auto Entries = Scope.GetEntriesSinceMarker(M);
-//        for (auto &E : Entries) {
-//            Scope.Remove(std::get<0>(E));
-//        }
-//    }
     
     return nullptr;
 }
@@ -535,36 +549,22 @@ bool IRGenerator::TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
 }
 
 
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> Assignment) {
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> assignment) {
     // TODO should assignments return something?
+    // TODO rewrite this so that it doesn't rely on GuessType for function calls!
     
-    auto runTypechecksForStore = [&](std::shared_ptr<ast::Expr> expr, TypeInfo *expectedType) -> auto {
-        TypeInfo *T;
-        if (!this->TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, expectedType, &T)) {
-            LKFatalError("unable to store value of type '%s' into '%s'", T->str().c_str(), expectedType->str().c_str());
-        }
-        return expr;
-    };
+    auto expr = assignment->Value;
+    auto destTy = GuessType(assignment->Target);
     
-    if (auto Ident = std::dynamic_pointer_cast<ast::Identifier>(Assignment->Target)) {
-        auto Binding = Scope.GetBinding(Ident->Value);
-        if (!Binding) throw;
-        
-        Binding->Write(Codegen(runTypechecksForStore(Assignment->Value, Scope.GetType(Ident->Value))));
-        return nullptr;
+    TypeInfo *T;
+    if (!TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, destTy, &T)) {
+        LKFatalError("type mismatch: cannot assign '%s' to '%s'", T->str().c_str(), destTy->str().c_str());
     }
     
-    if (auto MemberAccess = std::dynamic_pointer_cast<ast::MemberAccess>(Assignment->Target)) {
-        // In this case, the member access needs to be an lvalue, and should return an address, instead of a dereferenced
-        auto Dest = Codegen(MemberAccess, CodegenReturnValueKind::Address);
-        precondition(Dest->getType()->isPointerTy());
-        
-        auto Expr = runTypechecksForStore(Assignment->Value, GuessType(MemberAccess));
-        Builder.CreateStore(Codegen(Expr), Dest);
-        return nullptr;
-    }
+    auto target = Codegen(assignment->Target, CodegenReturnValueKind::Address);
+    Builder.CreateStore(Codegen(expr, CodegenReturnValueKind::Value), target);
     
-    throw;
+    return nullptr;
 }
 
 
@@ -579,6 +579,11 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> Assignment) {
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::RawLLVMValueExpr> RawExpr) {
     return RawExpr->Value;
+}
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NEW_ExprStmt> exprStmt) {
+    return Codegen(exprStmt->expr);
 }
 
 
@@ -604,18 +609,18 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> NumberLite
 
 
 
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StringLiteral> StringLiteral) {
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StringLiteral> stringLiteral) {
     using SLK = ast::StringLiteral::StringLiteralKind;
     
-    switch (StringLiteral->Kind) {
+    switch (stringLiteral->Kind) {
         case SLK::ByteString:
-            return Builder.CreateGlobalStringPtr(StringLiteral->Value);
+            return Builder.CreateGlobalStringPtr(stringLiteral->Value);
         case SLK::NormalString: {
             precondition(TypeCache.Contains("String"));
-            StringLiteral->Kind = SLK::ByteString;
-            auto Target = mangling::MangleCanonicalName("String", "new", ast::FunctionSignature::FunctionKind::StaticMethod);
-            auto Call = std::make_shared<ast::FunctionCall>(Target, std::vector<std::shared_ptr<ast::Expr>>(1, StringLiteral));
-            return Codegen(Call);
+            stringLiteral->Kind = SLK::ByteString;
+            auto target = std::make_shared<ast::Identifier>(mangling::MangleCanonicalName("String", "new", ast::FunctionSignature::FunctionKind::StaticMethod));
+            auto call = std::make_shared<ast::CallExpr>(target, std::vector<std::shared_ptr<ast::Expr>>(1, stringLiteral));
+            return Codegen(call);
         }
     }
 }
@@ -687,120 +692,50 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Typecast> Cast) {
 
 
 
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberAccess> MemberAccess, CodegenReturnValueKind ReturnValueKind) {
-    using MK = ast::MemberAccess::Member::MemberKind;
+
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberExpr> memberExpr, CodegenReturnValueKind returnValueKind) {
+    auto targetTy = GuessType(memberExpr->target);
+    precondition(targetTy->isPointer() && targetTy->getPointee()->isComplex());
     
-    // TODO: This is almost definitely wrong
+    auto [memberIndex, memberType] = TypeCache.GetMember(targetTy->getPointee()->getName(), memberExpr->memberName);
     
-    llvm::Value *V = nullptr;
-    TypeInfo *CurrentType = nullptr;
     
-    for (auto &Member : MemberAccess->Members) {
-        switch (Member->Kind) {
-            case MK::Initial_Identifier: {
-                auto Ident = std::dynamic_pointer_cast<ast::Identifier>(Member->Value);
-                V = Codegen(Ident);
-                CurrentType = Scope.GetType(Ident->Value);
-                break;
-            }
-            
-            // TODO initial_staticCall and initial_functioncall seem to be ecaxtly the same. refactor into a single switch case?
-            
-            case MK::Initial_StaticCall: {
-                std::shared_ptr<ast::FunctionSignature> SelectedOverload;
-                V = Codegen(std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value), 0, &SelectedOverload);
-                CurrentType = SelectedOverload->ReturnType;
-                break;
-            }
-            
-            case MK::Initial_FunctionCall: {
-                std::shared_ptr<ast::FunctionSignature> Signature;
-                V = Codegen(std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value), 0, &Signature);
-                CurrentType = Signature->ReturnType;
-                break;
-            }
-            
-            case MK::OffsetRead: {
-                precondition(CurrentType->isPointer());
-                
-                if (llvm::isa<llvm::GetElementPtrInst>(V)) {
-                    V = Builder.CreateLoad(V);
-                }
-                
-                // We need V to be a pointer
-                precondition(V->getType()->isPointerTy());
-                V = Builder.CreateGEP(V, Codegen(Member->Value));
-                CurrentType = CurrentType->getPointee();
-                break;
-            }
-            
-            case MK::MemberFunctionCall: {
-                precondition(CurrentType->isComplex());
-                auto Call = std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value);
-                
-                if (!mangling::IsCanonicalInstanceMethodName(Call->Target)) {
-                    Call->Target = mangling::MangleCanonicalName(CurrentType->getName(), Call->Target, ast::FunctionSignature::FunctionKind::InstanceMethod);
-                }
-                
-                std::shared_ptr<ast::FunctionSignature> SelectedOverload;
-                
-                // Call the function, inserting the implicit first argument
-                auto CallInst = llvm::dyn_cast<llvm::CallInst>(Codegen(Call, kInstanceMethodCallArgumentOffset, &SelectedOverload));
-                CallInst->setOperand(0, V);
-                V = CallInst;
-                
-                CurrentType = SelectedOverload->ReturnType;
-                break;
-            }
-            
-            case MK::MemberAttributeRead: {
-                precondition(CurrentType->isComplex() && TypeCache.Contains(CurrentType->getName()));
-                auto MemberName = std::dynamic_pointer_cast<ast::Identifier>(Member->Value)->Value;
-                auto StructName = CurrentType->getName();
-                auto StructType = TypeCache.GetStruct(StructName);
-                
-                uint32_t Offset = 0;
-                auto DidFindMember = false;
-                for (auto &Member : StructType->Members) {
-                    if (Member->Name->Value == MemberName) {
-                        DidFindMember = true;
-                        break;
-                    }
-                    Offset++;
-                }
-                
-                if (!DidFindMember) {
-                    std::cout << "Unable to find member '" << MemberName << "' in struct '" << StructName << std::endl;
-                    throw;
-                }
-                CurrentType = StructType->Members[Offset]->Type;
-                
-                llvm::Value *Offsets[] = {
-                    llvm::ConstantInt::get(i64, 0),
-                    llvm::ConstantInt::get(i32, Offset)
-                };
-                
-                if (llvm::isa<llvm::GetElementPtrInst>(V)) {
-                    V = Builder.CreateLoad(V);
-                }
-        
-                V = Builder.CreateGEP(V, Offsets);
-                break;
-            }
-        }
-    }
+    llvm::Value *offsets[] = {
+        llvm::ConstantInt::get(i64, 0),
+        llvm::ConstantInt::get(i32, memberIndex),
+    };
     
-    switch (ReturnValueKind) {
+    auto V = Builder.CreateGEP(Codegen(memberExpr->target), offsets);
+    
+    switch (returnValueKind) {
         case CodegenReturnValueKind::Address:
             return V;
         case CodegenReturnValueKind::Value:
-            if (V && llvm::isa<llvm::GetElementPtrInst>(V)) {
-                return Builder.CreateLoad(V);
-            } else {
-                return V;
-            }
+            return Builder.CreateLoad(V);
     }
 }
+
+
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::SubscriptExpr> subscript, CodegenReturnValueKind returnValueKind) {
+    auto target = Codegen(subscript->target, CodegenReturnValueKind::Value);
+    precondition(target->getType()->isPointerTy());
+    auto offset = Codegen(subscript->offset, CodegenReturnValueKind::Value);
+    precondition(offset->getType()->isIntegerTy());
+    
+    auto GEP = Builder.CreateGEP(target, Codegen(subscript->offset));
+    
+    switch (returnValueKind) {
+        case CodegenReturnValueKind::Address:
+            return GEP;
+        case CodegenReturnValueKind::Value:
+            return Builder.CreateLoad(GEP);
+    }
+}
+
 
 
 // TODO should this go in the control flow section?
@@ -1010,246 +945,262 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::BinaryOperation> Binop) {
 
 
 
-std::optional<std::map<std::string, TypeInfo *>> IRGenerator::AttemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> TemplateFunction, std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset) {
-    auto Sig = TemplateFunction->Signature;
+std::optional<std::map<std::string, TypeInfo *>> IRGenerator::NEW_AttemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset) {
+    auto sig = templateFunction->Signature;
     
-    if (Sig->Parameters.size() != Call->Arguments.size()) {
+    if (sig->Parameters.size() != call->arguments.size()) {
         return std::nullopt;
     }
     
-    std::map<std::string, TypeInfo *> TemplateArgumentMapping;
+    std::map<std::string, TypeInfo *> templateArgumentMapping;
     
-    for (auto Idx = 0; Idx < Sig->TemplateArgumentNames.size(); Idx++) {
-        auto Name = Sig->TemplateArgumentNames[Idx];
-        
-        if (Idx < Call->ExplicitTemplateArgumentTypes.size()) {
-            TemplateArgumentMapping[Name] = Call->ExplicitTemplateArgumentTypes[Idx];
+    for (auto idx = 0; idx < sig->TemplateArgumentNames.size(); idx++) {
+        auto name = sig->TemplateArgumentNames[idx];
+        if (idx < call->explicitTemplateArgumentTypes.size()) {
+            templateArgumentMapping[name] = call->explicitTemplateArgumentTypes[idx];
         } else {
-            TemplateArgumentMapping[Name] = TypeInfo::Unresolved;
+            templateArgumentMapping[name] = TypeInfo::Unresolved;
         }
     }
     
-    for (auto Idx = ArgumentOffset; Idx < Call->Arguments.size(); Idx++) {
-        std::string ParamTypename;
-        auto ParamType = Sig->Parameters[Idx]->Type;
-        unsigned ParamIndirectionCount = 0;
+    for (auto idx = argumentOffset; idx < call->arguments.size(); idx++) {
+        std::string paramTypename;
+        auto paramType = sig->Parameters[idx]->Type;
+        unsigned paramIndirectionCount = 0;
         
-        if (ParamType->isPointer()) {
-            auto TI = ParamType;
+        if (paramType->isPointer()) {
+            auto TI = paramType;
             while (TI->isPointer()) {
-                ParamIndirectionCount += 1;
+                paramIndirectionCount += 1;
                 TI = TI->getPointee();
             }
-            ParamTypename = TI->getName();
+            paramTypename = TI->getName();
         } else {
-            ParamTypename = ParamType->getName();
+            paramTypename = paramType->getName();
         }
         
-        if (auto Mapping = TemplateArgumentMapping.find(ParamTypename); Mapping != TemplateArgumentMapping.end()) {
-            auto GuessedArgumentType = GuessType(Call->Arguments[Idx]);
-            if (Mapping->second == TypeInfo::Unresolved) {
-                while (ParamIndirectionCount-- > 0) {
-                    precondition(GuessedArgumentType->isPointer());
-                    GuessedArgumentType = GuessedArgumentType->getPointee();
+        if (auto mapping = templateArgumentMapping.find(paramTypename); mapping != templateArgumentMapping.end()) {
+            auto guessedArgumentType = GuessType(call->arguments[idx]);
+            if (mapping->second == TypeInfo::Unresolved) {
+                while (paramIndirectionCount-- > 0) {
+                    precondition(guessedArgumentType->isPointer());
+                    guessedArgumentType = guessedArgumentType->getPointee();
                 }
-                Mapping->second = GuessedArgumentType;
+                mapping->second = guessedArgumentType;
             } else {
-                precondition(Mapping->second->equals(GuessedArgumentType));
+                precondition(mapping->second->equals(guessedArgumentType));
             }
         }
     }
     
-    return TemplateArgumentMapping;
+    return templateArgumentMapping;
 }
 
 
 
-ResolvedFunction IRGenerator::InstantiateTemplateFunctionForCall(std::shared_ptr<ast::FunctionDecl> TemplateFunction, std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset, std::map<std::string, TypeInfo *> TemplateArgumentMapping) {
-    // Important here is that resolving the template arguments in one template instantiation doen't affect the template arguments in the template function
-    // We have to make sure all objects/properties being mutated are copied!
-    
-    precondition(!TemplateArgumentMapping.empty());
-    
-#if 0
-    for (auto &[Name, Type] : TemplateArgumentMapping) {
-        std::cout << Name << ": " << Type->Str() << std::endl;
+uint8_t _getArgumentOffset(TypeInfo *ty) {
+    switch (ty->getFunctionTypeInfo().callingConvention) {
+        case yo::TypeInfo::FunctionTypeInfo::CallingConvention::C:
+            return 0;
+        case yo::TypeInfo::FunctionTypeInfo::CallingConvention::Yo:
+            return 1;
     }
-#endif
+}
+
+
+std::shared_ptr<ast::FunctionSignature> _makeFunctionSignatureFromFunctionTypeInfo(TypeInfo *ty) {
+    precondition(ty->isFunction());
+    auto functionTyInfo = ty->getFunctionTypeInfo();
     
-    auto SpecializedFunction = std::make_shared<ast::FunctionDecl>();
-    SpecializedFunction->Signature = std::make_shared<ast::FunctionSignature>(*TemplateFunction->Signature);
-    SpecializedFunction->Body = TemplateFunction->Body; // TODO can we safely copy this pointer? // TODO: make sure function bodies are *never* mutated!!!!
-    SpecializedFunction->attributes = TemplateFunction->attributes;
+    auto sig = std::make_shared<ast::FunctionSignature>();
+    sig->ReturnType = functionTyInfo.returnType;
+    sig->Parameters = util::vector::map(functionTyInfo.parameterTypes, [] (TypeInfo *paramTy) {
+        return std::make_shared<ast::VariableDecl>(ast::Identifier::emptyIdent(), paramTy);
+    });
     
-    for (auto Idx = ArgumentOffset; Idx < Call->Arguments.size(); Idx++) {
-        auto ParameterDecl = std::make_shared<ast::VariableDecl>(*SpecializedFunction->Signature->Parameters[Idx]);
-        SpecializedFunction->Signature->Parameters[Idx] = ParameterDecl;
+    return sig;
+}
+
+
+
+NEW_ResolvedFunction IRGenerator::NEW_ResolveCall(std::shared_ptr<ast::CallExpr> callExpr, bool omitCodegen) {
+    std::string targetName;
+    uint8_t argumentOffset = 0;
+    
+    if (auto ident = std::dynamic_pointer_cast<ast::Identifier>(callExpr->target)) {
+        targetName = ident->Value;
         
-        if (auto T = util::map::get_opt(TemplateArgumentMapping, ParameterDecl->Type->getName())) {
-            precondition(*T != TypeInfo::Unresolved);
-            ParameterDecl->Type = *T;
-        }
-    }
-    
-    if (auto T = util::map::get_opt(TemplateArgumentMapping, SpecializedFunction->Signature->ReturnType->getName())) {
-        precondition(*T != TypeInfo::Unresolved); // TODO why is this check here? Why not also above when resolving parameter types?
-        SpecializedFunction->Signature->ReturnType = *T;
-    }
-    
-    
-    for (auto &[Name, Type] : TemplateArgumentMapping) {
-        if (Type != TypeInfo::Unresolved) {
-            auto It = std::find(SpecializedFunction->Signature->TemplateArgumentNames.begin(),
-                                SpecializedFunction->Signature->TemplateArgumentNames.end(), Name);
-            SpecializedFunction->Signature->TemplateArgumentNames.erase(It);
-        } else {
-            LKFatalError("Unresolved argument type in template function: %s (%s)", Name.c_str(), mangling::MangleCanonicalNameForSignature(TemplateFunction->Signature).c_str());
-        }
-    }
-    
-#if 0
-    for (auto &[N, T] : TemplateArgumentsMappings) {
-        std::cout << N << ": " << T->Str() << std::endl;
-    }
-    std::cout << "TempSig: " << TemplateFunction->Signature << std::endl;
-    std::cout << "SpecSig: " << SpecializedFunction->Signature << std::endl;
-#endif
-    
-    llvm::Function *LLVMFunction;
-    if (TemplateFunction->attributes->intrinsic) {
-        LLVMFunction = nullptr;
-    } else {
-        RegisterFunction(SpecializedFunction);
-        LLVMFunction = WithCleanSlate([&]() { return llvm::dyn_cast<llvm::Function>(Codegen(SpecializedFunction)); });
-    }
-    return ResolvedFunction(SpecializedFunction, LLVMFunction);
-}
-
-
-
-
-
-// Returns the function most closely matching the call
-ResolvedFunction IRGenerator::ResolveCall(std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset) {
-    auto &PossibleTargets = Functions[Call->Target];
-    precondition(!PossibleTargets.empty(), util::fmt_cstr("Unable to resolve call to %s", Call->Target.c_str()));
-    
-    if (PossibleTargets.size() == 1) {
-        auto &Target = PossibleTargets[0];
-        if (Target.Decl->Signature->IsTemplateFunction) {
-            auto TemplateArgumentMapping = AttemptToResolveTemplateArgumentTypesForCall(Target.Decl, Call, ArgumentOffset);
-            precondition(TemplateArgumentMapping.has_value());
-            //return InstantiateTemplateFunctionForCall(Target.Decl, Call, ArgumentOffset, TemplateArgumentMapping.value());
-            
-            auto ResolvedDecl = TemplateResolver::SpecializeWithTemplateMapping(Target.Decl, TemplateArgumentMapping.value());
-            llvm::Function *LLVMFunction;
-            if (ResolvedDecl->attributes->intrinsic) {
-                LLVMFunction = nullptr;
+        if (Scope.Contains(targetName)) {
+            auto ty = Scope.GetType(targetName);
+            precondition(ty->isFunction() && "cannot call a non-function variable");
+            if (omitCodegen) {
+                return NEW_ResolvedFunction(_makeFunctionSignatureFromFunctionTypeInfo(ty), nullptr, _getArgumentOffset(ty));
             } else {
-                RegisterFunction(ResolvedDecl);
-                LLVMFunction = WithCleanSlate([&]() { return llvm::dyn_cast<llvm::Function>(Codegen(ResolvedDecl)); });
+                return NEW_ResolvedFunction(_makeFunctionSignatureFromFunctionTypeInfo(ty), Codegen(ident), _getArgumentOffset(ty));
             }
-            return ResolvedFunction(ResolvedDecl, LLVMFunction);
         }
-        return Target;
+        
+    } else if (auto staticDeclRefExpr = std::dynamic_pointer_cast<ast::NEW_StaticDeclRefExpr>(callExpr->target)) {
+        targetName = mangling::MangleCanonicalName(staticDeclRefExpr->typeName, staticDeclRefExpr->memberName, ast::FunctionSignature::FunctionKind::StaticMethod);
+        
+    } else if (auto memberExpr = std::dynamic_pointer_cast<ast::MemberExpr>(callExpr->target)) {
+        // <memberExpr>()
+        // two options:
+        // - calling a method
+        // - calling a property that happens to be a function
+        
+        auto targetTy = GuessType(memberExpr->target);
+        precondition(targetTy->isPointer() && targetTy->getPointee()->isComplex());
+        auto structName = targetTy->getPointee()->getName();
+        
+        if (TypeCache.StructHasMember(structName, memberExpr->memberName)) {
+            auto memberTy = TypeCache.GetMember(structName, memberExpr->memberName).second;
+            precondition(memberTy->isFunction() && "cannot call a non-function struct member");
+            // struct properties cannot be overloaded, simply return what we found
+            if (omitCodegen) {
+                return NEW_ResolvedFunction(_makeFunctionSignatureFromFunctionTypeInfo(memberTy), nullptr, _getArgumentOffset(memberTy));
+            } else {
+                return NEW_ResolvedFunction(_makeFunctionSignatureFromFunctionTypeInfo(memberTy), Codegen(memberExpr), _getArgumentOffset(memberTy));
+            }
+            
+        } else {
+            targetName = mangling::MangleCanonicalName(structName, memberExpr->memberName, ast::FunctionSignature::FunctionKind::InstanceMethod);
+            argumentOffset = kInstanceMethodCallArgumentOffset;
+        }
+    } else {
+        throw;
     }
     
-    
-    // More than one potential target
-    
-    struct FunctionResolutionMatchInfo {
-        uint32_t Score;
-        std::shared_ptr<ast::FunctionDecl> Decl;
-        llvm::Function *LLVMFunction; // nullptr if this is a not yet instantiated template function
-        std::map<std::string, TypeInfo *> TemplateArgumentMapping;
+    auto specializeTemplateFunctionForCall = [this, argumentOffset, omitCodegen] (std::shared_ptr<ast::FunctionDecl> functionDecl, std::map<std::string, TypeInfo *> templateArgumentMapping) -> NEW_ResolvedFunction {
+        auto specializedDecl = TemplateResolver::SpecializeWithTemplateMapping(functionDecl, templateArgumentMapping);
+        llvm::Function *llvmFunction = nullptr;
+        if (!omitCodegen && !specializedDecl->Signature->attributes->intrinsic) {
+            RegisterFunction(specializedDecl);
+            llvmFunction = WithCleanSlate([&]() { return llvm::dyn_cast<llvm::Function>(Codegen(specializedDecl)); });
+        }
+        return NEW_ResolvedFunction(specializedDecl->Signature, llvmFunction, argumentOffset);
     };
     
-    std::vector<std::shared_ptr<ast::FunctionDecl>> TemplateFunctionTargets; // List of uninstantiated template functions that might be potential targets
-    std::vector<FunctionResolutionMatchInfo> Matches; // List of potential targets, with a score indicating how close a match they are
-    bool HasPerfectMatch = false;
     
     
-    for (auto &Target : PossibleTargets) {
-        auto &Decl = Target.Decl;
-        auto Signature = Decl->Signature;
+    
+    auto &possibleTargets = Functions[targetName];
+    precondition(!possibleTargets.empty(), util::fmt_cstr("Unable to resolve call to %s", targetName.c_str()));
+    
+    
+    if (possibleTargets.size() == 1) {
+        auto &target = possibleTargets[0];
+        if (!target.Decl->Signature->IsTemplateFunction) {
+            return NEW_ResolvedFunction(target.Decl->Signature, target.LLVMFunction, argumentOffset);
+        }
         
-        if (Signature->Parameters.size() != Call->Arguments.size()) {
+        // is a template function
+        
+        auto templateArgumentMapping = NEW_AttemptToResolveTemplateArgumentTypesForCall(target.Decl, callExpr, argumentOffset);
+        precondition(templateArgumentMapping.has_value());
+        return specializeTemplateFunctionForCall(target.Decl, templateArgumentMapping.value());
+    }
+    
+    
+    // more than one potential target
+    
+    
+    struct FunctionResolutionMatchInfo {
+        uint32_t score;
+        std::shared_ptr<ast::FunctionDecl> decl;
+        llvm::Function *llvmFunction; // nullptr if this is a yet to be instantiated template function
+        std::map<std::string, TypeInfo *> templateArgumentMapping;
+    };
+    
+    
+    // List of uninstantiated function templates that might be potential targets
+    std::vector<std::shared_ptr<ast::FunctionDecl>> templateFunctions;
+    // list of potential targets, with a score indicating how close they match the call
+    std::vector<FunctionResolutionMatchInfo> matches;
+    bool hasPerfectMatch = false;
+    
+    
+    for (auto &target : possibleTargets) {
+        auto &decl = target.Decl;
+        auto signature = decl->Signature;
+        
+        if (signature->Parameters.size() != callExpr->arguments.size()) {
             continue;
         }
         
-        if (Signature->IsTemplateFunction && !Signature->IsFullSpecialization()) {
-            TemplateFunctionTargets.push_back(Decl);
+        if (signature->IsTemplateFunction && !signature->IsFullSpecialization()) {
+            templateFunctions.push_back(decl);
             continue;
         }
         
-        uint32_t Score = 0;
+        uint32_t score = 0;
         
-        for (auto I = 0; I < Call->Arguments.size(); I++) {
-            auto Arg = Call->Arguments[I];
-            auto Type_Passed = GuessType(Arg);
-            auto Type_Expected = Decl->Signature->Parameters[I]->Type;
+        for (auto i = 0; i < callExpr->arguments.size(); i++) {
+            auto arg = callExpr->arguments[i];
+            auto argTy = GuessType(arg);
+            auto expectedTy = signature->Parameters[i]->Type;
             
-            if (Type_Passed->equals(Type_Expected)) {
-                Score += 10;
-            } else if (auto NumberLiteral = std::dynamic_pointer_cast<ast::NumberLiteral>(Arg)) {
-                precondition(NumberLiteral->Type == ast::NumberLiteral::NumberType::Integer);
-                if (ValueIsTriviallyConvertibleTo(NumberLiteral, Type_Expected)) {
-                    Score += 5;
+            if (argTy->equals(expectedTy)) {
+                score += 10;
+            } else if (auto numberLiteral = std::dynamic_pointer_cast<ast::NumberLiteral>(arg)) {
+                precondition(numberLiteral->Type == ast::NumberLiteral::NumberType::Integer);
+                if (ValueIsTriviallyConvertibleTo(numberLiteral, expectedTy)) {
+                    score += 5;
                 }
             }
         }
         
-        Matches.push_back({Score, Decl, Target.LLVMFunction, {}});
+        matches.push_back({score, decl, target.LLVMFunction, {}});
         
-        if (Score == Call->Arguments.size() * 10) {
+        if (score == callExpr->arguments.size() * 10) {
             // TODO does this mean we might miss other ambigious functions?
-            HasPerfectMatch = true;
+            hasPerfectMatch = true;
             break;
         }
     }
     
-    
-    if (!HasPerfectMatch) {
-        for (auto &Target : TemplateFunctionTargets) {
-            if (auto TemplateArgMapping = AttemptToResolveTemplateArgumentTypesForCall(Target, Call, ArgumentOffset)) {
-                auto argc = Target->Signature->Parameters.size();
-                uint32_t Score = argc * 10;
-                Matches.push_back({Score, Target, nullptr, TemplateArgMapping.value()});
+    if (!hasPerfectMatch) {
+        for (auto &target : templateFunctions) {
+            if (auto templateArgMapping = NEW_AttemptToResolveTemplateArgumentTypesForCall(target, callExpr, argumentOffset)) {
+                auto argc = target->Signature->Parameters.size();
+                uint32_t score = argc * 10;
+                matches.push_back({score, target, nullptr, templateArgMapping.value()});
             } else {
-                std::cout << "(skipped bc unable to resolve): " << Target->Signature << std::endl;
+//                std::cout << "(skipped bc unable to resolve): " << Target->Signature << std::endl;
             }
         }
     }
     
-    
     // TODO this seems like a bad idea
-    std::sort(Matches.begin(), Matches.end(), [](auto &Arg0, auto &Arg1) { return Arg0.Score > Arg1.Score; });
+    std::sort(matches.begin(), matches.end(), [](auto &arg0, auto &arg1) { return arg0.score > arg1.score; });
     
 #if 0
     std::cout << "Matching overloads:\n";
-    for (auto &Match : Matches) {
-        std::cout << "- " << Match.Score << ": " << Match.Decl->Signature << std::endl;
+    for (auto &match : matches) {
+        std::cout << "- " << match.score << ": " << match.decl->Signature << std::endl;
     }
 #endif
     
-    if (Matches.size() > 1 && Matches[0].Score == Matches[1].Score) {
+    if (matches.size() > 1 && matches[0].score == matches[1].score) {
         std::cout << "Error: ambiguous function call. unable to resolve. Potential candidates are:\n";
-        for (auto &Match : Matches) {
-            std::cout << "- " << Match.Score << ": " << Match.Decl->Signature << std::endl;
+        for (auto &match : matches) {
+            std::cout << "- " << match.score << ": " << match.decl->Signature << std::endl;
         }
         throw;
     }
     
+    auto bestMatch = matches.front();
     
-    auto BestMatch = Matches.front();
-    
-    if (BestMatch.Decl->Signature->IsTemplateFunction && !BestMatch.LLVMFunction) {
-        throw; // TODO use the new template resolver instead!!!
-        return InstantiateTemplateFunctionForCall(BestMatch.Decl, Call, ArgumentOffset, BestMatch.TemplateArgumentMapping);
+    if (bestMatch.decl->Signature->IsTemplateFunction && !bestMatch.llvmFunction) {
+        return specializeTemplateFunctionForCall(bestMatch.decl, bestMatch.templateArgumentMapping);
     }
-    
-    return ResolvedFunction(BestMatch.Decl, BestMatch.LLVMFunction);
+    return NEW_ResolvedFunction(bestMatch.decl->Signature, bestMatch.llvmFunction, argumentOffset);
 }
+
+
+
+
+
 
 
 
@@ -1267,79 +1218,78 @@ bool CallerCalleeSideEffectsCompatible(const std::vector<yo::attributes::SideEff
 }
 
 
-// ArgumentOffset: indicates the number of skipped arguments at the start of the argumens list
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset, std::shared_ptr<ast::FunctionSignature> *SelectedOverload) {
-    llvm::Function *F;
-    
-    auto TargetName = Call->Target;
-    auto ResolvedTarget = ResolveCall(Call, ArgumentOffset);
-    
-    if (SelectedOverload) {
-        *SelectedOverload = ResolvedTarget.Decl->Signature;
-    }
+
+
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::CallExpr> call, ast::FunctionSignature **selectedOverload) {
+    auto resolvedTarget = NEW_ResolveCall(call, false);
+    //if (selectedOverload) {
+    //    *selectedOverload = resolvedTarget.Decl->Signature.get();
+    //}
     
     // TODO:
     // - run argument type checks for intrinsics as well
     // - check that the number of supplied explicit template arguments does't exceed the total number of supplied template arguments
     
-    if (!CallerCalleeSideEffectsCompatible(CurrentFunction.Decl->attributes->side_effects, ResolvedTarget.Decl->attributes->side_effects)) {
-        LKFatalError("cannot call '%s' because side effects", TargetName.c_str());
+    if (!CallerCalleeSideEffectsCompatible(CurrentFunction.Decl->Signature->attributes->side_effects, resolvedTarget.signature->attributes->side_effects)) {
+        auto targetName = mangling::MangleCanonicalNameForSignature(resolvedTarget.signature);
+        LKFatalError("cannot call '%s' because side effects", targetName.c_str());
     }
     
-    if (ResolvedTarget.Decl->attributes->intrinsic) {
-        return Codegen_HandleIntrinsic(ResolvedTarget.Decl->Signature, Call, ArgumentOffset);
+    if (resolvedTarget.signature->attributes->intrinsic) {
+        return Codegen_HandleIntrinsic(resolvedTarget.signature, call);
     }
     
-    F = ResolvedTarget.LLVMFunction;
-    if (!F) {
-        F = M->getFunction(TargetName);
-    }
-    if (!F) {
-        LKFatalError("Unable to find function named '%s'", TargetName.c_str());
-    }
+    llvm::Value *llvmFunction = resolvedTarget.llvmValue;
+    precondition(llvmFunction->getType()->isPointerTy() && llvmFunction->getType()->getContainedType(0)->isFunctionTy());
+    auto llvmFunctionTy = llvm::dyn_cast<llvm::FunctionType>(llvmFunction->getType()->getContainedType(0));
+    auto isVariadic = llvmFunctionTy->isVarArg();
     
-    auto FT = F->getFunctionType();
-    auto IsVariadic = FT->isVarArg();
+    precondition(call->arguments.size() >= llvmFunctionTy->getNumParams() - resolvedTarget.argumentOffset - isVariadic);
     
-    precondition(Call->Arguments.size() >= FT->getNumParams() - ArgumentOffset - IsVariadic);
+    std::vector<llvm::Value *> args(resolvedTarget.argumentOffset, nullptr);
+    auto numFixedArgs = llvmFunctionTy->getNumParams() - resolvedTarget.argumentOffset;
     
-    std::vector<llvm::Value *> Args(ArgumentOffset, nullptr);
-    auto NumFixedArgs = FT->getNumParams() - ArgumentOffset;
-
-    for (auto I = ArgumentOffset; I < FT->getNumParams(); I++) {
-        auto ExpectedType = ResolvedTarget.Decl->Signature->Parameters[I]->Type;
-        auto Expr = Call->Arguments[I - ArgumentOffset];
+    for (auto i = resolvedTarget.argumentOffset; i <llvmFunctionTy->getNumParams(); i++) {
+        auto expectedType = resolvedTarget.signature->Parameters[i]->Type;
+        auto expr = call->arguments[i - resolvedTarget.argumentOffset];
         TypeInfo *T;
-        if (!TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&Expr, ExpectedType, &T)) {
-            LKFatalError("Type mismatch in call to '%s'. Arg #%i: expected '%s', got '%s'", Call->Target.c_str(), I, ExpectedType->str().c_str(), T->str().c_str());
+        if (!TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, expectedType, &T)) {
+            LKFatalError("Type mismatch in call to '%s'. Arg #%i: expected '%s', got '%s'", llvmFunction->getName().str().c_str(), i, expectedType->str().c_str(), T->str().c_str());
         }
-        Args.push_back(Codegen(Expr));
+        args.push_back(Codegen(expr));
     }
     
-    if (IsVariadic && GetResolvedFunctionWithName(TargetName)) { // TargetName is unmangled
-        for (auto It = Call->Arguments.begin() + NumFixedArgs; It != Call->Arguments.end(); It++) {
-            Args.push_back(Codegen(*It));
+    if (auto memberExpr = std::dynamic_pointer_cast<ast::MemberExpr>(call->target); memberExpr != nullptr && resolvedTarget.argumentOffset == kInstanceMethodCallArgumentOffset) {
+        // TODO this is a pretty bad assumption to make.
+        // what if in the future there are more situations other than member function calls that require special argument offsets
+        // maybe a better idea: get rid of the argumentOffset thing, introduce more granular calling conventions (yo.globalFunction, yo.staticmember, yo.instancemember, yo.lambda, etc) and make implicit argument insertion dependent on that!
+        args[0] = Codegen(memberExpr->target);
+    }
+    
+    if (isVariadic && GetResolvedFunctionWithName(llvmFunction->getName().str())) {
+        for (auto it = call->arguments.begin() + numFixedArgs; it != call->arguments.end(); it++) {
+            args.push_back(Codegen(*it));
         }
-    } else if (IsVariadic) {
+    } else if (isVariadic) {
         throw; // TODO implement
     }
     
-    return Builder.CreateCall(F, Args);
+    return Builder.CreateCall(llvmFunction, args);
 }
 
 
 
-llvm::Value *IRGenerator::Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionSignature> Signature, std::shared_ptr<ast::FunctionCall> Call, unsigned ArgumentOffset) {
-    auto Name = mangling::MangleCanonicalNameForSignature(Signature);
+llvm::Value *IRGenerator::Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionSignature> signature, std::shared_ptr<ast::CallExpr> call) {
+    auto name = mangling::MangleCanonicalNameForSignature(signature);
     
-    if (Name == "static_cast" || Name == "reinterpret_cast") {
+    if (name == "static_cast" || name == "reinterpret_cast") {
         // TODO somehow use the SrcTy, if explicitly given?
-        auto DstTy = Call->ExplicitTemplateArgumentTypes[0];
-        auto Arg = Call->Arguments[0];
-        auto CastKind = Name == "static_cast"
+        auto dstTy = call->explicitTemplateArgumentTypes[0];
+        auto arg = call->arguments[0];
+        auto castKind = name == "static_cast"
             ? ast::Typecast::CastKind::StaticCast
             : ast::Typecast::CastKind::Bitcast;
-        return Codegen(std::make_shared<ast::Typecast>(Arg, DstTy, CastKind));
+        return Codegen(std::make_shared<ast::Typecast>(arg, dstTy, castKind));
     }
     
     if (Name == "sizeof") {
@@ -1467,6 +1417,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::WhileStmt> WhileStmt) {
 }
 
 
+// TODO move to utils!
 template <typename T>
 void vec_append(std::vector<T> &dest, const std::vector<T> &src) {
     dest.insert(dest.end(), src.begin(), src.end());
@@ -1478,26 +1429,24 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ForLoop> forLoop) {
     
     auto T = GuessType(forLoop->expr);
     auto iteratorCallTarget = mangling::MangleCanonicalName(T->getName(), "iterator", ast::FunctionSignature::FunctionKind::InstanceMethod);
-    auto call = std::make_shared<ast::FunctionCall>(iteratorCallTarget, std::vector<std::shared_ptr<ast::Expr>>{forLoop->expr});
+    
+    auto call = std::make_shared<ast::CallExpr>(std::make_shared<ast::Identifier>(iteratorCallTarget),
+                                                std::vector<std::shared_ptr<ast::Expr>>{ forLoop->expr });
+    
     
     auto forStmtScope = std::make_shared<ast::Composite>();
     auto it_ident = std::make_shared<ast::Identifier>("$it");
     forStmtScope->Statements.push_back(std::make_shared<ast::VariableDecl>(it_ident, TypeInfo::Unresolved, call));
     
     // while loop
-    auto call_on_ident = [] (const std::shared_ptr<ast::Identifier> &ident, const std::string &fn_name) {
-        using MK = ast::MemberAccess::Member::MemberKind;
-        return std::make_shared<ast::MemberAccess>(std::vector<std::shared_ptr<ast::MemberAccess::Member>>{
-            std::make_shared<ast::MemberAccess::Member>(MK::Initial_Identifier, ident),
-            std::make_shared<ast::MemberAccess::Member>(MK::MemberFunctionCall, std::make_shared<ast::FunctionCall>(fn_name))
-        });
+    auto callInstanceMethod = [](const std::shared_ptr<ast::Identifier> &target, const std::string &methodName) {
+        return std::make_shared<ast::CallExpr>(std::make_shared<ast::MemberExpr>(target, methodName));
     };
     
     auto whileBody = std::make_shared<ast::Composite>();
-    whileBody->Statements.push_back(std::make_shared<ast::VariableDecl>(forLoop->ident, TypeInfo::Unresolved, call_on_ident(it_ident, "next")));
+    whileBody->Statements.push_back(std::make_shared<ast::VariableDecl>(forLoop->ident, TypeInfo::Unresolved, callInstanceMethod(it_ident, "next")));
     vec_append(whileBody->Statements, forLoop->body->Statements);
-    forStmtScope->Statements.push_back(std::make_shared<ast::WhileStmt>(call_on_ident(it_ident, "hasNext"), whileBody));
-    
+    forStmtScope->Statements.push_back(std::make_shared<ast::WhileStmt>(callInstanceMethod(it_ident, "hasNext"), whileBody));
     return Codegen(forStmtScope);
 }
 
@@ -1646,13 +1595,19 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
             }
             
             LLVMStructType->setBody(Types);
-            auto T = LLVMStructType->getPointerTo();
+            TI->setLLVMType(LLVMStructType);
+            return LLVMStructType;
+        }
+        
+        case TypeInfo::Kind::Function: {
+            auto functionTypeInfo = TI->getFunctionTypeInfo();
+            precondition(functionTypeInfo.callingConvention == TypeInfo::FunctionTypeInfo::CallingConvention::C);
+            auto paramTypes = util::vector::map(functionTypeInfo.parameterTypes, [this] (auto TI) { return GetLLVMType(TI); });
+            auto llvmFnTy = llvm::FunctionType::get(GetLLVMType(functionTypeInfo.returnType), paramTypes, false); // TODO support variadic function types?
+            auto T = llvmFnTy->getPointerTo();
             TI->setLLVMType(T);
             return T;
         }
-        
-        case TypeInfo::Kind::Function:
-            throw;
         
         case TypeInfo::Kind::Typealias:
             return GetLLVMType(TI->getPointee());
@@ -1710,20 +1665,12 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::Expr> Expr) {
         return GuessType(NumberLiteral);
     }
     
-    IF(MemberAccess, ast::MemberAccess) {
-        return GuessType(MemberAccess);
-    }
-    
     IF(BinaryExpr, ast::BinaryOperation) {
         return GuessType(BinaryExpr->LHS); // todo should this check whether lhs and rhs have the same type?
     }
     
     IF(Ident, ast::Identifier) {
         return Scope.GetType(Ident->Value);
-    }
-    
-    IF(Call, ast::FunctionCall) {
-        return ResolveCall(Call, 0).Decl->Signature->ReturnType;
     }
     
     IF(Cast, ast::Typecast) {
@@ -1757,6 +1704,20 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::Expr> Expr) {
         return RawLLVMValueExpr->Type;
     }
     
+    IF(memberExpr, ast::MemberExpr) {
+        auto targetTy = GuessType(memberExpr->target);
+        precondition(targetTy->isPointer() && targetTy->getPointee()->isComplex());
+        return TypeCache.GetMember(targetTy->getPointee()->getName(), memberExpr->memberName).second;
+    }
+    
+    IF(callExpr, ast::CallExpr) {
+        return NEW_ResolveCall(callExpr, true).signature->ReturnType;
+    }
+    
+    IF(subscript, ast::SubscriptExpr) {
+        return GuessType(subscript->target)->getPointee();
+    }
+    
     LKFatalError("Unhandled node %s", util::typeinfo::GetTypename(*Expr).c_str());
     
 #undef IF
@@ -1773,62 +1734,6 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::NumberLiteral> NumberLiter
         case NT::Character: return TypeInfo::i8;
     }
 }
-
-
-
-TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::MemberAccess> MemberAccess) {
-    using MK = ast::MemberAccess::Member::MemberKind;
-    TypeInfo *Type = TypeInfo::Unresolved;
-    
-    for (auto &Member : MemberAccess->Members) {
-        switch (Member->Kind) {
-            case MK::Initial_Identifier:
-                Type = Scope.GetType(std::dynamic_pointer_cast<ast::Identifier>(Member->Value)->Value);
-                break;
-            
-            // TODO these switch cases are identical?
-            case MK::Initial_FunctionCall:
-                Type = ResolveCall(std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value), 0).Decl->Signature->ReturnType;
-                break;
-            
-            case MK::Initial_StaticCall:
-                Type = ResolveCall(std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value), 0).Decl->Signature->ReturnType;
-                break;
-            
-            case MK::OffsetRead:
-                precondition(Type->isPointer());
-                Type = Type->getPointee();
-                break;
-            
-            case MK::MemberFunctionCall: {
-                precondition(Type->isComplex() && TypeCache.Contains(Type->getName()));
-                auto Call = std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value);
-                if (!mangling::IsCanonicalInstanceMethodName(Call->Target)) {
-                    Call->Target = mangling::MangleCanonicalName(Type->getName(), Call->Target, ast::FunctionSignature::FunctionKind::InstanceMethod);
-                }
-                Type = ResolveCall(Call, kInstanceMethodCallArgumentOffset).Decl->Signature->ReturnType;
-                break;
-            }
-            
-            case MK::MemberAttributeRead:
-                precondition(Type->isComplex());
-                auto DidFind = false;
-                auto MemberName = std::dynamic_pointer_cast<ast::Identifier>(Member->Value)->Value;
-                for (auto &Member : TypeCache.GetStruct(Type->getName())->Members) {
-                    if (Member->Name->Value == MemberName) {
-                        Type = Member->Type;
-                        DidFind = true;
-                        break;
-                    }
-                }
-                precondition(DidFind);
-                break;
-        }
-    }
-    
-    return Type;
-}
-
 
 
 
@@ -1850,10 +1755,6 @@ namespace astgen {
         return std::make_shared<NumberLiteral>(Value, NumberLiteral::NumberType::Integer);
     }
     
-    std::shared_ptr<FunctionCall> Call(const std::string &Target, std::vector<std::shared_ptr<Expr>> Args) {
-        return std::make_shared<FunctionCall>(Target, Args);
-    }
-    
     std::shared_ptr<Assignment> Assign(std::shared_ptr<Expr> Target, std::shared_ptr<Expr> Value) {
         return std::make_shared<Assignment>(Target, Value);
     }
@@ -1864,46 +1765,47 @@ namespace astgen {
 }
 
 
-llvm::Value *IRGenerator::GenerateStructInitializer(std::shared_ptr<ast::StructDecl> Struct) {
-    auto Typename = Struct->Name->Value;
+llvm::Value *IRGenerator::GenerateStructInitializer(std::shared_ptr<ast::StructDecl> structDecl) {
+    auto structName = structDecl->Name->Value;
     
-    auto T = TypeInfo::MakeComplex(Typename);
-    auto F = std::make_shared<ast::FunctionDecl>();
-    F->attributes = std::make_shared<yo::attributes::FunctionAttributes>();
-    F->Signature = std::make_shared<ast::FunctionSignature>();
-    F->Signature->Name = "init";
-    F->Signature->Kind = ast::FunctionSignature::FunctionKind::StaticMethod;
-    F->Signature->Parameters = Struct->Members;
-    F->Signature->ReturnType = T;
-    F->Signature->ImplType = Struct;
-    F->Body = std::make_shared<ast::Composite>();
+    auto T = TypeInfo::MakePointer(TypeInfo::MakeComplex(structName));
+    auto F = Functions[mangling::MangleCanonicalName(structName, "init", ast::FunctionSignature::FunctionKind::StaticMethod)][0].Decl;
     
-    auto self = astgen::Ident("self");
+    auto self = std::make_shared<ast::Identifier>("self");
     
+    // allocate object
     {
-        // Allocate Self
-        F->Body->Statements.push_back(std::make_shared<ast::VariableDecl>(self, T));
-        
-        auto Malloc = astgen::Call("malloc", astgen::ExprVec({astgen::Number(M->getDataLayout().getTypeAllocSize(GetLLVMType(T)))}));
-        
-        auto X = std::make_shared<ast::Typecast>(Malloc, T, ast::Typecast::CastKind::Bitcast);
-        F->Body->Statements.push_back(astgen::Assign(self, X));
-        
+        auto allocCall = std::make_shared<ast::CallExpr>(astgen::Ident("alloc"), astgen::ExprVec({
+            //astgen::Number(M->getDataLayout().getTypeAllocSize(GetLLVMType(T)))
+            astgen::Number(1)
+        }));
+        allocCall->explicitTemplateArgumentTypes = { T->getPointee() };
+        F->Body->Statements.push_back(std::make_shared<ast::VariableDecl>(self, T, allocCall));
     }
     
-    // Set Attributes
-    for (auto &Member : Struct->Members) {
-        auto M1 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::Initial_Identifier, self);
-        auto M2 = std::make_shared<ast::MemberAccess::Member>(ast::MemberAccess::Member::MemberKind::MemberAttributeRead, Member->Name);
+    // set runtime metadata
+    if (structDecl->attributes->arc) {
+        auto set_retaincount = std::make_shared<ast::Assignment>(std::make_shared<ast::MemberExpr>(self, "retainCount"),
+                                                                 astgen::Number((uint64_t(1) << 60) | 1));
         
-        auto M = std::make_shared<ast::MemberAccess>(std::vector<std::shared_ptr<ast::MemberAccess::Member>>({M1, M2}));
-        F->Body->Statements.push_back(std::make_shared<ast::Assignment>(M, Member->Name));
+        auto sel = mangling::MangleCanonicalName(structName, "dealloc", ast::FunctionSignature::FunctionKind::InstanceMethod);
+        auto dealloc_fn = Functions[sel][0].LLVMFunction;
         
+        llvm::Type *t[] = { i8_ptr };
+        auto dealloc_fn_ty = llvm::FunctionType::get(Void, t, false)->getPointerTo();
+        auto dealloc_fn_cast = Builder.CreateBitCast(dealloc_fn, dealloc_fn_ty);
+        auto set_deallocFn = std::make_shared<ast::Assignment>(std::make_shared<ast::MemberExpr>(self, "deallocPtr"),
+                                                               std::make_shared<ast::RawLLVMValueExpr>(dealloc_fn_cast, structDecl->Members[1]->Type));
+        
+        F->Body->Statements.push_back(set_retaincount);
+        F->Body->Statements.push_back(set_deallocFn);
     }
     
-    // Return
+    // set properties
+    for (auto &param : F->Signature->Parameters) {
+        F->Body->Statements.push_back(std::make_shared<ast::Assignment>(std::make_shared<ast::MemberExpr>(self, param->Name->Value), param->Name));
+    }
     F->Body->Statements.push_back(std::make_shared<ast::ReturnStmt>(self));
     
-    RegisterFunction(F);
     return Codegen(F);
 }

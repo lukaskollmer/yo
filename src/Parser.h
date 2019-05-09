@@ -27,6 +27,7 @@ NS_START(yo::parser)
 // Operator precedence groups, in increasing order
 enum class PrecedenceGroup : uint8_t {
     Initial = 0,
+    FunctionPipeline,
     
     LogicalDisjunction,
     LogicalConjunction,
@@ -98,10 +99,17 @@ private:
     std::shared_ptr<ast::ForLoop> ParseForLoop();
     
     std::shared_ptr<ast::Expr> ParseExpression(PrecedenceGroup CurrentPrecedenceGroup = PrecedenceGroup::Initial);
+    
+    
+    // Parses a CallExpr
+    // Precondition: The current token most be either a less than sign or opening parentheses
+    // If the current token is a less than sign and ParseCallExpr fails to parse a list of type expressions, it returns nullptr, with the parser's position reset to the less than sign
+    std::shared_ptr<ast::CallExpr> ParseCallExpr(std::shared_ptr<ast::Expr> target);
+    
+    
     std::vector<std::shared_ptr<ast::Expr>> ParseExpressionList(Token::TokenKind Delimiter);
     std::shared_ptr<ast::Identifier> ParseIdentifier();
     
-    std::shared_ptr<ast::Expr> ParseMemberAccess();
     std::shared_ptr<ast::MatchExpr> ParseMatchExpr();
     
     std::shared_ptr<ast::NumberLiteral> ParseNumberLiteral();

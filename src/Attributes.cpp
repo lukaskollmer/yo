@@ -30,9 +30,12 @@ namespace builtin_attributes::scope::name { const std::string_view _yo_attr_key 
 #define ATTR_MEMBER(scope, attr_name, member_name) \
 namespace builtin_attributes::scope::attr_name { const std::string_view member_name = #member_name; }
 
+#pragma mark - Function Attributes
+
 ATTRIBUTE(function, no_mangle)
 ATTRIBUTE(function, intrinsic)
 ATTRIBUTE(function, variadic)
+ATTRIBUTE(function, arc)
 ATTRIBUTE(function, side_effects)
 
 ATTR_MEMBER(function, side_effects, none)
@@ -81,6 +84,9 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
         
         if (attribute.key == builtin_attributes::function::no_mangle::_yo_attr_key) {
             no_mangle = std::get<bool>(attribute.data);
+            
+        } else if (attribute.key == builtin_attributes::function::arc::_yo_attr_key) {
+            arc = std::get<bool>(attribute.data);
         
         } else if (attribute.key == builtin_attributes::function::intrinsic::_yo_attr_key) {
             intrinsic = std::get<bool>(attribute.data);
@@ -91,7 +97,35 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
         } else if (attribute.key == builtin_attributes::function::side_effects::_yo_attr_key) {
             side_effects = HandleSideEffectsAttribute(attribute);
         } else {
-            LKFatalError("unknown attribute: '%s'", attribute.key.c_str());
+            LKFatalError("unknown function attribute: '%s'", attribute.key.c_str());
         }
     }
 }
+
+
+
+#pragma mark - Struct Attributes
+
+ATTRIBUTE(structDecl, arc)
+ATTRIBUTE(structDecl, no_init)
+
+
+StructAttributes::StructAttributes(const std::vector<Attribute> &attributes) : StructAttributes() {
+    if (attributes.empty()) return;
+    
+    std::vector<std::string_view> handledAttributes;
+    
+    for (auto &attribute : attributes) {
+        precondition(!util::vector::contains(handledAttributes, attribute.getKey()));
+        handledAttributes.push_back(attribute.key);
+        
+        if (attribute.key == builtin_attributes::structDecl::arc::_yo_attr_key) {
+            arc = std::get<bool>(attribute.data);
+        } else if (attribute.key == builtin_attributes::structDecl::no_init::_yo_attr_key) {
+            no_init = std::get<bool>(attribute.data);
+        } else {
+            LKFatalError("unknown struct attribute: '%s'", attribute.key.c_str());
+        }
+    }
+}
+

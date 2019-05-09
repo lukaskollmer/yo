@@ -24,10 +24,36 @@ bool TypeCache::Contains(const std::string &Name) {
     return util::map::contains_key(Types, Name);
 }
 
-std::shared_ptr<ast::StructDecl> TypeCache::GetStruct(std::string Name) {
+std::shared_ptr<ast::StructDecl> TypeCache::GetStruct(const std::string &name) {
     try {
-        return Structs.at(Name);
+        return Structs.at(name);
     } catch (...) {
         return nullptr;
     }
+}
+
+
+bool TypeCache::StructHasMember(const std::string &structName, const std::string &memberName) {
+    if (auto structDecl = GetStruct(structName)) {
+        return util::vector::contains_where(structDecl->Members, [&memberName] (auto member) {
+            return member->Name->Value == memberName;
+        });
+    }
+    return false;
+}
+
+
+std::pair<int64_t, TypeInfo *> TypeCache::GetMember(const std::string &structName, const std::string &memberName) {
+    if (auto structDecl = GetStruct(structName)) {
+        int64_t memberIndex = 0;
+        for (auto &member : structDecl->Members) {
+            if (member->Name->Value == memberName) {
+                return {memberIndex, member->Type};
+            }
+            memberIndex += 1;
+        }
+    }
+    
+    return {-1, TypeInfo::Unresolved};
+    
 }

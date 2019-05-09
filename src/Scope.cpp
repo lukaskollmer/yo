@@ -25,6 +25,12 @@ TypeInfo *Scope::GetType(const std::string &Identifier) {
     return _GetEntry(Identifier)->Type;
 }
 
+
+bool Scope::Contains(const std::string &name) {
+    return _GetEntry(name) != nullptr;
+}
+
+
 Scope::Entry Scope::Remove(const std::string &Identifier) {
     std::vector<Entry>::const_iterator Pos;
     auto E = *_GetEntry(Identifier, &Pos);

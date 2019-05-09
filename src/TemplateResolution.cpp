@@ -50,7 +50,6 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::Specialize(std::shared_ptr<
 #endif
     
     auto SpecializedFunction = std::make_shared<ast::FunctionDecl>();
-    SpecializedFunction->attributes = Decl->attributes;
     SpecializedFunction->Signature = std::make_shared<ast::FunctionSignature>(*Decl->Signature);
     SpecializedFunction->Body = std::make_shared<ast::Composite>();
     
@@ -74,7 +73,7 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::Specialize(std::shared_ptr<
     
     //std::cout << "Before:\n" << Decl->Signature << "\nAfter:\n" << SpecializedFunction->Signature << std::endl;
     
-    if (SpecializedFunction->attributes->intrinsic) {
+    if (SpecializedFunction->Signature->attributes->intrinsic) {
         precondition(Decl->Body->Statements.empty() && "intrinsic functions must have an empty body");
         return SpecializedFunction;
     }
@@ -98,14 +97,12 @@ std::shared_ptr<ast::LocalStmt> TemplateResolver::Specialize(std::shared_ptr<ast
     HANDLE(Stmt, VariableDecl)
     HANDLE(Stmt, WhileStmt)
     HANDLE(Stmt, IfStmt)
-    HANDLE(Stmt, MemberAccess)
+    HANDLE(Stmt, NEW_ExprStmt)
     unhandled_node(Stmt)
 }
 
 std::shared_ptr<ast::Expr> TemplateResolver::Specialize(std::shared_ptr<ast::Expr> Expr) {
     if (!Expr) return Expr;
-    HANDLE(Expr, MemberAccess)
-    HANDLE(Expr, FunctionCall)
     IGNORE(Expr, NumberLiteral)
     IGNORE(Expr, Identifier)
     HANDLE(Expr, BinaryOperation)
@@ -113,6 +110,9 @@ std::shared_ptr<ast::Expr> TemplateResolver::Specialize(std::shared_ptr<ast::Exp
     IGNORE(Expr, StringLiteral)
     HANDLE(Expr, LogicalOperation)
     HANDLE(Expr, MatchExpr)
+    HANDLE(Expr, CallExpr)
+    HANDLE(Expr, SubscriptExpr)
+    HANDLE(Expr, MemberExpr)
     unhandled_node(Expr)
 }
 
@@ -152,56 +152,34 @@ std::shared_ptr<ast::IfStmt> TemplateResolver::Specialize(std::shared_ptr<ast::I
 }
 
 
+
+std::shared_ptr<ast::NEW_ExprStmt> TemplateResolver::Specialize(std::shared_ptr<ast::NEW_ExprStmt> exprStmt) {
+    return std::make_shared<ast::NEW_ExprStmt>(Specialize(exprStmt->expr));
+}
+
+
+
 #pragma mark - Expressions
 
-std::shared_ptr<ast::MemberAccess> TemplateResolver::Specialize(std::shared_ptr<ast::MemberAccess> MemberAccess) {
-    using MK = ast::MemberAccess::Member::MemberKind;
-    
-    std::vector<std::shared_ptr<ast::MemberAccess::Member>> SpecializedMembers;
-    
-    for (auto &Member : MemberAccess->Members) {
-        std::shared_ptr<ast::MemberAccess::Member> NewMember = nullptr;
-        switch (Member->Kind) {
-            case MK::Initial_Identifier:
-            case MK::MemberAttributeRead:
-                NewMember = Member;
-                break;
-            
-            case MK::Initial_FunctionCall:
-                NewMember = std::make_shared<ast::MemberAccess::Member>(MK::Initial_FunctionCall,
-                                                                        Specialize(std::dynamic_pointer_cast<ast::FunctionCall>(Member->Value)));
-                break;
-            
-            case MK::Initial_StaticCall:
-                LKFatalError("TODO");
-            
-            case MK::OffsetRead:
-                NewMember = std::make_shared<ast::MemberAccess::Member>(Member->Kind, Specialize(Member->Value));
-                break;
-            
-            case MK::MemberFunctionCall:
-                LKFatalError("TODO");
-        }
-        
-        precondition(NewMember);
-        SpecializedMembers.push_back(NewMember);
-    }
-    return std::make_shared<ast::MemberAccess>(SpecializedMembers);
+std::shared_ptr<ast::CallExpr> TemplateResolver::Specialize(std::shared_ptr<ast::CallExpr> call) {
+    auto instantiatedCall = std::make_shared<ast::CallExpr>(*call);
+    instantiatedCall->arguments = util::vector::map(call->arguments, [this](auto &expr) { return Specialize(expr); });
+    instantiatedCall->explicitTemplateArgumentTypes = util::vector::map(call->explicitTemplateArgumentTypes,
+                                                                        [this](auto &T) { return ResolveType(T); });
+    return instantiatedCall;
+}
+
+
+std::shared_ptr<ast::SubscriptExpr> TemplateResolver::Specialize(std::shared_ptr<ast::SubscriptExpr> subscript) {
+    return std::make_shared<ast::SubscriptExpr>(Specialize(subscript->target), Specialize(subscript->offset));
+}
+
+std::shared_ptr<ast::MemberExpr> TemplateResolver::Specialize(std::shared_ptr<ast::MemberExpr> memberExpr) {
+    return std::make_shared<ast::MemberExpr>(Specialize(memberExpr->target), memberExpr->memberName);
 }
 
 
 
-std::shared_ptr<ast::FunctionCall> TemplateResolver::Specialize(std::shared_ptr<ast::FunctionCall> Call) {
-    auto InstantiatedCall = std::make_shared<ast::FunctionCall>(*Call);
-    InstantiatedCall->Arguments = util::vector::map(Call->Arguments, [this](auto &Expr) -> auto {
-        return Specialize(Expr);
-    });
-    InstantiatedCall->ExplicitTemplateArgumentTypes = util::vector::map(Call->ExplicitTemplateArgumentTypes, [this](auto &T) -> auto {
-        return ResolveType(T);
-    });
-    
-    return InstantiatedCall;
-}
 
 
 std::shared_ptr<ast::MatchExpr> TemplateResolver::Specialize(std::shared_ptr<ast::MatchExpr> MatchExpr) {

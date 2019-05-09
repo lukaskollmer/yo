@@ -47,6 +47,7 @@ public:
     void Insert(const std::string &Identifier, TypeInfo *Type, ValueBinding Binding);
     
     // All of these return null if the scope doesn't contain the identifier
+    bool Contains(const std::string &name);
     ValueBinding *GetBinding(const std::string &Identifier);
     TypeInfo *GetType(const std::string &Identifier);
     

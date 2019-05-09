@@ -27,59 +27,78 @@ public:
         Primitive,  // any of the "builtin" types
         Pointer,    // A pointer to some other type
         Complex,    // A struct
-        Function,    // A function pointer
+        Function,   // A function pointer
         Typealias,
         Unresolved  // tbd
     };
     
-private:
-    Kind Kind_;
-    uint8_t Size_; // Size in bytes
-    std::string Name_;
-    TypeInfo *Pointee_; // The fact that Pointee_ is nonnull doesn't mean that this is in fact a pointer type
-    TypeInfo *PointerTo_;
-    llvm::Type *LLVMType_;
     
-    TypeInfo() : Kind_(Kind::Unresolved), Size_(0), Pointee_(nullptr), PointerTo_(nullptr), LLVMType_(nullptr) {}
+    struct FunctionTypeInfo {
+        enum class CallingConvention : uint8_t {
+            C, Yo
+        };
+        
+        CallingConvention callingConvention;
+        std::vector<TypeInfo *> parameterTypes;
+        TypeInfo *returnType;
+    };
+    
+private:
+    
+    Kind kind;
+    uint8_t size; // Size in bytes
+    
+    std::string name;
+    TypeInfo *pointee; // The fact that pointee is nonnull doesn't mean that this is in fact a pointer type (also used for typealiases)
+    TypeInfo *pointerTo;
+    llvm::Type *llvmType;
+    
+    // only for function types
+    std::unique_ptr<FunctionTypeInfo> functionTypeInfo;
+    
+    TypeInfo() : kind(Kind::Unresolved), size(0), pointee(nullptr), pointerTo(nullptr), llvmType(nullptr) {}
     
 public:
-    static TypeInfo *GetWithName(const std::string &Name, bool *DidCreateNewType = nullptr);
-    static TypeInfo *MakeComplex(const std::string &Name);
-    static TypeInfo *MakePointer(TypeInfo *Pointee);
-    static TypeInfo *MakeTypealias(const std::string &Name, TypeInfo *OtherType);
+    static TypeInfo *GetWithName(const std::string &name, bool *didCreateNewType = nullptr);
+    static TypeInfo *MakeComplex(const std::string &name);
+    static TypeInfo *MakePointer(TypeInfo *pointee);
+    static TypeInfo *MakeTypealias(const std::string &name, TypeInfo *otherType);
+    static TypeInfo *MakeFunctionType(FunctionTypeInfo::CallingConvention callingConvention, std::vector<TypeInfo *> parameterTypes, TypeInfo *returnType);
     
-    Kind getKind() { return Kind_; }
+    Kind getKind() { return kind; }
     uint8_t getSize() {
-        if (isTypealias()) return Pointee_->getSize();
-        else return Size_;
+        if (isTypealias()) return pointee->getSize();
+        else return size;
     }
-    const std::string &getName() { return Name_; }
-    TypeInfo *getPointee() { return Pointee_; }
+    const std::string &getName() { return name; }
+    TypeInfo *getPointee() { return pointee; }
     TypeInfo *getPointerTo() { return MakePointer(this); }
     
+    FunctionTypeInfo& getFunctionTypeInfo() const { return *functionTypeInfo; }
     
     
     llvm::Type *getLLVMType() {
-        if (isTypealias()) return Pointee_->getLLVMType();
-        else return LLVMType_;
+        if (isTypealias()) return pointee->getLLVMType();
+        else return llvmType;
     }
     
-    void setLLVMType(llvm::Type *LLVMType) {
-        if (isTypealias()) Pointee_->setLLVMType(LLVMType);
-        else LLVMType_ = LLVMType;
+    void setLLVMType(llvm::Type *llvmType) {
+        if (isTypealias()) pointee->setLLVMType(llvmType);
+        else this->llvmType = llvmType;
     }
     
     
     std::string str() const;
-    bool equals(TypeInfo *Other);
+    bool equals(TypeInfo *other);
     
     unsigned getIndirectionCount();
 
     bool isSigned();
-    bool isPointer() { return Kind_ == Kind::Pointer; }
-    bool isComplex() { return Kind_ == Kind::Complex; }
-    bool isPrimitive() { return Kind_ == Kind::Primitive; }
-    bool isTypealias() { return Kind_ == Kind::Typealias; }
+    bool isPointer() { return kind == Kind::Pointer; }
+    bool isComplex() { return kind == Kind::Complex; }
+    bool isPrimitive() { return kind == Kind::Primitive; }
+    bool isTypealias() { return kind == Kind::Typealias; }
+    bool isFunction() const { return kind == Kind::Function; }
 
     bool isIntegerType();
     bool isVoidType();

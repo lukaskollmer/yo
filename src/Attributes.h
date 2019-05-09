@@ -36,11 +36,7 @@ namespace yo::attributes {
     };
     
     
-    namespace function_attribute_keys {
-        const std::string no_mangle = "no_mangle";
-        const std::string intrinsic = "intrinsic";
-        const std::string variadic  = "variadic";
-    }
+#pragma mark - Function Attributes
     
     enum class SideEffect {
         Unknown, None, IO
@@ -50,10 +46,24 @@ namespace yo::attributes {
         bool variadic;
         bool no_mangle;
         bool intrinsic;
+        bool arc;
         std::vector<SideEffect> side_effects;
         
-        FunctionAttributes() : variadic(false), no_mangle(false), intrinsic(false), side_effects({SideEffect::Unknown}) {}
+        FunctionAttributes() : variadic(false), no_mangle(false), intrinsic(false), arc(false), side_effects({SideEffect::Unknown}) {}
         
         explicit FunctionAttributes(const std::vector<Attribute>&);
+    };
+    
+    
+    
+#pragma mark - Struct Attributes
+    
+    struct StructAttributes {
+        bool arc;
+        bool no_init;
+        
+        StructAttributes() : arc(false), no_init(false) {}
+        
+        explicit StructAttributes(const std::vector<Attribute>&);
     };
 }

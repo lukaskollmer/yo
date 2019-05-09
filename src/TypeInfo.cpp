@@ -26,29 +26,29 @@ static std::map<std::string, TypeInfo *> Types = {
 };
 
 
-TypeInfo *TypeInfo::GetWithName(const std::string &Name, bool *DidCreateNewType) {
-    auto It = Types.find(Name);
-    if (It != Types.end()) return It->second;
+TypeInfo *TypeInfo::GetWithName(const std::string &name, bool *didCreateNewType) {
+    auto it = Types.find(name);
+    if (it != Types.end()) return it->second;
     
     auto TI = new TypeInfo();
-    TI->Name_ = Name;
-    Types[Name] = TI;
-    if (DidCreateNewType) {
-        *DidCreateNewType = true;
+    TI->name = name;
+    Types[name] = TI;
+    if (didCreateNewType) {
+        *didCreateNewType = true;
     }
     return TI;
 }
 
 
 
-#define TI_GETTER(name, size)                   \
-TypeInfo *TypeInfo::getType_##name() {          \
+#define TI_GETTER(name_, size_)                 \
+TypeInfo *TypeInfo::getType_##name_() {         \
     static TypeInfo *TI = nullptr;              \
     if (!TI) {                                  \
         TI = new TypeInfo();                    \
-        TI->Name_ = #name;                      \
-        TI->Kind_ = TypeInfo::Kind::Primitive;  \
-        TI->Size_ = size;                       \
+        TI->name = #name_;                      \
+        TI->kind = TypeInfo::Kind::Primitive;   \
+        TI->size = size_;                       \
     }                                           \
     return TI;                                  \
 }
@@ -71,40 +71,52 @@ TI_GETTER(double, 8)
 
 // Initializers
 
-TypeInfo *TypeInfo::MakeComplex(const std::string &Name) {
-    auto TI = GetWithName(Name);
-    TI->Name_ = Name;
-    TI->Size_ = 8;
-    TI->Kind_ = Kind::Complex;
+TypeInfo *TypeInfo::MakeComplex(const std::string &name) {
+    auto TI = GetWithName(name);
+    TI->name = name;
+    TI->size = 8;
+    TI->kind = Kind::Complex;
     return TI;
 }
 
-TypeInfo *TypeInfo::MakePointer(TypeInfo *Pointee) {
-    if (auto Ptr = Pointee->PointerTo_) return Ptr;
+TypeInfo *TypeInfo::MakePointer(TypeInfo *pointee) {
+    if (auto ptr = pointee->pointerTo) return ptr;
     
-    auto Ptr = new TypeInfo();
-    Ptr->Kind_ = Kind::Pointer;
-    Ptr->Size_ = 8;
-    Ptr->Pointee_ = Pointee;
+    auto ptr = new TypeInfo();
+    ptr->kind = Kind::Pointer;
+    ptr->size = 8;
+    ptr->pointee = pointee;
     
-    if (Pointee->LLVMType_) {
+    if (pointee->llvmType) {
         // The cast is only necessary because TypeInfo.h forward declares llvm::Type
-        Ptr->LLVMType_ = reinterpret_cast<llvm::Type*>(Pointee->LLVMType_->getPointerTo());
+        ptr->llvmType = reinterpret_cast<llvm::Type*>(pointee->llvmType->getPointerTo());
     }
-    Pointee->PointerTo_ = Ptr;
-    return Ptr;
+    pointee->pointerTo = ptr;
+    return ptr;
 }
 
-TypeInfo *TypeInfo::MakeTypealias(const std::string &Name, TypeInfo *OtherType) {
-    bool DidCreateNewType = false;
-    auto TI = GetWithName(Name, &DidCreateNewType);
+TypeInfo *TypeInfo::MakeTypealias(const std::string &name, TypeInfo *otherType) {
+    bool didCreateNewType = false;
+    auto TI = GetWithName(name, &didCreateNewType);
     //precondition(DidCreateNewType && "Creating typealias for already existing typename");
-    TI->Kind_ = Kind::Typealias;
-    TI->Name_ = Name;
-    TI->Pointee_ = OtherType;
+    TI->kind = Kind::Typealias;
+    TI->name = name;
+    TI->pointee = otherType;
     return TI;
 }
 
+
+
+TypeInfo *TypeInfo::MakeFunctionType(FunctionTypeInfo::CallingConvention callingConvention, std::vector<TypeInfo *> parameterTypes, TypeInfo *returnType) {
+    auto TI = new TypeInfo();
+    TI->kind = Kind::Function;
+    TI->size = 8;
+    TI->functionTypeInfo = std::make_unique<FunctionTypeInfo>();
+    TI->functionTypeInfo->callingConvention = callingConvention;
+    TI->functionTypeInfo->parameterTypes = parameterTypes;
+    TI->functionTypeInfo->returnType = returnType;
+    return TI;
+}
 
 
 unsigned TypeInfo::getIndirectionCount() {
@@ -138,25 +150,23 @@ bool TypeInfo::isVoidType() {
 }
 
 
-bool TypeInfo::equals(TypeInfo *Other) {
-    if (this == Other) return true;
-    if (Other == Unresolved) return false; // we know that this is nonnull bc of the check above
-    if (this->Name_ != Other->Name_) return false;
+bool TypeInfo::equals(TypeInfo *other) {
+    if (this == other) return true;
+    if (other == Unresolved) return false; // we know that this is nonnull bc of the check above
     
     // Typealiases
-    if (Kind_ == Kind::Typealias && this->Pointee_->equals(Other)) return true;
-    if (Other->Kind_ == Kind::Typealias && Other->Pointee_->equals(this)) return true;
+    if (kind == Kind::Typealias && this->pointee->equals(other)) return true;
+    if (other->kind == Kind::Typealias && other->pointee->equals(this)) return true;
     
-    //std::cout << this->Str() << ", " << Other->Str() << std::endl;
-    if (Kind_ != Other->Kind_ || Size_ != Other->Size_) return false;
-    //if (Kind_ == Kind::Primitive && this->IsSigned() != Other->IsSigned()) return false;
+    if (this->name != other->name) return false;
     
+    if (kind != other->kind || size != other->size) return false;
     
-    if ((Kind_ == Kind::Pointer || Kind_ == Kind::Typealias) && Kind_ == Other->Kind_) {
-        return Pointee_->equals(Other->Pointee_);
+    if ((kind == Kind::Pointer || kind == Kind::Typealias) && kind == other->kind) {
+        return pointee->equals(other->pointee);
     }
     
-    if (Kind_ == Kind::Complex && Other->Kind_ == Kind::Complex) return this->Name_ == Other->Name_;
+    if (kind == Kind::Complex && other->kind == Kind::Complex) return this->name == other->name;
     
     throw; // TODO implement the rest
 }
@@ -167,20 +177,39 @@ std::string TypeInfo::str() const {
         return "<unresolved>";
     }
     
-    if (Kind_ == Kind::Unresolved && !Name_.empty()) {
-        return Name_;
+    if (kind == Kind::Unresolved && !name.empty()) {
+        return name;
     }
     
-    if (Kind_ == Kind::Primitive || Kind_ == Kind::Complex) {
-        return Name_;
+    if (kind == Kind::Primitive || kind == Kind::Complex) {
+        return name;
     }
     
-    if (Kind_ == Kind::Pointer) {
-        return std::string("*").append(Pointee_->str());
+    if (kind == Kind::Pointer) {
+        return std::string("*").append(pointee->str());
     }
     
-    if (Kind_ == Kind::Typealias) {
-        return std::string(Name_).append(" (alias for ").append(Pointee_->str()).append(")");
+    if (kind == Kind::Typealias) {
+        return std::string(name).append(" (alias for ").append(pointee->str()).append(")");
+    }
+    
+    if (kind == Kind::Function) {
+        std::string str = "fn#";
+        switch (functionTypeInfo->callingConvention) {
+            case FunctionTypeInfo::CallingConvention::C:
+                str.append("c"); break;
+            case FunctionTypeInfo::CallingConvention::Yo:
+                str.append("yo"); break;
+        }
+        str.append("(");
+        for (auto it = functionTypeInfo->parameterTypes.begin(); it != functionTypeInfo->parameterTypes.end(); it++) {
+            str.append((*it)->str());
+            if (it + 1 != functionTypeInfo->parameterTypes.end()) {
+                str.append(", ");
+            }
+        }
+        str.append("): ").append(functionTypeInfo->returnType->str());
+        return str;
     }
     
     throw;

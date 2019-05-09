@@ -67,14 +67,6 @@ public:
 #pragma mark - Top Level Statements
 
 
-class AttributeList : public Node {
-public:
-    const std::vector<yo::attributes::Attribute> attributes;
-    
-    explicit AttributeList(std::vector<yo::attributes::Attribute> attributes) : attributes(attributes) {}
-};
-
-
 
 class FunctionSignature : public Node {
 public:
@@ -90,11 +82,17 @@ public:
     std::vector<std::shared_ptr<VariableDecl>> Parameters;
     std::shared_ptr<ast::StructDecl> ImplType; // If this is a static or instance method, the type it is a member of
     
+    std::shared_ptr<attributes::FunctionAttributes> attributes;
+    
     bool IsTemplateFunction = false;
     std::vector<std::string> TemplateArgumentNames;
     
     bool IsFullSpecialization() {
         return IsTemplateFunction && TemplateArgumentNames.empty();
+    }
+    
+    explicit FunctionSignature() {
+        attributes = std::make_shared<attributes::FunctionAttributes>();
     }
 };
 
@@ -104,7 +102,6 @@ std::ostream& operator<<(std::ostream&, const std::shared_ptr<ast::FunctionSigna
 
 class FunctionDecl : public TopLevelStmt {
 public:
-    std::shared_ptr<yo::attributes::FunctionAttributes> attributes;
     std::shared_ptr<FunctionSignature> Signature;
     std::shared_ptr<Composite> Body;
     
@@ -114,7 +111,6 @@ public:
 
 class ExternFunctionDecl : public TopLevelStmt {
 public:
-    std::shared_ptr<yo::attributes::FunctionAttributes> attributes;
     std::shared_ptr<FunctionSignature> Signature;
     
     ExternFunctionDecl() {}
@@ -126,6 +122,7 @@ public:
     std::shared_ptr<Identifier> Name;
     std::vector<std::shared_ptr<VariableDecl>> Members;
     std::vector<std::string> TemplateArguments;
+    std::shared_ptr<attributes::StructAttributes> attributes;
     
     StructDecl() {}
     
@@ -258,7 +255,9 @@ public:
     const std::string Value;
     Identifier(std::string Value) : Value(Value) {}
     
-    operator std::string () { return Value; }
+    operator std::string () { return Value; } // TODO is this ever used?
+    
+    static std::shared_ptr<Identifier> emptyIdent();
 };
 
 
@@ -294,15 +293,66 @@ public:
 };
 
 
-class FunctionCall : public Expr {
+
+
+class NEW_ExprStmt : public LocalStmt {
 public:
-    std::string Target;
-    std::vector<std::shared_ptr<Expr>> Arguments;
-    std::vector<TypeInfo *> ExplicitTemplateArgumentTypes;
+    std::shared_ptr<ast::Expr> expr;
     
-    FunctionCall(const std::string &Target) : Target(Target) {}
-    FunctionCall(const std::string &Target, std::vector<std::shared_ptr<Expr>> Arguments) : Target(Target), Arguments(Arguments) {}
+    explicit NEW_ExprStmt(std::shared_ptr<ast::Expr> expr) : expr(expr) {}
 };
+
+
+
+// A reference to a static member of a type (for example a static method or an enum value)
+class NEW_StaticDeclRefExpr : public Expr {
+public:
+    std::string typeName;
+    std::string memberName;
+    
+    NEW_StaticDeclRefExpr(const std::string &typeName, const std::string &memberName) : typeName(typeName), memberName(memberName) {}
+};
+
+
+
+
+// <expr>(<expr>*)
+class CallExpr : public Expr {
+public:
+    std::shared_ptr<Expr> target;
+    std::vector<std::shared_ptr<Expr>> arguments;
+    std::vector<TypeInfo *> explicitTemplateArgumentTypes;
+    
+    CallExpr(std::shared_ptr<Expr> target,
+             std::vector<std::shared_ptr<Expr>> arguments = {},
+             std::vector<TypeInfo *> explicitTemplateArgumentTypes = {})
+    : target(target), arguments(arguments), explicitTemplateArgumentTypes(explicitTemplateArgumentTypes) {}
+};
+
+
+
+// <expr>.<ident>
+class MemberExpr : public Expr {
+public:
+    std::shared_ptr<Expr> target;
+    std::string memberName;
+    
+    MemberExpr(std::shared_ptr<Expr> target, std::string memberName) : target(target), memberName(memberName) {}
+};
+
+
+
+class SubscriptExpr : public Expr {
+public:
+    std::shared_ptr<ast::Expr> target;
+    std::shared_ptr<ast::Expr> offset;
+    
+    SubscriptExpr(std::shared_ptr<ast::Expr> target, std::shared_ptr<ast::Expr> offset) : target(target), offset(offset) {}
+};
+
+
+
+
 
 
 
@@ -319,47 +369,6 @@ public:
     : Expression(Expression), DestType(DestType), Kind(Kind) {}
 };
 
-
-
-// A (chained) member access
-class MemberAccess : public Expr, public LocalStmt {
-public:
-    class Member : public Node {
-    public:
-        enum class MemberKind {
-            Initial_Identifier,     // Value is ast::Identifier
-            Initial_FunctionCall,   // Value is ast::FunctionCall
-            Initial_StaticCall,     // Value is ast::FunctionCall (Call.Target contains both the type, and the method name, separated by `~`. TODO come up w/ a better solution)
-            
-            OffsetRead,             // Value is ast::Expr
-            MemberFunctionCall,     // Value is ast::FunctionCall (call target is name of the method being called)
-            MemberAttributeRead     // Value is ast::Identifier
-        };
-        
-        MemberKind Kind;
-        std::shared_ptr<Expr> Value;
-        
-        Member(MemberKind Kind) : Kind(Kind) {}
-        Member(MemberKind Kind, std::shared_ptr<Identifier> Ident) : Kind(Kind) {
-            precondition(Kind == MemberKind::Initial_Identifier || Kind == MemberKind::MemberAttributeRead);
-            Value = Ident;
-        }
-        Member(MemberKind Kind, std::shared_ptr<FunctionCall> Call) : Kind(Kind) {
-            precondition(Kind == MemberKind::Initial_FunctionCall
-                         || Kind == MemberKind::Initial_StaticCall
-                         || Kind == MemberKind::MemberFunctionCall);
-            Value = Call;
-        }
-        Member(MemberKind Kind, std::shared_ptr<Expr> Offset) : Kind(Kind) {
-            precondition(Kind == MemberKind::OffsetRead);
-            Value = Offset;
-        }
-    };
-    
-    std::vector<std::shared_ptr<Member>> Members;
-    
-    MemberAccess(std::vector<std::shared_ptr<Member>> Members) : Members(Members) {}
-};
 
 
 
