@@ -1437,7 +1437,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ForLoop> forLoop) {
     // TODO this is disgusting
     
     auto T = GuessType(forLoop->expr);
-    auto iteratorCallTarget = mangling::MangleCanonicalName(T->getName(), "iterator", ast::FunctionSignature::FunctionKind::InstanceMethod);
+    precondition(T->isPointer() && T->getPointee()->isComplex());
+    auto iteratorCallTarget = mangling::MangleCanonicalName(T->getPointee()->getName(), "iterator", ast::FunctionSignature::FunctionKind::InstanceMethod);
     
     auto call = std::make_shared<ast::CallExpr>(std::make_shared<ast::Identifier>(iteratorCallTarget),
                                                 std::vector<std::shared_ptr<ast::Expr>>{ forLoop->expr });
