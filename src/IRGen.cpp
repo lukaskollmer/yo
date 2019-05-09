@@ -1292,9 +1292,9 @@ llvm::Value *IRGenerator::Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionS
         return Codegen(std::make_shared<ast::Typecast>(arg, dstTy, castKind));
     }
     
-    if (Name == "sizeof") {
-        auto T = GetLLVMType(Call->ExplicitTemplateArgumentTypes[0]);
-        return llvm::ConstantInt::get(i8, Module->getDataLayout().getTypeAllocSize(T));
+    if (name == "sizeof") {
+        auto T = GetLLVMType(call->explicitTemplateArgumentTypes[0]);
+        return llvm::ConstantInt::get(i64, Module->getDataLayout().getTypeAllocSize(T));
     }
     
     std::cout << "Unhandled call to intrinsic: " << Name << std::endl;

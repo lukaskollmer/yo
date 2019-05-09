@@ -1,18 +1,28 @@
 use ":runtime/casts";
 
+using size_t = u64;
+
 extern fn malloc(i64): *i8;
+extern fn calloc(size_t, size_t): *i8;
+extern fn free(*i8): void;
+
+#[variadic]
+extern fn printf(*i8): i64;
 
 #[intrinsic]
-fn sizeof<T>(): u8 {}
+fn sizeof<T>(): size_t {}
 
-fn alloc<T>(count: i64): *T {
-    let allocCount = count * static_cast<i64>(sizeof<T>());
-    let base = malloc(allocCount);
-    let i = 0;
-    while i < allocCount {
-        base[i] = 0;
-        i += 1;
-    }
+fn alloc<T>(count: size_t): *T {
+    let base = calloc(count, sizeof<T>());
     return reinterpret_cast<*T>(base);
+    
+    
+    //let base = malloc(allocCount);
+    //let i = 0;
+    //while i < allocCount {
+    //    base[i] = 0;
+    //    i += 1;
+    //}
+    //return reinterpret_cast<*T>(base);
 }
 
