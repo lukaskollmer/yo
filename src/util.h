@@ -194,6 +194,23 @@ namespace vector {
         }
         return {matched, unmatched};
     }
+    
+    
+    // Different behaviour depending on whether F returns void or U
+    template <template <typename...> class container, typename T, typename U, typename F>
+    U reduce(const container<T> &input, U initialValue, F fn) {
+        U accumulator = initialValue;
+        for (auto it = input.begin(); it != input.end(); it++) {
+            if constexpr(std::is_void_v<std::invoke_result_t<F, U&, const T&, uint64_t>>) {
+                fn(accumulator, *it, it - input.begin());
+            } else {
+                static_assert(std::is_same_v<U, std::invoke_result_t<F, F, const U&, const T&, uint64_t>>, "");
+                accumulator = fn(accumulator, *it, it - input.begin());
+            }
+        }
+        return accumulator;
+    }
+
 
 }
 
