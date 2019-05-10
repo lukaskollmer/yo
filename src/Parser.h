@@ -76,15 +76,16 @@ private:
     std::shared_ptr<ast::TopLevelStmt> ParseTopLevelStmt();
     
     std::vector<yo::attributes::Attribute> ParseAttributes();
-    std::shared_ptr<ast::FunctionSignature> ParseFunctionSignature(bool IsExternal);
+    std::shared_ptr<ast::FunctionSignature> ParseFunctionSignature(std::shared_ptr<attributes::FunctionAttributes>);
     
-    std::shared_ptr<ast::FunctionDecl> ParseFunctionDecl();
-    std::shared_ptr<ast::ExternFunctionDecl> ParseExternFunctionDecl();
-    std::shared_ptr<ast::StructDecl> ParseStructDecl();
+    std::shared_ptr<ast::FunctionDecl> ParseFunctionDecl(std::shared_ptr<attributes::FunctionAttributes>);
     std::shared_ptr<ast::ImplBlock> ParseImplBlock();
+    std::shared_ptr<ast::StructDecl> ParseStructDecl(std::shared_ptr<attributes::StructAttributes>);
     std::shared_ptr<ast::TypealiasDecl> ParseTypealias();
     
-    std::vector<std::shared_ptr<ast::VariableDecl>> ParseParameterList();
+    void ParseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> &signature);
+    
+    std::vector<std::shared_ptr<ast::VariableDecl>> ParseStructPropertyDeclList();
     
     TypeInfo *ParseType();
     

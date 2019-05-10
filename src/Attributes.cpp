@@ -28,6 +28,9 @@ namespace attr_vec_utils {
 #define ATTRIBUTE(scope, name) \
 namespace builtin_attributes::scope::name { const std::string_view _yo_attr_key = #name; }
 
+#define ATTRIBUTE2(scope, internalName, externalName) \
+namespace builtin_attributes::scope::internalName { const std::string_view _yo_attr_key = #externalName; }
+
 #define ATTR_MEMBER(scope, attr_name, member_name) \
 namespace builtin_attributes::scope::attr_name { const std::string_view member_name = #member_name; }
 
@@ -35,9 +38,9 @@ namespace builtin_attributes::scope::attr_name { const std::string_view member_n
 
 ATTRIBUTE(function, no_mangle)
 ATTRIBUTE(function, intrinsic)
-ATTRIBUTE(function, variadic)
 ATTRIBUTE(function, arc)
 ATTRIBUTE(function, mangle)
+ATTRIBUTE2(function, extern_, extern)
 ATTRIBUTE(function, side_effects)
 
 ATTR_MEMBER(function, side_effects, none)
@@ -116,14 +119,14 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
         } else if (attribute.key == builtin_attributes::function::intrinsic::_yo_attr_key) {
             intrinsic = std::get<bool>(attribute.data);
         
-        } else if (attribute.key == builtin_attributes::function::variadic::_yo_attr_key) {
-            variadic = std::get<bool>(attribute.data);
-        
         } else if (attribute.key == builtin_attributes::function::side_effects::_yo_attr_key) {
             side_effects = HandleSideEffectsAttribute(attribute);
             
         } else if (attribute.key == builtin_attributes::function::mangle::_yo_attr_key) {
             mangledName = std::get<std::string>(attribute.data);
+            
+        } else if (attribute.key == builtin_attributes::function::extern_::_yo_attr_key) {
+            extern_ = std::get<bool>(attribute.data);
             
         } else {
             LKFatalError("unknown function attribute: '%s'", attribute.key.c_str());
@@ -134,6 +137,17 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
         builtin_attributes::function::mangle::_yo_attr_key,
         builtin_attributes::function::no_mangle::_yo_attr_key
     });
+}
+
+
+bool FunctionAttributes::operator==(const FunctionAttributes &other) const {
+    return variadic     == other.variadic
+        && no_mangle    == other.no_mangle
+        && intrinsic    == other.intrinsic
+        && arc          == other.arc
+        && extern_      == other.extern_
+        && mangledName  == other.mangledName
+        && side_effects == other.side_effects;
 }
 
 

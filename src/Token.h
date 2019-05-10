@@ -64,8 +64,7 @@ public:
         
         // Keywords
         Use,
-        Struct, Impl,
-        Fn, Extern,
+        Fn, Struct, Impl,
         Let, Return,
         If, Else, While, For, In, Match,
         As, Using

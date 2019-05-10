@@ -132,7 +132,6 @@ private:
     
     void Preflight(ast::AST &Ast);
     void RegisterFunction(std::shared_ptr<ast::FunctionDecl> Function);
-    void RegisterFunction(std::shared_ptr<ast::ExternFunctionDecl> Function);
     void RegisterStructDecl(std::shared_ptr<ast::StructDecl> Struct);
     void RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock);
     
@@ -178,8 +177,8 @@ private:
     
     llvm::Value *Codegen(std::shared_ptr<ast::SubscriptExpr>, CodegenReturnValueKind);
     llvm::Value *Codegen(std::shared_ptr<ast::MemberExpr>, CodegenReturnValueKind);
-    llvm::Value *Codegen(std::shared_ptr<ast::NEW_ExprStmt>);
-    llvm::Value *Codegen(std::shared_ptr<ast::CallExpr>, ast::FunctionSignature **selectedOverload = nullptr);
+    llvm::Value *Codegen(std::shared_ptr<ast::ExprStmt>);
+    llvm::Value *Codegen(std::shared_ptr<ast::CallExpr>);
     
     llvm::Value *Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionSignature> Signature, std::shared_ptr<ast::CallExpr>);
     
@@ -209,8 +208,8 @@ private:
     
     // set omitCodegen to true if you only care about the return type of the call
     // for each callExpr, omitCodegen should be false exactly once!!!
-    NEW_ResolvedFunction NEW_ResolveCall(std::shared_ptr<ast::CallExpr>, bool omitCodegen);
-    std::optional<std::map<std::string, TypeInfo *>> NEW_AttemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset);
+    NEW_ResolvedFunction ResolveCall(std::shared_ptr<ast::CallExpr>, bool omitCodegen);
+    std::optional<std::map<std::string, TypeInfo *>> AttemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset);
     
     TypeInfo *GuessType(std::shared_ptr<ast::Expr>);
     TypeInfo *GuessType(std::shared_ptr<ast::NumberLiteral>);

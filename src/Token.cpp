@@ -34,7 +34,6 @@ std::string TokenKindToString(Token::TokenKind Kind) {
         CASE(PercentageSign)
         CASE(Return)
         CASE(Fn)
-        CASE(Extern)
         CASE(EqualsSign)
         CASE(Circumflex)
         CASE(LessThanSign)

@@ -200,23 +200,11 @@ std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
     
     switch (CurrentToken().Kind) {
         case TK::Fn: {
-            auto F = ParseFunctionDecl();
-            F->Signature->Kind = ast::FunctionSignature::FunctionKind::GlobalFunction;
-            F->Signature->attributes = std::make_shared<attributes::FunctionAttributes>(attributeList);
-            Stmt = F;
-            break;
-        }
-        case TK::Extern: {
-            auto F = ParseExternFunctionDecl();
-            F->Signature->Kind = ast::FunctionSignature::FunctionKind::GlobalFunction;
-            F->Signature->attributes = std::make_shared<attributes::FunctionAttributes>(attributeList);
-            Stmt = F;
+            Stmt = ParseFunctionDecl(std::make_shared<attributes::FunctionAttributes>(attributeList));
             break;
         }
         case TK::Struct: {
-            auto S = ParseStructDecl();
-            S->attributes = std::make_shared<attributes::StructAttributes>(attributeList);
-            Stmt = S;
+            Stmt = ParseStructDecl(std::make_shared<attributes::StructAttributes>(attributeList));
             break;
         }
         case TK::Impl:
@@ -234,11 +222,12 @@ std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
 }
 
 
-std::shared_ptr<StructDecl> Parser::ParseStructDecl() {
+std::shared_ptr<StructDecl> Parser::ParseStructDecl(std::shared_ptr<attributes::StructAttributes> attributes) {
     assert_current_token_and_consume(TK::Struct);
     
     auto Decl = std::make_shared<StructDecl>();
     Decl->Name = ParseIdentifier();
+    Decl->attributes = attributes;
     
     if (CurrentTokenKind() == TK::LessThanSign) {
         Consume();
@@ -250,7 +239,7 @@ std::shared_ptr<StructDecl> Parser::ParseStructDecl() {
     }
     assert_current_token_and_consume(TK::OpeningCurlyBraces);
     
-    Decl->Members = ParseParameterList();
+    Decl->Members = ParseStructPropertyDeclList();
     assert_current_token_and_consume(TK::ClosingCurlyBraces);
     return Decl;
 }
@@ -262,9 +251,13 @@ std::shared_ptr<ImplBlock> Parser::ParseImplBlock() {
     auto impl = std::make_shared<ImplBlock>(ParseIdentifier()->Value);
     assert_current_token_and_consume(TK::OpeningCurlyBraces);
     
-    while (CurrentTokenKind() == TK::Fn) {
-        auto functionDecl = ParseFunctionDecl();
-        functionDecl->Signature->attributes = std::make_shared<yo::attributes::FunctionAttributes>();
+    while (CurrentTokenKind() == TK::Fn || CurrentTokenKind() == TK::Hashtag) {
+        std::vector<attributes::Attribute> attributes;
+        if (CurrentTokenKind() == TK::Hashtag) {
+            attributes = ParseAttributes();
+            precondition(CurrentTokenKind() == TK::Fn);
+        }
+        auto functionDecl = ParseFunctionDecl(std::make_shared<attributes::FunctionAttributes>(attributes));
         impl->Methods.push_back(functionDecl);
     }
     
@@ -342,11 +335,13 @@ std::vector<yo::attributes::Attribute> Parser::ParseAttributes() {
 
 
 
-std::shared_ptr<FunctionSignature> Parser::ParseFunctionSignature(bool IsExternal) {
+std::shared_ptr<FunctionSignature> Parser::ParseFunctionSignature(std::shared_ptr<attributes::FunctionAttributes> attributes) {
     assert_current_token_and_consume(TK::Fn);
     
     auto S = std::make_shared<ast::FunctionSignature>();
     S->Name = ParseIdentifier()->Value;
+    S->attributes = attributes;
+    S->Kind = ast::FunctionSignature::FunctionKind::GlobalFunction; // (for functions in impl blocks, this will be changed to the proper value during irgen preflight)
     
     if (CurrentTokenKind() == TK::LessThanSign) { // Template function
         S->IsTemplateFunction = true;
@@ -359,15 +354,9 @@ std::shared_ptr<FunctionSignature> Parser::ParseFunctionSignature(bool IsExterna
     }
     assert_current_token_and_consume(TK::OpeningParens);
     
-    if (!IsExternal) {
-        S->Parameters = ParseParameterList();
-    } else {
-        S->Parameters = {};
-        while (CurrentTokenKind() != TK::ClosingParens) {
-            S->Parameters.push_back(std::make_shared<VariableDecl>(ast::Identifier::emptyIdent(), ParseType()));
-            if (CurrentTokenKind() == TK::Comma) Consume();
-        }
-    }
+    //S->Parameters = ParseParameterList(true);
+    S->Parameters = {};
+    ParseFunctionParameterList(S);
     assert_current_token_and_consume(TK::ClosingParens);
     
     if (CurrentTokenKind() == TK::Colon) {
@@ -381,48 +370,87 @@ std::shared_ptr<FunctionSignature> Parser::ParseFunctionSignature(bool IsExterna
 }
 
 
-
-std::shared_ptr<ExternFunctionDecl> Parser::ParseExternFunctionDecl() {
-    assert_current_token_and_consume(TK::Extern);
-    
-    auto EFD = std::make_shared<ExternFunctionDecl>();
-    EFD->Signature = ParseFunctionSignature(true);
-    
-    assert_current_token_and_consume(TK::Semicolon);
-    return EFD;
-}
-
-std::shared_ptr<FunctionDecl> Parser::ParseFunctionDecl() {
+std::shared_ptr<FunctionDecl> Parser::ParseFunctionDecl(std::shared_ptr<attributes::FunctionAttributes> attributes) {
     auto FD = std::make_shared<FunctionDecl>();
-    FD->Signature = ParseFunctionSignature(false);
-    assert_current_token(TK::OpeningCurlyBraces);
+    FD->Signature = ParseFunctionSignature(attributes);
     
-    FD->Body = ParseComposite();
+    if (CurrentTokenKind() == TK::OpeningCurlyBraces) {
+        FD->Body = ParseComposite();
+    } else if (CurrentTokenKind() == TK::Semicolon) {
+        Consume();
+        FD->Body = nullptr;
+    }
+    
     return FD;
 }
 
 
 
-
-
-std::vector<std::shared_ptr<VariableDecl>> Parser::ParseParameterList() {
-    std::vector<std::shared_ptr<VariableDecl>> Parameters;
+std::vector<std::shared_ptr<ast::VariableDecl>> Parser::ParseStructPropertyDeclList() {
+    std::vector<std::shared_ptr<ast::VariableDecl>> decls;
     
-    while (CurrentTokenKind() == TK::Identifier) {
-        auto Ident = ParseIdentifier();
+    
+    while (CurrentTokenKind() != TK::ClosingCurlyBraces) {
+        // TODO
+        //if (CurrentTokenKind() == TK::Hashtag) {
+        //    auto attributes = ParseAttributes();
+        //}
+        auto ident = ParseIdentifier();
         assert_current_token_and_consume(TK::Colon);
+        auto type = ParseType();
         
-        auto Type = ParseType();
-        Parameters.push_back(std::make_shared<VariableDecl>(Ident, Type));
+        decls.push_back(std::make_shared<ast::VariableDecl>(ident, type));
         
         if (CurrentTokenKind() == TK::Comma) {
             Consume();
-        } else {
-            break;
+            precondition(CurrentTokenKind() != TK::ClosingCurlyBraces);
         }
     }
     
-    return Parameters;
+    
+    return decls;
+}
+
+
+
+void Parser::ParseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> &signature) {
+    constexpr auto Delimiter = TK::ClosingParens;
+    
+    uint64_t index = 0;
+    uint64_t pos_lastEntry = UINT64_MAX;
+    while (CurrentTokenKind() != Delimiter) {
+        precondition(pos_lastEntry != Position); pos_lastEntry = Position;
+        
+        auto ident = ast::Identifier::EmptyIdent();
+        TypeInfo *type = TypeInfo::Unresolved;
+        
+        if (CurrentTokenKind() == TK::Identifier && PeekKind() == TK::Colon) {
+            // <ident>: <type>
+            ident = ParseIdentifier();
+            assert_current_token_and_consume(TK::Colon);
+            type = ParseType();
+            if (PeekKind(0) == TK::Period && PeekKind(1) == TK::Period && PeekKind(2) == TK::Period) {
+                throw; // TODO implement!
+            }
+        } else if (CurrentTokenKind() == TK::Period && PeekKind(0) == TK::Period && PeekKind(2) == TK::Period) {
+            Consume(3);
+            precondition(CurrentTokenKind() == Delimiter);
+            signature->attributes->variadic = true;
+            return;
+        } else {
+            ident = std::make_shared<ast::Identifier>(std::string("$").append(std::to_string(index)));
+            type = ParseType();
+        }
+        precondition(type);
+        
+        index += 1;
+        signature->Parameters.push_back(std::make_shared<ast::VariableDecl>(ident, type));
+        
+        if (CurrentTokenKind() == TK::Comma) {
+            Consume();
+            precondition(CurrentTokenKind() != TK::ClosingParens);
+        }
+    }
 }
 
 
@@ -442,7 +470,6 @@ TypeInfo *Parser::ParseType() {
             }
         }
         assert_current_token_and_consume(TK::OpeningParens);
-        // TODO delegate this to ParseFunctionSignature? (w/ extern set to true and maybe some other option that disables the function name?)
         
         std::vector<TypeInfo *> parameterTypes;
         while (auto T = ParseType()) {
@@ -558,7 +585,7 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
     if (CurrentTokenKind() == TK::Semicolon) {
         Consume();
         if (E) {
-            return std::make_shared<ast::NEW_ExprStmt>(E);
+            return std::make_shared<ast::ExprStmt>(E);
         }
     }
     
@@ -846,7 +873,7 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
             auto typeName = std::dynamic_pointer_cast<ast::Identifier>(E)->Value;
             Consume(2);
             auto memberName = ParseIdentifier()->Value;
-            E = std::make_shared<ast::NEW_StaticDeclRefExpr>(typeName, memberName);
+            E = std::make_shared<ast::StaticDeclRefExpr>(typeName, memberName);
         }
     }
     

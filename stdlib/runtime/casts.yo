@@ -4,10 +4,10 @@
 // Casts between related types
 // Fails if there is no known conversion from T to R
 #[intrinsic]
-fn static_cast<R, T>(arg: T): R {}
+fn static_cast<R, T>(arg: T): R;
 
 
 // Returns `arg`, with the bit pattern reinterpreted as R
 // Requires T and R to have the exact same bit width
 #[intrinsic]
-fn reinterpret_cast<R, T>(arg: T): R {}
+fn reinterpret_cast<R, T>(arg: T): R;

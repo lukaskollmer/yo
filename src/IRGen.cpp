@@ -81,14 +81,12 @@ void IRGenerator::Preflight(ast::AST &Ast) {
     std::vector<std::shared_ptr<ast::FunctionDecl>>         FunctionDecls;
     std::vector<std::shared_ptr<ast::StructDecl>>           StructDecls;
     std::vector<std::shared_ptr<ast::ImplBlock>>            ImplBlocks;
-    std::vector<std::shared_ptr<ast::ExternFunctionDecl>>   ExternalFunctionDecls;
     
 #define HANDLE(T, Dest) if (auto X = std::dynamic_pointer_cast<ast::T>(Node)) { Dest.push_back(X); continue; }
     
     for (auto &Node : Ast) {
         HANDLE(TypealiasDecl, Typealiases)
         HANDLE(FunctionDecl, FunctionDecls)
-        HANDLE(ExternFunctionDecl, ExternalFunctionDecls)
         HANDLE(StructDecl, StructDecls)
         HANDLE(ImplBlock, ImplBlocks)
         
@@ -105,22 +103,6 @@ void IRGenerator::Preflight(ast::AST &Ast) {
     
     for (auto &StructDecl : StructDecls) {
         RegisterStructDecl(StructDecl);
-    }
-    
-    for (auto &EFD : ExternalFunctionDecls) {
-        // No potential conflict w/ other non-external already resolved functions, since their resolved name will be mangled (unlike the external function's name)
-        if (auto EFS2Sig = GetResolvedFunctionWithName(EFD->Signature->Name)) {
-            precondition(EFD->Signature->ReturnType->equals(EFS2Sig->ReturnType)
-                         && EFD->Signature->Parameters.size() == EFS2Sig->Parameters.size()
-                         && std::equal(EFD->Signature->Parameters.begin(), EFD->Signature->Parameters.end(), EFS2Sig->Parameters.begin(),
-                                       [] (auto Arg1, auto Arg2) -> bool {
-                                           return Arg1->Type->equals(Arg2->Type);
-                                       })
-                         && "Multiple external function declarations w/ same name, but different signatures"
-                         );
-            continue;
-        }
-        RegisterFunction(EFD);
     }
     
     for (auto &FunctionDecl : FunctionDecls) {
@@ -147,46 +129,37 @@ void IRGenerator::RegisterFunction(std::shared_ptr<ast::FunctionDecl> Function) 
         ParameterTypes.push_back(GetLLVMType(P->Type));
     }
     
-    std::string CanonicalName = mangling::MangleCanonicalNameForSignature(Signature);
-    std::string ResolvedName = MangleFullyResolved(Signature);
+    std::string canonicalName, resolvedName;
     
-    precondition(M->getFunction(ResolvedName) == nullptr, util::fmt_cstr("Redefinition of function '%s'", ResolvedName.c_str())); // TODO print the signature instead!
+    if (Signature->attributes->extern_) {
+        canonicalName = resolvedName = mangling::MangleCanonicalNameForSignature(Signature);
+    } else {
+        canonicalName = mangling::MangleCanonicalNameForSignature(Signature);
+        resolvedName = MangleFullyResolved(Signature);
+    }
+    
+    
+    if (auto OtherSignature = GetResolvedFunctionWithName(resolvedName)) {
+        precondition(Signature->attributes->extern_ && "only extern functions are allowed to have multiple declarations");
+        precondition(Signature->ReturnType->equals(OtherSignature->ReturnType));
+        precondition(Signature->Parameters.size() == OtherSignature->Parameters.size());
+        precondition(*Signature->attributes == *OtherSignature->attributes);
+        return;
+    }
+    
+    precondition(M->getFunction(resolvedName) == nullptr, util::fmt_cstr("Redefinition of function '%s'", resolvedName.c_str())); // TODO print the signature instead!
     
     auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->Signature->attributes->variadic);
-    auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, ResolvedName, M);
+    auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, resolvedName, M);
     
     unsigned Idx = 0;
     for (auto &Arg : F->args()) {
         Arg.setName(Signature->Parameters[Idx++]->Name->Value);
     }
     
-    ResolvedFunctions[ResolvedName] = Function->Signature;
-    Functions[CanonicalName].push_back(ResolvedFunction(Function, F));
+    ResolvedFunctions[resolvedName] = Function->Signature;
+    Functions[canonicalName].push_back(ResolvedFunction(Function, F));
 }
-
-
-void IRGenerator::RegisterFunction(std::shared_ptr<ast::ExternFunctionDecl> Function) {
-    auto Signature = Function->Signature;
-    std::vector<llvm::Type *> ParameterTypes;
-    
-    for (auto &P : Signature->Parameters) {
-        ParameterTypes.push_back(GetLLVMType(P->Type));
-    }
-    
-    precondition(M->getFunction(Signature->Name) == nullptr);
-    auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->Signature->attributes->variadic);
-    auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, Signature->Name, M);
-    
-    // we can't really append this to the `Functions` vector since that stores an ast::FunctionDecl, but external functions don't have a body :/
-    // TODO: come up w/ a solution!
-    //ExternalFunctions[Signature->Name] = Signature;
-    ResolvedFunctions[Signature->Name] = Signature;
-    
-    auto Decl = std::make_shared<ast::FunctionDecl>();
-    Decl->Signature = Function->Signature;
-    Functions[Signature->Name].push_back(ResolvedFunction(Decl, F));
-}
-
 
 
 std::shared_ptr<ast::FunctionSignature> IRGenerator::GetResolvedFunctionWithName(const std::string &Name) {
@@ -284,7 +257,6 @@ if (std::dynamic_pointer_cast<ast::T>(node)) return nullptr;
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
     HANDLE(TLS, FunctionDecl)
-    IGNORE(TLS, ExternFunctionDecl)
     HANDLE(TLS, StructDecl)
     HANDLE(TLS, ImplBlock)
     IGNORE(TLS, TypealiasDecl)
@@ -300,7 +272,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LocalStmt> LocalStmt) {
     HANDLE(LocalStmt, Assignment)
     HANDLE(LocalStmt, WhileStmt)
     HANDLE(LocalStmt, ForLoop)
-    HANDLE(LocalStmt, NEW_ExprStmt)
+    HANDLE(LocalStmt, ExprStmt)
     
     unhandled_node(LocalStmt);
 }
@@ -333,9 +305,14 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr, CodegenReturn
 #pragma mark - Top Level Statements
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDecl) {
+    if (FunctionDecl->Signature->attributes->extern_) {
+        return nullptr;
+    }
+    
     if (FunctionDecl->Signature->IsTemplateFunction && !FunctionDecl->Signature->IsFullSpecialization()) {
         return nullptr;
     }
+    
     precondition(Scope.isEmpty());
     auto ResolvedName = MangleFullyResolved(FunctionDecl->Signature);
     
@@ -584,7 +561,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::RawLLVMValueExpr> RawExpr
 }
 
 
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NEW_ExprStmt> exprStmt) {
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ExprStmt> exprStmt) {
     return Codegen(exprStmt->expr);
 }
 
@@ -947,7 +924,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::BinaryOperation> Binop) {
 
 
 
-std::optional<std::map<std::string, TypeInfo *>> IRGenerator::NEW_AttemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset) {
+std::optional<std::map<std::string, TypeInfo *>> IRGenerator::AttemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset) {
     auto sig = templateFunction->Signature;
     
     if (sig->Parameters.size() != call->arguments.size()) {
@@ -1017,7 +994,7 @@ std::shared_ptr<ast::FunctionSignature> _makeFunctionSignatureFromFunctionTypeIn
     auto sig = std::make_shared<ast::FunctionSignature>();
     sig->ReturnType = functionTyInfo.returnType;
     sig->Parameters = util::vector::map(functionTyInfo.parameterTypes, [] (TypeInfo *paramTy) {
-        return std::make_shared<ast::VariableDecl>(ast::Identifier::emptyIdent(), paramTy);
+        return std::make_shared<ast::VariableDecl>(ast::Identifier::EmptyIdent(), paramTy);
     });
     
     return sig;
@@ -1025,7 +1002,7 @@ std::shared_ptr<ast::FunctionSignature> _makeFunctionSignatureFromFunctionTypeIn
 
 
 
-NEW_ResolvedFunction IRGenerator::NEW_ResolveCall(std::shared_ptr<ast::CallExpr> callExpr, bool omitCodegen) {
+NEW_ResolvedFunction IRGenerator::ResolveCall(std::shared_ptr<ast::CallExpr> callExpr, bool omitCodegen) {
     std::string targetName;
     uint8_t argumentOffset = 0;
     
@@ -1042,7 +1019,7 @@ NEW_ResolvedFunction IRGenerator::NEW_ResolveCall(std::shared_ptr<ast::CallExpr>
             }
         }
         
-    } else if (auto staticDeclRefExpr = std::dynamic_pointer_cast<ast::NEW_StaticDeclRefExpr>(callExpr->target)) {
+    } else if (auto staticDeclRefExpr = std::dynamic_pointer_cast<ast::StaticDeclRefExpr>(callExpr->target)) {
         targetName = mangling::MangleCanonicalName(staticDeclRefExpr->typeName, staticDeclRefExpr->memberName, ast::FunctionSignature::FunctionKind::StaticMethod);
         
     } else if (auto memberExpr = std::dynamic_pointer_cast<ast::MemberExpr>(callExpr->target)) {
@@ -1098,7 +1075,7 @@ NEW_ResolvedFunction IRGenerator::NEW_ResolveCall(std::shared_ptr<ast::CallExpr>
         
         // is a template function
         
-        auto templateArgumentMapping = NEW_AttemptToResolveTemplateArgumentTypesForCall(target.Decl, callExpr, argumentOffset);
+        auto templateArgumentMapping = AttemptToResolveTemplateArgumentTypesForCall(target.Decl, callExpr, argumentOffset);
         precondition(templateArgumentMapping.has_value());
         return specializeTemplateFunctionForCall(target.Decl, templateArgumentMapping.value());
     }
@@ -1163,7 +1140,7 @@ NEW_ResolvedFunction IRGenerator::NEW_ResolveCall(std::shared_ptr<ast::CallExpr>
     
     if (!hasPerfectMatch) {
         for (auto &target : templateFunctions) {
-            if (auto templateArgMapping = NEW_AttemptToResolveTemplateArgumentTypesForCall(target, callExpr, argumentOffset)) {
+            if (auto templateArgMapping = AttemptToResolveTemplateArgumentTypesForCall(target, callExpr, argumentOffset)) {
                 auto argc = target->Signature->Parameters.size();
                 uint32_t score = argc * 10;
                 matches.push_back({score, target, nullptr, templateArgMapping.value()});
@@ -1222,11 +1199,8 @@ bool CallerCalleeSideEffectsCompatible(const std::vector<yo::attributes::SideEff
 
 
 
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::CallExpr> call, ast::FunctionSignature **selectedOverload) {
-    auto resolvedTarget = NEW_ResolveCall(call, false);
-    //if (selectedOverload) {
-    //    *selectedOverload = resolvedTarget.Decl->Signature.get();
-    //}
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::CallExpr> call) {
+    auto resolvedTarget = ResolveCall(call, false);
     
     // TODO:
     // - run argument type checks for intrinsics as well
@@ -1237,9 +1211,25 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::CallExpr> call, ast::Func
         LKFatalError("cannot call '%s' because side effects", targetName.c_str());
     }
     
+    
+    for (auto i = resolvedTarget.argumentOffset; i < resolvedTarget.signature->Parameters.size(); i++) {
+        auto expectedType = resolvedTarget.signature->Parameters[i]->Type;
+        auto expr = call->arguments[i - resolvedTarget.argumentOffset];
+        TypeInfo *T;
+        if (!TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, expectedType, &T)) {
+            LKFatalError("Type mismatch in call to '%s'. Arg #%i: expected '%s', got '%s'",
+                         MangleFullyResolved(resolvedTarget.signature).c_str(),
+                         i, expectedType->str().c_str(), T->str().c_str());
+        }
+        // TODO is modifying the arguments in-place necessarily a good idea?
+        call->arguments[i] = expr;
+    }
+    
     if (resolvedTarget.signature->attributes->intrinsic) {
         return Codegen_HandleIntrinsic(resolvedTarget.signature, call);
     }
+    
+    
     
     llvm::Value *llvmFunction = resolvedTarget.llvmValue;
     precondition(llvmFunction->getType()->isPointerTy() && llvmFunction->getType()->getContainedType(0)->isFunctionTy());
@@ -1251,7 +1241,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::CallExpr> call, ast::Func
     std::vector<llvm::Value *> args(resolvedTarget.argumentOffset, nullptr);
     auto numFixedArgs = llvmFunctionTy->getNumParams() - resolvedTarget.argumentOffset;
     
-    for (auto i = resolvedTarget.argumentOffset; i <llvmFunctionTy->getNumParams(); i++) {
+    for (auto i = resolvedTarget.argumentOffset; i < llvmFunctionTy->getNumParams(); i++) {
         auto expectedType = resolvedTarget.signature->Parameters[i]->Type;
         auto expr = call->arguments[i - resolvedTarget.argumentOffset];
         TypeInfo *T;
@@ -1723,7 +1713,7 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::Expr> Expr) {
     }
     
     IF(callExpr, ast::CallExpr) {
-        return NEW_ResolveCall(callExpr, true).signature->ReturnType;
+        return ResolveCall(callExpr, true).signature->ReturnType;
     }
     
     IF(subscript, ast::SubscriptExpr) {

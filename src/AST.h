@@ -76,6 +76,7 @@ public:
         InstanceMethod    // A type instance method
     };
     
+    
     std::string Name;
     FunctionKind Kind;
     TypeInfo *ReturnType;
@@ -83,6 +84,8 @@ public:
     std::shared_ptr<ast::StructDecl> ImplType; // If this is a static or instance method, the type it is a member of
     
     std::shared_ptr<attributes::FunctionAttributes> attributes;
+    
+    TypeInfo *variadicType;
     
     bool IsTemplateFunction = false;
     std::vector<std::string> TemplateArgumentNames;
@@ -106,14 +109,6 @@ public:
     std::shared_ptr<Composite> Body;
     
     FunctionDecl() {}
-};
-
-
-class ExternFunctionDecl : public TopLevelStmt {
-public:
-    std::shared_ptr<FunctionSignature> Signature;
-    
-    ExternFunctionDecl() {}
 };
 
 
@@ -257,7 +252,7 @@ public:
     
     operator std::string () { return Value; } // TODO is this ever used?
     
-    static std::shared_ptr<Identifier> emptyIdent();
+    static std::shared_ptr<Identifier> EmptyIdent();
 };
 
 
@@ -295,22 +290,22 @@ public:
 
 
 
-class NEW_ExprStmt : public LocalStmt {
+class ExprStmt : public LocalStmt {
 public:
     std::shared_ptr<ast::Expr> expr;
     
-    explicit NEW_ExprStmt(std::shared_ptr<ast::Expr> expr) : expr(expr) {}
+    explicit ExprStmt(std::shared_ptr<ast::Expr> expr) : expr(expr) {}
 };
 
 
 
 // A reference to a static member of a type (for example a static method or an enum value)
-class NEW_StaticDeclRefExpr : public Expr {
+class StaticDeclRefExpr : public Expr {
 public:
     std::string typeName;
     std::string memberName;
     
-    NEW_StaticDeclRefExpr(const std::string &typeName, const std::string &memberName) : typeName(typeName), memberName(memberName) {}
+    StaticDeclRefExpr(const std::string &typeName, const std::string &memberName) : typeName(typeName), memberName(memberName) {}
 };
 
 

@@ -35,7 +35,7 @@ bool ast::Expr::isLiteral() const {
 
 static std::shared_ptr<ast::Identifier> _emptyIdent;
 
-std::shared_ptr<ast::Identifier> ast::Identifier::emptyIdent() {
+std::shared_ptr<ast::Identifier> ast::Identifier::EmptyIdent() {
     if (!_emptyIdent) {
         _emptyIdent = std::make_shared<ast::Identifier>("");
     }
@@ -283,12 +283,6 @@ Mirror Reflect(FunctionSignature *Signature) {
     };
 }
 
-Mirror Reflect(ExternFunctionDecl *EFD) {
-    return {
-        { "signature", EFD->Signature}
-    };
-}
-
 Mirror Reflect(FunctionDecl *FD) {
     return {
         { "signature", FD->Signature },
@@ -448,7 +442,7 @@ Mirror Reflect(ast::MemberExpr *memberExpr) {
     };
 }
 
-Mirror Reflect(ast::NEW_StaticDeclRefExpr *staticDeclRefExpr) {
+Mirror Reflect(ast::StaticDeclRefExpr *staticDeclRefExpr) {
     return {
         { "typeName", staticDeclRefExpr->typeName },
         { "memberName", staticDeclRefExpr->memberName }
@@ -469,7 +463,7 @@ Mirror Reflect(ast::SubscriptExpr *subscriptExpr) {
     };
 }
 
-Mirror Reflect(ast::NEW_ExprStmt *exprStmt) {
+Mirror Reflect(ast::ExprStmt *exprStmt) {
     return {
         { "expr", exprStmt->expr }
     };
@@ -485,7 +479,6 @@ Mirror Reflect(Node *Node) {
     HANDLE(Composite)
     HANDLE(ReturnStmt)
     HANDLE(NumberLiteral)
-    HANDLE(ExternFunctionDecl)
     HANDLE(Identifier)
     HANDLE(BinaryOperation)
     HANDLE(VariableDecl)
@@ -504,10 +497,10 @@ Mirror Reflect(Node *Node) {
     HANDLE(MatchExpr::MatchExprBranch)
     HANDLE(ast::CallExpr)
     HANDLE(ast::MemberExpr)
-    HANDLE(ast::NEW_StaticDeclRefExpr)
+    HANDLE(ast::StaticDeclRefExpr)
     HANDLE(ast::WhileStmt)
     HANDLE(ast::SubscriptExpr)
-    HANDLE(ast::NEW_ExprStmt)
+    HANDLE(ast::ExprStmt)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;

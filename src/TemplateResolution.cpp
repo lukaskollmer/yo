@@ -74,7 +74,7 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::Specialize(std::shared_ptr<
     //std::cout << "Before:\n" << Decl->Signature << "\nAfter:\n" << SpecializedFunction->Signature << std::endl;
     
     if (SpecializedFunction->Signature->attributes->intrinsic) {
-        precondition(Decl->Body->Statements.empty() && "intrinsic functions must have an empty body");
+        precondition(Decl->Body == nullptr);
         return SpecializedFunction;
     }
     
@@ -97,7 +97,7 @@ std::shared_ptr<ast::LocalStmt> TemplateResolver::Specialize(std::shared_ptr<ast
     HANDLE(Stmt, VariableDecl)
     HANDLE(Stmt, WhileStmt)
     HANDLE(Stmt, IfStmt)
-    HANDLE(Stmt, NEW_ExprStmt)
+    HANDLE(Stmt, ExprStmt)
     unhandled_node(Stmt)
 }
 
@@ -153,8 +153,8 @@ std::shared_ptr<ast::IfStmt> TemplateResolver::Specialize(std::shared_ptr<ast::I
 
 
 
-std::shared_ptr<ast::NEW_ExprStmt> TemplateResolver::Specialize(std::shared_ptr<ast::NEW_ExprStmt> exprStmt) {
-    return std::make_shared<ast::NEW_ExprStmt>(Specialize(exprStmt->expr));
+std::shared_ptr<ast::ExprStmt> TemplateResolver::Specialize(std::shared_ptr<ast::ExprStmt> exprStmt) {
+    return std::make_shared<ast::ExprStmt>(Specialize(exprStmt->expr));
 }
 
 

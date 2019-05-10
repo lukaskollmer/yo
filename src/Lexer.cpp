@@ -69,7 +69,6 @@ static std::map<std::string, Token::TokenKind> TokenKindMappings = {
     // Keywords
     { "fn",     TK::Fn     },
     { "return", TK::Return },
-    { "extern", TK::Extern },
     { "let",    TK::Let    },
     { "if",     TK::If     },
     { "else",   TK::Else   },

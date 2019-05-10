@@ -2,12 +2,18 @@ use ":runtime/casts";
 
 using size_t = u64;
 
-extern fn malloc(i64): *i8;
-extern fn calloc(size_t, size_t): *i8;
-extern fn free(*i8): void;
+#[extern]
+fn malloc(i64): *i8;
+
+#[extern]
+fn calloc(size_t, size_t): *i8;
+
+#[extern]
+fn free(*i8): void;
+
 
 #[intrinsic]
-fn sizeof<T>(): size_t {}
+fn sizeof<T>(): size_t;
 
 fn alloc<T>(count: size_t): *T {
     let base = calloc(count, sizeof<T>());

@@ -38,7 +38,7 @@ class TemplateResolver {
     std::shared_ptr<ast::WhileStmt> Specialize(std::shared_ptr<ast::WhileStmt>);
     std::shared_ptr<ast::IfStmt> Specialize(std::shared_ptr<ast::IfStmt>);
     std::shared_ptr<ast::Composite> Specialize(std::shared_ptr<ast::Composite>);
-    std::shared_ptr<ast::NEW_ExprStmt> Specialize(std::shared_ptr<ast::NEW_ExprStmt>);
+    std::shared_ptr<ast::ExprStmt> Specialize(std::shared_ptr<ast::ExprStmt>);
     std::shared_ptr<ast::MatchExpr> Specialize(std::shared_ptr<ast::MatchExpr>);
     
     std::shared_ptr<ast::CallExpr> Specialize(std::shared_ptr<ast::CallExpr>);
