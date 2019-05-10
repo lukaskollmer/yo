@@ -47,9 +47,10 @@ namespace yo::attributes {
         bool no_mangle;
         bool intrinsic;
         bool arc;
+        std::string mangledName;
         std::vector<SideEffect> side_effects;
         
-        FunctionAttributes() : variadic(false), no_mangle(false), intrinsic(false), arc(false), side_effects({SideEffect::Unknown}) {}
+        FunctionAttributes() : variadic(false), no_mangle(false), intrinsic(false), arc(false), mangledName(""), side_effects({SideEffect::Unknown}) {}
         
         explicit FunctionAttributes(const std::vector<Attribute>&);
     };

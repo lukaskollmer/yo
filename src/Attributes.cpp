@@ -36,6 +36,7 @@ ATTRIBUTE(function, no_mangle)
 ATTRIBUTE(function, intrinsic)
 ATTRIBUTE(function, variadic)
 ATTRIBUTE(function, arc)
+ATTRIBUTE(function, mangle)
 ATTRIBUTE(function, side_effects)
 
 ATTR_MEMBER(function, side_effects, none)
@@ -72,6 +73,47 @@ std::vector<SideEffect> HandleSideEffectsAttribute(const Attribute &attribute) {
 
 
 
+// Changed behaviour depending on whether F returns void or U
+template <template <typename...> class container, typename T, typename U, typename F>
+U reduce(const container<T> &input, U initialValue, F fn) {
+    U accumulator = initialValue;
+    for (auto it = input.begin(); it != input.end(); it++) {
+        if constexpr(std::is_void_v<std::invoke_result_t<F, U&, const T&, uint64_t>>) {
+            fn(accumulator, *it, it + 1 == input.end());
+        } else {
+            static_assert(std::is_same_v<U, std::invoke_result_t<F, F, const U&, const T&, uint64_t>>, "");
+            accumulator = fn(accumulator, *it, it - input.begin());
+        }
+    }
+    return accumulator;
+}
+
+
+
+void ensure_mutual_exclusivity(const std::vector<std::string_view> &attributeNames, const std::initializer_list<std::string_view> &attributesToCheckFor) {
+    std::vector<std::string_view> foundAttributeNames;
+    for (auto &attr_check : attributesToCheckFor) {
+        if (yo::util::vector::contains(attributeNames, attr_check)) {
+            foundAttributeNames.push_back(attr_check);
+        }
+    }
+    
+    if (foundAttributeNames.size() > 1) {
+        auto desc2 = reduce(foundAttributeNames, std::string(), [&foundAttributeNames](std::string &acc, const std::string_view &attr_name, int64_t idx) {
+            acc.append("'").append(attr_name).append("'");
+            if (idx + 2 < foundAttributeNames.size()) {
+                acc.append(", ");
+            } else if (idx + 2 == foundAttributeNames.size()) {
+                acc.append(" and ");
+            }
+        });
+        LKFatalError("Error: the attributes %s are mutually exclusive", desc2.c_str());
+    }
+}
+
+
+
+
 
 FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes) : FunctionAttributes() {    
     if (attributes.empty()) return;
@@ -96,10 +138,19 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
         
         } else if (attribute.key == builtin_attributes::function::side_effects::_yo_attr_key) {
             side_effects = HandleSideEffectsAttribute(attribute);
+            
+        } else if (attribute.key == builtin_attributes::function::mangle::_yo_attr_key) {
+            mangledName = std::get<std::string>(attribute.data);
+            
         } else {
             LKFatalError("unknown function attribute: '%s'", attribute.key.c_str());
         }
     }
+    
+    ensure_mutual_exclusivity(handledAttributes, {
+        builtin_attributes::function::mangle::_yo_attr_key,
+        builtin_attributes::function::no_mangle::_yo_attr_key
+    });
 }
 
 

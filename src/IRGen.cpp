@@ -68,6 +68,8 @@ void IRGenerator::Codegen(ast::AST &Ast) {
 std::string MangleFullyResolved(const std::shared_ptr<ast::FunctionSignature> &signature) {
     if (signature->attributes->no_mangle) {
         return signature->Name;
+    } else if (!signature->attributes->mangledName.empty()) {
+        return signature->attributes->mangledName;
     }
     return mangling::MangleFullyResolvedNameForSignature(signature);
 }

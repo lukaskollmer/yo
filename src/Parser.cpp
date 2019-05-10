@@ -284,23 +284,42 @@ std::vector<yo::attributes::Attribute> Parser::ParseAttributes() {
     while (auto Ident = ParseIdentifier()) {
         auto key = Ident->Value;
         
-        if (CurrentTokenKind() == TK::OpeningParens) {
-            Consume();
-            std::vector<std::string> members;
-            while (auto Ident = ParseIdentifier()) {
-                members.push_back(Ident->Value);
-                if (CurrentTokenKind() == TK::Comma) {
-                    Consume();
-                } else if (CurrentTokenKind() == TK::ClosingParens) {
-                    break;
-                } else {
-                    unhandled_token(CurrentToken());
+        switch (CurrentTokenKind()) {
+            case TK::OpeningParens: {
+                Consume();
+                std::vector<std::string> members;
+                while (auto Ident = ParseIdentifier()) {
+                    members.push_back(Ident->Value);
+                    if (CurrentTokenKind() == TK::Comma) {
+                        Consume();
+                    } else if (CurrentTokenKind() == TK::ClosingParens) {
+                        break;
+                    } else {
+                        unhandled_token(CurrentToken());
+                    }
                 }
+                assert_current_token_and_consume(TK::ClosingParens);
+                attributes.push_back(yo::attributes::Attribute(key, members));
+                break;
             }
-            assert_current_token_and_consume(TK::ClosingParens);
-            attributes.push_back(yo::attributes::Attribute(key, members));
-        } else {
-            attributes.push_back(yo::attributes::Attribute(key));
+            case TK::EqualsSign: {
+                Consume();
+                if (auto value = ParseStringLiteral()) {
+                    precondition(value->Kind == ast::StringLiteral::StringLiteralKind::NormalString);
+                    attributes.push_back(yo::attributes::Attribute(key, value->Value));
+                } else {
+                    LKFatalError("unable to parse attribute value");
+                }
+                break;
+            }
+            
+            case TK::Comma:
+            case TK::ClosingSquareBrackets:
+                attributes.push_back(yo::attributes::Attribute(key));
+                break;
+                
+            default:
+                unhandled_token(CurrentToken());
         }
 
         if (CurrentTokenKind() == TK::Comma) {

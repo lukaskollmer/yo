@@ -78,9 +78,12 @@ std::string mangling::MangleCanonicalName(std::string_view Type, std::string_vie
 
 
 
-std::string mangling::MangleCanonicalNameForSignature(std::shared_ptr<ast::FunctionSignature> Signature) {
-    auto Typename = Signature->Kind == ast::FunctionSignature::FunctionKind::GlobalFunction ? "" : Signature->ImplType->Name->Value;
-    return MangleCanonicalName(Typename, Signature->Name, Signature->Kind);
+std::string mangling::MangleCanonicalNameForSignature(std::shared_ptr<ast::FunctionSignature> signature) {
+    if (!signature->attributes->mangledName.empty()) {
+        return signature->attributes->mangledName;
+    }
+    auto typeName = signature->Kind == ast::FunctionSignature::FunctionKind::GlobalFunction ? "" : signature->ImplType->Name->Value;
+    return MangleCanonicalName(typeName, signature->Name, signature->Kind);
 }
 
 
@@ -138,30 +141,34 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
 
 
 // Mangled name includes type encodings for return- & parameter types
-std::string mangling::MangleFullyResolvedNameForSignature(std::shared_ptr<ast::FunctionSignature> Signature) {
-    using FK = ast::FunctionSignature::FunctionKind;
-    ManglingStringBuilder Mangler(kCommonPrefix);
+std::string mangling::MangleFullyResolvedNameForSignature(std::shared_ptr<ast::FunctionSignature> signature) {
+    if (!signature->attributes->mangledName.empty()) {
+        return signature->attributes->mangledName;
+    }
     
-    switch (Signature->Kind) {
+    using FK = ast::FunctionSignature::FunctionKind;
+    ManglingStringBuilder mangler(kCommonPrefix);
+    
+    switch (signature->Kind) {
         case FK::GlobalFunction:
-            Mangler.append(mangling::kFunctionAttributeGlobalFunction);
+            mangler.append(mangling::kFunctionAttributeGlobalFunction);
             break;
         case FK::InstanceMethod:
-            Mangler.append(mangling::kFunctionAttributeInstanceMethod);
-            Mangler.appendWithCount(Signature->ImplType->Name->Value);
+            mangler.append(mangling::kFunctionAttributeInstanceMethod);
+            mangler.appendWithCount(signature->ImplType->Name->Value);
             break;
         case FK::StaticMethod:
-            Mangler.append(mangling::kFunctionAttributeStaticMethod);
-            Mangler.appendWithCount(Signature->ImplType->Name->Value);
+            mangler.append(mangling::kFunctionAttributeStaticMethod);
+            mangler.appendWithCount(signature->ImplType->Name->Value);
             break;
     }
     
-    Mangler.appendWithCount(Signature->Name);
-    Mangler.appendEncodedType(Signature->ReturnType);
+    mangler.appendWithCount(signature->Name);
+    mangler.appendEncodedType(signature->ReturnType);
     
-    for (auto &Param : Signature->Parameters) {
-        Mangler.appendEncodedType(Param->Type);
+    for (auto &param : signature->Parameters) {
+        mangler.appendEncodedType(param->Type);
     }
     
-    return Mangler.str();
+    return mangler.str();
 }
