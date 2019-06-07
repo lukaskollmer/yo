@@ -46,6 +46,7 @@ static std::map<std::string, Token::TokenKind> TokenKindMappings = {
     
     { "," , TK::Comma },
     { "!" , TK::ExclamationMark },
+    { "?" , TK::QuestionMark },
     { ":" , TK::Colon },
     { ";" , TK::Semicolon },
     { "=" , TK::EqualsSign },
