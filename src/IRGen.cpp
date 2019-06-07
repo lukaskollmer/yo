@@ -1723,6 +1723,10 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::Expr> Expr) {
         return GuessType(subscript->target)->getPointee();
     }
     
+    IF(comp, ast::Comparison) {
+        return TypeInfo::Bool;
+    }
+    
     LKFatalError("Unhandled node %s", util::typeinfo::GetTypename(*Expr).c_str());
     
 #undef IF
