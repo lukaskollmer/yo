@@ -106,6 +106,9 @@ void IRGenerator::Preflight(ast::AST &Ast) {
     }
     
     for (auto &FunctionDecl : FunctionDecls) {
+        if (FunctionDecl->Signature->attributes->extern_) {
+            FunctionDecl->Signature->attributes->no_mangle = true;
+        }
         RegisterFunction(FunctionDecl);
     }
     
