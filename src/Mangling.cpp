@@ -105,14 +105,14 @@ std::string mangling::MangleCanonicalNameForSignature(std::shared_ptr<ast::Funct
 ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
     switch (TI->getKind()) {
         case TypeInfo::Kind::Primitive: {
-#define HANDLE(t, s) if (TI->equals(TypeInfo::t)) { return append(s); }
+#define HANDLE(t, s) if (TI->Equals(TypeInfo::t)) { return append(s); }
             HANDLE(i8,  "c") HANDLE(u8,  "C")
             HANDLE(i16, "s") HANDLE(u16, "S")
             HANDLE(i32, "i") HANDLE(u32, "I")
             HANDLE(i64, "q") HANDLE(u64, "Q")
             HANDLE(Void, "v")
             HANDLE(Bool, "b")
-            LKFatalError("unhandled type: %s", TI->str().c_str());
+            LKFatalError("unhandled type: %s", TI->Str().c_str());
 #undef HANDLE
         }
         
@@ -130,10 +130,10 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
             return appendEncodedType(TI->getPointee());
         
         case TypeInfo::Kind::Unresolved:
-            LKFatalError("should never reach here: %s", TI->str().c_str());
+            LKFatalError("should never reach here: %s", TI->Str().c_str());
     }
     
-    LKFatalError("[EncodeType] Unhandled type: %s", TI->str().c_str());
+    LKFatalError("[EncodeType] Unhandled type: %s", TI->Str().c_str());
 }
 
 

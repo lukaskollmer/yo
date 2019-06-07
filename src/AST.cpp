@@ -63,12 +63,12 @@ std::ostream& ast::operator<<(std::ostream &OS, const std::shared_ptr<ast::Funct
     OS << "(";
     
     for (auto It = Signature->Parameters.begin(); It != Signature->Parameters.end(); It++) {
-        OS << (*It)->Type->str();
+        OS << (*It)->Type->Str();
         if (It + 1 != Signature->Parameters.end()) {
             OS << ", ";
         }
     }
-    OS << "): " << Signature->ReturnType->str();
+    OS << "): " << Signature->ReturnType->Str();
     return OS;
 }
 
@@ -216,7 +216,7 @@ std::string to_string(T arg) {
         return std::to_string(arg);
     
     } else if constexpr(std::is_same_v<T, TypeInfo *>) {
-        return arg->str();
+        return arg->Str();
     
     } else if constexpr(std::is_same_v<T, FunctionSignature::FunctionKind>) {
         return FunctionKindToString(arg);
@@ -421,7 +421,7 @@ Mirror Reflect(MatchExpr::MatchExprBranch *Branch) {
 Mirror Reflect(ast::CallExpr *callExpr) {
     std::string explicitTemplateArgumentTypes = "[ ";
     for (auto it = callExpr->explicitTemplateArgumentTypes.begin(); it != callExpr->explicitTemplateArgumentTypes.end(); it++) {
-        explicitTemplateArgumentTypes.append((*it)->str());
+        explicitTemplateArgumentTypes.append((*it)->Str());
         if (it + 1 != callExpr->explicitTemplateArgumentTypes.end()) {
             explicitTemplateArgumentTypes.append(", ");
         }

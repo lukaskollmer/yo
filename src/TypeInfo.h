@@ -67,7 +67,7 @@ public:
     
     Kind getKind() { return kind; }
     uint8_t getSize() {
-        if (isTypealias()) return pointee->getSize();
+        if (IsTypealias()) return pointee->getSize();
         else return size;
     }
     const std::string &getName() { return name; }
@@ -78,30 +78,32 @@ public:
     
     
     llvm::Type *getLLVMType() {
-        if (isTypealias()) return pointee->getLLVMType();
+        if (IsTypealias()) return pointee->getLLVMType();
         else return llvmType;
     }
     
     void setLLVMType(llvm::Type *llvmType) {
-        if (isTypealias()) pointee->setLLVMType(llvmType);
+        if (IsTypealias()) pointee->setLLVMType(llvmType);
         else this->llvmType = llvmType;
     }
     
     
-    std::string str() const;
-    bool equals(TypeInfo *other);
+    std::string Str() const;
+    bool Equals(TypeInfo *other);
     
-    unsigned getIndirectionCount();
+    unsigned IndirectionCount();
 
-    bool isSigned();
-    bool isPointer() { return kind == Kind::Pointer; }
-    bool isComplex() { return kind == Kind::Complex; }
-    bool isPrimitive() { return kind == Kind::Primitive; }
-    bool isTypealias() { return kind == Kind::Typealias; }
-    bool isFunction() const { return kind == Kind::Function; }
+    // TODO rename all these to `IsXTy`?
+    // For Example, `IsSigned` doesn't really makes sense since there is type named "Signed" or something like that, which kinda is what the name suggests the function would be looking for?
+    bool IsSigned();
+    bool IsPointer() { return kind == Kind::Pointer; }
+    bool IsComplex() { return kind == Kind::Complex; }
+    bool IsPrimitive() { return kind == Kind::Primitive; }
+    bool IsTypealias() { return kind == Kind::Typealias; }
+    bool IsFunction() const { return kind == Kind::Function; }
 
-    bool isIntegerType();
-    bool isVoidType();
+    bool IsIntegerType();
+    bool IsVoidType();
     
     
     static TypeInfo *getType_void();
@@ -150,7 +152,7 @@ public:
 };
 
 inline std::ostream &operator<<(std::ostream &OS, const TypeInfo *TI) {
-    return OS << TI->str();
+    return OS << TI->Str();
 }
 
 NS_END

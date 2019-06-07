@@ -119,12 +119,12 @@ TypeInfo *TypeInfo::MakeFunctionType(FunctionTypeInfo::CallingConvention calling
 }
 
 
-unsigned TypeInfo::getIndirectionCount() {
-    if (!isPointer()) return 0;
+unsigned TypeInfo::IndirectionCount() {
+    if (!IsPointer()) return 0;
     unsigned count = 0;
     
     auto T = this;
-    while (T->isPointer()) {
+    while (T->IsPointer()) {
         count += 1;
         T = T->getPointee();
     }
@@ -132,8 +132,8 @@ unsigned TypeInfo::getIndirectionCount() {
 }
 
 
-bool TypeInfo::isSigned() {
-    return this->equals(i8) || this->equals(i16) || this->equals(i32) || this->equals(i64);
+bool TypeInfo::IsSigned() {
+    return this->Equals(i8) || this->Equals(i16) || this->Equals(i32) || this->Equals(i64);
 }
 
 static std::array<TypeInfo *, 8> IntegerTypes = {
@@ -141,29 +141,29 @@ static std::array<TypeInfo *, 8> IntegerTypes = {
     TypeInfo::u8, TypeInfo::u16, TypeInfo::u32, TypeInfo::u64
 };
 
-bool TypeInfo::isIntegerType() {
-    return std::find_if(IntegerTypes.begin(), IntegerTypes.end(), [this](TypeInfo *TI) { return this->equals(TI); }) != IntegerTypes.end();
+bool TypeInfo::IsIntegerType() {
+    return std::find_if(IntegerTypes.begin(), IntegerTypes.end(), [this](TypeInfo *TI) { return this->Equals(TI); }) != IntegerTypes.end();
 }
 
-bool TypeInfo::isVoidType() {
-    return this->equals(Void);
+bool TypeInfo::IsVoidType() {
+    return this->Equals(Void);
 }
 
 
-bool TypeInfo::equals(TypeInfo *other) {
+bool TypeInfo::Equals(TypeInfo *other) {
     if (this == other) return true;
     if (other == Unresolved) return false; // we know that this is nonnull bc of the check above
     
     // Typealiases
-    if (kind == Kind::Typealias && this->pointee->equals(other)) return true;
-    if (other->kind == Kind::Typealias && other->pointee->equals(this)) return true;
+    if (kind == Kind::Typealias && this->pointee->Equals(other)) return true;
+    if (other->kind == Kind::Typealias && other->pointee->Equals(this)) return true; // TODO should this call this->Equals(other->pointee?)
     
     if (this->name != other->name) return false;
     
     if (kind != other->kind || size != other->size) return false;
     
     if ((kind == Kind::Pointer || kind == Kind::Typealias) && kind == other->kind) {
-        return pointee->equals(other->pointee);
+        return pointee->Equals(other->pointee);
     }
     
     if (kind == Kind::Complex && other->kind == Kind::Complex) return this->name == other->name;
@@ -171,7 +171,7 @@ bool TypeInfo::equals(TypeInfo *other) {
     throw; // TODO implement the rest
 }
 
-std::string TypeInfo::str() const {
+std::string TypeInfo::Str() const {
     if (this == TypeInfo::Unresolved) {
         // We have to check this one first since `this` is a nullpointer for unresolved // TODO: don't map unresolved to the nullpointer
         return "<unresolved>";
@@ -186,11 +186,11 @@ std::string TypeInfo::str() const {
     }
     
     if (kind == Kind::Pointer) {
-        return std::string("*").append(pointee->str());
+        return std::string("*").append(pointee->Str());
     }
     
     if (kind == Kind::Typealias) {
-        return std::string(name).append(" (alias for ").append(pointee->str()).append(")");
+        return std::string(name).append(" (alias for ").append(pointee->Str()).append(")");
     }
     
     if (kind == Kind::Function) {
@@ -203,12 +203,12 @@ std::string TypeInfo::str() const {
         }
         str.append("(");
         for (auto it = functionTypeInfo->parameterTypes.begin(); it != functionTypeInfo->parameterTypes.end(); it++) {
-            str.append((*it)->str());
+            str.append((*it)->Str());
             if (it + 1 != functionTypeInfo->parameterTypes.end()) {
                 str.append(", ");
             }
         }
-        str.append("): ").append(functionTypeInfo->returnType->str());
+        str.append("): ").append(functionTypeInfo->returnType->Str());
         return str;
     }
     
