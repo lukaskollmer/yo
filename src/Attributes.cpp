@@ -137,6 +137,12 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
         builtin_attributes::function::mangle::_yo_attr_key,
         builtin_attributes::function::no_mangle::_yo_attr_key
     });
+    
+    ensure_mutual_exclusivity(handledAttributes, {
+        builtin_attributes::function::extern_::_yo_attr_key,
+        builtin_attributes::function::mangle::_yo_attr_key,
+        builtin_attributes::function::no_mangle::_yo_attr_key
+    });
 }
 
 
