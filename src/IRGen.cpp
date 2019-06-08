@@ -940,7 +940,6 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MatchExpr> MatchExpr) {
                 break;
             } else {
                 // Not a wildcard
-                
                 F->getBasicBlockList().push_back(NextCondBB);
                 Builder.SetInsertPoint(NextCondBB);
                 NextCondBB = llvm::BasicBlock::Create(C);
@@ -948,11 +947,9 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MatchExpr> MatchExpr) {
                 auto Cond = Codegen_HandleMatchPatternExpr({MatchedExprType, MatchExpr->Target, MatchTargetValue, PatternExpr});
                 // If we reach here and the pattern didn't match and the next pattern is a wildcard, go directly to the value branch
                 Builder.CreateCondBr(Cond, ValueBB,
-                                     IsLastBranchBeforeWildcard ? NextValueBB : NextCondBB);
+                                     IsLastBranchBeforeWildcard && It + 1 == Branch->Patterns.end() ? NextValueBB : NextCondBB);
             }
         }
-        
-        
         
         TypeInfo *_InitialTy = nullptr;
         if (!TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&Branch->Expression, ResultType, &_InitialTy)) {
