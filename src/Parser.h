@@ -71,6 +71,10 @@ private:
     }
     void Consume(uint64_t Count = 1) { Position += Count; }
     
+    TokenSourceLocation &GetCurrentSourceLocation() {
+        return CurrentToken().SourceLocation;
+    }
+    
     
     
     std::shared_ptr<ast::TopLevelStmt> ParseTopLevelStmt();

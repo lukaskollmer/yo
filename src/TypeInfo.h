@@ -21,6 +21,22 @@ namespace llvm {
 
 NS_START(yo)
 
+
+// By default all functions have the yo calling convention
+// For most cases, a function's calling convention shouldn't matter at all.
+// However, in some situations, a function's calling convention does affect the IR being generated:
+// - Variadic arguments
+//   - C:  variadic arguments cannot have an explicitly specified type. They're simply "appended" to the other, fixed arguments
+//   - Yo: TODO
+enum class FunctionCallingConvention : uint8_t {
+    C,
+    Yo
+};
+
+
+
+
+
 class TypeInfo {
 public:
     enum class Kind {

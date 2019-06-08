@@ -13,6 +13,7 @@
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/DIBuilder.h"
 
 #include "AST.h"
 #include "Scope.h"
@@ -84,10 +85,21 @@ struct FunctionState {
     : Decl(Decl), LLVMFunction(LLVMFunction), ReturnBB(ReturnBB), RetvalAlloca(RetvalAlloca) {}
 };
 
+
+
+
+
 class IRGenerator {
     std::unique_ptr<llvm::Module> Module;
     llvm::Module *M;
     llvm::IRBuilder<> Builder;
+    
+    
+    // Debug Metadata
+    llvm::DIBuilder DIBuilder;
+    llvm::DICompileUnit *DICompileUnit;
+    std::vector<llvm::DIScope *> DILexicalBlocks;
+    
     
     irgen::Scope Scope;
     irgen::TypeCache TypeCache;
@@ -136,6 +148,9 @@ private:
     void RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock);
     
     void VerifyDeclarations();
+    
+    // Debug Metadata
+    void EmitDebugLocation(const std::shared_ptr<ast::Node> &Node);
     
     
     // lvalue/rvalue
@@ -197,6 +212,10 @@ private:
     
     // Types
     llvm::Type *GetLLVMType(TypeInfo *TI);
+    llvm::DIType *GetDIType(TypeInfo *TI);
+    
+    
+    llvm::DISubroutineType *_ToDISubroutineType(ast::FunctionSignature *);
     
     // Applying trivial number literal casts
     

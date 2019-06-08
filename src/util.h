@@ -253,9 +253,12 @@ namespace string {
     
     std::string& append_with_indentation(std::string &Target, std::string &&Other, unsigned Indent);
     
-    std::string lastPathCompotent(std::string &Path);
-    std::string excludingLastPathComponent(std::string &Path);
+    
+    // TODO move this into a path_utils namespace or something like that?
+    std::string lastPathCompotent(const std::string &Path);
+    std::string excludingLastPathComponent(const std::string &Path);
     std::string excludingFileExtension(const std::string &Path);
+    std::pair<std::string, std::string> extractPathAndFilename(const std::string &Path);
 }
 
 NS_END

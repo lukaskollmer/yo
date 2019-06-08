@@ -23,15 +23,18 @@ class Token;
 using TokenList = std::vector<std::shared_ptr<Token>>;
 
 struct TokenSourceLocation {
-    std::string Filename;
+    std::string Filepath;
     uint64_t Line;
     uint64_t Column;
     uint64_t Length;
     
     TokenSourceLocation() {}
-    
-    TokenSourceLocation(std::string Filename, uint64_t Line, uint64_t Column, uint64_t Length) : Filename(Filename), Line(Line), Column(Column), Length(Length) {}
+    TokenSourceLocation(const std::string &Filepath, uint64_t Line, uint64_t Column, uint64_t Length) : Filepath(Filepath), Line(Line), Column(Column), Length(Length) {}
 };
+
+inline std::ostream& operator<<(std::ostream &OS, const TokenSourceLocation &SL) {
+    return OS << SL.Filepath << ":" << SL.Line << ":" << SL.Column << ":" << SL.Length;
+}
 
 
 class Token {

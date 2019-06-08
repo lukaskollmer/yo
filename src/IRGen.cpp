@@ -35,10 +35,12 @@ throw; }
 
 llvm::LLVMContext IRGenerator::C;
 
-IRGenerator::IRGenerator(const std::string ModuleName) : Builder(C) {
-    Module = llvm::make_unique<llvm::Module>(ModuleName, C);
-    M = Module.get();
-    
+IRGenerator::IRGenerator(const std::string ModuleName)
+    : Module(llvm::make_unique<llvm::Module>(ModuleName, C)),
+    M(Module.get()),
+    Builder(C),
+    DIBuilder(*Module)
+{
     i8  = llvm::Type::getInt8Ty(C);
     i16 = llvm::Type::getInt16Ty(C);
     i32 = llvm::Type::getInt32Ty(C);
@@ -48,6 +50,25 @@ IRGenerator::IRGenerator(const std::string ModuleName) : Builder(C) {
     Void = llvm::Type::getVoidTy(C);
     i1 = Bool = llvm::Type::getInt1Ty(C);
     Double = llvm::Type::getDoubleTy(C);
+    
+    DICompileUnit = DIBuilder.createCompileUnit(llvm::dwarf::DW_LANG_C,
+                                                DIBuilder.createFile("main.yo", "."),
+                                                "yo", false, "", 0);
+    
+    Module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
+}
+
+
+
+void IRGenerator::EmitDebugLocation(const std::shared_ptr<ast::Node> &Node) {
+    if (!Node) {
+        Builder.SetCurrentDebugLocation(llvm::DebugLoc());
+        return;
+    }
+    
+    llvm::DIScope *Scope = DILexicalBlocks.empty() ? DICompileUnit : DILexicalBlocks.back();
+    auto &SL = Node->getSourceLocation();
+    Builder.SetCurrentDebugLocation(llvm::DebugLoc::get(SL.Line, SL.Column, Scope));
 }
 
 
@@ -61,6 +82,8 @@ void IRGenerator::Codegen(ast::AST &Ast) {
     for (auto &Node : Ast) {
         Codegen(Node);
     }
+    
+    DIBuilder.finalize();
 }
 
 
@@ -166,11 +189,6 @@ void IRGenerator::RegisterFunction(std::shared_ptr<ast::FunctionDecl> Function) 
     
     auto FT = llvm::FunctionType::get(GetLLVMType(Signature->ReturnType), ParameterTypes, Function->Signature->attributes->variadic);
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, resolvedName, M);
-    
-    unsigned Idx = 0;
-    for (auto &Arg : F->args()) {
-        Arg.setName(Signature->Parameters[Idx++]->Name->Value);
-    }
     
     ResolvedFunctions[resolvedName] = Function->Signature;
     Functions[canonicalName].push_back(ResolvedFunction(Function, F));
@@ -315,44 +333,101 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Expr> Expr, CodegenReturn
 #undef IGNORE
 
 
+llvm::DIFile *_DIFileForNode(llvm::DIBuilder &DIBuilder, const std::shared_ptr<ast::Node> &Node) {
+    auto &SL = Node->getSourceLocation();
+    auto [Directory, Filename] = util::string::extractPathAndFilename(SL.Filepath);
+    return DIBuilder.createFile(Filename, Directory);
+}
+
+
+
+llvm::DISubroutineType *IRGenerator::_ToDISubroutineType(ast::FunctionSignature *Signature) {
+    // Looking at [godbolt](https://godbolt.org/z/EKfzqi ), it seems like the first element should be the function's return type?
+    
+    std::vector<llvm::Metadata *> Types;
+    
+    Types.push_back(GetDIType(Signature->ReturnType));
+    for (auto &Param : Signature->Parameters) {
+        Types.push_back(GetDIType(Param->Type));
+    }
+    
+    return DIBuilder.createSubroutineType(DIBuilder.getOrCreateTypeArray(Types));
+}
 
 
 #pragma mark - Top Level Statements
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDecl) {
-    if (FunctionDecl->Signature->attributes->extern_) {
+    auto &Sig = FunctionDecl->Signature;
+    
+    if (Sig->attributes->extern_) {
         return nullptr;
     }
     
-    if (FunctionDecl->Signature->IsTemplateFunction && !FunctionDecl->Signature->IsFullSpecialization()) {
+    if (Sig->IsTemplateFunction && !Sig->IsFullSpecialization()) {
         return nullptr;
     }
     
     precondition(Scope.isEmpty());
-    auto ResolvedName = MangleFullyResolved(FunctionDecl->Signature);
+    auto ResolvedName = MangleFullyResolved(Sig);
     
     auto F = M->getFunction(ResolvedName);
     if (!F) {
         LKFatalError("Unable to find function '%s'", ResolvedName.c_str());
     }
     
-    for (auto I = 0; I < FunctionDecl->Signature->Parameters.size(); I++) {
-        auto &Arg = F->arg_begin()[I];
-        auto Binding = ValueBinding(&Arg, [&Arg]() {
-            return &Arg;
-        }, [=, &Arg](llvm::Value *V) {
-            LKFatalError("Function arguments are read-only (%s in %s)", Arg.getName().str().c_str(), ResolvedName.c_str());
-        });
-        auto Param = FunctionDecl->Signature->Parameters[I];
-        Scope.Insert(Param->Name->Value, Param->Type, Binding);
-    }
+    
+    auto Unit = _DIFileForNode(DIBuilder, FunctionDecl);
+    auto SP = DIBuilder.createFunction(Unit, Sig->Name, ResolvedName, Unit,
+                                       FunctionDecl->getSourceLocation().Line,
+                                       _ToDISubroutineType(Sig.get()),
+                                       FunctionDecl->getSourceLocation().Line,
+                                       llvm::DINode::FlagZero,
+                                       llvm::DISubprogram::DISPFlags::SPFlagDefinition);
     
     auto EntryBB = llvm::BasicBlock::Create(C, "entry", F);
     auto ReturnBB = llvm::BasicBlock::Create(C, "return");
     Builder.SetInsertPoint(EntryBB);
     
+    EmitDebugLocation(nullptr);
+    
+    F->setSubprogram(SP);
+    DIBuilder.finalizeSubprogram(SP);
+    DILexicalBlocks.push_back(SP);
+    
+    
+    std::vector<llvm::AllocaInst *> ParamAllocas;
+    
+    for (auto &Param : Sig->Parameters) {
+        auto Alloca = Builder.CreateAlloca(GetLLVMType(Param->Type));
+        auto &Name = Param->Name->Value;
+        Alloca->setName(Name);
+        Scope.Insert(Name, Param->Type, ValueBinding(Alloca, [=]() {
+            return Builder.CreateLoad(Alloca);
+        }, [=](llvm::Value *V) {
+            LKFatalError("Function arguments are read-only (%s in %s)", Name.c_str(), ResolvedName.c_str());
+        }));
+        ParamAllocas.push_back(Alloca);
+    }
+    
+    for (auto I = 0; I < Sig->Parameters.size(); I++) {
+        auto Alloca = ParamAllocas.at(I);
+        Builder.CreateStore(&F->arg_begin()[I], Alloca);
+        
+        auto &Param = Sig->Parameters.at(I);
+        auto VarInfo = DIBuilder.createParameterVariable(SP, Alloca->getName(), I + 1, Unit,
+                                                         Param->getSourceLocation().Line,
+                                                         GetDIType(Param->Type));
+        DIBuilder.insertDeclare(Alloca, VarInfo, DIBuilder.createExpression(),
+                                llvm::DILocation::get(C, Param->getSourceLocation().Line, Param->getSourceLocation().Column, SP),
+                                EntryBB);
+    }
+    
+    
+    
+    
     llvm::Value *RetvalAlloca = nullptr;
-    auto ReturnType = FunctionDecl->Signature->ReturnType;
+    auto ReturnType = Sig->ReturnType;
     
     if (!ReturnType->IsVoidType()) {
         RetvalAlloca = Builder.CreateAlloca(F->getFunctionType()->getReturnType());
@@ -363,6 +438,17 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
             Builder.CreateStore(V, RetvalAlloca);
         });
         Scope.Insert(kRetvalAllocaIdentifier, ReturnType, RetvalBinding);
+        
+        
+        // Create Debug Metadata
+        auto D = DIBuilder.createAutoVariable(SP, kRetvalAllocaIdentifier,
+                                              Unit,
+                                              FunctionDecl->getSourceLocation().Line,
+                                              GetDIType(ReturnType));
+        DIBuilder.insertDeclare(RetvalAlloca, D,
+                                DIBuilder.createExpression(),
+                                llvm::DebugLoc::get(FunctionDecl->getSourceLocation().Line, 0, SP),
+                                EntryBB);
     }
     
     CurrentFunction = FunctionState(FunctionDecl, F, ReturnBB, RetvalAlloca);
@@ -378,7 +464,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
         Builder.CreateRet(Builder.CreateLoad(RetvalAlloca));
     }
     
-    precondition(Scope.size() == FunctionDecl->Signature->Parameters.size() + static_cast<uint8_t>(!ReturnType->IsVoidType()));
+    precondition(Scope.size() == Sig->Parameters.size() + static_cast<uint8_t>(!ReturnType->IsVoidType()));
     
     for (auto &Entry : Scope.GetEntriesSinceMarker(0)) {
         //std::cout << std::get<0>(Entry) << std::endl;
@@ -387,6 +473,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
     }
     
     CurrentFunction = FunctionState();
+    DILexicalBlocks.pop_back(); // TODO maybe add a check that the lexical blocks weren't somehow modified?
     return F;
 }
 
@@ -431,6 +518,17 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::VariableDecl> Decl) {
     auto Alloca = Builder.CreateAlloca(GetLLVMType(Type));
     Alloca->setName(Decl->Name->Value);
     
+    // Create Debug Metadata
+    auto D = DIBuilder.createAutoVariable(CurrentFunction.LLVMFunction->getSubprogram(),
+                                          Decl->Name->Value,
+                                          DILexicalBlocks.back()->getFile(),
+                                          Decl->getSourceLocation().Line,
+                                          GetDIType(Type));
+    DIBuilder.insertDeclare(Alloca, D,
+                            DIBuilder.createExpression(),
+                            llvm::DebugLoc::get(Decl->getSourceLocation().Line, 0, CurrentFunction.LLVMFunction->getSubprogram()),
+                            Builder.GetInsertBlock());
+    
     auto Binding = ValueBinding(Alloca, [=] () {
         return Builder.CreateLoad(Alloca);
     }, [=] (llvm::Value *V) {
@@ -456,6 +554,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::VariableDecl> Decl) {
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> composite) {
+    EmitDebugLocation(composite);
+    
     auto marker = Scope.GetMarker();
     bool didReturn = false;
     
@@ -478,6 +578,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Composite> composite) {
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ReturnStmt> ReturnStmt) {
+    EmitDebugLocation(ReturnStmt);
+    
     auto FName = Builder.GetInsertBlock()->getParent()->getName().str();
     auto F = ResolvedFunctions[FName];
     
@@ -544,6 +646,7 @@ bool IRGenerator::TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Assignment> assignment) {
+    EmitDebugLocation(assignment);
     // TODO should assignments return something?
     // TODO rewrite this so that it doesn't rely on GuessType for function calls!
     
@@ -577,11 +680,14 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::RawLLVMValueExpr> RawExpr
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ExprStmt> exprStmt) {
+    EmitDebugLocation(exprStmt->expr);
     return Codegen(exprStmt->expr);
 }
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> NumberLiteral) {
+    EmitDebugLocation(NumberLiteral);
+    
     using NT = ast::NumberLiteral::NumberType;
     
     switch (NumberLiteral->Type) {
@@ -606,6 +712,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::NumberLiteral> NumberLite
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StringLiteral> stringLiteral) {
     using SLK = ast::StringLiteral::StringLiteralKind;
     
+    EmitDebugLocation(stringLiteral);
+
     switch (stringLiteral->Kind) {
         case SLK::ByteString:
             return Builder.CreateGlobalStringPtr(stringLiteral->Value);
@@ -623,6 +731,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::StringLiteral> stringLite
 
 // If TakeAddress is true, this returns a pointer to the identifier, instead of the value stored
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Identifier> Ident, CodegenReturnValueKind ReturnValueKind) {
+    EmitDebugLocation(Ident);
+    
     if (auto Binding = Scope.GetBinding(Ident->Value)) {
         switch (ReturnValueKind) {
             case CodegenReturnValueKind::Value:
@@ -638,6 +748,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Identifier> Ident, Codege
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Typecast> Cast) {
+    EmitDebugLocation(Cast);
+    
     auto SrcTy = GuessType(Cast->Expression);
     auto DestTy = Cast->DestType;
     
@@ -690,6 +802,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Typecast> Cast) {
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberExpr> memberExpr, CodegenReturnValueKind returnValueKind) {
+    EmitDebugLocation(memberExpr);
+    
     auto targetTy = GuessType(memberExpr->target);
     precondition(targetTy->IsPointer() && targetTy->getPointee()->IsComplex());
     
@@ -715,6 +829,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MemberExpr> memberExpr, C
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::SubscriptExpr> subscript, CodegenReturnValueKind returnValueKind) {
+    EmitDebugLocation(subscript);
+    
     auto target = Codegen(subscript->target, CodegenReturnValueKind::Value);
     precondition(target->getType()->isPointerTy());
     auto offset = Codegen(subscript->offset, CodegenReturnValueKind::Value);
@@ -754,6 +870,8 @@ bool _IsValidMatchPatternForMatchedExprType(std::shared_ptr<ast::Expr> patternEx
 
 
 llvm::Value *IRGenerator::Codegen_HandleMatchPatternExpr(MatchExprPatternCodegenInfo Info) {
+    EmitDebugLocation(Info.PatternExpr);
+    
     auto TT = Info.TargetType;
     auto PE = Info.PatternExpr;
     auto PT = GuessType(PE);
@@ -787,6 +905,8 @@ bool _LastBranchIsWildcard(const std::shared_ptr<ast::MatchExpr> &MatchExpr) {
 
 // TODO should this go in the control flow section?
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MatchExpr> MatchExpr) {
+    EmitDebugLocation(MatchExpr);
+    
     // TODO require that match patterns cannot contain side effects? (this should go in _IsValidMatchPatternForMatchedExprType!)
     auto F = CurrentFunction.LLVMFunction;
     auto MatchedExprType = GuessType(MatchExpr->Target);
@@ -938,6 +1058,8 @@ bool IRGenerator::TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::BinaryOperation> Binop) {
+    EmitDebugLocation(Binop);
+    
     auto Lhs = Binop->LHS;
     auto Rhs = Binop->RHS;
     TypeInfo *LhsTy, *RhsTy;
@@ -1228,6 +1350,8 @@ bool CallerCalleeSideEffectsCompatible(const std::vector<yo::attributes::SideEff
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::CallExpr> call) {
+    EmitDebugLocation(call);
+    
     auto resolvedTarget = ResolveCall(call, false);
     
     // TODO:
@@ -1334,6 +1458,8 @@ llvm::Value *IRGenerator::Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionS
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::UnaryExpr> UnaryExpr) {
+    EmitDebugLocation(UnaryExpr);
+    
     auto Expr = UnaryExpr->Expr;
     
     switch (UnaryExpr->Op) {
@@ -1359,6 +1485,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::UnaryExpr> UnaryExpr) {
 #pragma mark - Control Flow
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
+    EmitDebugLocation(If);
+    
     using BK = ast::IfStmt::Branch::BranchKind;
     
     auto F = Builder.GetInsertBlock()->getParent();
@@ -1420,6 +1548,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::WhileStmt> WhileStmt) {
+    EmitDebugLocation(WhileStmt);
+    
     // TODO what if there;s a return statement in the body!
     auto F = Builder.GetInsertBlock()->getParent();
     
@@ -1454,6 +1584,8 @@ void vec_append(std::vector<T> &dest, const std::vector<T> &src) {
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::ForLoop> forLoop) {
+    EmitDebugLocation(forLoop);
+    
     // TODO this is disgusting
     
     auto T = GuessType(forLoop->expr);
@@ -1515,6 +1647,8 @@ llvm::CmpInst::Predicate GetMatchingLLVMCmpInstPredicateForComparisonOperator_In
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Comparison> Comparison) {
+    EmitDebugLocation(Comparison);
+    
     auto LhsTy = GuessType(Comparison->LHS);
     auto RhsTy = GuessType(Comparison->RHS);
     
@@ -1560,6 +1694,9 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::Comparison> Comparison) {
 
 
 llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LogicalOperation> LogOp) {
+    EmitDebugLocation(LogOp);
+    
+    
     // TODO rewrite
     auto LHS = Codegen(LogOp->LHS);
     auto RHS = Codegen(LogOp->RHS);
@@ -1648,6 +1785,26 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
     throw;
 }
 
+
+
+
+llvm::DIType *IRGenerator::GetDIType(TypeInfo *TI) {
+    auto byteWidth = Module->getDataLayout().getTypeSizeInBits(i8);
+    auto pointerWidth = Module->getDataLayout().getPointerSizeInBits();
+    
+    if (TI->IsIntegerType()) {
+        return DIBuilder.createBasicType(TI->getName(), TI->getSize() * byteWidth,
+                                         TI->IsSigned() ? llvm::dwarf::DW_ATE_signed : llvm::dwarf::DW_ATE_unsigned);
+    }
+    
+    if (TI->IsPointer()) {
+        return DIBuilder.createPointerType(GetDIType(TI->getPointee()), pointerWidth);
+    }
+    
+    
+    LKFatalError("TODO: Create DIType for '%s'", TI->Str().c_str());
+    throw;
+}
 
 
 // TODO what does this do / why is it here / is it still needed?

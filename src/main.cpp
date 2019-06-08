@@ -47,6 +47,10 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     std::string Error;
     auto TargetTriple = llvm::sys::getDefaultTargetTriple();
     
+    if (llvm::Triple(TargetTriple).isOSDarwin()) {
+        Module->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
+    }
+    
     auto Target = llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
     
     // Print an error and exit if we couldn't find the requested target.

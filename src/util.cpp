@@ -158,7 +158,7 @@ std::string& util::string::append_with_indentation(std::string &Target, std::str
 }
 
 
-std::string util::string::lastPathCompotent(std::string &Path) {
+std::string util::string::lastPathCompotent(const std::string &Path) {
     auto Pos = Path.rfind('/');
     if (Pos == std::string::npos) {
         return Path;
@@ -166,7 +166,7 @@ std::string util::string::lastPathCompotent(std::string &Path) {
     return Path.substr(Pos + 1);
 }
 
-std::string util::string::excludingLastPathComponent(std::string &Path) {
+std::string util::string::excludingLastPathComponent(const std::string &Path) {
     auto Pos = Path.rfind('/');
     if (Pos == std::string::npos) {
         return Path;
@@ -183,6 +183,16 @@ std::string util::string::excludingFileExtension(const std::string &Path) {
 }
 
 
+std::pair<std::string, std::string> util::string::extractPathAndFilename(const std::string &Path) {
+    auto Pos = Path.rfind('/');
+    if (Pos == std::string::npos) {
+        return { "", Path };
+    }
+    return {
+        Path.substr(0, Pos),
+        Path.substr(Pos+1)
+    };
+}
 
 
 

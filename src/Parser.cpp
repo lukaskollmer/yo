@@ -30,21 +30,21 @@ using TK = Token::TokenKind;
 #define assert_current_token(Expected) \
 do { if (auto T = CurrentToken(); T.Kind != Expected) { \
     auto &S = T.SourceLocation; \
-    std::cout << "[token assert] Expected: " << Expected << ", got: " << T.Kind << ". (file: " << S.Filename << ":" << S.Line << ":" << S.Column << ")\n";  \
+    std::cout << "[token assert] Expected: " << Expected << ", got: " << T.Kind << ". (file: " << S.Filepath << ":" << S.Line << ":" << S.Column << ")\n";  \
     throw; \
 } } while (0)
 
 #define assert_current_token_and_consume(Expected) \
 do { if (auto T = CurrentToken(); T.Kind != Expected) { \
     auto &S = T.SourceLocation; \
-    std::cout << "[token assert] Expected: " << Expected << ", got: " << T.Kind << ". (file: " << S.Filename << ":" << S.Line << ":" << S.Column << ")\n";  \
+    std::cout << "[token assert] Expected: " << Expected << ", got: " << T.Kind << ". (file: " << S.Filepath << ":" << S.Line << ":" << S.Column << ")\n";  \
     throw; \
 } else { Consume(); } } while (0)
 
 #define unhandled_token(T)                                                                                                      \
 {                                                                                                                               \
     auto &SL = T.SourceLocation;                                                                                                \
-    std::cout << "Unhandled Token: " << T << " at " << SL.Filename << ":" << SL.Line << ":" << SL.Column << std::endl; throw;   \
+    std::cout << "Unhandled Token: " << T << " at " << SL.Filepath << ":" << SL.Line << ":" << SL.Column << std::endl; throw;   \
 }
 
 
@@ -167,7 +167,7 @@ std::string Parser::ResolveImportPathRelativeToBaseDirectory(const std::string &
 
 
 void Parser::ResolveImport() {
-    auto BaseDirectory = util::string::excludingLastPathComponent(CurrentToken().SourceLocation.Filename);
+    auto BaseDirectory = util::string::excludingLastPathComponent(CurrentToken().SourceLocation.Filepath);
     assert_current_token_and_consume(TK::Use);
     
     auto ModuleName = ParseStringLiteral()->Value;
@@ -197,6 +197,7 @@ void Parser::ResolveImport() {
 std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
     std::shared_ptr<TopLevelStmt> Stmt;
     auto attributeList = ParseAttributes();
+    auto StartLocation = CurrentToken().SourceLocation;
     
     switch (CurrentToken().Kind) {
         case TK::Fn: {
@@ -218,6 +219,9 @@ std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
             break;
         default: unhandled_token(CurrentToken());
     }
+    
+    Stmt->setSourceLocation(StartLocation);
+    
     return Stmt;
 }
 
@@ -267,6 +271,7 @@ std::shared_ptr<ImplBlock> Parser::ParseImplBlock() {
 
 
 std::vector<yo::attributes::Attribute> Parser::ParseAttributes() {
+    // TODO save attribute source locations!
     if (CurrentTokenKind() != TK::Hashtag) return {};
     Consume();
     assert_current_token_and_consume(TK::OpeningSquareBrackets);
@@ -336,9 +341,12 @@ std::vector<yo::attributes::Attribute> Parser::ParseAttributes() {
 
 
 std::shared_ptr<FunctionSignature> Parser::ParseFunctionSignature(std::shared_ptr<attributes::FunctionAttributes> attributes) {
+    auto SourceLoc = GetCurrentSourceLocation();
+    
     assert_current_token_and_consume(TK::Fn);
     
     auto S = std::make_shared<ast::FunctionSignature>();
+    S->setSourceLocation(SourceLoc);
     S->Name = ParseIdentifier()->Value;
     S->attributes = attributes;
     S->Kind = ast::FunctionSignature::FunctionKind::GlobalFunction; // (for functions in impl blocks, this will be changed to the proper value during irgen preflight)
@@ -399,7 +407,9 @@ std::vector<std::shared_ptr<ast::VariableDecl>> Parser::ParseStructPropertyDeclL
         assert_current_token_and_consume(TK::Colon);
         auto type = ParseType();
         
-        decls.push_back(std::make_shared<ast::VariableDecl>(ident, type));
+        auto Decl = std::make_shared<ast::VariableDecl>(ident, type);
+        Decl->setSourceLocation(ident->getSourceLocation());
+        decls.push_back(Decl);
         
         if (CurrentTokenKind() == TK::Comma) {
             Consume();
@@ -444,7 +454,9 @@ void Parser::ParseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> 
         precondition(type);
         
         index += 1;
-        signature->Parameters.push_back(std::make_shared<ast::VariableDecl>(ident, type));
+        auto Decl = std::make_shared<ast::VariableDecl>(ident, type);
+        Decl->setSourceLocation(ident->getSourceLocation());
+        signature->Parameters.push_back(Decl);
         
         if (CurrentTokenKind() == TK::Comma) {
             Consume();
@@ -455,6 +467,7 @@ void Parser::ParseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> 
 
 
 TypeInfo *Parser::ParseType() {
+    // TODO add source location to type statements?
     if (CurrentTokenKind() == TK::Fn) {
         Consume();
         TypeInfo::FunctionTypeInfo::CallingConvention cc;
@@ -505,12 +518,15 @@ TypeInfo *Parser::ParseType() {
 
 
 std::shared_ptr<ast::TypealiasDecl> Parser::ParseTypealias() {
+    auto SourceLoc = GetCurrentSourceLocation();
     assert_current_token_and_consume(TK::Using);
     auto Name = ParseIdentifier()->Value;
     assert_current_token_and_consume(TK::EqualsSign);
     auto Type = ParseType();
     assert_current_token_and_consume(TK::Semicolon);
-    return std::make_shared<TypealiasDecl>(Name, Type);
+    auto Decl = std::make_shared<ast::TypealiasDecl>(Name, Type);
+    Decl->setSourceLocation(SourceLoc);
+    return Decl;
 }
 
 
@@ -520,9 +536,11 @@ std::shared_ptr<ast::TypealiasDecl> Parser::ParseTypealias() {
 
 
 std::shared_ptr<Composite> Parser::ParseComposite() {
+    auto SourceLoc = GetCurrentSourceLocation();
     assert_current_token_and_consume(TK::OpeningCurlyBraces);
     
     auto C = std::make_shared<Composite>();
+    C->setSourceLocation(SourceLoc);
     while (CurrentTokenKind() != TK::ClosingCurlyBraces) {
         C->Statements.push_back(ParseLocalStmt());
     }
@@ -557,18 +575,21 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
         return ParseForLoop();
     }
     
+    auto SourceLoc = GetCurrentSourceLocation();
+    
     std::shared_ptr<LocalStmt> S;
     std::shared_ptr<Expr> E; // A partially-parsed part of a local statement
     
-    //E = ParseMemberAccess();
     E = ParseExpression();
+    E->setSourceLocation(SourceLoc);
     
     if (CurrentTokenKind() == TK::EqualsSign) { // Assignment
         Consume();
         auto Value = ParseExpression();
         assert_current_token_and_consume(TK::Semicolon);
-        
-        return std::make_shared<Assignment>(E, Value);
+        auto Assignment = std::make_shared<ast::Assignment>(E, Value);
+        Assignment->setSourceLocation(SourceLoc);
+        return Assignment;
     }
     
     if (BinaryOperatorStartTokens.Contains(CurrentTokenKind())) {
@@ -578,6 +599,7 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
             auto Value = std::make_shared<BinaryOperation>(*Op, E, ParseExpression());
             S = std::make_shared<Assignment>(E, Value);
             assert_current_token_and_consume(TK::Semicolon);
+            S->setSourceLocation(SourceLoc);
             return S;
         }
     }
@@ -585,7 +607,9 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
     if (CurrentTokenKind() == TK::Semicolon) {
         Consume();
         if (E) {
-            return std::make_shared<ast::ExprStmt>(E);
+            auto ExprStmt = std::make_shared<ast::ExprStmt>(E);
+            ExprStmt->setSourceLocation(SourceLoc);
+            return ExprStmt;
         }
     }
     
@@ -595,6 +619,7 @@ std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
 
 
 std::shared_ptr<ReturnStmt> Parser::ParseReturnStmt() {
+    auto SourceLoc = GetCurrentSourceLocation();
     assert_current_token_and_consume(TK::Return);
     
     if (CurrentTokenKind() == TK::Semicolon) {
@@ -604,12 +629,15 @@ std::shared_ptr<ReturnStmt> Parser::ParseReturnStmt() {
     
     auto Expr = ParseExpression();
     assert_current_token_and_consume(TK::Semicolon);
-    return std::make_shared<ReturnStmt>(Expr);
+    auto RetStmt = std::make_shared<ReturnStmt>(Expr);
+    RetStmt->setSourceLocation(SourceLoc);
+    return RetStmt;
 }
 
 
 
 std::shared_ptr<VariableDecl> Parser::ParseVariableDecl() {
+    auto SourceLoc = GetCurrentSourceLocation();
     assert_current_token_and_consume(TK::Let);
     
     auto Identifier = ParseIdentifier();
@@ -628,13 +656,16 @@ std::shared_ptr<VariableDecl> Parser::ParseVariableDecl() {
     
     assert_current_token_and_consume(TK::Semicolon);
     
-    return std::make_shared<VariableDecl>(Identifier, Type, InitialValue);
+    auto Decl = std::make_shared<VariableDecl>(Identifier, Type, InitialValue);
+    Decl->setSourceLocation(SourceLoc);
+    return Decl;
 }
 
 
 
 std::shared_ptr<IfStmt> Parser::ParseIfStmt() {
     using Kind = ast::IfStmt::Branch::BranchKind;
+    auto SourceLoc = GetCurrentSourceLocation();
     assert_current_token_and_consume(TK::If);
     
     std::vector<std::shared_ptr<IfStmt::Branch>> Branches;
@@ -659,31 +690,39 @@ std::shared_ptr<IfStmt> Parser::ParseIfStmt() {
         Branches.push_back(std::make_shared<IfStmt::Branch>(Kind::Else, nullptr, ParseComposite()));
     }
     
-    return std::make_shared<IfStmt>(Branches);
+    auto If = std::make_shared<ast::IfStmt>(Branches);
+    If->setSourceLocation(SourceLoc);
+    return If;
 }
 
 
 
 
 std::shared_ptr<ast::WhileStmt> Parser::ParseWhileStmt() {
+    auto SourceLoc = GetCurrentSourceLocation();
     assert_current_token_and_consume(TK::While);
     
     auto Condition = ParseExpression();
     assert_current_token(TK::OpeningCurlyBraces);
     
-    return std::make_shared<ast::WhileStmt>(Condition, ParseComposite());
+    auto Stmt = std::make_shared<ast::WhileStmt>(Condition, ParseComposite());
+    Stmt->setSourceLocation(SourceLoc);
+    return Stmt;
 }
 
 
 
 std::shared_ptr<ForLoop> Parser::ParseForLoop() {
+    auto SourceLoc = GetCurrentSourceLocation();
     assert_current_token_and_consume(TK::For);
     auto Ident = ParseIdentifier();
     assert_current_token_and_consume(TK::In);
     auto Expr = ParseExpression();
     assert_current_token(TK::OpeningCurlyBraces);
     auto Body = ParseComposite();
-    return std::make_shared<ForLoop>(Ident, Expr, Body);
+    auto Stmt = std::make_shared<ForLoop>(Ident, Expr, Body);
+    Stmt->setSourceLocation(SourceLoc);
+    return Stmt;
 }
 
 
@@ -713,10 +752,11 @@ std::vector<std::shared_ptr<Expr>> Parser::ParseExpressionList(Token::TokenKind 
 
 std::shared_ptr<Identifier> Parser::ParseIdentifier() {
     if (CurrentTokenKind() != TK::Identifier) return nullptr;
-    auto value = std::get<std::string>(CurrentToken().Data);
-    auto retval = std::make_shared<Identifier>(value);
+    auto Value = std::get<std::string>(CurrentToken().Data);
+    auto Ident = std::make_shared<Identifier>(Value);
+    Ident->setSourceLocation(GetCurrentSourceLocation());
     Consume();
-    return retval;
+    return Ident;
 }
 
         
@@ -839,6 +879,8 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
         return nullptr;
     }
     
+    auto SourceLoc = GetCurrentSourceLocation();
+    
     std::shared_ptr<Expr> E;
     
     if (CurrentTokenKind() == TK::OpeningParens) {
@@ -846,7 +888,9 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
         E = ParseExpression();
         assert_current_token_and_consume(TK::ClosingParens);
     
-    } if (CurrentTokenKind() == TK::Match) {
+    }
+    
+    if (!E && CurrentTokenKind() == TK::Match) {
         E = ParseMatchExpr();
     }
     
@@ -876,6 +920,8 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
             E = std::make_shared<ast::StaticDeclRefExpr>(typeName, memberName);
         }
     }
+    
+    E->setSourceLocation(SourceLoc);
     
     
     ast::Expr *_last_entry_expr_ptr = nullptr;

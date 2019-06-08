@@ -41,20 +41,27 @@ class StructDecl;
 
 class Node {
 public:
-    std::shared_ptr<parser::TokenSourceLocation> startLocation, endLocation;
-    
     virtual std::string Description();
+    const parser::TokenSourceLocation &getSourceLocation() const {
+        return SourceLocation;
+    }
+    
+    void setSourceLocation(const parser::TokenSourceLocation &SourceLoc) {
+        this->SourceLocation = SourceLoc;
+    }
     
 protected:
     virtual ~Node() = default;
+    
+    parser::TokenSourceLocation SourceLocation;
 };
 
 
-class TopLevelStmt : virtual public Node {};
+class TopLevelStmt : public Node {};
 
-class LocalStmt : virtual public Node {};
+class LocalStmt : public Node {};
 
-class Expr : virtual public Node {
+class Expr : public Node {
 public:
     virtual bool isLiteral() const;
 };
@@ -97,6 +104,7 @@ public:
     explicit FunctionSignature() {
         attributes = std::make_shared<attributes::FunctionAttributes>();
     }
+    
 };
 
 std::ostream& operator<<(std::ostream&, const std::shared_ptr<ast::FunctionSignature>&);

@@ -21,6 +21,7 @@ using namespace yo;
 using namespace irgen;
 
 
+
 std::shared_ptr<ast::FunctionDecl> TemplateResolver::SpecializeWithTemplateMapping(std::shared_ptr<ast::FunctionDecl> Decl, TemplateTypeMapping TemplateArgumentsMapping) {
     return TemplateResolver(TemplateArgumentsMapping).Specialize(Decl);
 }
@@ -50,13 +51,18 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::Specialize(std::shared_ptr<
 #endif
     
     auto SpecializedFunction = std::make_shared<ast::FunctionDecl>();
+    SpecializedFunction->setSourceLocation(Decl->getSourceLocation());
     SpecializedFunction->Signature = std::make_shared<ast::FunctionSignature>(*Decl->Signature);
-    SpecializedFunction->Body = std::make_shared<ast::Composite>();
+    SpecializedFunction->Signature->setSourceLocation(Decl->Signature->getSourceLocation());
+//    SpecializedFunction->Body = std::make_shared<ast::Composite>();
+//    SpecializedFunction->Body->setSourceLocation(Decl->Body->getSourceLocation());
     
     // 1. Substitute in signature (params & return type)
     
     for (auto &Param : SpecializedFunction->Signature->Parameters) {
+        auto SourceLoc = Param->getSourceLocation();
         Param = std::make_shared<ast::VariableDecl>(Param->Name, ResolveType(Param->Type));
+        Param->setSourceLocation(SourceLoc);
     }
     
     SpecializedFunction->Signature->ReturnType = ResolveType(SpecializedFunction->Signature->ReturnType);
@@ -79,6 +85,7 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::Specialize(std::shared_ptr<
     }
     
     SpecializedFunction->Body = Specialize(Decl->Body);
+    SpecializedFunction->Body->setSourceLocation(Decl->Body->getSourceLocation());
     return SpecializedFunction;
 }
 
@@ -123,18 +130,21 @@ std::shared_ptr<ast::Expr> TemplateResolver::Specialize(std::shared_ptr<ast::Exp
 
 
 std::shared_ptr<ast::Composite> TemplateResolver::Specialize(std::shared_ptr<ast::Composite> Composite) {
-    return std::make_shared<ast::Composite>(util::vector::map(Composite->Statements,
-                                                              [this](auto S) -> auto {
-                                                                  return Specialize(S);
-                                                              }));
+    auto X = std::make_shared<ast::Composite>(util::vector::map(Composite->Statements, [this](auto S) { return Specialize(S); }));
+    X->setSourceLocation(Composite->getSourceLocation());
+    return X;
 }
 
 std::shared_ptr<ast::ReturnStmt> TemplateResolver::Specialize(std::shared_ptr<ast::ReturnStmt> ReturnStmt) {
-    return std::make_shared<ast::ReturnStmt>(Specialize(ReturnStmt->Expression));
+    auto X = std::make_shared<ast::ReturnStmt>(Specialize(ReturnStmt->Expression));
+    X->setSourceLocation(ReturnStmt->getSourceLocation());
+    return X;
 }
 
 std::shared_ptr<ast::Assignment> TemplateResolver::Specialize(std::shared_ptr<ast::Assignment> Assignment) {
-    return std::make_shared<ast::Assignment>(Specialize(Assignment->Target), Specialize(Assignment->Value));
+    auto X = std::make_shared<ast::Assignment>(Specialize(Assignment->Target), Specialize(Assignment->Value));
+    X->setSourceLocation(Assignment->getSourceLocation());
+    return X;
 }
 
 
@@ -145,16 +155,22 @@ std::shared_ptr<ast::WhileStmt> TemplateResolver::Specialize(std::shared_ptr<ast
 
 std::shared_ptr<ast::IfStmt> TemplateResolver::Specialize(std::shared_ptr<ast::IfStmt> IfStmt) {
     auto Branches = util::vector::map(IfStmt->Branches, [this](auto Branch) -> auto {
-        return std::make_shared<ast::IfStmt::Branch>(Branch->Kind, Specialize(Branch->Condition), Specialize(Branch->Body));
+        auto X = std::make_shared<ast::IfStmt::Branch>(Branch->Kind, Specialize(Branch->Condition), Specialize(Branch->Body));
+        X->setSourceLocation(Branch->getSourceLocation());
+        return X;
     });
     
-    return std::make_shared<ast::IfStmt>(Branches);
+    auto X = std::make_shared<ast::IfStmt>(Branches);
+    X->setSourceLocation(IfStmt->getSourceLocation());
+    return X;
 }
 
 
 
 std::shared_ptr<ast::ExprStmt> TemplateResolver::Specialize(std::shared_ptr<ast::ExprStmt> exprStmt) {
-    return std::make_shared<ast::ExprStmt>(Specialize(exprStmt->expr));
+    auto X = std::make_shared<ast::ExprStmt>(Specialize(exprStmt->expr));
+    X->setSourceLocation(exprStmt->getSourceLocation());
+    return X;
 }
 
 
@@ -166,16 +182,21 @@ std::shared_ptr<ast::CallExpr> TemplateResolver::Specialize(std::shared_ptr<ast:
     instantiatedCall->arguments = util::vector::map(call->arguments, [this](auto &expr) { return Specialize(expr); });
     instantiatedCall->explicitTemplateArgumentTypes = util::vector::map(call->explicitTemplateArgumentTypes,
                                                                         [this](auto &T) { return ResolveType(T); });
+    instantiatedCall->setSourceLocation(call->getSourceLocation());
     return instantiatedCall;
 }
 
 
 std::shared_ptr<ast::SubscriptExpr> TemplateResolver::Specialize(std::shared_ptr<ast::SubscriptExpr> subscript) {
-    return std::make_shared<ast::SubscriptExpr>(Specialize(subscript->target), Specialize(subscript->offset));
+    auto X = std::make_shared<ast::SubscriptExpr>(Specialize(subscript->target), Specialize(subscript->offset));
+    X->setSourceLocation(subscript->getSourceLocation());
+    return X;
 }
 
 std::shared_ptr<ast::MemberExpr> TemplateResolver::Specialize(std::shared_ptr<ast::MemberExpr> memberExpr) {
-    return std::make_shared<ast::MemberExpr>(Specialize(memberExpr->target), memberExpr->memberName);
+    auto X = std::make_shared<ast::MemberExpr>(Specialize(memberExpr->target), memberExpr->memberName);
+    X->setSourceLocation(memberExpr->getSourceLocation());
+    return X;
 }
 
 
@@ -187,30 +208,45 @@ std::shared_ptr<ast::MatchExpr> TemplateResolver::Specialize(std::shared_ptr<ast
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-lambda-capture"
     auto Branches = util::vector::map(MatchExpr->Branches, [this](auto Branch) -> auto {
-        auto Patterns = util::vector::map(Branch->Patterns, [this](auto Pattern) -> auto { return Specialize(Pattern); });
-        return std::make_shared<ast::MatchExpr::MatchExprBranch>(Patterns, Specialize(Branch->Expression));
+//        auto Patterns = util::vector::map(Branch->Patterns, [this](auto Pattern) -> auto { return Specialize(Pattern); });
+//        return std::make_shared<ast::MatchExpr::MatchExprBranch>(Patterns, Specialize(Branch->Expression));
+        
+        auto X = std::make_shared<ast::MatchExpr::MatchExprBranch>(util::vector::map(Branch->Patterns, [this](auto P) { return Specialize(P); }),
+                                                                   Specialize(Branch->Expression));
+        X->setSourceLocation(Branch->getSourceLocation());
+        return X;
     });
 #pragma clang diagnostic pop
-    return std::make_shared<ast::MatchExpr>(Specialize(MatchExpr->Target), Branches);
+    auto X = std::make_shared<ast::MatchExpr>(Specialize(MatchExpr->Target), Branches);
+    X->setSourceLocation(MatchExpr->getSourceLocation());
+    return X;
 }
 
 
 std::shared_ptr<ast::VariableDecl> TemplateResolver::Specialize(std::shared_ptr<ast::VariableDecl> Decl) {
-    return std::make_shared<ast::VariableDecl>(Decl->Name, ResolveType(Decl->Type), Specialize(Decl->InitialValue));
+    auto X = std::make_shared<ast::VariableDecl>(Decl->Name, ResolveType(Decl->Type), Specialize(Decl->InitialValue));
+    X->setSourceLocation(Decl->getSourceLocation());
+    return X;
 }
 
 
 
 std::shared_ptr<ast::Comparison> TemplateResolver::Specialize(std::shared_ptr<ast::Comparison> Comparison) {
-    return std::make_shared<ast::Comparison>(Comparison->Op, Specialize(Comparison->LHS), Specialize(Comparison->RHS));
+    auto X = std::make_shared<ast::Comparison>(Comparison->Op, Specialize(Comparison->LHS), Specialize(Comparison->RHS));
+    X->setSourceLocation(Comparison->getSourceLocation());
+    return X;
 }
 
 
 std::shared_ptr<ast::BinaryOperation> TemplateResolver::Specialize(std::shared_ptr<ast::BinaryOperation> Binop) {
-    return std::make_shared<ast::BinaryOperation>(Binop->Op, Specialize(Binop->LHS), Specialize(Binop->RHS));
+    auto X = std::make_shared<ast::BinaryOperation>(Binop->Op, Specialize(Binop->LHS), Specialize(Binop->RHS));
+    X->setSourceLocation(Binop->getSourceLocation());
+    return X;
 }
 
 
 std::shared_ptr<ast::LogicalOperation> TemplateResolver::Specialize(std::shared_ptr<ast::LogicalOperation> LogicalOperation) {
-    return std::make_shared<ast::LogicalOperation>(LogicalOperation->Op, Specialize(LogicalOperation->LHS), Specialize(LogicalOperation->RHS));
+    auto X = std::make_shared<ast::LogicalOperation>(LogicalOperation->Op, Specialize(LogicalOperation->LHS), Specialize(LogicalOperation->RHS));
+    X->setSourceLocation(LogicalOperation->getSourceLocation());
+    return X;
 }
