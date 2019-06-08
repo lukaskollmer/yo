@@ -1804,7 +1804,7 @@ llvm::DIType *IRGenerator::GetDIType(TypeInfo *TI) {
     
     if (TI->IsPrimitive()) {
         if (TI->Equals(TypeInfo::Bool)) {
-            return DIBuilder.createBasicType("bool", 1, llvm::dwarf::DW_ATE_boolean);
+            return DIBuilder.createBasicType("bool", byteWidth, llvm::dwarf::DW_ATE_boolean);
         }
     }
     
