@@ -31,7 +31,7 @@ static CharacterSet DecimalDigits("0123456789");
 static CharacterSet HexadecimalDigits("0123456789abcdef");
 static CharacterSet IdentifierStartCharacters = Letters.Joined(CharacterSet("_"));
 static CharacterSet IdentifierCharacters = IdentifierStartCharacters.Joined(DecimalDigits);
-static CharacterSet SingleCharTokens(".,+-*/;:=<>!&^#|~(){}[]@");
+static CharacterSet SingleCharTokens(".,+-*/;:=<>%!&^#|~(){}[]@");
 
 
 
