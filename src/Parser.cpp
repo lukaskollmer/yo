@@ -1027,9 +1027,15 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
                     return E;
                 }
             } else if (auto op = ParseComparisonOperator()) {
-                // TODO take the precedence group constraint into account? might be needed for expressions like `1 < x < 2`?
-                auto rhs = ParseExpression(PrecedenceGroup::Comparison);
-                E = std::make_shared<ast::Comparison>(*op, E, rhs);
+                auto op_precedence = GetOperatorPrecedenceGroup(*op);
+                if (op_precedence >= PrecedenceGroupConstraint) {
+                    auto rhs = ParseExpression(PrecedenceGroup::Comparison);
+                    E = std::make_shared<ast::Comparison>(*op, E, rhs);
+                } else {
+                    restore_pos(fallback);
+                    return E;
+                }
+                
             } else {
                 // We reach here if the current token is a binary operator starting token, but we didn't manage to parse anything valid out of it
                 continue;
