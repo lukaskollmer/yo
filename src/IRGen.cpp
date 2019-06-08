@@ -119,13 +119,25 @@ void IRGenerator::Preflight(ast::AST &Ast) {
 
 
 void IRGenerator::RegisterFunction(std::shared_ptr<ast::FunctionDecl> Function) {
-    if (Function->Signature->IsTemplateFunction && !Function->Signature->IsFullSpecialization()) {
-        auto CanonicalName = mangling::MangleCanonicalNameForSignature(Function->Signature);
+    auto Signature = Function->Signature;
+    
+    if (Signature->Name == "main") {
+        Function->Signature->attributes->no_mangle = true;
+        // TODO run some checks to make sure main fulfills the requirements (correct return & parameter types, no other attributes, etc)
+//        precondition(Signature->ReturnType->Equals(TypeInfo::i32));
+//        precondition(Signature->Parameters.size() == 0 || Signature->Parameters.size() == 2);
+//        if (Signature->Parameters.size() == 2) {
+//            precondition(Signature->Parameters[0]->Type->Equals(TypeInfo::))
+//        }
+    }
+    
+    
+    if (Signature->IsTemplateFunction && !Signature->IsFullSpecialization()) {
+        auto CanonicalName = mangling::MangleCanonicalNameForSignature(Signature);
         Functions[CanonicalName].push_back(ResolvedFunction(Function, nullptr));
         return;
     }
     
-    auto Signature = Function->Signature;
     std::vector<llvm::Type *> ParameterTypes;
     
     for (auto &P : Signature->Parameters) {
