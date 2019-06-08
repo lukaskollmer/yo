@@ -720,113 +720,126 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::SubscriptExpr> subscript,
 
 
 
-// TODO should this go in the control flow section?
-llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MatchExpr> MatchExpr) {
-    // TODO turn this into a proper function
-    auto IsValidPatternForType = [this](std::shared_ptr<ast::Expr> Expr, TypeInfo *TargetType) -> bool {
-        // TODO:
-        // a) only allow patterns that can be trivially matched and have no side effects
-        
-        if (std::dynamic_pointer_cast<ast::Identifier>(Expr) != nullptr) {
-            return true;
-        }
-        
-        //auto ExprType = GuessType(Expr);
-        
-        if (TargetType->isIntegerType()) {
-            return std::dynamic_pointer_cast<ast::NumberLiteral>(Expr) != nullptr;
-        } else {
-            return false;
-        }
-    };
+
+bool _IsValidMatchPatternForMatchedExprType(std::shared_ptr<ast::Expr> patternExpr, TypeInfo *matchedExprType) {
+    // Only patterns that are trivially and can be matched w/out side effects are allowed
+    // TODO add the side effect checking
     
-    
-    
-    precondition(!MatchExpr->Branches.empty());
-    auto NumBranches = MatchExpr->Branches.size();
-    
-    auto F = CurrentFunction.LLVMFunction;
-    auto T = GuessType(MatchExpr->Branches.front()->Expression);
-    auto V = Codegen(MatchExpr->Target);
-    
-    std::vector<llvm::BasicBlock *> BranchConditionBlocks;
-    std::vector<llvm::BasicBlock *> BranchBodyBlocks;
-    std::vector<llvm::Value *> BranchValues;
-    auto MergeBB = llvm::BasicBlock::Create(C, "match_merge");
-    int64_t WildcardBranchIndex = -1;
-    
-    for (auto I = 0; I < NumBranches; I++) {
-        BranchConditionBlocks.push_back(llvm::BasicBlock::Create(C));
-        BranchBodyBlocks.push_back(llvm::BasicBlock::Create(C));
+    if (dynamic_cast<ast::Identifier *>(patternExpr.get())) {
+        throw;
+        return true;
     }
     
+    if (matchedExprType->IsIntegerType()) {
+        return std::dynamic_pointer_cast<ast::NumberLiteral>(patternExpr) != nullptr;
+    } else if (matchedExprType->Equals(TypeInfo::Bool)) {
+        auto numberExpr = std::dynamic_pointer_cast<ast::NumberLiteral>(patternExpr);
+        return numberExpr && numberExpr->Type == ast::NumberLiteral::NumberType::Boolean;
+    } else {
+        return false;
+    }
+}
+
+
+llvm::Value *IRGenerator::Codegen_HandleMatchPatternExpr(MatchExprPatternCodegenInfo Info) {
+    auto TT = Info.TargetType;
+    auto PE = Info.PatternExpr;
+    auto PT = GuessType(PE);
     
-    // Handle branch patterns
-    
-    for (auto I = 0; I < NumBranches; I++) {
-        if (I > 0) {
-            auto BB = BranchConditionBlocks[I];
-            F->getBasicBlockList().push_back(BB);
-            Builder.SetInsertPoint(BB);
+    if (TT->IsIntegerType()) {
+        if (auto NumberLiteral = std::dynamic_pointer_cast<ast::NumberLiteral>(PE)) {
+            if (ValueIsTriviallyConvertibleTo(NumberLiteral, TT)) {
+                return Codegen(std::make_shared<ast::Comparison>(ast::Comparison::Operation::EQ,
+                                                                 std::make_shared<ast::RawLLVMValueExpr>(Info.TargetLLVMValue, TT),
+                                                                 NumberLiteral));
+            }
+        } else {
+            LKFatalError("Incompatible Match types: cannot match %s against %s", TT->Str().c_str(), PT->Str().c_str());
         }
+    }
+    throw;
+}
+
+
+
+bool _LastBranchIsWildcard(const std::shared_ptr<ast::MatchExpr> &MatchExpr) {
+    auto LastBranch = MatchExpr->Branches.back();
+    if (LastBranch->Patterns.size() > 1) return false;
+    if (auto Ident = std::dynamic_pointer_cast<ast::Identifier>(LastBranch->Patterns[0])) {
+        return Ident->Value == "_";
+    }
+    return false;
+}
+
+
+
+// TODO should this go in the control flow section?
+llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MatchExpr> MatchExpr) {
+    // TODO require that match patterns cannot contain side effects? (this should go in _IsValidMatchPatternForMatchedExprType!)
+    auto F = CurrentFunction.LLVMFunction;
+    auto MatchedExprType = GuessType(MatchExpr->Target);
+    auto ResultType = GuessType(MatchExpr->Branches.front()->Expression);
+    auto MatchTargetValue = Codegen(MatchExpr->Target);
+    
+    
+    std::map<llvm::BasicBlock *, llvm::Value *> BranchMappings;
+    
+    auto MergeBB = llvm::BasicBlock::Create(C);
+    auto NextCondBB = llvm::BasicBlock::Create(C);
+    auto NextValueBB = llvm::BasicBlock::Create(C);
+    
+    // TODO get rid of this and just have the first condition be part of the BB containing the match expression
+    Builder.CreateBr(NextCondBB);
+    
+    auto LastBranchIsWildcard = _LastBranchIsWildcard(MatchExpr);
+    
+    for (auto I = 0; I < MatchExpr->Branches.size(); I++) {
         auto &Branch = MatchExpr->Branches[I];
-        precondition(!Branch->Patterns.empty() && "match expr branch pattern cannot be empty");
+        auto ValueBB = NextValueBB;
+        NextValueBB = llvm::BasicBlock::Create(C);
         
-        llvm::Value *Cond;
-        bool IsWildcardPattern = false;
+        bool IsLastBranchBeforeWildcard = LastBranchIsWildcard && I + 2 == MatchExpr->Branches.size();
         
-        for (auto I = 0; I < Branch->Patterns.size(); I++) {
-            auto Pattern = Branch->Patterns[I];
-            precondition(IsValidPatternForType(Pattern, GuessType(MatchExpr->Target)));
-            
-            if (auto Ident = std::dynamic_pointer_cast<ast::Identifier>(Pattern)) {
-                precondition(Branch->Patterns.size() == 1 && "wildcards can only appear in single-pattern branches");
-                Cond = llvm::ConstantInt::getTrue(C);
-                IsWildcardPattern = true;
+        if (!GuessType(Branch->Expression)->Equals(ResultType)) {
+            throw;
+        }
+        
+        for (auto It = Branch->Patterns.begin(); It != Branch->Patterns.end(); It++) {
+            auto &PatternExpr = *It;
+            if (auto Ident = std::dynamic_pointer_cast<ast::Identifier>(PatternExpr)) {
+                precondition(It + 1 == Branch->Patterns.end() && Branch->Patterns.size() == 1);
+                precondition(Ident->Value == "_");
+                break;
             } else {
-                llvm::Value *Comp = Codegen(std::make_shared<ast::Comparison>(ast::Comparison::Operation::EQ,
-                                                                              std::make_shared<ast::RawLLVMValueExpr>(V, T),
-                                                                              Pattern));
-                if (I == 0) {
-                    Cond = Comp;
-                } else {
-                    Cond = Builder.CreateBinOp(llvm::Instruction::BinaryOps::Or, Cond, Comp);
-                }
+                // Not a wildcard
+                
+                F->getBasicBlockList().push_back(NextCondBB);
+                Builder.SetInsertPoint(NextCondBB);
+                NextCondBB = llvm::BasicBlock::Create(C);
+                
+                auto Cond = Codegen_HandleMatchPatternExpr({MatchedExprType, MatchExpr->Target, MatchTargetValue, PatternExpr});
+                // If we reach here and the pattern didn't match and the next pattern is a wildcard, go directly to the value branch
+                Builder.CreateCondBr(Cond, ValueBB,
+                                     IsLastBranchBeforeWildcard ? NextValueBB : NextCondBB);
             }
         }
         
-        if (IsWildcardPattern) {
-            WildcardBranchIndex = I;
-            Builder.CreateBr(BranchBodyBlocks[I]);
-            break;
-        } else {
-            Builder.CreateCondBr(Cond, BranchBodyBlocks[I], BranchConditionBlocks[I + 1]);
-        }
-    }
-    
-    precondition(WildcardBranchIndex >= 0);
-    
-    
-    // Handle branch expressions
-    
-    for (auto I = 0; I <= WildcardBranchIndex; I++) {
-        auto BB = BranchBodyBlocks[I];
-        F->getBasicBlockList().push_back(BB);
-        Builder.SetInsertPoint(BB);
-        
-        // TODO assign wildcard ident to local variable for scope of expression?
-        BranchValues.push_back(Codegen(MatchExpr->Branches[I]->Expression));
+        F->getBasicBlockList().push_back(ValueBB);
+        Builder.SetInsertPoint(ValueBB);
+        BranchMappings[ValueBB] = Codegen(Branch->Expression);
         Builder.CreateBr(MergeBB);
-        BranchBodyBlocks[I] = Builder.GetInsertBlock();
     }
+    
+    
     
     F->getBasicBlockList().push_back(MergeBB);
     Builder.SetInsertPoint(MergeBB);
     
-    auto PHI = Builder.CreatePHI(GetLLVMType(T), MatchExpr->Branches.size());
-    for (auto I = 0; I <= WildcardBranchIndex; I++) {
-        PHI->addIncoming(BranchValues[I], BranchBodyBlocks[I]);
+    auto PHI = Builder.CreatePHI(GetLLVMType(ResultType), BranchMappings.size());
+    for (auto [BB, V] : BranchMappings) {
+        PHI->addIncoming(V, BB);
     }
+    
     return PHI;
 }
 
@@ -1651,7 +1664,7 @@ bool IRGenerator::ValueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiter
     }
     
     precondition(Number->Type == NT::Integer && TI->IsIntegerType());
-    precondition(Number->Value > 0); // TODO whatthefuc? this will never be false since ast::NumberLitera::Value is unsigned!!!!!
+    precondition(Number->Value >= 0); // TODO whatthefuc? this will never be false since ast::NumberLitera::Value is unsigned!!!!!
     
     auto Value = Number->Value;
     uint8_t BitCount = 0;

@@ -169,7 +169,6 @@ private:
     llvm::Value *Codegen(std::shared_ptr<ast::UnaryExpr>);
     
     llvm::Value *Codegen(std::shared_ptr<ast::Identifier>, CodegenReturnValueKind);
-    llvm::Value *Codegen(std::shared_ptr<ast::MatchExpr>);
     llvm::Value *Codegen(std::shared_ptr<ast::RawLLVMValueExpr>);
     
     llvm::Value *Codegen(std::shared_ptr<ast::Comparison>);
@@ -181,6 +180,20 @@ private:
     llvm::Value *Codegen(std::shared_ptr<ast::CallExpr>);
     
     llvm::Value *Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionSignature> Signature, std::shared_ptr<ast::CallExpr>);
+    
+    
+    // Match Expr
+    llvm::Value *Codegen(std::shared_ptr<ast::MatchExpr>);
+    
+    struct MatchExprPatternCodegenInfo {
+        TypeInfo *TargetType; // type of the expression we're matching against
+        std::shared_ptr<ast::Expr> TargetExpr; // the expression we're matching against
+        llvm::Value *TargetLLVMValue; // Codegen result for TargetExpr
+        std::shared_ptr<ast::Expr> PatternExpr;
+    };
+    // TODO? this should be the central point that handles all pattern checks and returns the correct expressions, based on the input types
+    llvm::Value *Codegen_HandleMatchPatternExpr(MatchExprPatternCodegenInfo);
+    
     
     // Types
     llvm::Type *GetLLVMType(TypeInfo *TI);
