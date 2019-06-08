@@ -932,10 +932,6 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MatchExpr> MatchExpr) {
         
         bool IsLastBranchBeforeWildcard = LastBranchIsWildcard && I + 2 == MatchExpr->Branches.size();
         
-        if (!GuessType(Branch->Expression)->Equals(ResultType)) {
-            throw;
-        }
-        
         for (auto It = Branch->Patterns.begin(); It != Branch->Patterns.end(); It++) {
             auto &PatternExpr = *It;
             if (auto Ident = std::dynamic_pointer_cast<ast::Identifier>(PatternExpr)) {
@@ -954,6 +950,14 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MatchExpr> MatchExpr) {
                 Builder.CreateCondBr(Cond, ValueBB,
                                      IsLastBranchBeforeWildcard ? NextValueBB : NextCondBB);
             }
+        }
+        
+        
+        
+        TypeInfo *_InitialTy = nullptr;
+        if (!TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(&Branch->Expression, ResultType, &_InitialTy)) {
+            LKFatalError("Invalid match branch result value: Type %s not compatible with expected type %s",
+                         _InitialTy->Str().c_str(), ResultType->Str().c_str());
         }
         
         F->getBasicBlockList().push_back(ValueBB);
