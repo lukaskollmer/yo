@@ -16,6 +16,7 @@
 
 namespace llvm {
     class Type;
+    class DIType;
 }
 
 
@@ -68,11 +69,12 @@ private:
     TypeInfo *pointee; // The fact that pointee is nonnull doesn't mean that this is in fact a pointer type (also used for typealiases)
     TypeInfo *pointerTo;
     llvm::Type *llvmType;
+    llvm::DIType *DIType;
     
     // only for function types
     std::unique_ptr<FunctionTypeInfo> functionTypeInfo;
     
-    TypeInfo() : kind(Kind::Unresolved), size(0), pointee(nullptr), pointerTo(nullptr), llvmType(nullptr) {}
+    TypeInfo() : kind(Kind::Unresolved), size(0), pointee(nullptr), pointerTo(nullptr), llvmType(nullptr), DIType(nullptr) {}
     
 public:
     static TypeInfo *GetWithName(const std::string &name, bool *didCreateNewType = nullptr);
@@ -101,6 +103,13 @@ public:
     void setLLVMType(llvm::Type *llvmType) {
         if (IsTypealias()) pointee->setLLVMType(llvmType);
         else this->llvmType = llvmType;
+    }
+    
+    llvm::DIType *getDIType() {
+        return DIType;
+    }
+    void setDIType(llvm::DIType *DIType) {
+        this->DIType = DIType;
     }
     
     

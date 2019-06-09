@@ -51,9 +51,10 @@ IRGenerator::IRGenerator(const std::string ModuleName)
     i1 = Bool = llvm::Type::getInt1Ty(C);
     Double = llvm::Type::getDoubleTy(C);
     
-    DICompileUnit = DIBuilder.createCompileUnit(llvm::dwarf::DW_LANG_C,
-                                                DIBuilder.createFile("main.yo", "."),
-                                                "yo", false, "", 0);
+    CompileUnit = DIBuilder.createCompileUnit(llvm::dwarf::DW_LANG_C,
+                                              DIBuilder.createFile("main.yo", "."),
+                                              "yo", false, "", 0);
+    DILexicalBlocks.push_back(CompileUnit);
     
     Module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
 }
@@ -66,9 +67,8 @@ void IRGenerator::EmitDebugLocation(const std::shared_ptr<ast::Node> &Node) {
         return;
     }
     
-    llvm::DIScope *Scope = DILexicalBlocks.empty() ? DICompileUnit : DILexicalBlocks.back();
     auto &SL = Node->getSourceLocation();
-    Builder.SetCurrentDebugLocation(llvm::DebugLoc::get(SL.Line, SL.Column, Scope));
+    Builder.SetCurrentDebugLocation(llvm::DebugLoc::get(SL.Line, SL.Column, DILexicalBlocks.back()));
 }
 
 
@@ -1797,25 +1797,90 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
 
 
 llvm::DIType *IRGenerator::GetDIType(TypeInfo *TI) {
+    if (auto DIType = TI->getDIType()) return DIType;
+    
     auto byteWidth = Module->getDataLayout().getTypeSizeInBits(i8);
     auto pointerWidth = Module->getDataLayout().getPointerSizeInBits();
     
+    
+    if (TI->IsVoidType()) {
+        return nullptr;
+    }
+    
     if (TI->IsIntegerType()) {
-        return DIBuilder.createBasicType(TI->getName(), TI->getSize() * byteWidth,
-                                         TI->IsSigned() ? llvm::dwarf::DW_ATE_signed : llvm::dwarf::DW_ATE_unsigned);
+        auto Ty = DIBuilder.createBasicType(TI->getName(), TI->getSize() * byteWidth,
+                                            TI->IsSigned() ? llvm::dwarf::DW_ATE_signed : llvm::dwarf::DW_ATE_unsigned);
+        TI->setDIType(Ty);
+        return Ty;
     }
     
     if (TI->IsPointer()) {
-        return DIBuilder.createPointerType(GetDIType(TI->getPointee()), pointerWidth);
+        auto Ty = DIBuilder.createPointerType(GetDIType(TI->getPointee()), pointerWidth);
+        TI->setDIType(Ty);
+        return Ty;
     }
     
     if (TI->IsPrimitive()) {
+        llvm::DIType *Ty;
         if (TI->Equals(TypeInfo::Bool)) {
-            return DIBuilder.createBasicType("bool", byteWidth, llvm::dwarf::DW_ATE_boolean);
+            Ty = DIBuilder.createBasicType("bool", byteWidth, llvm::dwarf::DW_ATE_boolean);
+        } else {
+            goto fail;
         }
+        
+        TI->setDIType(Ty);
+        return Ty;
     }
     
+    if (TI->IsComplex()) {
+        auto &Name = TI->getName();
+        auto StructDecl = TypeCache.GetStruct(Name);
+        auto &SL = StructDecl->getSourceLocation();
+        
+        auto DeclUnit = _DIFileForNode(DIBuilder, StructDecl);
+        
+        auto &DataLayout = Module->getDataLayout();
+        
+        auto LLVMTy = llvm::dyn_cast<llvm::StructType>(GetLLVMType(TI));
+        auto StructLayout = DataLayout.getStructLayout(LLVMTy);
+        
+        std::vector<llvm::Metadata *> Elements;
+        for (auto I = 0; I < StructDecl->Members.size(); I++) {
+            auto &Member = StructDecl->Members[I];
+            auto LLVMMemberTy = GetLLVMType(Member->Type);
+            auto MemberTy = DIBuilder.createMemberType(CompileUnit, Member->Name->Value, DeclUnit,
+                                                       Member->getSourceLocation().Line,
+                                                       DataLayout.getTypeSizeInBits(LLVMMemberTy),
+                                                       DataLayout.getPrefTypeAlignment(LLVMMemberTy),
+                                                       StructLayout->getElementOffsetInBits(I),
+                                                       llvm::DINode::DIFlags::FlagZero, GetDIType(Member->Type));
+            Elements.push_back(MemberTy);
+        }
+        
+        auto Ty = DIBuilder.createStructType(CompileUnit, Name,
+                                             _DIFileForNode(DIBuilder, StructDecl), SL.Line,
+                                             Module->getDataLayout().getTypeSizeInBits(LLVMTy),
+                                             Module->getDataLayout().getPrefTypeAlignment(LLVMTy),
+                                             llvm::DINode::DIFlags::FlagZero, nullptr, DIBuilder.getOrCreateArray(Elements));
+        TI->setDIType(Ty);
+        return Ty;
+    }
     
+    if (TI->IsFunction()) {
+        auto &FTI = TI->getFunctionTypeInfo();
+        
+        std::vector<llvm::Metadata *> ParameterTypes;
+        ParameterTypes.push_back(GetDIType(FTI.returnType));
+        for (auto &ParamTy : FTI.parameterTypes) {
+            ParameterTypes.push_back(GetDIType(ParamTy));
+        }
+        
+        auto Ty = DIBuilder.createPointerType(DIBuilder.createSubroutineType(DIBuilder.getOrCreateTypeArray(ParameterTypes)), pointerWidth);
+        TI->setDIType(Ty);
+        return Ty;
+    }
+    
+fail:
     LKFatalError("TODO: Create DIType for '%s'", TI->Str().c_str());
     throw;
 }

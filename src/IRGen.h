@@ -97,7 +97,7 @@ class IRGenerator {
     
     // Debug Metadata
     llvm::DIBuilder DIBuilder;
-    llvm::DICompileUnit *DICompileUnit;
+    llvm::DICompileUnit *CompileUnit;
     std::vector<llvm::DIScope *> DILexicalBlocks;
     
     
