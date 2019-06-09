@@ -50,12 +50,18 @@ void AddOptimizationPasses(llvm::legacy::PassManager &MPM, llvm::legacy::Functio
     llvm::PassRegistry &PR = *llvm::PassRegistry::getPassRegistry();
     llvm::initializeCore(PR);
     llvm::initializeIPO(PR);
+    llvm::initializeSimpleInlinerPass(PR);
     
     llvm::PassManagerBuilder PMBuilder;
-    PMBuilder.OptLevel = yo::cl::Optimize ? 1 : 0;
+    PMBuilder.OptLevel = 1;
+    PMBuilder.SizeLevel = 0;
     
-    PMBuilder.Inliner = llvm::createFunctionInliningPass(PMBuilder.OptLevel, PMBuilder.SizeLevel, false);
-    
+    if (PMBuilder.OptLevel > 1) {
+        PMBuilder.Inliner = llvm::createFunctionInliningPass(PMBuilder.OptLevel, PMBuilder.SizeLevel, false);
+    } else {
+        PMBuilder.Inliner = llvm::createAlwaysInlinerLegacyPass();
+    }
+
     PMBuilder.populateFunctionPassManager(FPM);
     PMBuilder.populateModulePassManager(MPM);
 }
