@@ -214,8 +214,14 @@ int main(int argc, const char * argv[], const char *const *envp) {
     yo::cl::Init(argc, argv);
     assert_implication(yo::cl::RunArgs.size() > 0, yo::cl::Run);
     
+    yo::parser::Parser Parser;
+    
+    if (!yo::cl::StdlibRoot.empty()) {
+        Parser.SetCustomStdlibRoot(yo::cl::StdlibRoot);
+    }
+    
     std::string Filename = yo::cl::InputFilename;
-    auto Ast = yo::parser::Parser().Parse(Filename);
+    auto Ast = Parser.Parse(Filename);
     
     Filename = yo::util::string::lastPathCompotent(Filename);
     

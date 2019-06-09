@@ -19,9 +19,8 @@ namespace yo::cl {
     extern llvm::cl::opt<bool> EmitLLVM;
     extern llvm::cl::opt<bool> DumpLLVM;
     extern llvm::cl::list<std::string> RunArgs;
-//    extern llvm::cl::opt<bool> EmitDebugSymbols;
     extern llvm::cl::opt<bool> Optimize;
-    extern llvm::cl::opt<std::string> OutputFilepath;
+    extern llvm::cl::opt<std::string> StdlibRoot;
     
     void Init(int argc, const char *const *argv);
 }

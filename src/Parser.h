@@ -49,10 +49,18 @@ public:
     Parser() {}
     ast::AST Parse(std::string &FilePath);
     
+    void SetCustomStdlibRoot(const std::string &Path) {
+        UseCustomStdlibRoot = true;
+        CustomStdlibRoot = Path;
+    }
+    
 private:
     TokenList Tokens;
     uint64_t Position;
     std::vector<std::string> ImportedFiles;
+    
+    bool UseCustomStdlibRoot = false;
+    std::string CustomStdlibRoot;
     
     void ResolveImport();
     std::string ResolveImportPathRelativeToBaseDirectory(const std::string &ModuleName, const std::string &BaseDirectory);

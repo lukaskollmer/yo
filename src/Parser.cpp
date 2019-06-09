@@ -175,12 +175,19 @@ void Parser::ResolveImport() {
     
     TokenList NewTokens;
     
-    if (ModuleName[0] == ':') { // stdlib import
-        if (util::vector::contains(ImportedFiles, ModuleName)) return;
+    auto IsStdlibImport = ModuleName[0] == ':';
+    if (IsStdlibImport && util::vector::contains(ImportedFiles, ModuleName)) {
+        return;
+    } else if (IsStdlibImport && !UseCustomStdlibRoot) {
         ImportedFiles.push_back(ModuleName);
         NewTokens = Lexer().Lex(stdlib_resolution::GetContentsOfModuleWithName(ModuleName), ModuleName);
     } else {
-        std::string Path = ResolveImportPathRelativeToBaseDirectory(ModuleName, BaseDirectory);
+        if (IsStdlibImport) {
+            ImportedFiles.push_back(ModuleName);
+            ModuleName.erase(ModuleName.begin());
+            BaseDirectory = CustomStdlibRoot;
+        }
+        auto Path = ResolveImportPathRelativeToBaseDirectory(ModuleName, BaseDirectory);
         if (util::vector::contains(ImportedFiles, Path)) return;
         ImportedFiles.push_back(Path);
         NewTokens = LexFile(Path);

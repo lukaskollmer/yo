@@ -40,16 +40,13 @@ llvm::cl::list<std::string> cl::RunArgs(llvm::cl::ConsumeAfter,
                                         llvm::cl::desc("<run args>..."),
                                         llvm::cl::cat(CLIOptionsCategory));
 
-//llvm::cl::opt<bool> cl::EmitDebugSymbols("g", llvm::cl::desc("Emit Debug Symbols"),
-//                                         llvm::cl::init(true),
-//                                         llvm::cl::cat(CLIOptionsCategory));
 
 llvm::cl::opt<bool> cl::Optimize("O", llvm::cl::desc("Enable Optimizations"),
                                  llvm::cl::cat(CLIOptionsCategory));
 
-//llvm::cl::opt<std::string> cl::OutputFilepath("o", llvm::cl::desc("Write output to <path>"),
-//                                              llvm::cl::init(""),
-//                                              llvm::cl::cat(CLIOptionsCategory));
+llvm::cl::opt<std::string> cl::StdlibRoot("stdlib-root",
+                                          llvm::cl::desc("Load stdlib modules from the specified path, instead of using the bundled ones"),
+                                          llvm::cl::cat(CLIOptionsCategory));
 
 
 void print_version(llvm::raw_ostream &OS) {
