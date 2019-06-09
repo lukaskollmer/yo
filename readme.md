@@ -11,7 +11,6 @@ Yo is a compiled programming language with strong static typing.
 #[extern]
 fn atoi(*i8): i32;
 
-#[side_effects(none)]
 fn fib<T>(n: T): T {
     return match n {
         0, 1 => n,
@@ -19,7 +18,6 @@ fn fib<T>(n: T): T {
     };
 }
 
-#[no_mangle]
 fn main(argc: i32, argv: **i8): i32 {
     return argv[1] |> atoi |> fib;
 }
