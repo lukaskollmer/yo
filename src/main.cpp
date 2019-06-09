@@ -142,6 +142,9 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     PM.add(llvm::createVerifierPass());
     
     if (yo::cl::Optimize) {
+        if (yo::cl::DumpLLVMPreOpt) {
+            PM.add(llvm::createPrintModulePass(llvm::outs(), "Pre-Optimized IR:", true));
+        }
         AddOptimizationPasses(PM, FPM);
     }
     
@@ -154,7 +157,8 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     
     
     if (yo::cl::DumpLLVM) {
-        PM.add(llvm::createPrintModulePass(llvm::outs(), "Final IR:", true));
+        std::string Banner = !yo::cl::Optimize ? "Final IR:" : "Final IR (Optimized):";
+        PM.add(llvm::createPrintModulePass(llvm::outs(), Banner, true));
     }
     
     if (TargetMachine->addPassesToEmitFile(PM, dest, nullptr, llvm::TargetMachine::CGFT_ObjectFile)) {

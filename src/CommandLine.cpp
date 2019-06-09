@@ -44,6 +44,10 @@ llvm::cl::list<std::string> cl::RunArgs(llvm::cl::ConsumeAfter,
 llvm::cl::opt<bool> cl::Optimize("O", llvm::cl::desc("Enable Optimizations"),
                                  llvm::cl::cat(CLIOptionsCategory));
 
+llvm::cl::opt<bool> cl::DumpLLVMPreOpt("dump-llvm-pre-opt",
+                                       llvm::cl::desc("Dump LLVM IR prior to running optimizations"),
+                                       llvm::cl::cat(CLIOptionsCategory));
+
 llvm::cl::opt<std::string> cl::StdlibRoot("stdlib-root",
                                           llvm::cl::desc("Load stdlib modules from the specified path, instead of using the bundled ones"),
                                           llvm::cl::cat(CLIOptionsCategory));
