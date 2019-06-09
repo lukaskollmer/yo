@@ -128,6 +128,8 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     }
     
     
+    // !!!
+    // https://stackoverflow.com/a/36973557/2513803
     
     
     llvm::legacy::PassManager PM;
@@ -167,8 +169,7 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     
     
     auto clangPath = llvm::sys::findProgramByName("clang");
-    const auto ExecutablePath = yo::util::fmt_cstr("%s/%s",
-                                                   DebugDirPath.c_str(),
+    const auto ExecutablePath = yo::util::fmt_cstr("%s/%s", DebugDirPath.c_str(),
                                                    yo::util::string::excludingFileExtension(Filename).c_str());
     ExecutableOutputPath = ExecutablePath;
     

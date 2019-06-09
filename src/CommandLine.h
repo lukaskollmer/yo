@@ -21,6 +21,7 @@ namespace yo::cl {
     extern llvm::cl::list<std::string> RunArgs;
 //    extern llvm::cl::opt<bool> EmitDebugSymbols;
     extern llvm::cl::opt<bool> Optimize;
+    extern llvm::cl::opt<std::string> OutputFilepath;
     
     void Init(int argc, const char *const *argv);
 }
