@@ -135,7 +135,7 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
         // Offset after returning is the character after the end of the escaped character
         // For example, if we're parsing `'\123x`, the Offset after returhing would "point" to the x
         auto ParseEscapedCharacter = [&] () -> char {
-            precondition(String[Offset] == '\\');
+            LKAssert(String[Offset] == '\\');
             if (String[Offset + 1] == '\\') {
                 // Escaped backslash
                 Offset++;
@@ -166,7 +166,7 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
                     throw;
                 }
                 
-                precondition(Length == RawValue.length());
+                LKAssert(Length == RawValue.length());
                 return Value;
             }
             
@@ -192,7 +192,7 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
                 Offset++;
             }
             
-            precondition(String[Offset] == '\'');
+            LKAssert(String[Offset] == '\'');
             auto T = HandleRawToken("", TK::CharLiteral);
             T->Data = content;
             continue;
@@ -232,7 +232,7 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
                     }
                 }
             }
-            precondition(String[Offset++] == DOUBLE_QUOTE);
+            LKAssert(String[Offset++] == DOUBLE_QUOTE);
             
             auto T = HandleRawToken("", IsByteStringLiteral ? TK::ByteStringLiteral : TK::StringLiteral);
             T->Data = Content;
@@ -241,7 +241,7 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
         }
         
         // If either of these is true, the string should've been handled above
-        precondition(!IsRawStringLiteral && !IsByteStringLiteral);
+        LKAssert(!IsRawStringLiteral && !IsByteStringLiteral);
         
         if (SingleCharTokens.Contains(C)) {
             std::string X(1, C);
@@ -276,7 +276,7 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
                     Base = 8;
                 } else {
                     // A single 0, not followed by another numeric digit
-                    precondition(!HexadecimalDigits.Contains(Next));
+                    LKAssert(!HexadecimalDigits.Contains(Next));
                 }
             }
             
@@ -299,7 +299,7 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
             }
             
             // TODO turn this into a nice error message
-            precondition(Length == RawValue.length()); // The string contained illegal characters (eg: 0b110012)
+            LKAssert(Length == RawValue.length()); // The string contained illegal characters (eg: 0b110012)
             
             auto T = HandleRawToken("", TK::IntegerLiteral);
             T->Data = Value;

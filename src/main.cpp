@@ -45,7 +45,7 @@
 
 
 void AddOptimizationPasses(llvm::legacy::PassManager &MPM, llvm::legacy::FunctionPassManager &FPM) {
-    precondition(yo::cl::Optimize == true);
+    LKAssert(yo::cl::Optimize == true);
     
     llvm::PassRegistry &PR = *llvm::PassRegistry::getPassRegistry();
     llvm::initializeCore(PR);
@@ -103,7 +103,7 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     
     llvm::SmallVector<char, 256> cwd;
     EC = llvm::sys::fs::current_path(cwd);
-    precondition(!EC);
+    LKAssert(!EC);
     cwd.push_back('\0');
     
     
@@ -216,7 +216,7 @@ int RunExecutable(const std::string &ExecutablePath, const char *const *envp) {
 
 int main(int argc, const char * argv[], const char *const *envp) {
     yo::cl::Init(argc, argv);
-    assert_implication(yo::cl::RunArgs.size() > 0, yo::cl::Run);
+    LKAssertImplication(yo::cl::RunArgs.size() > 0, yo::cl::Run);
     
     yo::parser::Parser Parser;
     

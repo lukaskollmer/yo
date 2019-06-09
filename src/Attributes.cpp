@@ -52,7 +52,7 @@ ATTR_MEMBER(function, side_effects, unknown)
 
 
 std::vector<SideEffect> HandleSideEffectsAttribute(const Attribute &attribute) {
-    precondition(attribute.key == builtin_attributes::function::side_effects::_yo_attr_key);
+    LKAssert(attribute.key == builtin_attributes::function::side_effects::_yo_attr_key);
     
     auto values = std::get<std::vector<std::string>>(attribute.data);
     std::vector<SideEffect> sideEffects;
@@ -73,7 +73,7 @@ std::vector<SideEffect> HandleSideEffectsAttribute(const Attribute &attribute) {
         }
     }
     
-    assert_implication(containsNone, sideEffects.size() == 1);
+    LKAssertImplication(containsNone, sideEffects.size() == 1);
     return sideEffects;
 }
 
@@ -109,7 +109,7 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
     std::vector<std::string_view> handledAttributes;
 
     for (auto &attribute : attributes) {
-        precondition(!util::vector::contains(handledAttributes, attribute.getKey()));
+        LKAssert(!util::vector::contains(handledAttributes, attribute.getKey()));
         handledAttributes.push_back(attribute.getKey());
         
         if (attribute.key == builtin_attributes::function::no_mangle::_yo_attr_key) {
@@ -183,7 +183,7 @@ StructAttributes::StructAttributes(const std::vector<Attribute> &attributes) : S
     std::vector<std::string_view> handledAttributes;
     
     for (auto &attribute : attributes) {
-        precondition(!util::vector::contains(handledAttributes, attribute.getKey()));
+        LKAssert(!util::vector::contains(handledAttributes, attribute.getKey()));
         handledAttributes.push_back(attribute.key);
         
         if (attribute.key == builtin_attributes::structDecl::arc::_yo_attr_key) {

@@ -45,29 +45,26 @@ using LKUInteger = std::uint64_t;
 #define CONCAT(x, y) CONCAT_IMPL(x, y)
 
 
-
 #define LKFatalError(fmt, ...) \
 { printf("Fatal Error: " fmt ". func: %s, file: %s, line: %i\n", ## __VA_ARGS__ , __func__, __FILE__, __LINE__); raise(SIGABRT); exit(1); }
 
 
 
-#define precondition1(e) \
-(__builtin_expect(!(e), 0) ? (void)(printf("Precondition Failed: (%s) function %s, file %s, line %i\n", #e, __func__, __FILE__, __LINE__) & raise(SIGABRT)) : (void)0)
+#define LKAssertImplication(x, y) LKAssert(!(x) || (y));
 
-#define precondition2(e, msg_expr)                                                      \
+#define LKAssert(e) \
+(__builtin_expect(!(e), 0) ? (void)(printf("LKAssert Failed: (%s) function %s, file %s, line %i\n", #e, __func__, __FILE__, __LINE__) & raise(SIGABRT)) : (void)0)
+
+
+#define LKAssertMsg(e, msg_expr) \
 if (__builtin_expect(!(bool)(e), 0)) {                                                  \
     auto msg_f = [&]() -> std::string { return std::string(msg_expr); };                \
     auto msg = msg_f();                                                                 \
-    printf("Precondition failed: %s, at %s in %s:%i\n",                                 \
+    printf("LKAssert failed: %s, at %s in %s:%i\n",                                 \
            msg.empty() ? #e : msg.c_str(), __PRETTY_FUNCTION__, __FILE__, __LINE__);    \
     raise(SIGABRT);                                                                     \
 }
 
-
-#define GET_MACRO(_1,_2,NAME,...) NAME
-#define precondition(...) GET_MACRO(__VA_ARGS__, precondition2, precondition1)(__VA_ARGS__)
-
-#define assert_implication(x, y) precondition1(!(x) || (y))
 
 
 __attribute__((format(printf, 1, 2)))

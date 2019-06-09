@@ -80,7 +80,7 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::Specialize(std::shared_ptr<
     //std::cout << "Before:\n" << Decl->Signature << "\nAfter:\n" << SpecializedFunction->Signature << std::endl;
     
     if (SpecializedFunction->Signature->attributes->intrinsic) {
-        precondition(Decl->Body == nullptr);
+        LKAssert(Decl->Body == nullptr);
         return SpecializedFunction;
     }
     

@@ -12,7 +12,7 @@
 using namespace yo;
 
 void AssertValidCharRange(char A, char B) {
-    precondition(A <= B);
+    LKAssert(A <= B);
 }
 
 

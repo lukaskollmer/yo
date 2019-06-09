@@ -98,7 +98,7 @@ TypeInfo *TypeInfo::MakePointer(TypeInfo *pointee) {
 TypeInfo *TypeInfo::MakeTypealias(const std::string &name, TypeInfo *otherType) {
     bool didCreateNewType = false;
     auto TI = GetWithName(name, &didCreateNewType);
-    //precondition(DidCreateNewType && "Creating typealias for already existing typename");
+    //LKAssert(DidCreateNewType && "Creating typealias for already existing typename");
     TI->kind = Kind::Typealias;
     TI->name = name;
     TI->pointee = otherType;

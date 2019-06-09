@@ -14,15 +14,17 @@
 
 #include "util.h"
 
-#define MODULE(name) std::string_view(reinterpret_cast<const char *>(stdlib_##name##_yo), stdlib_##name##_yo_len)
+#define MODULE(_0, _1) { _0, std::string_view(reinterpret_cast<const char *>(stdlib_##_1##_yo), stdlib_##_1##_yo_len) }
+
 static std::map<std::string, std::string_view> StdlibModules = {
-    { ":std/array",             MODULE(std_array)           },
-    { ":std/string",            MODULE(std_string)          },
-    { ":runtime/casts",         MODULE(runtime_casts)       },
-    { ":runtime/memory",        MODULE(runtime_memory)      },
-    { ":runtime/refcounting",   MODULE(runtime_refcounting) },
+    MODULE(":std/array", std_array),
+    MODULE(":std/string", std_string),
+    MODULE(":runtime/casts", runtime_casts),
+    MODULE(":runtime/memory", runtime_memory),
+    MODULE(":runtime/refcounting", runtime_refcounting),
 };
 #undef MODULE
+
 
 std::string_view yo::stdlib_resolution::GetContentsOfModuleWithName(const std::string &Name) {
     if (auto Module = util::map::get_opt(StdlibModules, Name)) {

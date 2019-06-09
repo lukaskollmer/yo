@@ -266,7 +266,7 @@ std::shared_ptr<ImplBlock> Parser::ParseImplBlock() {
         std::vector<attributes::Attribute> attributes;
         if (CurrentTokenKind() == TK::Hashtag) {
             attributes = ParseAttributes();
-            precondition(CurrentTokenKind() == TK::Fn);
+            LKAssert(CurrentTokenKind() == TK::Fn);
         }
         auto functionDecl = ParseFunctionDecl(std::make_shared<attributes::FunctionAttributes>(attributes));
         impl->Methods.push_back(functionDecl);
@@ -310,7 +310,7 @@ std::vector<yo::attributes::Attribute> Parser::ParseAttributes() {
             case TK::EqualsSign: {
                 Consume();
                 if (auto value = ParseStringLiteral()) {
-                    precondition(value->Kind == ast::StringLiteral::StringLiteralKind::NormalString);
+                    LKAssert(value->Kind == ast::StringLiteral::StringLiteralKind::NormalString);
                     attributes.push_back(yo::attributes::Attribute(key, value->Value));
                 } else {
                     LKFatalError("unable to parse attribute value");
@@ -420,7 +420,7 @@ std::vector<std::shared_ptr<ast::VariableDecl>> Parser::ParseStructPropertyDeclL
         
         if (CurrentTokenKind() == TK::Comma) {
             Consume();
-            precondition(CurrentTokenKind() != TK::ClosingCurlyBraces);
+            LKAssert(CurrentTokenKind() != TK::ClosingCurlyBraces);
         }
     }
     
@@ -436,7 +436,7 @@ void Parser::ParseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> 
     uint64_t index = 0;
     uint64_t pos_lastEntry = UINT64_MAX;
     while (CurrentTokenKind() != Delimiter) {
-        precondition(pos_lastEntry != Position); pos_lastEntry = Position;
+        LKAssert(pos_lastEntry != Position); pos_lastEntry = Position;
         
         auto ident = ast::Identifier::EmptyIdent();
         TypeInfo *type = TypeInfo::Unresolved;
@@ -451,14 +451,14 @@ void Parser::ParseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> 
             }
         } else if (CurrentTokenKind() == TK::Period && PeekKind(0) == TK::Period && PeekKind(2) == TK::Period) {
             Consume(3);
-            precondition(CurrentTokenKind() == Delimiter);
+            LKAssert(CurrentTokenKind() == Delimiter);
             signature->attributes->variadic = true;
             return;
         } else {
             ident = std::make_shared<ast::Identifier>(std::string("$").append(std::to_string(index)));
             type = ParseType();
         }
-        precondition(type);
+        LKAssert(type);
         
         index += 1;
         auto Decl = std::make_shared<ast::VariableDecl>(ident, type);
@@ -467,7 +467,7 @@ void Parser::ParseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> 
         
         if (CurrentTokenKind() == TK::Comma) {
             Consume();
-            precondition(CurrentTokenKind() != TK::ClosingParens);
+            LKAssert(CurrentTokenKind() != TK::ClosingParens);
         }
     }
 }
@@ -747,7 +747,7 @@ std::vector<std::shared_ptr<Expr>> Parser::ParseExpressionList(Token::TokenKind 
     
     do {
         Expressions.push_back(ParseExpression());
-        precondition(CurrentTokenKind() == TK::Comma || CurrentTokenKind() == Delimiter);
+        LKAssert(CurrentTokenKind() == TK::Comma || CurrentTokenKind() == Delimiter);
         if (CurrentTokenKind() == TK::Comma) Consume();
     } while (CurrentTokenKind() != Delimiter);
     
@@ -934,7 +934,7 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
     ast::Expr *_last_entry_expr_ptr = nullptr;
     
     while (true) {
-        precondition(E);
+        LKAssert(E);
         if (_last_entry_expr_ptr == E.get()) {
             unhandled_token(CurrentToken());
         }
@@ -1085,7 +1085,7 @@ std::shared_ptr<ast::CallExpr> Parser::ParseCallExpr(std::shared_ptr<ast::Expr> 
             }
         }
         assert_current_token_and_consume(TK::GreaterSign);
-        precondition(!explicitTemplateArgumentTypes.empty()); // TODO allow empty explicit template lists?
+        LKAssert(!explicitTemplateArgumentTypes.empty()); // TODO allow empty explicit template lists?
     }
     assert_current_token_and_consume(TK::OpeningParens);
     
