@@ -376,6 +376,13 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
         LKFatalError("Unable to find function '%s'", ResolvedName.c_str());
     }
     
+    if (Sig->attributes->inline_) {
+        F->addFnAttr(llvm::Attribute::InlineHint);
+    }
+    if (Sig->attributes->always_inline) {
+        F->addFnAttr(llvm::Attribute::AlwaysInline);
+    }
+    
     
     auto Unit = _DIFileForNode(DIBuilder, FunctionDecl);
     auto SP = DIBuilder.createFunction(Unit, Sig->Name, ResolvedName, Unit,

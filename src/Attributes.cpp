@@ -41,6 +41,8 @@ ATTRIBUTE(function, intrinsic)
 ATTRIBUTE(function, arc)
 ATTRIBUTE(function, mangle)
 ATTRIBUTE2(function, extern_, extern)
+ATTRIBUTE2(function, inline_, inline)
+ATTRIBUTE(function, always_inline)
 ATTRIBUTE(function, side_effects)
 
 ATTR_MEMBER(function, side_effects, none)
@@ -128,6 +130,12 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
         } else if (attribute.key == builtin_attributes::function::extern_::_yo_attr_key) {
             extern_ = std::get<bool>(attribute.data);
             
+        } else if (attribute.key == builtin_attributes::function::inline_::_yo_attr_key) {
+            inline_ = std::get<bool>(attribute.data);
+            
+        } else if (attribute.key == builtin_attributes::function::always_inline::_yo_attr_key) {
+            always_inline = std::get<bool>(attribute.data);
+            
         } else {
             LKFatalError("unknown function attribute: '%s'", attribute.key.c_str());
         }
@@ -136,6 +144,11 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
     ensure_mutual_exclusivity(handledAttributes, {
         builtin_attributes::function::mangle::_yo_attr_key,
         builtin_attributes::function::no_mangle::_yo_attr_key
+    });
+    
+    ensure_mutual_exclusivity(handledAttributes, {
+        builtin_attributes::function::inline_::_yo_attr_key,
+        builtin_attributes::function::always_inline::_yo_attr_key
     });
     
     ensure_mutual_exclusivity(handledAttributes, {

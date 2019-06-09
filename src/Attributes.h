@@ -48,6 +48,8 @@ namespace yo::attributes {
         bool intrinsic;
         bool arc;
         bool extern_;
+        bool inline_;
+        bool always_inline;
         std::string mangledName;
         std::vector<SideEffect> side_effects;
         
