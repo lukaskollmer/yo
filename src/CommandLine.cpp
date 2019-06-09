@@ -40,6 +40,13 @@ llvm::cl::list<std::string> cl::RunArgs(llvm::cl::ConsumeAfter,
                                         llvm::cl::desc("<run args>..."),
                                         llvm::cl::cat(CLIOptionsCategory));
 
+//llvm::cl::opt<bool> cl::EmitDebugSymbols("g", llvm::cl::desc("Emit Debug Symbols"),
+//                                         llvm::cl::init(true),
+//                                         llvm::cl::cat(CLIOptionsCategory));
+
+llvm::cl::opt<bool> cl::Optimize("O", llvm::cl::desc("Enable Optimizations"),
+                                 llvm::cl::cat(CLIOptionsCategory));
+
 
 void print_version(llvm::raw_ostream &OS) {
     OS << "yo " << YO_VERSION << " (" << __DATE__ << ", " << __TIME__ << ")\n";

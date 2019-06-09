@@ -35,45 +35,47 @@ add_custom_target(gen_stdlib
 
 # TODO split this up into proper subfolders and shit
 add_executable(yo
-  src/CommandLine.h
-  src/CommandLine.cpp
-  src/CharacterSet.h
-  src/CharacterSet.cpp
-  src/Token.h
-  src/Token.cpp
-  src/Lexer.h
-  src/Lexer.cpp
+  src/main.cpp
+
   src/AST.h
   src/AST.cpp
-  src/Parser.h
-  src/Parser.cpp
-  src/TypeInfo.h
-  src/TypeInfo.cpp
-  src/Mangling.h
-  src/Mangling.cpp
-  src/Scope.h
-  src/Scope.cpp
-  src/TypeCache.h
-  src/TypeCache.cpp
+  src/Attributes.h
+  src/Attributes.cpp
+  src/CharacterSet.h
+  src/CharacterSet.cpp
+  src/CommandLine.h
+  src/CommandLine.cpp
   src/IRGen.h
   src/IRGen.cpp
+  src/Lexer.h
+  src/Lexer.cpp
+  src/Mangling.h
+  src/Mangling.cpp
+  src/Parser.h
+  src/Parser.cpp
+  src/Scope.h
+  src/Scope.cpp
+  src/StdlibResolution.h
+  src/StdlibResolution.cpp
+  src/TemplateResolution.h
+  src/TemplateResolution.cpp
+  src/Token.h
+  src/Token.cpp
+  src/TypeCache.h
+  src/TypeCache.cpp
+  src/TypeInfo.h
+  src/TypeInfo.cpp
+
   src/util.h
   src/util.cpp
-  src/StdlibResolution.cpp
-  src/StdlibResolution.h
-  src/TemplateResolution.cpp
-  src/TemplateResolution.h
-  src/Attributes.cpp
-  src/Attributes.h
   src/util_llvm.h
-  src/main.cpp
 )
 
 
 add_dependencies(yo gen_stdlib)
 
 
-llvm_map_components_to_libnames(llvm_libs core support native nativecodegen)
+llvm_map_components_to_libnames(llvm_libs core support native nativecodegen passes)
 
 target_link_libraries(yo ${llvm_libs})
 target_compile_options(yo PRIVATE "-fvisibility-inlines-hidden")

@@ -6,34 +6,61 @@
 //  Copyright © 2019 Lukas Kollmer. All rights reserved.
 //
 
-#include <iostream>
-#include <memory>
-
 #include "util.h"
 #include "CommandLine.h"
 #include "Parser.h"
 #include "AST.h"
 #include "IRGen.h"
-
 #include "AST.h"
 #include "Parser.h"
+#include "Mangling.h"
 
 #include <fstream>
 #include <sstream>
 #include <unistd.h>
+#include <iostream>
+#include <memory>
 
-#include "Mangling.h"
 
 
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/Support/Program.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Support/FileSystem.h"
 
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/Program.h"
+
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/IR/IRPrintingPasses.h"
+
+#include "llvm/Analysis/TargetTransformInfo.h"
+
+#include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
+
+
+
+
+void AddOptimizationPasses(llvm::legacy::PassManager &MPM, llvm::legacy::FunctionPassManager &FPM) {
+    precondition(yo::cl::Optimize == true);
+    
+    llvm::PassRegistry &PR = *llvm::PassRegistry::getPassRegistry();
+    llvm::initializeCore(PR);
+    llvm::initializeIPO(PR);
+    
+    llvm::PassManagerBuilder PMBuilder;
+    PMBuilder.OptLevel = yo::cl::Optimize ? 1 : 0;
+    
+    PMBuilder.Inliner = llvm::createFunctionInliningPass(PMBuilder.OptLevel, PMBuilder.SizeLevel, false);
+    
+    PMBuilder.populateFunctionPassManager(FPM);
+    PMBuilder.populateModulePassManager(MPM);
+}
+
+
 
 
 
@@ -72,23 +99,6 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     Module->setTargetTriple(TargetTriple);
     
     
-    // Verify Module
-    {
-        std::string S;
-        llvm::raw_string_ostream OS(S);
-        if (llvm::verifyModule(*Module, &OS)) {
-            Module->print(llvm::outs(), nullptr, true, true);
-            std::cout << "\n\nError: Invalid IR:\n" << OS.str();
-            return EXIT_FAILURE;
-        }
-    }
-    
-    
-    if (yo::cl::DumpLLVM) {
-        Module->print(llvm::outs(), nullptr, true, true);
-    }
-    
-    
     std::error_code EC;
     
     llvm::SmallVector<char, 256> cwd;
@@ -117,16 +127,43 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
         return EXIT_FAILURE;
     }
     
-    llvm::legacy::PassManager pass;
-    auto FileType = llvm::TargetMachine::CGFT_ObjectFile;
     
-    if (TargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
+    
+    
+    llvm::legacy::PassManager PM;
+    llvm::legacy::FunctionPassManager FPM(Module.get());
+    
+    PM.add(llvm::createTargetTransformInfoWrapperPass(TargetMachine->getTargetIRAnalysis()));
+    FPM.add(llvm::createTargetTransformInfoWrapperPass(TargetMachine->getTargetIRAnalysis()));
+    
+    FPM.add(llvm::createVerifierPass());
+    PM.add(llvm::createVerifierPass());
+    
+    if (yo::cl::Optimize) {
+        AddOptimizationPasses(PM, FPM);
+    }
+    
+    
+    FPM.doInitialization();
+    for (llvm::Function &F : *Module) {
+        FPM.run(F);
+    }
+    FPM.doFinalization();
+    
+    
+    if (yo::cl::DumpLLVM) {
+        PM.add(llvm::createPrintModulePass(llvm::outs(), "Final IR:", true));
+    }
+    
+    if (TargetMachine->addPassesToEmitFile(PM, dest, nullptr, llvm::TargetMachine::CGFT_ObjectFile)) {
         llvm::errs() << "TargetMachine can't emit a file of this type";
         return EXIT_FAILURE;
     }
     
-    pass.run(*Module);
+    PM.run(*Module);
     dest.flush();
+    
+    
     
     
     auto clangPath = llvm::sys::findProgramByName("clang");
@@ -185,6 +222,7 @@ int main(int argc, const char * argv[], const char *const *envp) {
         std::cout << yo::ast::Description(Ast) << std::endl;
         return EXIT_SUCCESS;
     }
+    
     
     yo::irgen::IRGenerator Codegen("main");
     Codegen.Codegen(Ast);

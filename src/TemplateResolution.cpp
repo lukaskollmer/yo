@@ -230,7 +230,6 @@ std::shared_ptr<ast::VariableDecl> TemplateResolver::Specialize(std::shared_ptr<
 }
 
 
-
 std::shared_ptr<ast::Comparison> TemplateResolver::Specialize(std::shared_ptr<ast::Comparison> Comparison) {
     auto X = std::make_shared<ast::Comparison>(Comparison->Op, Specialize(Comparison->LHS), Specialize(Comparison->RHS));
     X->setSourceLocation(Comparison->getSourceLocation());
