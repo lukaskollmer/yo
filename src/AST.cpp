@@ -469,6 +469,13 @@ Mirror Reflect(ast::ExprStmt *exprStmt) {
     };
 }
 
+Mirror Reflect(ast::TypealiasDecl *Typealias) {
+    return {
+        { "name", Typealias->Typename },
+        { "type", Typealias->Type }
+    };
+}
+
 
 
 
@@ -501,6 +508,7 @@ Mirror Reflect(Node *Node) {
     HANDLE(ast::WhileStmt)
     HANDLE(ast::SubscriptExpr)
     HANDLE(ast::ExprStmt)
+    HANDLE(ast::TypealiasDecl)
     
     std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
     throw;
