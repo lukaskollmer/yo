@@ -9,48 +9,88 @@
 #include "CommandLine.h"
 #include "Version.h"
 #include <iostream>
-
-using namespace yo;
+#include "llvm/Support/CommandLine.h"
 
 static llvm::cl::OptionCategory CLIOptionsCategory("General Options");
 
+static llvm::cl::opt<std::string> InputFilename(llvm::cl::Positional,
+                                                llvm::cl::desc("<input file>"),
+                                                llvm::cl::Required,
+                                                llvm::cl::cat(CLIOptionsCategory));
 
-llvm::cl::opt<std::string> cl::InputFilename(llvm::cl::Positional,
-                                             llvm::cl::desc("<input file>"),
-                                             llvm::cl::Required,
+static llvm::cl::opt<bool> Run("run", llvm::cl::desc("Run the generated executable after codegen"),
+                               llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> PrintAST("print-ast",
+                                    llvm::cl::desc("Print the Abstract Syntax Tree"),
+                                    llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> EmitLLVM("emit-llvm",
+                                    llvm::cl::desc("Emit LLVM IR"),
+                                    llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> DumpLLVM("dump-llvm",
+                                    llvm::cl::desc("Dump LLVM IR"),
+                                    llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::list<std::string> RunArgs(llvm::cl::ConsumeAfter,
+                                           llvm::cl::desc("<run args>..."),
+                                           llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> Optimize("O", llvm::cl::desc("Enable Optimizations"),
+                                    llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> DumpLLVMPreOpt("dump-llvm-pre-opt",
+                                          llvm::cl::desc("Dump LLVM IR prior to running optimizations"),
+                                          llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<std::string> StdlibRoot("stdlib-root",
+                                             llvm::cl::desc("Load stdlib modules from <path>, instead of using the bundled ones"),
+                                             llvm::cl::value_desc("path"),
                                              llvm::cl::cat(CLIOptionsCategory));
 
-llvm::cl::opt<bool> cl::Run("run",
-                            llvm::cl::desc("Run the generated executable after codegen"),
-                            llvm::cl::cat(CLIOptionsCategory));
-
-llvm::cl::opt<bool> cl::PrintAST("print-ast",
-                                 llvm::cl::desc("Print the Abstract Syntax Tree"),
-                                 llvm::cl::cat(CLIOptionsCategory));
-
-llvm::cl::opt<bool> cl::EmitLLVM("emit-llvm",
-                                 llvm::cl::desc("Emit LLVM IR"),
-                                 llvm::cl::cat(CLIOptionsCategory));
-
-llvm::cl::opt<bool> cl::DumpLLVM("dump-llvm",
-                                 llvm::cl::desc("Dump LLVM IR"),
-                                 llvm::cl::cat(CLIOptionsCategory));
-
-llvm::cl::list<std::string> cl::RunArgs(llvm::cl::ConsumeAfter,
-                                        llvm::cl::desc("<run args>..."),
-                                        llvm::cl::cat(CLIOptionsCategory));
 
 
-llvm::cl::opt<bool> cl::Optimize("O", llvm::cl::desc("Enable Optimizations"),
-                                 llvm::cl::cat(CLIOptionsCategory));
+bool yo::cl::opts::Run() {
+    return Run;
+}
 
-llvm::cl::opt<bool> cl::DumpLLVMPreOpt("dump-llvm-pre-opt",
-                                       llvm::cl::desc("Dump LLVM IR prior to running optimizations"),
-                                       llvm::cl::cat(CLIOptionsCategory));
+const std::vector<std::string>& yo::cl::opts::RunArgs() {
+    return ::RunArgs;
+}
 
-llvm::cl::opt<std::string> cl::StdlibRoot("stdlib-root",
-                                          llvm::cl::desc("Load stdlib modules from the specified path, instead of using the bundled ones"),
-                                          llvm::cl::cat(CLIOptionsCategory));
+const std::string& yo::cl::opts::InputFilename() {
+    return ::InputFilename;
+}
+
+//const std::string& yo::cl::opts::OutputFilename() {
+//    return yo::cl::OutputFilename;
+//}
+
+const std::string& yo::cl::opts::StdlibRoot() {
+    return ::StdlibRoot;
+}
+
+bool yo::cl::opts::PrintAST() {
+    return PrintAST;
+}
+
+bool yo::cl::opts::EmitLLVM() {
+    return EmitLLVM;
+}
+
+bool yo::cl::opts::DumpLLVM() {
+    return DumpLLVM;
+}
+
+bool yo::cl::opts::DumpLLVMPreOpt() {
+    return DumpLLVMPreOpt;
+}
+
+bool yo::cl::opts::Optimize() {
+    return Optimize;
+}
+
 
 
 void print_version(llvm::raw_ostream &OS) {
@@ -59,7 +99,7 @@ void print_version(llvm::raw_ostream &OS) {
     OS << "- Compiled with: " << COMPILER << "\n";
 }
 
-void cl::Init(int argc, const char *const *argv) {
+void yo::cl::Init(int argc, const char *const *argv) {
     llvm::cl::SetVersionPrinter(&print_version);
     llvm::cl::HideUnrelatedOptions(CLIOptionsCategory);
     llvm::cl::ParseCommandLineOptions(argc, argv, "the yo programming language v" YO_VERSION "\n");

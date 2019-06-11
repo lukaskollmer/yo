@@ -9,24 +9,26 @@
 #pragma once
 
 #include <string>
-#include "llvm/Support/CommandLine.h"
+#include <vector>
 
 
 namespace yo::cl {
-    extern llvm::cl::opt<bool> Run;
-    extern llvm::cl::list<std::string> RunArgs;
-    
-    extern llvm::cl::opt<std::string> InputFilename;
-    extern llvm::cl::opt<std::string> OutputFilename;
-    
-    extern llvm::cl::opt<std::string> StdlibRoot;
-    
-    extern llvm::cl::opt<bool> PrintAST;
-    extern llvm::cl::opt<bool> EmitLLVM;
-    extern llvm::cl::opt<bool> DumpLLVM;
-    extern llvm::cl::opt<bool> DumpLLVMPreOpt;
-    
-    extern llvm::cl::opt<bool> Optimize;
-    
     void Init(int argc, const char *const *argv);
+}
+
+namespace yo::cl::opts {
+    bool Run();
+    const std::vector<std::string>& RunArgs();
+    
+    const std::string& InputFilename();
+    const std::string& OutputFilename();
+    
+    const std::string& StdlibRoot();
+    
+    bool PrintAST();
+    bool EmitLLVM();
+    bool DumpLLVM();
+    bool DumpLLVMPreOpt();
+    
+    bool Optimize();
 }

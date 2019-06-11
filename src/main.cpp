@@ -45,7 +45,7 @@
 
 
 void AddOptimizationPasses(llvm::legacy::PassManager &MPM, llvm::legacy::FunctionPassManager &FPM) {
-    LKAssert(yo::cl::Optimize == true);
+    LKAssert(yo::cl::opts::Optimize() == true);
     
     llvm::PassRegistry &PR = *llvm::PassRegistry::getPassRegistry();
     llvm::initializeCore(PR);
@@ -147,8 +147,8 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     FPM.add(llvm::createVerifierPass());
     PM.add(llvm::createVerifierPass());
     
-    if (yo::cl::Optimize) {
-        if (yo::cl::DumpLLVMPreOpt) {
+    if (yo::cl::opts::Optimize()) {
+        if (yo::cl::opts::DumpLLVMPreOpt()) {
             PM.add(llvm::createPrintModulePass(llvm::outs(), "Pre-Optimized IR:", true));
         }
         AddOptimizationPasses(PM, FPM);
@@ -162,8 +162,8 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     FPM.doFinalization();
     
     
-    if (yo::cl::DumpLLVM) {
-        std::string Banner = !yo::cl::Optimize ? "Final IR:" : "Final IR (Optimized):";
+    if (yo::cl::opts::DumpLLVM()) {
+        std::string Banner = !yo::cl::opts::Optimize() ? "Final IR:" : "Final IR (Optimized):";
         PM.add(llvm::createPrintModulePass(llvm::outs(), Banner, true));
     }
     
@@ -202,12 +202,12 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
 
 
 int RunExecutable(const std::string &ExecutablePath, const char *const *envp) {
-    auto argc = yo::cl::RunArgs.size();
+    auto argc = yo::cl::opts::RunArgs().size();
     auto argv = static_cast<char **>(calloc(argc + 2, sizeof(char *))); // +2 bc the first element is the executable path and the array is null terminated
     argv[0] = strdup(ExecutablePath.c_str());
     
     for (auto I = 0; I < argc; I++) {
-        argv[I + 1] = strdup(yo::cl::RunArgs[I].c_str());
+        argv[I + 1] = strdup(yo::cl::opts::RunArgs()[I].c_str());
     }
     llvm::llvm_shutdown();
     
@@ -222,20 +222,20 @@ int RunExecutable(const std::string &ExecutablePath, const char *const *envp) {
 
 int main(int argc, const char * argv[], const char *const *envp) {
     yo::cl::Init(argc, argv);
-    LKAssertImplication(yo::cl::RunArgs.size() > 0, yo::cl::Run);
+    LKAssertImplication(yo::cl::opts::RunArgs().size() > 0, yo::cl::opts::Run());
     
     yo::parser::Parser Parser;
     
-    if (!yo::cl::StdlibRoot.empty()) {
-        Parser.SetCustomStdlibRoot(yo::cl::StdlibRoot);
+    if (!yo::cl::opts::StdlibRoot().empty()) {
+        Parser.SetCustomStdlibRoot(yo::cl::opts::StdlibRoot());
     }
     
-    std::string Filename = yo::cl::InputFilename;
+    std::string Filename = yo::cl::opts::InputFilename();
     auto Ast = Parser.Parse(Filename);
     
     Filename = yo::util::string::lastPathCompotent(Filename);
     
-    if (yo::cl::PrintAST) {
+    if (yo::cl::opts::PrintAST()) {
         std::cout << yo::ast::Description(Ast) << std::endl;
         return EXIT_SUCCESS;
     }
@@ -246,7 +246,7 @@ int main(int argc, const char * argv[], const char *const *envp) {
     
     auto M = Codegen.GetModule();
     
-    if (yo::cl::EmitLLVM) {
+    if (yo::cl::opts::EmitLLVM()) {
         std::error_code EC;
         auto OutputFile = Filename.append(".ll");
         llvm::raw_fd_ostream OS(OutputFile, EC);
@@ -260,7 +260,7 @@ int main(int argc, const char * argv[], const char *const *envp) {
         return Status;
     }
     
-    if (yo::cl::Run) {
+    if (yo::cl::opts::Run()) {
         // Only returns if execve failed
         return RunExecutable(ExecutablePath, envp);
     }
