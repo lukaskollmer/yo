@@ -10,31 +10,36 @@
 #include "Version.h"
 #include <iostream>
 #include "llvm/Support/CommandLine.h"
+#include "util.h"
+
+
+using namespace yo::cl;
+
+
+NS_START(yo::cl::internal)
+
+// These are in a separate namespace to avoid name lookup ambiguity in the getter functions
 
 static llvm::cl::OptionCategory CLIOptionsCategory("General Options");
 
 static llvm::cl::opt<std::string> InputFilename(llvm::cl::Positional,
-                                                llvm::cl::desc("<input file>"),
-                                                llvm::cl::Required,
-                                                llvm::cl::cat(CLIOptionsCategory));
+                                                   llvm::cl::desc("<input file>"),
+                                                   llvm::cl::Required,
+                                                   llvm::cl::cat(CLIOptionsCategory));
 
 static llvm::cl::opt<bool> Run("run", llvm::cl::desc("Run the generated executable after codegen"),
-                               llvm::cl::cat(CLIOptionsCategory));
+                                  llvm::cl::cat(CLIOptionsCategory));
 
-static llvm::cl::opt<bool> PrintAST("print-ast",
-                                    llvm::cl::desc("Print the Abstract Syntax Tree"),
+static llvm::cl::opt<bool> PrintAST("print-ast", llvm::cl::desc("Print the Abstract Syntax Tree"),
+                                       llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> EmitLLVM("emit-llvm", llvm::cl::desc("Emit LLVM IR"),
                                     llvm::cl::cat(CLIOptionsCategory));
 
-static llvm::cl::opt<bool> EmitLLVM("emit-llvm",
-                                    llvm::cl::desc("Emit LLVM IR"),
+static llvm::cl::opt<bool> DumpLLVM("dump-llvm", llvm::cl::desc("Dump LLVM IR"),
                                     llvm::cl::cat(CLIOptionsCategory));
 
-static llvm::cl::opt<bool> DumpLLVM("dump-llvm",
-                                    llvm::cl::desc("Dump LLVM IR"),
-                                    llvm::cl::cat(CLIOptionsCategory));
-
-static llvm::cl::list<std::string> RunArgs(llvm::cl::ConsumeAfter,
-                                           llvm::cl::desc("<run args>..."),
+static llvm::cl::list<std::string> RunArgs(llvm::cl::ConsumeAfter, llvm::cl::desc("<run args>..."),
                                            llvm::cl::cat(CLIOptionsCategory));
 
 static llvm::cl::opt<bool> Optimize("O", llvm::cl::desc("Enable Optimizations"),
@@ -49,18 +54,19 @@ static llvm::cl::opt<std::string> StdlibRoot("stdlib-root",
                                              llvm::cl::value_desc("path"),
                                              llvm::cl::cat(CLIOptionsCategory));
 
+NS_END
 
 
 bool yo::cl::opts::Run() {
-    return Run;
+    return internal::Run;
 }
 
 const std::vector<std::string>& yo::cl::opts::RunArgs() {
-    return ::RunArgs;
+    return internal::RunArgs;
 }
 
 const std::string& yo::cl::opts::InputFilename() {
-    return ::InputFilename;
+    return internal::InputFilename;
 }
 
 //const std::string& yo::cl::opts::OutputFilename() {
@@ -68,27 +74,27 @@ const std::string& yo::cl::opts::InputFilename() {
 //}
 
 const std::string& yo::cl::opts::StdlibRoot() {
-    return ::StdlibRoot;
+    return internal::StdlibRoot;
 }
 
 bool yo::cl::opts::PrintAST() {
-    return PrintAST;
+    return internal::PrintAST;
 }
 
 bool yo::cl::opts::EmitLLVM() {
-    return EmitLLVM;
+    return internal::EmitLLVM;
 }
 
 bool yo::cl::opts::DumpLLVM() {
-    return DumpLLVM;
+    return internal::DumpLLVM;
 }
 
 bool yo::cl::opts::DumpLLVMPreOpt() {
-    return DumpLLVMPreOpt;
+    return internal::DumpLLVMPreOpt;
 }
 
 bool yo::cl::opts::Optimize() {
-    return Optimize;
+    return internal::Optimize;
 }
 
 
@@ -101,6 +107,6 @@ void print_version(llvm::raw_ostream &OS) {
 
 void yo::cl::Init(int argc, const char *const *argv) {
     llvm::cl::SetVersionPrinter(&print_version);
-    llvm::cl::HideUnrelatedOptions(CLIOptionsCategory);
+    llvm::cl::HideUnrelatedOptions(internal::CLIOptionsCategory);
     llvm::cl::ParseCommandLineOptions(argc, argv, "the yo programming language v" YO_VERSION "\n");
 }
