@@ -24,7 +24,6 @@ static constexpr char DOUBLE_QUOTE = '"';
 
 static CharacterSet Letters({{'a', 'z'}, {'A', 'Z'}});
 static CharacterSet IgnoredCharacters(" "); // TODO make this "all whitespace" instead
-static CharacterSet Delimiters(" .,+-*/;:=<>!&^#|~(){}[]@\n");
 static CharacterSet BinaryDigits("01");
 static CharacterSet OctalDigits("01234567");
 static CharacterSet DecimalDigits("0123456789");

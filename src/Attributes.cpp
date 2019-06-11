@@ -28,7 +28,7 @@ namespace attr_vec_utils {
 #define ATTRIBUTE(scope, name) \
 namespace builtin_attributes::scope::name { const std::string_view _yo_attr_key = #name; }
 
-#define ATTRIBUTE2(scope, internalName, externalName) \
+#define ATTRIBUTE_custom_mapping(scope, internalName, externalName) \
 namespace builtin_attributes::scope::internalName { const std::string_view _yo_attr_key = #externalName; }
 
 #define ATTR_MEMBER(scope, attr_name, member_name) \
@@ -40,10 +40,10 @@ ATTRIBUTE(function, no_mangle)
 ATTRIBUTE(function, intrinsic)
 ATTRIBUTE(function, arc)
 ATTRIBUTE(function, mangle)
-ATTRIBUTE2(function, extern_, extern)
-ATTRIBUTE2(function, inline_, inline)
 ATTRIBUTE(function, always_inline)
 ATTRIBUTE(function, side_effects)
+ATTRIBUTE_custom_mapping(function, extern_, extern)
+ATTRIBUTE_custom_mapping(function, inline_, inline)
 
 ATTR_MEMBER(function, side_effects, none)
 ATTR_MEMBER(function, side_effects, io)
@@ -68,6 +68,8 @@ std::vector<SideEffect> HandleSideEffectsAttribute(const Attribute &attribute) {
             sideEffects.push_back(SideEffect::None);
         } else if (value == builtin_attributes::function::side_effects::io) {
             sideEffects.push_back(SideEffect::IO);
+        } else if (value == builtin_attributes::function::side_effects::unknown) {
+            sideEffects.push_back(SideEffect::Unknown);
         } else {
             LKFatalError("unknown value in side_effects attribute: '%s'", value.c_str());
         }
