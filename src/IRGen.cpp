@@ -384,11 +384,11 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
     }
     
     
-    auto Unit = _DIFileForNode(DIBuilder, FunctionDecl);
+    auto Unit = _DIFileForNode(DIBuilder, Sig);
     auto SP = DIBuilder.createFunction(Unit, Sig->Name, ResolvedName, Unit,
-                                       FunctionDecl->getSourceLocation().Line,
+                                       Sig->getSourceLocation().Line,
                                        _ToDISubroutineType(Sig.get()),
-                                       FunctionDecl->getSourceLocation().Line,
+                                       Sig->getSourceLocation().Line,
                                        llvm::DINode::FlagZero,
                                        llvm::DISubprogram::DISPFlags::SPFlagDefinition);
     
@@ -450,11 +450,11 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
         // Create Debug Metadata
         auto D = DIBuilder.createAutoVariable(SP, kRetvalAllocaIdentifier,
                                               Unit,
-                                              FunctionDecl->getSourceLocation().Line,
+                                              Sig->getSourceLocation().Line,
                                               GetDIType(ReturnType));
         DIBuilder.insertDeclare(RetvalAlloca, D,
                                 DIBuilder.createExpression(),
-                                llvm::DebugLoc::get(FunctionDecl->getSourceLocation().Line, 0, SP),
+                                llvm::DebugLoc::get(Sig->getSourceLocation().Line, 0, SP),
                                 EntryBB);
     }
     
