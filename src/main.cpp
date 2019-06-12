@@ -45,15 +45,14 @@
 
 
 void AddOptimizationPasses(llvm::legacy::PassManager &MPM, llvm::legacy::FunctionPassManager &FPM) {
-    LKAssert(yo::cl::opts::Optimize() == true);
-    
     llvm::PassRegistry &PR = *llvm::PassRegistry::getPassRegistry();
     llvm::initializeCore(PR);
     llvm::initializeIPO(PR);
+    //llvm::initializeRegToMemPass(<#PassRegistry &#>)
     llvm::initializeSimpleInlinerPass(PR);
     
     llvm::PassManagerBuilder PMBuilder;
-    PMBuilder.OptLevel = 1;
+    PMBuilder.OptLevel = yo::cl::opts::Optimize() ? 1 : 0;
     PMBuilder.SizeLevel = 0;
     
     if (PMBuilder.OptLevel > 1) {
@@ -147,12 +146,10 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     FPM.add(llvm::createVerifierPass());
     PM.add(llvm::createVerifierPass());
     
-    if (yo::cl::opts::Optimize()) {
-        if (yo::cl::opts::DumpLLVMPreOpt()) {
-            PM.add(llvm::createPrintModulePass(llvm::outs(), "Pre-Optimized IR:", true));
-        }
-        AddOptimizationPasses(PM, FPM);
+    if (yo::cl::opts::DumpLLVMPreOpt()) {
+        PM.add(llvm::createPrintModulePass(llvm::outs(), "Pre-Optimized IR:", true));
     }
+    AddOptimizationPasses(PM, FPM);
     
     
     FPM.doInitialization();
