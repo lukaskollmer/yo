@@ -203,7 +203,7 @@ int RunExecutable(const std::string &ExecutablePath, const char *const *envp) {
     auto argv = static_cast<char **>(calloc(argc + 2, sizeof(char *))); // +2 bc the first element is the executable path and the array is null terminated
     argv[0] = strdup(ExecutablePath.c_str());
     
-    for (auto I = 0; I < argc; I++) {
+    for (size_t I = 0; I < argc; I++) {
         argv[I + 1] = strdup(yo::cl::opts::RunArgs()[I].c_str());
     }
     llvm::llvm_shutdown();

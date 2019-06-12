@@ -424,7 +424,8 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::FunctionDecl> FunctionDec
         ParamAllocas.push_back(Alloca);
     }
     
-    for (auto I = 0; I < Sig->Parameters.size(); I++) {
+    
+    for (size_t I = 0; I < Sig->Parameters.size(); I++) {
         auto Alloca = ParamAllocas.at(I);
         Builder.CreateStore(&F->arg_begin()[I], Alloca);
         
@@ -939,7 +940,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::MatchExpr> MatchExpr) {
     
     auto LastBranchIsWildcard = _LastBranchIsWildcard(MatchExpr);
     
-    for (auto I = 0; I < MatchExpr->Branches.size(); I++) {
+    for (size_t I = 0; I < MatchExpr->Branches.size(); I++) {
         auto &Branch = MatchExpr->Branches[I];
         auto ValueBB = NextValueBB;
         NextValueBB = llvm::BasicBlock::Create(C);
@@ -1098,7 +1099,7 @@ std::optional<std::map<std::string, TypeInfo *>> IRGenerator::AttemptToResolveTe
     
     std::map<std::string, TypeInfo *> templateArgumentMapping;
     
-    for (auto idx = 0; idx < sig->TemplateArgumentNames.size(); idx++) {
+    for (size_t idx = 0; idx < sig->TemplateArgumentNames.size(); idx++) {
         auto name = sig->TemplateArgumentNames[idx];
         if (idx < call->explicitTemplateArgumentTypes.size()) {
             templateArgumentMapping[name] = call->explicitTemplateArgumentTypes[idx];
@@ -1107,7 +1108,7 @@ std::optional<std::map<std::string, TypeInfo *>> IRGenerator::AttemptToResolveTe
         }
     }
     
-    for (auto idx = argumentOffset; idx < call->arguments.size(); idx++) {
+    for (size_t idx = argumentOffset; idx < call->arguments.size(); idx++) {
         std::string paramTypename;
         auto paramType = sig->Parameters[idx]->Type;
         unsigned paramIndirectionCount = 0;
@@ -1531,7 +1532,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
     }
     
     
-    for (auto I = 0; I < If->Branches.size(); I++) {
+    for (size_t I = 0; I < If->Branches.size(); I++) {
         auto BB = BranchBodyBlocks[I];
         F->getBasicBlockList().push_back(BB);
         Builder.SetInsertPoint(BB);
@@ -1843,7 +1844,7 @@ llvm::DIType *IRGenerator::GetDIType(TypeInfo *TI) {
         auto StructLayout = DataLayout.getStructLayout(LLVMTy);
         
         std::vector<llvm::Metadata *> Elements;
-        for (auto I = 0; I < StructDecl->Members.size(); I++) {
+        for (size_t I = 0; I < StructDecl->Members.size(); I++) {
             auto &Member = StructDecl->Members[I];
             auto LLVMMemberTy = GetLLVMType(Member->Type);
             auto MemberTy = DIBuilder.createMemberType(CompileUnit, Member->Name->Value, DeclUnit,
