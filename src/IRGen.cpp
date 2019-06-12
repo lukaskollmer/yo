@@ -211,7 +211,7 @@ void IRGenerator::RegisterStructDecl(std::shared_ptr<ast::StructDecl> structDecl
     
     auto LKYOObjectBase = TypeCache.GetStruct("LKMetadataAccessor");
     
-    if (structDecl->attributes->arc) {
+    if (EnableARC && structDecl->attributes->arc) {
         structDecl->Members.insert(structDecl->Members.begin(), LKYOObjectBase->Members.begin(), LKYOObjectBase->Members.end());
     }
     
@@ -228,12 +228,19 @@ void IRGenerator::RegisterStructDecl(std::shared_ptr<ast::StructDecl> structDecl
         initializer->Signature->ReturnType = TypeInfo::MakePointer(T);
         initializer->Signature->ImplType = structDecl;
         
-        if (!structDecl->attributes->arc) {
-            initializer->Signature->Parameters = structDecl->Members;
-        } else {
-            initializer->Signature->Parameters = std::vector<std::shared_ptr<ast::VariableDecl>>(structDecl->Members.begin() + LKYOObjectBase->Members.size(),
-                                                                                                 structDecl->Members.end());
+        initializer->Signature->Parameters = structDecl->Members;
+        
+        if (EnableARC && structDecl->attributes->arc) {
+            auto &Params = initializer->Signature->Parameters;
+            Params.erase(Params.begin(), Params.begin() + LKYOObjectBase->Members.size());
         }
+        
+//        if (!structDecl->attributes->arc) {
+//            initializer->Signature->Parameters = structDecl->Members;
+//        } else {
+//            initializer->Signature->Parameters = std::vector<std::shared_ptr<ast::VariableDecl>>(structDecl->Members.begin() + LKYOObjectBase->Members.size(),
+//                                                                                                 structDecl->Members.end());
+//        }
         
         RegisterFunction(initializer);
     }
@@ -1449,15 +1456,6 @@ llvm::Value *IRGenerator::Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionS
         return llvm::ConstantInt::get(i64, Module->getDataLayout().getTypeAllocSize(T));
     }
     
-    if (name == "retain" || name == "release" || name == "markForRelease") {
-        LKAssert(call->arguments.size() == 1);
-        call->target = std::make_shared<ast::Identifier>(name + "_imp");
-        call->arguments[0] = std::make_shared<ast::Typecast>(call->arguments[0],
-                                                             TypeInfo::GetWithName("LKMetadataAccessor")->getPointerTo(),
-                                                             ast::Typecast::CastKind::Bitcast);
-        return Codegen(call);
-    }
-    
     std::cout << "Unhandled call to intrinsic: " << name << std::endl;
     LKFatalError("");
 }
@@ -2054,7 +2052,7 @@ llvm::Value *IRGenerator::GenerateStructInitializer(std::shared_ptr<ast::StructD
     }
     
     // set runtime metadata
-    if (structDecl->attributes->arc) {
+    if (EnableARC && structDecl->attributes->arc) {
         auto set_retaincount = std::make_shared<ast::Assignment>(std::make_shared<ast::MemberExpr>(self, "retainCount"),
                                                                  astgen::Number((uint64_t(1) << 60) | 1));
         

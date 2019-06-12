@@ -54,6 +54,9 @@ static llvm::cl::opt<std::string> StdlibRoot("stdlib-root",
                                              llvm::cl::value_desc("path"),
                                              llvm::cl::cat(CLIOptionsCategory));
 
+static llvm::cl::opt<bool> ARC("arc", llvm::cl::desc("[internal] enable arc"),
+                               llvm::cl::cat(CLIOptionsCategory));
+
 NS_END
 
 
@@ -95,6 +98,10 @@ bool yo::cl::opts::DumpLLVMPreOpt() {
 
 bool yo::cl::opts::Optimize() {
     return internal::Optimize;
+}
+
+bool yo::cl::opts::ARC() {
+    return internal::ARC;
 }
 
 

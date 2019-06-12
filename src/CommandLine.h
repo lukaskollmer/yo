@@ -30,5 +30,7 @@ namespace yo::cl::opts {
     bool DumpLLVM();
     bool DumpLLVMPreOpt();
     
+    // experimental flags
     bool Optimize();
+    bool ARC();
 }

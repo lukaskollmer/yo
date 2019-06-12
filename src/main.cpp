@@ -242,6 +242,7 @@ int main(int argc, const char * argv[], const char *const *envp) {
     
     
     yo::irgen::IRGenerator Codegen("main");
+    Codegen.EnableARC = yo::cl::opts::ARC();
     Codegen.Codegen(Ast);
     
     auto M = Codegen.GetModule();

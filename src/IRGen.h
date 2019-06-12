@@ -132,6 +132,10 @@ public:
         return std::move(Module);
     }
     
+    
+    // Options
+    bool EnableARC = false;
+    
 private:
     struct FunctionCodegenOptions {
         bool IsVariadic;
