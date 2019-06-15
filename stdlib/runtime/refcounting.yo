@@ -1,17 +1,27 @@
 // WIP
 
-// Q: Why the templated intrinsics?
-// A: They basically just cast the argument and forward to the _imp functions
-//    Reason for this is avoiding code duplication
+#[extern] fn raise(i32);
 
-#[intrinsic]
-fn retain<T>(obj: T): T {}
 
-#[intrinsic]
-fn release<T>(obj: T): void {}
+#[always_inline]
+fn retain<T>(obj: T): T {
+    retain_imp(reinterpret_cast<*LKMetadataAccessor>(obj));
+    return obj;
+}
 
-#[intrinsic]
-fn markForRelease<T>(obj: T): void {}
+#[always_inline]
+fn release<T>(obj: T) {
+    release_imp(reinterpret_cast<*LKMetadataAccessor>(obj));
+    return;
+}
+
+#[always_inline]
+fn markForRelease<T>(obj: T) {
+    markForRelease_imp(reinterpret_cast<*LKMetadataAccessor>(obj));
+    return;
+}
+
+
 
 
 #[no_init]
@@ -48,13 +58,13 @@ fn release_imp(obj: *LKMetadataAccessor): void {
     if isMarkedForRelease_imp(obj) {
         obj.retainCount &= static_cast<u64>(~(1 << 60));
     }
-    let rc = obj.retainCount;
 
-    if rc == 1 {
+    if obj.retainCount == 1 {
         printf(b"TODO DEALLOC\n");
         printf(b"TODO CALL PTR\n");
-        //let x = obj.deallocPtr; x(reinterpret_cast<*i8>(obj));
+        raise(2);
         obj.deallocPtr(reinterpret_cast<*i8>(obj));
+        raise(2);
         return;
     }
 
