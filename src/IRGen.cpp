@@ -1280,7 +1280,7 @@ NEW_ResolvedFunction IRGenerator::ResolveCall(std::shared_ptr<ast::CallExpr> cal
         
         uint32_t score = 0;
         
-        for (auto i = 0; i < callExpr->arguments.size(); i++) {
+        for (size_t i = 0; i < callExpr->arguments.size(); i++) {
             auto arg = callExpr->arguments[i];
             auto argTy = GuessType(arg);
             auto expectedTy = signature->Parameters[i]->Type;
@@ -1380,7 +1380,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::CallExpr> call) {
     }
     
     
-    for (auto i = resolvedTarget.argumentOffset; i < resolvedTarget.signature->Parameters.size(); i++) {
+    for (size_t i = resolvedTarget.argumentOffset; i < resolvedTarget.signature->Parameters.size(); i++) {
         auto expectedType = resolvedTarget.signature->Parameters[i]->Type;
         auto expr = call->arguments[i - resolvedTarget.argumentOffset];
         TypeInfo *T;
@@ -1409,7 +1409,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::CallExpr> call) {
     std::vector<llvm::Value *> args(resolvedTarget.argumentOffset, nullptr);
     auto numFixedArgs = llvmFunctionTy->getNumParams() - resolvedTarget.argumentOffset;
     
-    for (auto i = resolvedTarget.argumentOffset; i < llvmFunctionTy->getNumParams(); i++) {
+    for (size_t i = resolvedTarget.argumentOffset; i < llvmFunctionTy->getNumParams(); i++) {
         auto expectedType = resolvedTarget.signature->Parameters[i]->Type;
         auto expr = call->arguments[i - resolvedTarget.argumentOffset];
         TypeInfo *T;
@@ -1520,7 +1520,7 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::IfStmt> If) {
     }
     
     
-    for (auto I = 0; I < If->Branches.size(); I++) {
+    for (size_t I = 0; I < If->Branches.size(); I++) {
         if (If->Branches[I]->Kind == BK::Else) break;
         if (I > 0) {
             auto BB = BranchConditionBlocks[I];
