@@ -1,0 +1,25 @@
+{
+    "name": "yo-lang",
+    "displayName": "yo-lang",
+    "description": "Yo",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.35.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "yo",
+            "aliases": ["Yo", "yo"],
+            "extensions": [".yo"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "yo",
+            "scopeName": "source.yo",
+            "path": "./syntaxes/yo.tmLanguage.json"
+        }]
+    }
+}
