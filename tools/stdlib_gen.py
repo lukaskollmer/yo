@@ -13,7 +13,7 @@ f = open(os.path.join(CMAKE_BINARY_DIR, 'src', 'stdlib_sources.h'), 'w')
 
 f.write(
 f"""//
-//  stdlib_full.h
+//  stdlib_sources.h
 //  yo
 //
 //  Created by Lukas Kollmer on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.

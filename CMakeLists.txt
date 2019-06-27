@@ -28,7 +28,7 @@ configure_file(
 
 
 add_custom_target(gen_stdlib
-  COMMAND ${PYTHON_EXECUTABLE} stdlib_gen.py "${CMAKE_BINARY_DIR}" "${YO_STDLIB_PATH}"
+  COMMAND ${PYTHON_EXECUTABLE} tools/stdlib_gen.py "${CMAKE_BINARY_DIR}" "${YO_STDLIB_PATH}"
 )
 
 
