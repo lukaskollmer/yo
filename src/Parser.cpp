@@ -478,7 +478,7 @@ TypeInfo *Parser::ParseType() {
     if (CurrentTokenKind() == TK::Fn) {
         Consume();
         TypeInfo::FunctionTypeInfo::CallingConvention cc;
-        if (CurrentTokenKind() == TK::Hashtag) {
+        if (CurrentTokenKind() == TK::Hashtag) { // TODO use a tilde instead !?
             Consume();
             auto cc_ident = ParseIdentifier();
             if (cc_ident->Value == "c") {
@@ -511,6 +511,19 @@ TypeInfo *Parser::ParseType() {
     
     if (CurrentTokenKind() == TK::Identifier) {
         auto Name = ParseIdentifier()->Value;
+        if (CurrentTokenKind() == TK::LessThanSign) {
+            Consume();
+            std::vector<TypeInfo *> TemplateParameters;
+            while (CurrentTokenKind() != TK::GreaterSign) {
+                auto Ty = ParseType();
+                if (!Ty) {
+                    LKFatalError("unable to parse type in struct template parameter list");
+                }
+                TemplateParameters.push_back(Ty);
+            }
+            assert_current_token_and_consume(TK::GreaterSign);
+            return TypeInfo::GetTemplatedStructWithName(Name, TemplateParameters);
+        }
         return TypeInfo::GetWithName(Name);
     }
     

@@ -242,6 +242,8 @@ private:
     // Other stuff
     std::shared_ptr<ast::FunctionSignature> GetResolvedFunctionWithName(const std::string &Name);
     
+    TypeInfo *InstantiateTemplatedType(TypeInfo *TI);
+    
     // set omitCodegen to true if you only care about the return type of the call
     // for each callExpr, omitCodegen should be false exactly once!!!
     NEW_ResolvedFunction ResolveCall(std::shared_ptr<ast::CallExpr>, bool omitCodegen);

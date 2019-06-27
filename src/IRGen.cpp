@@ -1725,6 +1725,11 @@ llvm::Value *IRGenerator::Codegen(std::shared_ptr<ast::LogicalOperation> LogOp) 
 
 
 llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
+    if (TI->IsTemplatedType()) {
+        LKFatalError("TODO");
+        return GetLLVMType(InstantiateTemplatedType(TI));
+    }
+    
     if (auto T = TI->getLLVMType()) return T;
 
     switch (TI->getKind()) {
@@ -1788,6 +1793,21 @@ llvm::Type *IRGenerator::GetLLVMType(TypeInfo *TI) {
         
         case TypeInfo::Kind::Unresolved:
             LKFatalError("unresolved type '%s'", TI->getName().c_str());
+        
+        case TypeInfo::Kind::ComplexTemplated: {
+            LKFatalError("should never reach here");
+//            auto Name = mangling::MangleTemplatedComplexType(TI);
+//            std::cout << Name << std::endl;
+//
+//            LKAssert(TypeCache.Contains(Name));
+            
+//            if (auto ResolvedTy = TypeCache.Get(Name)) {
+//                return GetLLVMType(ResolvedTy);
+//            } else {
+//
+//            }
+//            throw;
+        }
     }
     throw;
 }
@@ -2003,6 +2023,39 @@ TypeInfo *IRGenerator::GuessType(std::shared_ptr<ast::NumberLiteral> NumberLiter
         case NT::Character: return TypeInfo::i8;
     }
 }
+
+
+
+
+
+
+
+TypeInfo *IRGenerator::InstantiateTemplatedType(TypeInfo *TI) {
+    LKFatalError("TODO");
+    
+    if (!TI->IsTemplatedType()) return TI;
+    
+    auto TemplateStructDecl = TypeCache.GetStruct(TI->getName());
+    LKAssert(TemplateStructDecl->IsTemplateStruct());
+    std::map<std::string, TypeInfo *> Mapping;
+    
+    for (size_t I = 0; I < TemplateStructDecl->TemplateArguments.size(); I++) {
+        Mapping[TemplateStructDecl->TemplateArguments[I]] = TI->getTemplateParameterTypes()[I];
+    }
+    
+    auto MangledName = mangling::MangleTemplatedComplexType(TI);
+    
+    
+    
+    LKFatalError("TODO");
+}
+
+
+
+
+
+
+
 
 
 

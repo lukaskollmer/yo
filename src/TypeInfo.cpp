@@ -41,6 +41,18 @@ TypeInfo *TypeInfo::GetWithName(const std::string &name, bool *didCreateNewType)
 
 
 
+TypeInfo *TypeInfo::GetTemplatedStructWithName(const std::string &Name, std::vector<TypeInfo *> TemplateParameters) {
+    auto TI = new TypeInfo();
+    TI->name = Name;
+    TI->TemplateParameters = TemplateParameters;
+    TI->kind = Kind::ComplexTemplated;
+    return TI;
+}
+
+
+
+
+
 #define TI_GETTER(name_, size_)                 \
 TypeInfo *TypeInfo::getType_##name_() {         \
     static TypeInfo *TI = nullptr;              \

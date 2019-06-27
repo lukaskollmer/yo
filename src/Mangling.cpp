@@ -17,6 +17,9 @@ namespace yo::mangling {
     inline constexpr char kFunctionAttributeGlobalFunction = 'F';
     inline constexpr char kFunctionAttributeInstanceMethod = 'I';
     inline constexpr char kFunctionAttributeStaticMethod   = 'S';
+    
+    inline constexpr char kTemplatedComplexTypePrefix = 'T';
+//    inline constexpr char kComplexTypePrefix = 'C';
 
 }
 
@@ -31,7 +34,8 @@ class ManglingStringBuilder {
   
 public:
     ManglingStringBuilder() {}
-    ManglingStringBuilder(char Initial) : Buffer(std::string(1, Initial)) {}
+    explicit ManglingStringBuilder(char Initial) : Buffer(std::string(1, Initial)) {}
+    explicit ManglingStringBuilder(std::string_view Initial) : Buffer(Initial) {}
     
     ManglingStringBuilder& appendWithCount(std::string_view Str) {
         Buffer.append(std::to_string(Str.length()));
@@ -131,6 +135,10 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
         
         case TypeInfo::Kind::Unresolved:
             LKFatalError("should never reach here: %s", TI->Str().c_str());
+        
+        case TypeInfo::Kind::ComplexTemplated: {
+            throw;
+        }
     }
     
     LKFatalError("[EncodeType] Unhandled type: %s", TI->Str().c_str());
@@ -172,3 +180,19 @@ std::string mangling::MangleFullyResolvedNameForSignature(std::shared_ptr<ast::F
     
     return mangler.str();
 }
+
+
+
+std::string mangling::MangleTemplatedComplexType(TypeInfo *TI) {
+    ManglingStringBuilder Mangler(kCommonPrefix);
+    Mangler.append(kTemplatedComplexTypePrefix);
+    Mangler.appendWithCount(TI->getName());
+    
+    for (auto Ty : TI->getTemplateParameterTypes()) {
+        Mangler.appendEncodedType(Ty);
+    }
+    
+    return Mangler.str();
+}
+
+

@@ -44,6 +44,7 @@ public:
         Primitive,  // any of the "builtin" types
         Pointer,    // A pointer to some other type
         Complex,    // A struct
+        ComplexTemplated,   // A template struct
         Function,   // A function pointer
         Typealias,
         Unresolved  // tbd
@@ -71,6 +72,8 @@ private:
     llvm::Type *llvmType;
     llvm::DIType *DIType;
     
+    std::vector<TypeInfo *> TemplateParameters;
+    
     // only for function types
     std::unique_ptr<FunctionTypeInfo> functionTypeInfo;
     
@@ -83,6 +86,10 @@ public:
     static TypeInfo *MakeTypealias(const std::string &name, TypeInfo *otherType);
     static TypeInfo *MakeFunctionType(FunctionTypeInfo::CallingConvention callingConvention, std::vector<TypeInfo *> parameterTypes, TypeInfo *returnType);
     
+    static TypeInfo *GetTemplatedStructWithName(const std::string &Name, std::vector<TypeInfo *> TemplateParameters);
+    
+    
+    
     Kind getKind() { return kind; }
     uint8_t getSize() {
         if (IsTypealias()) return pointee->getSize();
@@ -93,6 +100,10 @@ public:
     TypeInfo *getPointerTo() { return MakePointer(this); }
     
     FunctionTypeInfo& getFunctionTypeInfo() const { return *functionTypeInfo; }
+    
+    const std::vector<TypeInfo *> &getTemplateParameterTypes() const {
+        return TemplateParameters;
+    }
     
     
     llvm::Type *getLLVMType() {
@@ -126,6 +137,9 @@ public:
     bool IsPrimitive() { return kind == Kind::Primitive; }
     bool IsTypealias() { return kind == Kind::Typealias; }
     bool IsFunction() const { return kind == Kind::Function; }
+    bool IsTemplatedType() const {
+        return kind == Kind::ComplexTemplated;
+    }
 
     bool IsIntegerType();
     bool IsVoidType();
