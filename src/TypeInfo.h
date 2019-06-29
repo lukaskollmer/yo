@@ -72,7 +72,7 @@ private:
     llvm::Type *llvmType;
     llvm::DIType *DIType;
     
-    std::vector<TypeInfo *> TemplateParameters;
+    std::vector<TypeInfo *> templateParameters;
     
     // only for function types
     std::unique_ptr<FunctionTypeInfo> functionTypeInfo;
@@ -80,39 +80,39 @@ private:
     TypeInfo() : kind(Kind::Unresolved), size(0), pointee(nullptr), pointerTo(nullptr), llvmType(nullptr), DIType(nullptr) {}
     
 public:
-    static TypeInfo *GetWithName(const std::string &name, bool *didCreateNewType = nullptr);
-    static TypeInfo *MakeComplex(const std::string &name);
-    static TypeInfo *MakePointer(TypeInfo *pointee);
-    static TypeInfo *MakeTypealias(const std::string &name, TypeInfo *otherType);
-    static TypeInfo *MakeFunctionType(FunctionTypeInfo::CallingConvention callingConvention, std::vector<TypeInfo *> parameterTypes, TypeInfo *returnType);
+    static TypeInfo *getWithName(const std::string &name, bool *didCreateNewType = nullptr);
+    static TypeInfo *makeComplex(const std::string &name);
+    static TypeInfo *makePointer(TypeInfo *pointee);
+    static TypeInfo *makeTypealias(const std::string &name, TypeInfo *otherType);
+    static TypeInfo *makeFunctionType(FunctionTypeInfo::CallingConvention callingConvention, std::vector<TypeInfo *> parameterTypes, TypeInfo *returnType);
     
-    static TypeInfo *GetTemplatedStructWithName(const std::string &Name, std::vector<TypeInfo *> TemplateParameters);
+    static TypeInfo *makeTemplatedStructWithName(const std::string &name, std::vector<TypeInfo *> templateParameters);
     
     
     
     Kind getKind() { return kind; }
     uint8_t getSize() {
-        if (IsTypealias()) return pointee->getSize();
+        if (isTypealias()) return pointee->getSize();
         else return size;
     }
     const std::string &getName() { return name; }
     TypeInfo *getPointee() { return pointee; }
-    TypeInfo *getPointerTo() { return MakePointer(this); }
+    TypeInfo *getPointerTo() { return makePointer(this); }
     
     FunctionTypeInfo& getFunctionTypeInfo() const { return *functionTypeInfo; }
     
     const std::vector<TypeInfo *> &getTemplateParameterTypes() const {
-        return TemplateParameters;
+        return templateParameters;
     }
     
     
     llvm::Type *getLLVMType() {
-        if (IsTypealias()) return pointee->getLLVMType();
+        if (isTypealias()) return pointee->getLLVMType();
         else return llvmType;
     }
     
     void setLLVMType(llvm::Type *llvmType) {
-        if (IsTypealias()) pointee->setLLVMType(llvmType);
+        if (isTypealias()) pointee->setLLVMType(llvmType);
         else this->llvmType = llvmType;
     }
     
@@ -124,25 +124,25 @@ public:
     }
     
     
-    std::string Str() const;
-    bool Equals(TypeInfo *other);
+    std::string str() const;
+    bool equals(TypeInfo *other);
     
-    unsigned IndirectionCount();
+    unsigned indirectionCount();
 
     // TODO rename all these to `IsXTy`?
     // For Example, `IsSigned` doesn't really makes sense since there is type named "Signed" or something like that, which kinda is what the name suggests the function would be looking for?
-    bool IsSigned();
-    bool IsPointer() { return kind == Kind::Pointer; }
-    bool IsComplex() { return kind == Kind::Complex; }
-    bool IsPrimitive() { return kind == Kind::Primitive; }
-    bool IsTypealias() { return kind == Kind::Typealias; }
-    bool IsFunction() const { return kind == Kind::Function; }
-    bool IsTemplatedType() const {
+    bool isSigned();
+    bool isPointer() { return kind == Kind::Pointer; }
+    bool isComplex() { return kind == Kind::Complex; }
+    bool isPrimitive() { return kind == Kind::Primitive; }
+    bool isTypealias() { return kind == Kind::Typealias; }
+    bool isFunction() const { return kind == Kind::Function; }
+    bool isTemplatedType() const {
         return kind == Kind::ComplexTemplated;
     }
 
-    bool IsIntegerType();
-    bool IsVoidType();
+    bool isIntegerType();
+    bool isVoidType();
     
     
     static TypeInfo *getType_void();
@@ -175,7 +175,7 @@ public:
     inline static const auto Void = TypeInfo::getType_void();
     inline static const auto Bool = TypeInfo::getType_bool();
     inline static const auto Double = TypeInfo::getType_double();
-    inline static const auto i8_ptr = TypeInfo::MakePointer(TypeInfo::i8);
+    inline static const auto i8_ptr = TypeInfo::makePointer(TypeInfo::i8);
     
 
 
@@ -191,7 +191,7 @@ public:
 };
 
 inline std::ostream &operator<<(std::ostream &OS, const TypeInfo *TI) {
-    return OS << TI->Str();
+    return OS << TI->str();
 }
 
 NS_END

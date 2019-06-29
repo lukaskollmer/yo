@@ -29,7 +29,7 @@ class TopLevelStmt;
 using AST = std::vector<std::shared_ptr<TopLevelStmt>>;
 
 
-std::string Description(AST &Ast);
+std::string description(AST &ast);
 
 
 class Expr;
@@ -41,19 +41,19 @@ class StructDecl;
 
 class Node {
 public:
-    virtual std::string Description();
+    virtual std::string description();
     const parser::TokenSourceLocation &getSourceLocation() const {
-        return SourceLocation;
+        return sourceLocation;
     }
     
-    void setSourceLocation(const parser::TokenSourceLocation &SourceLoc) {
-        this->SourceLocation = SourceLoc;
+    void setSourceLocation(const parser::TokenSourceLocation &sourceLoc) {
+        this->sourceLocation = sourceLoc;
     }
     
 protected:
     virtual ~Node() = default;
     
-    parser::TokenSourceLocation SourceLocation;
+    parser::TokenSourceLocation sourceLocation;
 };
 
 
@@ -61,10 +61,7 @@ class TopLevelStmt : public Node {};
 
 class LocalStmt : public Node {};
 
-class Expr : public Node {
-public:
-    virtual bool isLiteral() const;
-};
+class Expr : public Node {};
 
 
 // Note: some of the nested subclasses also inherit from ast::Node. one could argue that this is philosophically wrong, but it greatly simplifies ast printing
@@ -84,25 +81,25 @@ public:
     };
     
     
-    std::string Name;
-    FunctionKind Kind;
-    TypeInfo *ReturnType;
-    std::vector<std::shared_ptr<VariableDecl>> Parameters;
-    std::shared_ptr<ast::StructDecl> ImplType; // If this is a static or instance method, the type it is a member of
+    std::string name;
+    FunctionKind kind;
+    TypeInfo *returnType;
+    std::vector<std::shared_ptr<VariableDecl>> parameters;
+    std::shared_ptr<ast::StructDecl> implType; // If this is a static or instance method, the type it is a member of
     
     std::shared_ptr<attributes::FunctionAttributes> attributes;
     
     TypeInfo *variadicType;
     
-    bool IsTemplateFunction = false;
-    std::vector<std::string> TemplateArgumentNames;
-    
-    bool IsFullSpecialization() {
-        return IsTemplateFunction && TemplateArgumentNames.empty();
-    }
+    bool isTemplateFunction = false;
+    std::vector<std::string> templateArgumentNames;
     
     explicit FunctionSignature() {
         attributes = std::make_shared<attributes::FunctionAttributes>();
+    }
+    
+    bool isFullSpecialization() {
+        return isTemplateFunction && templateArgumentNames.empty();
     }
     
 };
@@ -113,8 +110,8 @@ std::ostream& operator<<(std::ostream&, const std::shared_ptr<ast::FunctionSigna
 
 class FunctionDecl : public TopLevelStmt {
 public:
-    std::shared_ptr<FunctionSignature> Signature;
-    std::shared_ptr<Composite> Body;
+    std::shared_ptr<FunctionSignature> signature;
+    std::shared_ptr<Composite> body;
     
     FunctionDecl() {}
 };
@@ -122,32 +119,32 @@ public:
 
 class StructDecl : public TopLevelStmt {
 public:
-    std::shared_ptr<Identifier> Name;
-    std::vector<std::shared_ptr<VariableDecl>> Members;
-    std::vector<std::string> TemplateArguments;
+    std::shared_ptr<Identifier> name;
+    std::vector<std::shared_ptr<VariableDecl>> members;
+    std::vector<std::string> templateArguments;
     std::shared_ptr<attributes::StructAttributes> attributes;
     
     StructDecl() {}
     
-    bool IsTemplateStruct() { return !TemplateArguments.empty(); }
+    bool isTemplateStruct() { return !templateArguments.empty(); }
 };
 
 class ImplBlock : public TopLevelStmt {
 public:
-    std::string Typename;
-    std::vector<std::shared_ptr<FunctionDecl>> Methods;
+    std::string typename_;
+    std::vector<std::shared_ptr<FunctionDecl>> methods;
     
-    ImplBlock(std::string Typename) : Typename(Typename) {}
-    ImplBlock(std::string Typename, std::vector<std::shared_ptr<FunctionDecl>> Methods) : Typename(Typename), Methods(Methods) {}
+    ImplBlock(std::string typename_) : typename_(typename_) {}
+    ImplBlock(std::string typename_, std::vector<std::shared_ptr<FunctionDecl>> methods) : typename_(typename_), methods(methods) {}
 };
 
 
 class TypealiasDecl : public TopLevelStmt {
 public:
-    std::string Typename;
-    TypeInfo *Type;
+    std::string typename_;
+    TypeInfo *type;
     
-    TypealiasDecl(std::string Typename, TypeInfo *Type) : Typename(Typename), Type(Type) {}
+    TypealiasDecl(std::string typename_, TypeInfo *type) : typename_(typename_), type(type) {}
 };
 
 
@@ -156,43 +153,43 @@ public:
 
 class Composite : public LocalStmt {
 public:
-    std::vector<std::shared_ptr<LocalStmt>> Statements;
+    std::vector<std::shared_ptr<LocalStmt>> statements;
     
     Composite() {}
-    Composite(std::vector<std::shared_ptr<LocalStmt>> Statements) : Statements(Statements) {}
+    Composite(std::vector<std::shared_ptr<LocalStmt>> statements) : statements(statements) {}
     
     bool isEmpty() const {
-        return Statements.empty();
+        return statements.empty();
     }
 };
 
 
 class ReturnStmt : public LocalStmt {
 public:
-    std::shared_ptr<Expr> Expression;
+    std::shared_ptr<Expr> expression;
     
-    explicit ReturnStmt(std::shared_ptr<Expr> Expression) : Expression(Expression) {}
+    explicit ReturnStmt(std::shared_ptr<Expr> expression) : expression(expression) {}
 };
 
 
 
 class VariableDecl : public LocalStmt {
 public:
-    std::shared_ptr<Identifier> Name; // TODO does something like this really warrant a pointer?
-    TypeInfo *Type;
-    std::shared_ptr<Expr> InitialValue;
+    std::shared_ptr<Identifier> name; // TODO does something like this really warrant a pointer?
+    TypeInfo *type;
+    std::shared_ptr<Expr> initialValue;
     
-    VariableDecl(std::shared_ptr<Identifier> Name, TypeInfo *Type, std::shared_ptr<Expr> InitialValue = nullptr)
-    : Name(Name), Type(Type), InitialValue(InitialValue) {}
+    VariableDecl(std::shared_ptr<Identifier> name, TypeInfo *type, std::shared_ptr<Expr> initialValue = nullptr)
+    : name(name), type(type), initialValue(initialValue) {}
 };
 
 
 class Assignment : public LocalStmt {
 public:
-    std::shared_ptr<Expr> Target;
-    std::shared_ptr<Expr> Value;
+    std::shared_ptr<Expr> target;
+    std::shared_ptr<Expr> value;
     
-    Assignment(std::shared_ptr<Expr> Target, std::shared_ptr<Expr> Value) : Target(Target), Value(Value) {}
+    Assignment(std::shared_ptr<Expr> target, std::shared_ptr<Expr> value) : target(target), value(value) {}
 };
 
 
@@ -205,26 +202,26 @@ public:
             If, ElseIf, Else
         };
         
-        BranchKind Kind;
-        std::shared_ptr<Expr> Condition; // nullptr if Kind == BranchKind::Else
-        std::shared_ptr<Composite> Body;
+        BranchKind kind;
+        std::shared_ptr<Expr> condition; // nullptr if Kind == BranchKind::Else
+        std::shared_ptr<Composite> body;
         
-        Branch(BranchKind Kind, std::shared_ptr<Expr> Condition, std::shared_ptr<Composite> Body)
-        : Kind(Kind), Condition(Condition), Body(Body) {}
+        Branch(BranchKind kind, std::shared_ptr<Expr> condition, std::shared_ptr<Composite> body)
+        : kind(kind), condition(condition), body(body) {}
     };
     
-    std::vector<std::shared_ptr<Branch>> Branches;
+    std::vector<std::shared_ptr<Branch>> branches;
     
-    IfStmt(std::vector<std::shared_ptr<Branch>> Branches) : Branches(Branches) {}
+    IfStmt(std::vector<std::shared_ptr<Branch>> branches) : branches(branches) {}
 };
 
 
 class WhileStmt : public LocalStmt {
 public:
-    std::shared_ptr<ast::Expr> Condition;
-    std::shared_ptr<ast::Composite> Body;
+    std::shared_ptr<ast::Expr> condition;
+    std::shared_ptr<ast::Composite> body;
     
-    WhileStmt(std::shared_ptr<Expr> Condition, std::shared_ptr<Composite> Body) : Condition(Condition), Body(Body) {}
+    WhileStmt(std::shared_ptr<Expr> condition, std::shared_ptr<Composite> body) : condition(condition), body(body) {}
 };
 
 
@@ -234,7 +231,8 @@ public:
     std::shared_ptr<ast::Expr> expr;
     std::shared_ptr<ast::Composite> body;
     
-    ForLoop(std::shared_ptr<ast::Identifier> ident, std::shared_ptr<ast::Expr> expr, std::shared_ptr<ast::Composite> body) : ident(ident), expr(expr), body(body) {}
+    ForLoop(std::shared_ptr<ast::Identifier> ident, std::shared_ptr<ast::Expr> expr, std::shared_ptr<ast::Composite> body)
+    : ident(ident), expr(expr), body(body) {}
 };
 
 
@@ -246,21 +244,20 @@ public:
 
 class RawLLVMValueExpr : public Expr {
 public:
-    llvm::Value *Value;
-    TypeInfo *Type;
+    llvm::Value *value;
+    TypeInfo *type;
     
-    RawLLVMValueExpr(llvm::Value *Value, TypeInfo *TI) : Value(Value), Type(TI) {}
+    RawLLVMValueExpr(llvm::Value *value, TypeInfo *ty) : value(value), type(ty) {}
 };
 
 
 class Identifier : public Expr {
 public:
-    const std::string Value;
-    Identifier(std::string Value) : Value(Value) {}
+    const std::string value;
     
-    operator std::string () { return Value; } // TODO is this ever used?
+    explicit Identifier(std::string value) : value(value) {}
     
-    static std::shared_ptr<Identifier> EmptyIdent();
+    static std::shared_ptr<Identifier> emptyIdent();
 };
 
 
@@ -271,13 +268,13 @@ public:
         Integer, Double, Boolean, Character
     };
     
-    const uint64_t Value;
-    const NumberType Type;
+    const uint64_t value;
+    const NumberType type;
     
-    explicit NumberLiteral(uint64_t Value, NumberType Type) : Value(Value), Type(Type) {}
+    explicit NumberLiteral(uint64_t value, NumberType type) : value(value), type(type) {}
     
-    static std::shared_ptr<NumberLiteral> Integer(uint64_t Value) {
-        return std::make_shared<NumberLiteral>(Value, NumberType::Integer);
+    static std::shared_ptr<NumberLiteral> integer(uint64_t value) {
+        return std::make_shared<NumberLiteral>(value, NumberType::Integer);
     }
 };
 
@@ -289,10 +286,10 @@ public:
         ByteString      // Becomes an `*i8` pointer
     };
     
-    std::string Value;
-    StringLiteralKind Kind;
+    std::string value;
+    StringLiteralKind kind;
     
-    explicit StringLiteral(std::string Value, StringLiteralKind Kind) : Value(Value), Kind(Kind) {}
+    explicit StringLiteral(std::string value, StringLiteralKind kind) : value(value), kind(kind) {}
 };
 
 
@@ -364,12 +361,12 @@ public:
     enum class CastKind {
         StaticCast, Bitcast
     };
-    std::shared_ptr<Expr> Expression;
-    TypeInfo *DestType;
-    CastKind Kind;
+    std::shared_ptr<Expr> expression;
+    TypeInfo *destType;
+    CastKind kind;
     
-    Typecast(std::shared_ptr<Expr> Expression, TypeInfo *DestType, CastKind Kind)
-    : Expression(Expression), DestType(DestType), Kind(Kind) {}
+    Typecast(std::shared_ptr<Expr> expression, TypeInfo *destType, CastKind kind)
+    : expression(expression), destType(destType), kind(kind) {}
 };
 
 
@@ -379,16 +376,16 @@ class MatchExpr : public Expr {
 public:
     class MatchExprBranch : public Node {
     public:
-        std::vector<std::shared_ptr<Expr>> Patterns;
-        std::shared_ptr<Expr> Expression;
+        std::vector<std::shared_ptr<Expr>> patterns;
+        std::shared_ptr<Expr> expression;
         
-        MatchExprBranch(std::vector<std::shared_ptr<Expr>> Patterns, std::shared_ptr<Expr> Expression) : Patterns(Patterns), Expression(Expression) {}
+        MatchExprBranch(std::vector<std::shared_ptr<Expr>> patterns, std::shared_ptr<Expr> expression) : patterns(patterns), expression(expression) {}
     };
     
-    std::shared_ptr<Expr> Target;
-    std::vector<std::shared_ptr<MatchExprBranch>> Branches;
+    std::shared_ptr<Expr> target;
+    std::vector<std::shared_ptr<MatchExprBranch>> branches;
     
-    MatchExpr(std::shared_ptr<Expr> Target, std::vector<std::shared_ptr<MatchExprBranch>> Branches) : Target(Target), Branches(Branches) {}
+    MatchExpr(std::shared_ptr<Expr> target, std::vector<std::shared_ptr<MatchExprBranch>> branches) : target(target), branches(branches) {}
 };
 
 
@@ -399,11 +396,11 @@ public:
         And, Or, Xor, Shl, Shr
     };
     
-    Operation Op;
-    std::shared_ptr<Expr> LHS;
-    std::shared_ptr<Expr> RHS;
+    Operation op;
+    std::shared_ptr<Expr> lhs;
+    std::shared_ptr<Expr> rhs;
     
-    BinaryOperation(Operation Op, std::shared_ptr<Expr> LHS, std::shared_ptr<Expr> RHS) : Op(Op), LHS(LHS), RHS(RHS) {}
+    BinaryOperation(Operation op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs) : op(op), lhs(lhs), rhs(rhs) {}
 };
 
 
@@ -416,11 +413,11 @@ public:
         GT, GE  // < \ <=
     };
     
-    Operation Op;
-    std::shared_ptr<Expr> LHS;
-    std::shared_ptr<Expr> RHS;
+    Operation op;
+    std::shared_ptr<Expr> lhs;
+    std::shared_ptr<Expr> rhs;
     
-    Comparison(Operation Op, std::shared_ptr<Expr> LHS, std::shared_ptr<Expr> RHS) : Op(Op), LHS(LHS), RHS(RHS) {}
+    Comparison(Operation op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs) : op(op), lhs(lhs), rhs(rhs) {}
 };
 
 
@@ -430,11 +427,11 @@ public:
         And, Or
     };
     
-    Operation Op;
-    std::shared_ptr<Expr> LHS;
-    std::shared_ptr<Expr> RHS;
+    Operation op;
+    std::shared_ptr<Expr> lhs;
+    std::shared_ptr<Expr> rhs;
     
-    LogicalOperation(Operation Op, std::shared_ptr<Expr> LHS, std::shared_ptr<Expr> RHS) : Op(Op), LHS(LHS), RHS(RHS) {}
+    LogicalOperation(Operation op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs) : op(op), lhs(lhs), rhs(rhs) {}
 };
 
 
@@ -444,10 +441,10 @@ public:
         Negate, BitwiseNot, LogicalNegation
     };
     
-    Operation Op;
-    std::shared_ptr<ast::Expr> Expr;
+    Operation op;
+    std::shared_ptr<ast::Expr> expr;
     
-    UnaryExpr(Operation Op, std::shared_ptr<ast::Expr> Expr) : Op(Op), Expr(Expr) {}
+    UnaryExpr(Operation op, std::shared_ptr<ast::Expr> expr) : op(op), expr(expr) {}
 };
 
 NS_END

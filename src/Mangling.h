@@ -11,11 +11,11 @@
 #include "AST.h"
 
 namespace yo::mangling {
-    std::string MangleFullyResolvedNameForSignature(std::shared_ptr<ast::FunctionSignature>);
-    std::string MangleCanonicalNameForSignature(std::shared_ptr<ast::FunctionSignature>);
-    std::string MangleCanonicalName(std::string_view Type, std::string_view Method, ast::FunctionSignature::FunctionKind Kind);
+    std::string mangleFullyResolvedNameForSignature(std::shared_ptr<ast::FunctionSignature>);
+    std::string mangleCanonicalNameForSignature(std::shared_ptr<ast::FunctionSignature>);
+    std::string mangleCanonicalName(std::string_view type, std::string_view method, ast::FunctionSignature::FunctionKind kind);
     
-    std::string MangleTemplatedComplexType(TypeInfo *TI);
+    std::string mangleTemplatedComplexType(TypeInfo *TI);
     
-    bool IsCanonicalInstanceMethodName(std::string_view Ident);
+    bool isCanonicalInstanceMethodName(std::string_view ident);
 }

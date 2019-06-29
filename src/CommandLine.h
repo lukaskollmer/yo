@@ -13,24 +13,24 @@
 
 
 namespace yo::cl {
-    void Init(int argc, const char *const *argv);
+    void init(int argc, const char *const *argv);
 }
 
 namespace yo::cl::opts {
-    bool Run();
-    const std::vector<std::string>& RunArgs();
+    bool run();
+    const std::vector<std::string>& runArgs();
     
-    const std::string& InputFilename();
-    const std::string& OutputFilename();
+    const std::string& inputFilename();
+    const std::string& outputFilename();
     
-    const std::string& StdlibRoot();
+    const std::string& stdlibRoot();
     
-    bool PrintAST();
-    bool EmitLLVM();
-    bool DumpLLVM();
-    bool DumpLLVMPreOpt();
+    bool printAST();
+    bool emitLLVM();
+    bool dumpLLVM();
+    bool dumpLLVMPreOpt();
     
     // experimental flags
-    bool Optimize();
-    bool ARC();
+    bool optimize();
+    bool arc();
 }

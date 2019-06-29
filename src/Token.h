@@ -23,17 +23,17 @@ class Token;
 using TokenList = std::vector<std::shared_ptr<Token>>;
 
 struct TokenSourceLocation {
-    std::string Filepath;
-    uint64_t Line;
-    uint64_t Column;
-    uint64_t Length;
+    std::string filepath;
+    uint64_t line;
+    uint64_t column;
+    uint64_t length;
     
     TokenSourceLocation() {}
-    TokenSourceLocation(const std::string &Filepath, uint64_t Line, uint64_t Column, uint64_t Length) : Filepath(Filepath), Line(Line), Column(Column), Length(Length) {}
+    TokenSourceLocation(const std::string &filepath, uint64_t line, uint64_t column, uint64_t length) : filepath(filepath), line(line), column(column), length(length) {}
 };
 
 inline std::ostream& operator<<(std::ostream &OS, const TokenSourceLocation &SL) {
-    return OS << SL.Filepath << ":" << SL.Line << ":" << SL.Column << ":" << SL.Length;
+    return OS << SL.filepath << ":" << SL.line << ":" << SL.column << ":" << SL.length;
 }
 
 
@@ -80,45 +80,45 @@ public:
         double,
         uint64_t,
         std::string
-    > Data;
+    > data;
     
-    TokenKind Kind;
-    TokenSourceLocation SourceLocation;
+    TokenKind kind;
+    TokenSourceLocation sourceLocation;
     
     
-    Token(TokenKind Kind) : Kind(Kind) {}
+    Token(TokenKind kind) : kind(kind) {}
     
-    static std::shared_ptr<Token> WithKind(TokenKind Kind) {
-        return std::make_shared<Token>(Kind);
+    static std::shared_ptr<Token> WithKind(TokenKind kind) {
+        return std::make_shared<Token>(kind);
     }
     
-    static std::shared_ptr<Token> Identifier(std::string Name) {
+    static std::shared_ptr<Token> Identifier(std::string name) {
         auto T = WithKind(TokenKind::Identifier);
-        T->Data = Name;
+        T->data = name;
         return T;
     }
     
-    static std::shared_ptr<Token> IntegerLiteral(uint64_t Value) {
+    static std::shared_ptr<Token> IntegerLiteral(uint64_t value) {
         auto T = WithKind(TokenKind::IntegerLiteral);
-        T->Data = Value;
+        T->data = value;
         return T;
     }
     
-    static std::shared_ptr<Token> StringLiteral(std::string Value) {
+    static std::shared_ptr<Token> StringLiteral(std::string value) {
         auto T = WithKind(TokenKind::StringLiteral);
-        T->Data = Value;
+        T->data = value;
         return T;
     }
     
-    static std::shared_ptr<Token> CharLiteral(char Value) {
+    static std::shared_ptr<Token> CharLiteral(char value) {
         auto T = WithKind(TokenKind::CharLiteral);
-        T->Data = Value;
+        T->data = value;
         return T;
     }
     
-    static std::shared_ptr<Token> BoolLiteral(bool Value) {
+    static std::shared_ptr<Token> BoolLiteral(bool value) {
         auto T = WithKind(TokenKind::BoolLiteral);
-        T->Data = Value;
+        T->data = value;
         return T;
     }
 };

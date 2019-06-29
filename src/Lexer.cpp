@@ -22,20 +22,20 @@ using TK = Token::TokenKind;
 
 static constexpr char DOUBLE_QUOTE = '"';
 
-static CharacterSet Letters({{'a', 'z'}, {'A', 'Z'}});
-static CharacterSet IgnoredCharacters(" "); // TODO make this "all whitespace" instead
-static CharacterSet BinaryDigits("01");
-static CharacterSet OctalDigits("01234567");
-static CharacterSet DecimalDigits("0123456789");
-static CharacterSet HexadecimalDigits("0123456789abcdef");
-static CharacterSet IdentifierStartCharacters = Letters.Joined(CharacterSet("_"));
-static CharacterSet IdentifierCharacters = IdentifierStartCharacters.Joined(DecimalDigits);
-static CharacterSet SingleCharTokens(".,+-*/;:=<>%!&^#|~(){}[]@");
+static CharacterSet letters({{'a', 'z'}, {'A', 'Z'}});
+static CharacterSet ignoredCharacters(" "); // TODO make this "all whitespace" instead
+static CharacterSet binaryDigits("01");
+static CharacterSet octalDigits("01234567");
+static CharacterSet decimalDigits("0123456789");
+static CharacterSet hexadecimalDigits("0123456789abcdef");
+static CharacterSet identifierStartCharacters = letters.joined(CharacterSet("_"));
+static CharacterSet identifierCharacters = identifierStartCharacters.joined(decimalDigits);
+static CharacterSet singleCharTokens(".,+-*/;:=<>%!&^#|~(){}[]@");
 
 
 
 // TODO no idea if/how this would work, but it'd be cool to have a compile-time assertion that the mapping below is complete
-static std::map<std::string, Token::TokenKind> TokenKindMappings = {
+static std::map<std::string, Token::TokenKind> tokenKindMappings = {
     { "(" , TK::OpeningParens },
     { ")" , TK::ClosingParens },
     { "{" , TK::OpeningCurlyBraces },
@@ -84,198 +84,198 @@ static std::map<std::string, Token::TokenKind> TokenKindMappings = {
 };
 
 
-TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
+TokenList Lexer::lex(std::string_view string, std::string &filename) {
     // Reset everything
-    Tokens = {};
-    Line = 0;
-    LineStart = 0;
-    this->Filename = Filename;
+    tokens = {};
+    line = 0;
+    lineStart = 0;
+    this->filename = filename;
     
     
-    auto Length = String.length();
+    auto length = string.length();
     
-    for (Offset = 0; Offset < Length; Offset++) {
-        auto C = String[Offset];
+    for (offset = 0; offset < length; offset++) {
+        auto c = string[offset];
         
-        if (IgnoredCharacters.Contains(C)) {
+        if (ignoredCharacters.contains(c)) {
             continue;
         }
         
         // Q: Why is this a lambda?
         // A: We also need to adjust the current source position if we're in multiline strings/comments
-        auto HandleNewline = [&]() {
-            Line++;
-            LineStart = Offset + 1;
+        auto handleNewline = [&]() {
+            line++;
+            lineStart = offset + 1;
         };
         
-        if (C == '\n') {
+        if (c == '\n') {
             // TODO this would be a good place to insert semicolons?
-            HandleNewline();
+            handleNewline();
             continue;
         }
         
-        if (C == '/' && String[Offset + 1] == '/') {
+        if (c == '/' && string[offset + 1] == '/') {
             // Start of line comment
-            while (String[++Offset] != '\n');
-            HandleNewline();
+            while (string[++offset] != '\n');
+            handleNewline();
             continue;
         }
         
-        if (C == '/' && String[Offset + 1] == '*') {
+        if (c == '/' && string[offset + 1] == '*') {
             // start of comment block
             // Note that we deliberately don't check whether a comment's end is within a string literal
-            Offset += 2;
-            while (String[Offset++] != '*' && String[Offset] != '/') {
-                if (String[Offset] == '\n') HandleNewline();
+            offset += 2;
+            while (string[offset++] != '*' && string[offset] != '/') {
+                if (string[offset] == '\n') handleNewline();
             }
             continue;
         }
         
         // Offset after returning is the character after the end of the escaped character
         // For example, if we're parsing `'\123x`, the Offset after returhing would "point" to the x
-        auto ParseEscapedCharacter = [&] () -> char {
-            LKAssert(String[Offset] == '\\');
-            if (String[Offset + 1] == '\\') {
+        auto parseEscapedCharacter = [&] () -> char {
+            LKAssert(string[offset] == '\\');
+            if (string[offset + 1] == '\\') {
                 // Escaped backslash
-                Offset++;
+                offset++;
                 return '\\';
             }
             
-            auto X = String[++Offset];
+            auto x = string[++offset];
             // Offset at this point is now the character after the backslash
-            if (X == 'x' || OctalDigits.Contains(X)) { // Hex or octal value
-                auto IsHex = X == 'x';
-                std::string RawValue;
+            if (x == 'x' || octalDigits.contains(x)) { // Hex or octal value
+                auto isHex = x == 'x';
+                std::string rawValue;
                 
-                if (IsHex) {
-                    RawValue.push_back(String[++Offset]);
-                    RawValue.push_back(String[++Offset]);
-                    Offset++;
+                if (isHex) {
+                    rawValue.push_back(string[++offset]);
+                    rawValue.push_back(string[++offset]);
+                    offset++;
                 } else {
-                    while (OctalDigits.Contains(String[Offset]) && RawValue.length() < 3) {
-                        RawValue.push_back(String[Offset++]);
+                    while (octalDigits.contains(string[offset]) && rawValue.length() < 3) {
+                        rawValue.push_back(string[offset++]);
                     }
                 }
                 
-                std::size_t Length;
-                char Value;
+                std::size_t length;
+                char value;
                 try {
-                    Value = std::stoi(RawValue, &Length, IsHex ? 16 : 8);
+                    value = std::stoi(rawValue, &length, isHex ? 16 : 8);
                 } catch (...) {
                     throw;
                 }
                 
-                LKAssert(Length == RawValue.length());
-                return Value;
+                LKAssert(length == rawValue.length());
+                return value;
             }
             
-            switch (X) {
-                case 'n': Offset++; return '\n';
-                case 't': Offset++; return '\t';
+            switch (x) {
+                case 'n': offset++; return '\n';
+                case 't': offset++; return '\t';
                 default: break;
             }
             LKFatalError("Unable to parse escaped character");
         };
         
 
-        if (C == '\'') { // Char literal
-            C = String[++Offset];
+        if (c == '\'') { // Char literal
+            c = string[++offset];
             char content;
             
-            if (C == '\'') {
+            if (c == '\'') {
                 throw; // Empty char literal
-            } else if (C == '\\') {
-                content = ParseEscapedCharacter();
+            } else if (c == '\\') {
+                content = parseEscapedCharacter();
             } else {
-                content = C;
-                Offset++;
+                content = c;
+                offset++;
             }
             
-            LKAssert(String[Offset] == '\'');
-            auto T = HandleRawToken("", TK::CharLiteral);
-            T->Data = content;
+            LKAssert(string[offset] == '\'');
+            auto token = handleRawToken("", TK::CharLiteral);
+            token->data = content;
             continue;
         }
         
         
-        bool IsByteStringLiteral = false;
-        bool IsRawStringLiteral = false;
+        bool isByteStringLiteral = false;
+        bool isRawStringLiteral = false;
         
-        if (C == 'b' && String[Offset + 1 + (String[Offset + 1] == 'r')] == DOUBLE_QUOTE) {
-            IsByteStringLiteral = true;
-            Offset++;
+        if (c == 'b' && string[offset + 1 + (string[offset + 1] == 'r')] == DOUBLE_QUOTE) {
+            isByteStringLiteral = true;
+            offset++;
         }
         
-        if (String[Offset] == 'r' && String[Offset + 1] == DOUBLE_QUOTE) { // Raw (unescaped) string literal
-            IsRawStringLiteral = true;
-            Offset++;
+        if (string[offset] == 'r' && string[offset + 1] == DOUBLE_QUOTE) { // Raw (unescaped) string literal
+            isRawStringLiteral = true;
+            offset++;
         }
         
-        if (String[Offset] == DOUBLE_QUOTE) { // String literal
-            std::string Content;
-            Offset++;
+        if (string[offset] == DOUBLE_QUOTE) { // String literal
+            std::string content;
+            offset++;
             // Offset is at first char after opening quotes
-            if (IsRawStringLiteral) {
-                for (auto C = String[Offset]; C != DOUBLE_QUOTE; C = String[++Offset]) {
-                    Content.push_back(C);
-                    if (C == '\n') HandleNewline();
+            if (isRawStringLiteral) {
+                for (auto c = string[offset]; c != DOUBLE_QUOTE; c = string[++offset]) {
+                    content.push_back(c);
+                    if (c == '\n') handleNewline();
                 }
             } else {
-                for (auto C = String[Offset]; C != DOUBLE_QUOTE; C = String[Offset]) {
-                    if (C == '\\') {
-                        Content.push_back(ParseEscapedCharacter());
+                for (auto c = string[offset]; c != DOUBLE_QUOTE; c = string[offset]) {
+                    if (c == '\\') {
+                        content.push_back(parseEscapedCharacter());
                     } else {
-                        if (C == '\n') HandleNewline();
-                        Content.push_back(C);
-                        Offset++;
+                        if (c == '\n') handleNewline();
+                        content.push_back(c);
+                        offset++;
                     }
                 }
             }
-            LKAssert(String[Offset++] == DOUBLE_QUOTE);
+            LKAssert(string[offset++] == DOUBLE_QUOTE);
             
-            auto T = HandleRawToken("", IsByteStringLiteral ? TK::ByteStringLiteral : TK::StringLiteral);
-            T->Data = Content;
-            Offset--; // unavoidable :/
+            auto token = handleRawToken("", isByteStringLiteral ? TK::ByteStringLiteral : TK::StringLiteral);
+            token->data = content;
+            offset--; // unavoidable :/
             continue;
         }
         
         // If either of these is true, the string should've been handled above
-        LKAssert(!IsRawStringLiteral && !IsByteStringLiteral);
+        LKAssert(!isRawStringLiteral && !isByteStringLiteral);
         
-        if (SingleCharTokens.Contains(C)) {
-            std::string X(1, C);
-            HandleRawToken(X);
+        if (singleCharTokens.contains(c)) {
+            std::string x(1, c);
+            handleRawToken(x);
             continue;
         }
         
-        if (IdentifierStartCharacters.Contains(C)) {
-            std::string Ident;
+        if (identifierStartCharacters.contains(c)) {
+            std::string ident;
             do {
-                Ident.push_back(C);
-                C = String[++Offset];
-            } while (IdentifierCharacters.Contains(C));
-            HandleRawToken(Ident);
-            Offset--;
+                ident.push_back(c);
+                c = string[++offset];
+            } while (identifierCharacters.contains(c));
+            handleRawToken(ident);
+            offset--;
             continue;
         }
         
-        if (DecimalDigits.Contains(C)) { // Number literal
-            uint8_t Base = 10;
-            std::string RawValue;
-            auto Next = String[Offset + 1];
+        if (decimalDigits.contains(c)) { // Number literal
+            uint8_t base = 10;
+            std::string rawValue;
+            auto next = string[offset + 1];
             
-            if (C == '0') { // binary/octal/decimal/hex ?
-                if (Next == 'b') {
-                    Offset += 2;
-                    Base = 2;
-                } else if (Next == 'x') {
-                    Offset += 2;
-                    Base = 16;
-                } else if (OctalDigits.Contains(Next)) {
-                    Base = 8;
+            if (c == '0') { // binary/octal/decimal/hex ?
+                if (next == 'b') {
+                    offset += 2;
+                    base = 2;
+                } else if (next == 'x') {
+                    offset += 2;
+                    base = 16;
+                } else if (octalDigits.contains(next)) {
+                    base = 8;
                 } else {
                     // A single 0, not followed by another numeric digit
-                    LKAssert(!HexadecimalDigits.Contains(Next));
+                    LKAssert(!hexadecimalDigits.contains(next));
                 }
             }
             
@@ -283,33 +283,33 @@ TokenList Lexer::Lex(std::string_view String, std::string &Filename) {
             // Invalid characters will be detected by `std::stoll` below
             
             do {
-                RawValue.push_back(String[Offset]);
-            } while (HexadecimalDigits.Contains(String[++Offset]));
+                rawValue.push_back(string[offset]);
+            } while (hexadecimalDigits.contains(string[++offset]));
             
             
-            uint64_t Value;
-            std::size_t Length;
+            uint64_t value;
+            std::size_t length;
             
             try {
-                Value = std::stoll(RawValue, &Length, Base);
+                value = std::stoll(rawValue, &length, base);
             } catch (const std::exception &e) {
                 std::cout << e.what() << std::endl;
                 throw;
             }
             
             // TODO turn this into a nice error message
-            LKAssert(Length == RawValue.length()); // The string contained illegal characters (eg: 0b110012)
+            LKAssert(length == rawValue.length()); // The string contained illegal characters (eg: 0b110012)
             
-            auto T = HandleRawToken("", TK::IntegerLiteral);
-            T->Data = Value;
-            Offset--; // unavoidable :/
+            auto token = handleRawToken("", TK::IntegerLiteral);
+            token->data = value;
+            offset--; // unavoidable :/
             continue;
         }
-        LKFatalError("unhandled character: '%c'", String[Offset]);
+        LKFatalError("unhandled character: '%c'", string[offset]);
     }
     
-    HandleRawToken("", TK::EOF_);
-    return Tokens;
+    handleRawToken("", TK::EOF_);
+    return tokens;
 }
 
 
@@ -321,35 +321,35 @@ uint8_t _isBoolLiteral(std::string_view str) {
 }
 
 
-Token *Lexer::HandleRawToken(const std::string &RawToken, Token::TokenKind TokenKind) {
-    std::shared_ptr<Token> Token;
+Token *Lexer::handleRawToken(const std::string &rawToken, Token::TokenKind tokenKind) {
+    std::shared_ptr<Token> token;
     
-    if (TokenKind != TK::Unknown) {
-        Token = Token::WithKind(TokenKind);
+    if (tokenKind != TK::Unknown) {
+        token = Token::WithKind(tokenKind);
     }
     
-    else if (TokenKindMappings.find(RawToken) != TokenKindMappings.end()) {
-        Token = Token::WithKind(TokenKindMappings[RawToken]);
+    else if (tokenKindMappings.find(rawToken) != tokenKindMappings.end()) { // TODO turn this into a `if (auto x; x== ...)`
+        token = Token::WithKind(tokenKindMappings[rawToken]);
     }
     
-    else if (IdentifierStartCharacters.Contains(RawToken.at(0)) && IdentifierCharacters.ContainsAllCharactersInString(RawToken.substr(1))) {
-        if (auto Val = _isBoolLiteral(RawToken); Val != 0) {
-            Token = Token::BoolLiteral(Val - 1);
+    else if (identifierStartCharacters.contains(rawToken.at(0)) && identifierCharacters.containsAllCharactersInString(rawToken.substr(1))) {
+        if (auto val = _isBoolLiteral(rawToken); val != 0) {
+            token = Token::BoolLiteral(val - 1);
         } else {
-            Token = Token::Identifier(RawToken);
+            token = Token::Identifier(rawToken);
         }
     }
     
     
-    if (!Token) {
-        LKLog("didn't initialize token for '%s'", RawToken.c_str());
+    if (!token) {
+        LKLog("didn't initialize token for '%s'", rawToken.c_str());
         exit(EXIT_FAILURE);
     }
     
-    auto Column = ColumnRelatoveToCurrentLine();
-    Token->SourceLocation = TokenSourceLocation(Filename, Line + 1, Column + 1, Offset - Column);
+    auto column = columnRelativeToCurrentLine();
+    token->sourceLocation = TokenSourceLocation(filename, line + 1, column + 1, offset - column);
     
-    Tokens.push_back(Token);
-    return Token.get();
+    tokens.push_back(token);
+    return token.get();
 }
 

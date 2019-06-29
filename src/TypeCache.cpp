@@ -12,43 +12,43 @@ using namespace yo;
 using namespace irgen;
 
 
-void TypeCache::Insert(std::string Name, TypeInfo *Type) {
-    Types[Name] = Type;
+void TypeCache::insert(std::string name, TypeInfo *type) {
+    types[name] = type;
 }
 
-void TypeCache::RegisterStruct(std::string Name, std::shared_ptr<ast::StructDecl> Struct) {
-    Structs.insert({Name, Struct});
+void TypeCache::registerStruct(std::string name, std::shared_ptr<ast::StructDecl> structDecl) {
+    structs.insert({name, structDecl});
 }
 
-bool TypeCache::Contains(const std::string &Name) {
-    return util::map::contains_key(Types, Name);
+bool TypeCache::contains(const std::string &name) {
+    return util::map::contains_key(types, name);
 }
 
-std::shared_ptr<ast::StructDecl> TypeCache::GetStruct(const std::string &name) {
+std::shared_ptr<ast::StructDecl> TypeCache::getStruct(const std::string &name) {
     try {
-        return Structs.at(name);
+        return structs.at(name);
     } catch (...) {
         return nullptr;
     }
 }
 
 
-bool TypeCache::StructHasMember(const std::string &structName, const std::string &memberName) {
-    if (auto structDecl = GetStruct(structName)) {
-        return util::vector::contains_where(structDecl->Members, [&memberName] (auto member) {
-            return member->Name->Value == memberName;
+bool TypeCache::structHasMember(const std::string &structName, const std::string &memberName) {
+    if (auto structDecl = getStruct(structName)) {
+        return util::vector::contains_where(structDecl->members, [&memberName] (auto member) {
+            return member->name->value == memberName;
         });
     }
     return false;
 }
 
 
-std::pair<int64_t, TypeInfo *> TypeCache::GetMember(const std::string &structName, const std::string &memberName) {
-    if (auto structDecl = GetStruct(structName)) {
+std::pair<int64_t, TypeInfo *> TypeCache::getMember(const std::string &structName, const std::string &memberName) {
+    if (auto structDecl = getStruct(structName)) {
         int64_t memberIndex = 0;
-        for (auto &member : structDecl->Members) {
-            if (member->Name->Value == memberName) {
-                return {memberIndex, member->Type};
+        for (auto &member : structDecl->members) {
+            if (member->name->value == memberName) {
+                return {memberIndex, member->type};
             }
             memberIndex += 1;
         }

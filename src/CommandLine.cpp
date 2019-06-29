@@ -60,15 +60,15 @@ static llvm::cl::opt<bool> ARC("arc", llvm::cl::desc("[internal] enable arc"),
 NS_END
 
 
-bool yo::cl::opts::Run() {
+bool yo::cl::opts::run() {
     return internal::Run;
 }
 
-const std::vector<std::string>& yo::cl::opts::RunArgs() {
+const std::vector<std::string>& yo::cl::opts::runArgs() {
     return internal::RunArgs;
 }
 
-const std::string& yo::cl::opts::InputFilename() {
+const std::string& yo::cl::opts::inputFilename() {
     return internal::InputFilename;
 }
 
@@ -76,31 +76,31 @@ const std::string& yo::cl::opts::InputFilename() {
 //    return yo::cl::OutputFilename;
 //}
 
-const std::string& yo::cl::opts::StdlibRoot() {
+const std::string& yo::cl::opts::stdlibRoot() {
     return internal::StdlibRoot;
 }
 
-bool yo::cl::opts::PrintAST() {
+bool yo::cl::opts::printAST() {
     return internal::PrintAST;
 }
 
-bool yo::cl::opts::EmitLLVM() {
+bool yo::cl::opts::emitLLVM() {
     return internal::EmitLLVM;
 }
 
-bool yo::cl::opts::DumpLLVM() {
+bool yo::cl::opts::dumpLLVM() {
     return internal::DumpLLVM;
 }
 
-bool yo::cl::opts::DumpLLVMPreOpt() {
+bool yo::cl::opts::dumpLLVMPreOpt() {
     return internal::DumpLLVMPreOpt;
 }
 
-bool yo::cl::opts::Optimize() {
+bool yo::cl::opts::optimize() {
     return internal::Optimize;
 }
 
-bool yo::cl::opts::ARC() {
+bool yo::cl::opts::arc() {
     return internal::ARC;
 }
 
@@ -112,7 +112,7 @@ void print_version(llvm::raw_ostream &OS) {
     OS << "- Compiled with: " << COMPILER << "\n";
 }
 
-void yo::cl::Init(int argc, const char *const *argv) {
+void yo::cl::init(int argc, const char *const *argv) {
     llvm::cl::SetVersionPrinter(&print_version);
     llvm::cl::HideUnrelatedOptions(internal::CLIOptionsCategory);
     llvm::cl::ParseCommandLineOptions(argc, argv, "the yo programming language v" YO_VERSION "\n");

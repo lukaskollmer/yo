@@ -47,93 +47,94 @@ enum class PrecedenceGroup : uint8_t {
 class Parser {
 public:
     Parser() {}
-    ast::AST Parse(std::string &FilePath);
+    ast::AST parse(std::string &filepath);
     
-    void SetCustomStdlibRoot(const std::string &Path) {
-        UseCustomStdlibRoot = true;
-        CustomStdlibRoot = Path;
+    void setCustomStdlibRoot(const std::string &path) {
+        useCustomStdlibRoot = true;
+        customStdlibRoot = path;
     }
     
 private:
-    TokenList Tokens;
-    uint64_t Position;
-    std::vector<std::string> ImportedFiles;
+    TokenList tokens;
+    uint64_t position;
+    std::vector<std::string> importedFiles;
     
-    bool UseCustomStdlibRoot = false;
-    std::string CustomStdlibRoot;
+    // TODO replace these two w/ a single std::optional?
+    bool useCustomStdlibRoot = false;
+    std::string customStdlibRoot;
     
-    void ResolveImport();
-    std::string ResolveImportPathRelativeToBaseDirectory(const std::string &ModuleName, const std::string &BaseDirectory);
+    void resolveImport();
+    std::string resolveImportPathRelativeToBaseDirectory(const std::string &moduleName, const std::string &baseDirectory);
     
-    Token &CurrentToken() { return *Tokens[Position]; }
-    Token &NextToken() { return *Tokens[++Position]; }
+    Token &currentToken() { return *tokens[position]; }
+    Token &nextToken() { return *tokens[++position]; }
     
-    Token::TokenKind CurrentTokenKind() {
-        return CurrentToken().Kind;
+    Token::TokenKind currentTokenKind() {
+        return currentToken().kind;
     }
-    Token &Peek(uint64_t Offset = 1) {
-        return *Tokens[Position + Offset];
+    Token &peek(uint64_t offset = 1) {
+        return *tokens[position + offset];
     }
-    Token::TokenKind &PeekKind(uint64_t Offset = 1) {
-        return Peek(Offset).Kind;
+    Token::TokenKind &peekKind(uint64_t offset = 1) {
+        return peek(offset).kind;
     }
-    void Consume(uint64_t Count = 1) { Position += Count; }
+    void consume(uint64_t count = 1) { position += count; }
     
-    TokenSourceLocation &GetCurrentSourceLocation() {
-        return CurrentToken().SourceLocation;
+    TokenSourceLocation &getCurrentSourceLocation() {
+        return currentToken().sourceLocation;
     }
     
     
     
-    std::shared_ptr<ast::TopLevelStmt> ParseTopLevelStmt();
+    std::shared_ptr<ast::TopLevelStmt> parseTopLevelStmt();
     
-    std::vector<yo::attributes::Attribute> ParseAttributes();
-    std::shared_ptr<ast::FunctionSignature> ParseFunctionSignature(std::shared_ptr<attributes::FunctionAttributes>);
+    std::vector<yo::attributes::Attribute> parseAttributes();
+    std::shared_ptr<ast::FunctionSignature> parseFunctionSignature(std::shared_ptr<attributes::FunctionAttributes>);
     
-    std::shared_ptr<ast::FunctionDecl> ParseFunctionDecl(std::shared_ptr<attributes::FunctionAttributes>);
-    std::shared_ptr<ast::ImplBlock> ParseImplBlock();
-    std::shared_ptr<ast::StructDecl> ParseStructDecl(std::shared_ptr<attributes::StructAttributes>);
-    std::shared_ptr<ast::TypealiasDecl> ParseTypealias();
+    std::shared_ptr<ast::FunctionDecl> parseFunctionDecl(std::shared_ptr<attributes::FunctionAttributes>);
+    std::shared_ptr<ast::ImplBlock> parseImplBlock();
+    std::shared_ptr<ast::StructDecl> parseStructDecl(std::shared_ptr<attributes::StructAttributes>);
+    std::shared_ptr<ast::TypealiasDecl> parseTypealias();
     
-    void ParseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> &signature);
+    void parseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> &signature);
     
-    std::vector<std::shared_ptr<ast::VariableDecl>> ParseStructPropertyDeclList();
+    std::vector<std::shared_ptr<ast::VariableDecl>> parseStructPropertyDeclList();
     
-    TypeInfo *ParseType();
+    TypeInfo *parseType();
     
-    std::shared_ptr<ast::Composite> ParseComposite();
+    std::shared_ptr<ast::Composite> parseComposite();
     
-    std::shared_ptr<ast::LocalStmt> ParseLocalStmt();
-    std::shared_ptr<ast::ReturnStmt> ParseReturnStmt();
-    std::shared_ptr<ast::VariableDecl> ParseVariableDecl();
+    std::shared_ptr<ast::LocalStmt> parseLocalStmt();
+    std::shared_ptr<ast::ReturnStmt> parseReturnStmt();
+    std::shared_ptr<ast::VariableDecl> parseVariableDecl();
     
-    std::shared_ptr<ast::IfStmt> ParseIfStmt();
-    std::shared_ptr<ast::WhileStmt> ParseWhileStmt();
-    std::shared_ptr<ast::ForLoop> ParseForLoop();
+    std::shared_ptr<ast::IfStmt> parseIfStmt();
+    std::shared_ptr<ast::WhileStmt> parseWhileStmt();
+    std::shared_ptr<ast::ForLoop> parseForLoop();
     
-    std::shared_ptr<ast::Expr> ParseExpression(PrecedenceGroup CurrentPrecedenceGroup = PrecedenceGroup::Initial);
+    std::shared_ptr<ast::Expr> parseExpression(PrecedenceGroup currentPrecedenceGroup = PrecedenceGroup::Initial);
     
     
     // Parses a CallExpr
     // Precondition: The current token most be either a less than sign or opening parentheses
     // If the current token is a less than sign and ParseCallExpr fails to parse a list of type expressions, it returns nullptr, with the parser's position reset to the less than sign
-    std::shared_ptr<ast::CallExpr> ParseCallExpr(std::shared_ptr<ast::Expr> target);
+    std::shared_ptr<ast::CallExpr> parseCallExpr(std::shared_ptr<ast::Expr> target);
     
     
-    std::vector<std::shared_ptr<ast::Expr>> ParseExpressionList(Token::TokenKind Delimiter);
-    std::shared_ptr<ast::Identifier> ParseIdentifier();
+    std::vector<std::shared_ptr<ast::Expr>> parseExpressionList(Token::TokenKind delimiter);
+    std::shared_ptr<ast::Identifier> parseIdentifier();
     
-    std::shared_ptr<ast::MatchExpr> ParseMatchExpr();
+    std::shared_ptr<ast::MatchExpr> parseMatchExpr();
     
-    std::shared_ptr<ast::NumberLiteral> ParseNumberLiteral();
-    std::shared_ptr<ast::StringLiteral> ParseStringLiteral();
-    std::shared_ptr<ast::UnaryExpr> ParseUnaryExpr();
+    std::shared_ptr<ast::NumberLiteral> parseNumberLiteral();
+    std::shared_ptr<ast::StringLiteral> parseStringLiteral();
+    std::shared_ptr<ast::UnaryExpr> parseUnaryExpr();
     
     // Why do these return optional?
     // Binop and Comparison operators can have the same initial token (ie, << and <, or & and &&)
-    std::optional<ast::BinaryOperation::Operation> ParseBinopOperator();
-    std::optional<ast::Comparison::Operation> ParseComparisonOperator();
-    std::optional<ast::LogicalOperation::Operation> ParseLogicalOperationOperator();
+    std::optional<ast::BinaryOperation::Operation> parseBinopOperator();
+    std::optional<ast::Comparison::Operation> parseComparisonOperator();
+    std::optional<ast::LogicalOperation::Operation> parseLogicalOperationOperator();
 };
 
 NS_END

@@ -11,5 +11,5 @@
 #include <string>
 
 namespace yo::stdlib_resolution {
-    std::string_view GetContentsOfModuleWithName(const std::string &Name);
+    std::string_view getContentsOfModuleWithName(const std::string &Name);
 }

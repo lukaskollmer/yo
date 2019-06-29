@@ -17,7 +17,7 @@
 using namespace yo;
 
 
-static std::map<std::string, TypeInfo *> Types = {
+static std::map<std::string, TypeInfo *> types = {
 #define builtin(name) { #name, TypeInfo::getType_##name() }
     builtin(i8), builtin(i16), builtin(i32), builtin(i64),
     builtin(u8), builtin(u16), builtin(u32), builtin(u64),
@@ -26,13 +26,13 @@ static std::map<std::string, TypeInfo *> Types = {
 };
 
 
-TypeInfo *TypeInfo::GetWithName(const std::string &name, bool *didCreateNewType) {
-    auto it = Types.find(name);
-    if (it != Types.end()) return it->second;
+TypeInfo *TypeInfo::getWithName(const std::string &name, bool *didCreateNewType) {
+    auto it = types.find(name);
+    if (it != types.end()) return it->second;
     
     auto TI = new TypeInfo();
     TI->name = name;
-    Types[name] = TI;
+    types[name] = TI;
     if (didCreateNewType) {
         *didCreateNewType = true;
     }
@@ -41,10 +41,10 @@ TypeInfo *TypeInfo::GetWithName(const std::string &name, bool *didCreateNewType)
 
 
 
-TypeInfo *TypeInfo::GetTemplatedStructWithName(const std::string &Name, std::vector<TypeInfo *> TemplateParameters) {
+TypeInfo *TypeInfo::makeTemplatedStructWithName(const std::string &name, std::vector<TypeInfo *> templateParameters) {
     auto TI = new TypeInfo();
-    TI->name = Name;
-    TI->TemplateParameters = TemplateParameters;
+    TI->name = name;
+    TI->templateParameters = templateParameters;
     TI->kind = Kind::ComplexTemplated;
     return TI;
 }
@@ -83,15 +83,15 @@ TI_GETTER(double, 8)
 
 // Initializers
 
-TypeInfo *TypeInfo::MakeComplex(const std::string &name) {
-    auto TI = GetWithName(name);
+TypeInfo *TypeInfo::makeComplex(const std::string &name) {
+    auto TI = getWithName(name);
     TI->name = name;
     TI->size = 8;
     TI->kind = Kind::Complex;
     return TI;
 }
 
-TypeInfo *TypeInfo::MakePointer(TypeInfo *pointee) {
+TypeInfo *TypeInfo::makePointer(TypeInfo *pointee) {
     if (auto ptr = pointee->pointerTo) return ptr;
     
     auto ptr = new TypeInfo();
@@ -107,9 +107,9 @@ TypeInfo *TypeInfo::MakePointer(TypeInfo *pointee) {
     return ptr;
 }
 
-TypeInfo *TypeInfo::MakeTypealias(const std::string &name, TypeInfo *otherType) {
+TypeInfo *TypeInfo::makeTypealias(const std::string &name, TypeInfo *otherType) {
     bool didCreateNewType = false;
-    auto TI = GetWithName(name, &didCreateNewType);
+    auto TI = getWithName(name, &didCreateNewType);
     //LKAssert(DidCreateNewType && "Creating typealias for already existing typename");
     TI->kind = Kind::Typealias;
     TI->name = name;
@@ -119,7 +119,7 @@ TypeInfo *TypeInfo::MakeTypealias(const std::string &name, TypeInfo *otherType) 
 
 
 
-TypeInfo *TypeInfo::MakeFunctionType(FunctionTypeInfo::CallingConvention callingConvention, std::vector<TypeInfo *> parameterTypes, TypeInfo *returnType) {
+TypeInfo *TypeInfo::makeFunctionType(FunctionTypeInfo::CallingConvention callingConvention, std::vector<TypeInfo *> parameterTypes, TypeInfo *returnType) {
     auto TI = new TypeInfo();
     TI->kind = Kind::Function;
     TI->size = 8;
@@ -131,12 +131,12 @@ TypeInfo *TypeInfo::MakeFunctionType(FunctionTypeInfo::CallingConvention calling
 }
 
 
-unsigned TypeInfo::IndirectionCount() {
-    if (!IsPointer()) return 0;
+unsigned TypeInfo::indirectionCount() {
+    if (!isPointer()) return 0;
     unsigned count = 0;
     
     auto T = this;
-    while (T->IsPointer()) {
+    while (T->isPointer()) {
         count += 1;
         T = T->getPointee();
     }
@@ -144,38 +144,38 @@ unsigned TypeInfo::IndirectionCount() {
 }
 
 
-bool TypeInfo::IsSigned() {
-    return this->Equals(i8) || this->Equals(i16) || this->Equals(i32) || this->Equals(i64);
+bool TypeInfo::isSigned() {
+    return this->equals(i8) || this->equals(i16) || this->equals(i32) || this->equals(i64);
 }
 
-static std::array<TypeInfo *, 8> IntegerTypes = {
+static std::array<TypeInfo *, 8> integerTypes = {
     TypeInfo::i8, TypeInfo::i16, TypeInfo::i32, TypeInfo::i64,
     TypeInfo::u8, TypeInfo::u16, TypeInfo::u32, TypeInfo::u64
 };
 
-bool TypeInfo::IsIntegerType() {
-    return std::find_if(IntegerTypes.begin(), IntegerTypes.end(), [this](TypeInfo *TI) { return this->Equals(TI); }) != IntegerTypes.end();
+bool TypeInfo::isIntegerType() {
+    return std::find_if(integerTypes.begin(), integerTypes.end(), [this](TypeInfo *TI) { return this->equals(TI); }) != integerTypes.end();
 }
 
-bool TypeInfo::IsVoidType() {
-    return this->Equals(Void);
+bool TypeInfo::isVoidType() {
+    return this->equals(Void);
 }
 
 
-bool TypeInfo::Equals(TypeInfo *other) {
+bool TypeInfo::equals(TypeInfo *other) {
     if (this == other) return true;
     if (other == Unresolved) return false; // we know that this is nonnull bc of the check above
     
     // Typealiases
-    if (kind == Kind::Typealias && this->pointee->Equals(other)) return true;
-    if (other->kind == Kind::Typealias && other->pointee->Equals(this)) return true; // TODO should this call this->Equals(other->pointee?)
+    if (kind == Kind::Typealias && this->pointee->equals(other)) return true;
+    if (other->kind == Kind::Typealias && other->pointee->equals(this)) return true; // TODO should this call this->Equals(other->pointee?)
     
     if (this->name != other->name) return false;
     
     if (kind != other->kind || size != other->size) return false;
     
     if ((kind == Kind::Pointer || kind == Kind::Typealias) && kind == other->kind) {
-        return pointee->Equals(other->pointee);
+        return pointee->equals(other->pointee);
     }
     
     if (kind == Kind::Complex && other->kind == Kind::Complex) return this->name == other->name;
@@ -183,7 +183,7 @@ bool TypeInfo::Equals(TypeInfo *other) {
     throw; // TODO implement the rest
 }
 
-std::string TypeInfo::Str() const {
+std::string TypeInfo::str() const {
     if (this == TypeInfo::Unresolved) {
         // We have to check this one first since `this` is a nullpointer for unresolved // TODO: don't map unresolved to the nullpointer
         return "<unresolved>";
@@ -198,11 +198,11 @@ std::string TypeInfo::Str() const {
     }
     
     if (kind == Kind::Pointer) {
-        return std::string("*").append(pointee->Str());
+        return std::string("*").append(pointee->str());
     }
     
     if (kind == Kind::Typealias) {
-        return std::string(name).append(" (alias for ").append(pointee->Str()).append(")");
+        return std::string(name).append(" (alias for ").append(pointee->str()).append(")");
     }
     
     if (kind == Kind::Function) {
@@ -215,12 +215,12 @@ std::string TypeInfo::Str() const {
         }
         str.append("(");
         for (auto it = functionTypeInfo->parameterTypes.begin(); it != functionTypeInfo->parameterTypes.end(); it++) {
-            str.append((*it)->Str());
+            str.append((*it)->str());
             if (it + 1 != functionTypeInfo->parameterTypes.end()) {
                 str.append(", ");
             }
         }
-        str.append("): ").append(functionTypeInfo->returnType->Str());
+        str.append("): ").append(functionTypeInfo->returnType->str());
         return str;
     }
     

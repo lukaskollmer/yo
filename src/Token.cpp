@@ -11,9 +11,9 @@
 
 using namespace yo::parser;
 
-std::string TokenKindToString(Token::TokenKind Kind) {
+std::string TokenKindToString(Token::TokenKind kind) {
 #define CASE(x) case Token::TokenKind::x: return #x;
-    switch (Kind) {
+    switch (kind) {
         CASE(Unknown)
         CASE(EOF_)
         CASE(Identifier)
@@ -67,30 +67,30 @@ std::string TokenKindToString(Token::TokenKind Kind) {
 }
 
 
-std::string escape_char(char C) {
-    switch (C) {
+std::string escape_char(char c) {
+    switch (c) {
         case '\n': return "\\n";
         case '\t': return "\\t";
-        default: return std::string(1, C);
+        default: return std::string(1, c);
     }
 }
 
 std::ostream& yo::parser::operator<<(std::ostream &OS, Token &T) {
-    OS << "<Token " << TokenKindToString(T.Kind);
-    switch (T.Kind) {
+    OS << "<Token " << TokenKindToString(T.kind);
+    switch (T.kind) {
         case Token::TokenKind::Identifier:
         case Token::TokenKind::StringLiteral:
         case Token::TokenKind::ByteStringLiteral:
-            OS << " '" << std::get<std::string>(T.Data) << "'";
+            OS << " '" << std::get<std::string>(T.data) << "'";
             break;
         case Token::TokenKind::IntegerLiteral:
-            OS << " " << std::get<uint64_t>(T.Data);
+            OS << " " << std::get<uint64_t>(T.data);
             break;
         case Token::TokenKind::CharLiteral:
-            OS << " '" << escape_char(std::get<char>(T.Data)) << "'";
+            OS << " '" << escape_char(std::get<char>(T.data)) << "'";
             break;
         case Token::TokenKind::DoubleLiteral:
-            OS << " " << std::get<double>(T.Data);
+            OS << " " << std::get<double>(T.data);
             break;
         default: break;
     }

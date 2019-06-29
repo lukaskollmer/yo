@@ -23,46 +23,46 @@ struct ValueBinding {
     using ReadImp  = std::function<llvm::Value*(void)>;
     using WriteImp = std::function<void(llvm::Value*)>;
     
-    const llvm::Value *Value;
-    const ReadImp  Read;
-    const WriteImp Write;
+    const llvm::Value *value;
+    const ReadImp  read;
+    const WriteImp write;
     
-    ValueBinding(llvm::Value *Value, ReadImp Read, WriteImp Write) : Value(Value), Read(Read), Write(Write) {}
+    ValueBinding(llvm::Value *value, ReadImp read, WriteImp write) : value(value), read(read), write(write) {}
 };
 
 
 
 class Scope {
     struct Entry {
-        std::string Ident;
-        TypeInfo *Type;
-        std::shared_ptr<ValueBinding> Binding;
+        std::string ident;
+        TypeInfo *type;
+        std::shared_ptr<ValueBinding> binding;
     };
     
-    std::vector<Entry> Entries;
+    std::vector<Entry> entries;
     
 public:
     using Marker = uint64_t;
     
-    void Insert(const std::string &Identifier, TypeInfo *Type, ValueBinding Binding);
+    void insert(const std::string &identifier, TypeInfo *type, ValueBinding binding);
     
     // All of these return null if the scope doesn't contain the identifier
-    bool Contains(const std::string &name);
-    ValueBinding *GetBinding(const std::string &Identifier);
-    TypeInfo *GetType(const std::string &Identifier);
+    bool contains(const std::string &name);
+    ValueBinding *getBinding(const std::string &identifier);
+    TypeInfo *getType(const std::string &identifier);
     
-    Entry Remove(const std::string &Identifier);
-    Entry *_GetEntry(const std::string &Identifier, std::vector<Entry>::const_iterator *Pos = nullptr);
+    Entry remove(const std::string &identifier);
+    Entry *_getEntry(const std::string &odentifier, std::vector<Entry>::const_iterator *pos = nullptr);
     
-    uint64_t size() { return Entries.size(); }
-    bool isEmpty() { return Entries.empty(); }
+    uint64_t size() { return entries.size(); }
+    bool isEmpty() { return entries.empty(); }
     
-    std::vector<Entry> GetAllEntries() {
-        return Entries;
+    std::vector<Entry> getAllEntries() {
+        return entries;
     }
     
-    Marker GetMarker();
-    std::vector<Entry> GetEntriesSinceMarker(Marker M);
+    Marker getMarker();
+    std::vector<Entry> getEntriesSinceMarker(Marker M);
 
 
 };

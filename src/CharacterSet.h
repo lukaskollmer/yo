@@ -21,18 +21,18 @@ class CharacterSet {
 public:
     using Character = char;
     
-    explicit CharacterSet(std::vector<char> Chars) : Characters(Chars) {}
-    explicit CharacterSet(std::string String);
-    CharacterSet(char Start, char End);
-    CharacterSet(std::vector<std::pair<char, char>> Ranges);
+    explicit CharacterSet(std::vector<Character> chars) : characters(chars) {}
+    explicit CharacterSet(std::string string);
+    CharacterSet(Character start, Character end);
+    CharacterSet(std::vector<std::pair<Character, Character>> ranges);
     
-    bool Contains(Character Char);
-    bool ContainsAllCharactersInString(std::string String);
+    bool contains(Character c);
+    bool containsAllCharactersInString(std::string string);
     
-    CharacterSet Joined(CharacterSet Other);
+    CharacterSet joined(CharacterSet other);
     
 private:
-    std::vector<Character> Characters;
+    std::vector<Character> characters;
 };
 
 

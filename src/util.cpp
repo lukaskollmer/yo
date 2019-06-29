@@ -50,147 +50,147 @@ std::string util::typeinfo::demangle(const char *name) {
 }
 
 
-bool util::string::contains(const std::string_view String, const std::string_view Other) {
-    return String.find(Other) != std::string_view::npos;
+bool util::string::contains(const std::string_view string, const std::string_view other) {
+    return string.find(other) != std::string_view::npos;
 }
 
 
-bool util::string::has_prefix(const std::string_view String, const std::string_view Prefix) {
-    if (Prefix.length() > String.length()) {
+bool util::string::has_prefix(const std::string_view string, const std::string_view prefix) {
+    if (prefix.length() > string.length()) {
         return false;
     }
-    if (Prefix.length() == String.length()) {
-        return Prefix == String;
+    if (prefix.length() == string.length()) {
+        return prefix == string;
     }
-    return String.substr(0, Prefix.length()) == Prefix;
+    return string.substr(0, prefix.length()) == prefix;
 }
 
 
-bool util::string::has_suffix(const std::string_view String, const std::string_view Suffix) {
-    if (Suffix.length() > String.length()) {
+bool util::string::has_suffix(const std::string_view string, const std::string_view suffix) {
+    if (suffix.length() > string.length()) {
         return false;
     }
-    if (Suffix.length() == String.length()) {
-        return String == Suffix;
+    if (suffix.length() == string.length()) {
+        return string == suffix;
     }
-    return String.substr(String.length() - Suffix.length(), Suffix.length()) == Suffix;
+    return string.substr(string.length() - suffix.length(), suffix.length()) == suffix;
 }
 
 
-std::string util::string::substr_with_range(const std::string String, Range Range) {
-    return String.substr(Range.Location, Range.Length);
+std::string util::string::substr_with_range(const std::string string, Range range) {
+    return string.substr(range.location, range.length);
 }
 
-std::string util::string::substr_from_index(const std::string String, LKUInteger Index) {
-    return String.substr(Index, String.length() - Index);
+std::string util::string::substr_from_index(const std::string string, LKUInteger index) {
+    return string.substr(index, string.length() - index);
 }
 
-std::string util::string::substr_to_index(const std::string String, LKInteger Index) {
-    if (Index < 0) {
-        return String.substr(0, String.length() + Index);
+std::string util::string::substr_to_index(const std::string string, LKInteger index) {
+    if (index < 0) {
+        return string.substr(0, string.length() + index);
     }
-    return String.substr(0, Index);
+    return string.substr(0, index);
 }
 
 
-std::string util::string::replace_all(const std::string String, const std::string Pattern, const std::string Replacement) {
-    std::string Retval = String;
-    size_t Index = 0;
+std::string util::string::replace_all(const std::string string, const std::string pattern, const std::string replacement) {
+    std::string retval = string;
+    size_t index = 0;
     while (true) {
         // Locate next occurrence
-        Index = Retval.find(Pattern, Index);
-        if (Index == std::string::npos) break;
+        index = retval.find(pattern, index);
+        if (index == std::string::npos) break;
         
-        Retval.replace(Index, Pattern.length(), Replacement);
-        Index += Replacement.length();
+        retval.replace(index, pattern.length(), replacement);
+        index += replacement.length();
     }
     
-    return Retval;
+    return retval;
 }
 
 
 
-std::vector<std::string> util::string::split(const std::string String, const std::string Delimiter) {
-    std::vector<std::string> Retval;
+std::vector<std::string> util::string::split(const std::string string, const std::string delimiter) {
+    std::vector<std::string> retval;
     
-    std::string::size_type Pos = 0;
-    std::string::size_type Prev = 0;
-    while ((Pos = String.find(Delimiter, Prev)) != std::string::npos) {
-        if (Pos != Prev) {
-            Retval.push_back(String.substr(Prev, Pos - Prev));
+    std::string::size_type pos = 0;
+    std::string::size_type prev = 0;
+    while ((pos = string.find(delimiter, prev)) != std::string::npos) {
+        if (pos != prev) {
+            retval.push_back(string.substr(prev, pos - prev));
         }
-        Prev = Pos + Delimiter.length();
+        prev = pos + delimiter.length();
     }
     
     // Append the last (or only, if delimiter wasn't found) substring
-    if (Prev != String.length()) {
-        Retval.push_back(String.substr(Prev));
+    if (prev != string.length()) {
+        retval.push_back(string.substr(prev));
     }
     
-    return Retval;
+    return retval;
 }
 
 
 
-std::string util::string::join(const std::vector<std::string> &Strings, const std::string Delimiter) {
-    std::string Retval;
+std::string util::string::join(const std::vector<std::string> &strings, const std::string delimiter) {
+    std::string retval;
     
-    for (auto It = Strings.begin(); It != Strings.end(); It++) {
-        Retval += *It;
-        if (It + 1 != Strings.end()) {
-            Retval += Delimiter;
+    for (auto it = strings.begin(); it != strings.end(); it++) {
+        retval += *it;
+        if (it + 1 != strings.end()) {
+            retval += delimiter;
         }
     }
-    return Retval;
+    return retval;
 }
 
 
-std::string& util::string::append_with_indentation(std::string &Target, std::string &&Other, unsigned int IndentCount) {
-    std::string Indent(IndentCount, ' ');
+std::string& util::string::append_with_indentation(std::string &target, std::string &&other, unsigned int indentCount) {
+    std::string indent(indentCount, ' ');
     
-    std::vector<std::string> Indented;
-    for (auto Line : split(Other, "\n")) {
-        Indented.push_back(Indent + Line);
+    std::vector<std::string> indented;
+    for (auto line : split(other, "\n")) {
+        indented.push_back(indent + line);
     }
     
-    Target += join(Indented, "\n");
-    return Target;
+    target += join(indented, "\n");
+    return target;
 }
 
 
-std::string util::string::lastPathCompotent(const std::string &Path) {
-    auto Pos = Path.rfind('/');
-    if (Pos == std::string::npos) {
-        return Path;
+std::string util::string::lastPathCompotent(const std::string &path) {
+    auto pos = path.rfind('/');
+    if (pos == std::string::npos) {
+        return path;
     }
-    return Path.substr(Pos + 1);
+    return path.substr(pos + 1);
 }
 
-std::string util::string::excludingLastPathComponent(const std::string &Path) {
-    auto Pos = Path.rfind('/');
-    if (Pos == std::string::npos) {
-        return Path;
+std::string util::string::excludingLastPathComponent(const std::string &path) {
+    auto pos = path.rfind('/');
+    if (pos == std::string::npos) {
+        return path;
     }
-    return Path.substr(0, Pos);
+    return path.substr(0, pos);
 }
 
-std::string util::string::excludingFileExtension(const std::string &Path) {
-    auto Pos = Path.rfind('.');
-    if (Pos == std::string::npos) {
-        return Path;
+std::string util::string::excludingFileExtension(const std::string &path) {
+    auto pos = path.rfind('.');
+    if (pos == std::string::npos) {
+        return path;
     }
-    return Path.substr(0, Pos);
+    return path.substr(0, pos);
 }
 
 
-std::pair<std::string, std::string> util::string::extractPathAndFilename(const std::string &Path) {
-    auto Pos = Path.rfind('/');
-    if (Pos == std::string::npos) {
-        return { "", Path };
+std::pair<std::string, std::string> util::string::extractPathAndFilename(const std::string &path) {
+    auto pos = path.rfind('/');
+    if (pos == std::string::npos) {
+        return { "", path };
     }
     return {
-        Path.substr(0, Pos),
-        Path.substr(Pos+1)
+        path.substr(0, pos),
+        path.substr(pos+1)
     };
 }
 

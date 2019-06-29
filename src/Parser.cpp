@@ -27,56 +27,56 @@ using TK = Token::TokenKind;
 
 #pragma mark - Parser Utils
 
-#define assert_current_token(Expected) \
-do { if (auto T = CurrentToken(); T.Kind != Expected) { \
-    auto &S = T.SourceLocation; \
-    std::cout << "[token assert] Expected: " << Expected << ", got: " << T.Kind << ". (file: " << S.Filepath << ":" << S.Line << ":" << S.Column << ")\n";  \
+#define assert_current_token(expected) \
+do { if (auto T = currentToken(); T.kind != expected) { \
+    auto &S = T.sourceLocation; \
+    std::cout << "[token assert] Expected: " << expected << ", got: " << T.kind << ". (file: " << S.filepath << ":" << S.line << ":" << S.column << ")\n";  \
     throw; \
 } } while (0)
 
-#define assert_current_token_and_consume(Expected) \
-do { if (auto T = CurrentToken(); T.Kind != Expected) { \
-    auto &S = T.SourceLocation; \
-    std::cout << "[token assert] Expected: " << Expected << ", got: " << T.Kind << ". (file: " << S.Filepath << ":" << S.Line << ":" << S.Column << ")\n";  \
+#define assert_current_token_and_consume(expected) \
+do { if (auto T = currentToken(); T.kind != expected) { \
+    auto &S = T.sourceLocation; \
+    std::cout << "[token assert] Expected: " << expected << ", got: " << T.kind << ". (file: " << S.filepath << ":" << S.line << ":" << S.column << ")\n";  \
     throw; \
-} else { Consume(); } } while (0)
+} else { consume(); } } while (0)
 
 #define unhandled_token(T)                                                                                                      \
 {                                                                                                                               \
-    auto &SL = T.SourceLocation;                                                                                                \
-    std::cout << "Unhandled Token: " << T << " at " << SL.Filepath << ":" << SL.Line << ":" << SL.Column << std::endl; throw;   \
+    auto &SL = T.sourceLocation;                                                                                                \
+    std::cout << "Unhandled Token: " << T << " at " << SL.filepath << ":" << SL.line << ":" << SL.column << std::endl; throw;   \
 }
 
 
 class TokenSet {
-    std::vector<TK> Tokens;
+    std::vector<TK> tokens;
     
 public:
-    TokenSet(std::initializer_list<TK> Tokens) : Tokens(Tokens) {}
+    TokenSet(std::initializer_list<TK> tokens) : tokens(tokens) {}
     
-    bool Contains(TK Token) {
-        return util::vector::contains(Tokens, Token);
+    bool contains(TK token) {
+        return util::vector::contains(tokens, token);
     }
 };
 
 
 template <typename T>
 class MappedTokenSet {
-    std::map<TK, T> Mapping;
+    std::map<TK, T> mapping;
     
 public:
-    MappedTokenSet(std::initializer_list<std::pair<TK, T>> Mapping) {
-        for (auto &Pair : Mapping) {
-            this->Mapping.insert(Pair);
+    MappedTokenSet(std::initializer_list<std::pair<TK, T>> mapping) {
+        for (auto &pair : mapping) {
+            this->mapping.insert(pair);
         }
     }
     
-    bool Contains(TK Token) {
-        return Mapping.find(Token) != Mapping.end();
+    bool contains(TK token) {
+        return mapping.find(token) != mapping.end();
     }
     
-    T &operator [](TK Token) {
-        return Mapping.at(Token);
+    T &operator [](TK token) {
+        return mapping.at(token);
     }
 };
 
@@ -85,7 +85,7 @@ public:
 #pragma mark - Token Collections
 
 // The initial tokens of all binary operators (binops, comparisons, etc)
-static TokenSet BinaryOperatorStartTokens = {
+static TokenSet binaryOperatorStartTokens = {
     TK::Plus, TK::Minus, TK::Asterisk, TK::ForwardSlash, TK::PercentageSign,
     TK::Ampersand, TK::Pipe, TK::Circumflex, TK::LessThanSign, TK::GreaterSign,
     TK::EqualsSign, TK::ExclamationMark
@@ -93,7 +93,7 @@ static TokenSet BinaryOperatorStartTokens = {
 
 
 
-static MappedTokenSet<ast::BinaryOperation::Operation> SingleTokenBinopOperatorTokenMapping = {
+static MappedTokenSet<ast::BinaryOperation::Operation> singleTokenBinopOperatorTokenMapping = {
     { TK::Plus,           BinaryOperation::Operation::Add },
     { TK::Minus,          BinaryOperation::Operation::Sub },
     { TK::Asterisk,       BinaryOperation::Operation::Mul },
@@ -110,8 +110,8 @@ static MappedTokenSet<ast::BinaryOperation::Operation> SingleTokenBinopOperatorT
 #pragma mark - Parser
 
 
-#define save_pos(name) auto name = Position;
-#define restore_pos(name) Position = name;
+#define save_pos(name) auto name = this->position;
+#define restore_pos(name) this->position = name;
 
 // How does the parser work?
 //
@@ -119,157 +119,157 @@ static MappedTokenSet<ast::BinaryOperation::Operation> SingleTokenBinopOperatorT
 // For example, if we parse an identifier, after returning from `ParseIdentifier`, Position would point to the token after that identifier
 
 
-TokenList LexFile(std::string &Path) {
-    std::ifstream File(Path);
-    std::ostringstream Contents;
-    Contents << File.rdbuf();
-    File.close();
+TokenList lexFile(std::string &path) {
+    std::ifstream file(path);
+    std::ostringstream contents;
+    contents << file.rdbuf();
+    file.close();
 
-    return Lexer().Lex(Contents.str(), Path);
+    return Lexer().lex(contents.str(), path);
 }
 
 
-AST Parser::Parse(std::string &FilePath) {
-    this->Position = 0;
-    this->Tokens = LexFile(FilePath);
-    ImportedFiles.push_back(FilePath);
+AST Parser::parse(std::string &filepath) {
+    this->position = 0;
+    this->tokens = lexFile(filepath);
+    importedFiles.push_back(filepath);
     
-    AST Ast;
-    while (Position < Tokens.size() && CurrentTokenKind() != TK::EOF_) {
-        Ast.push_back(ParseTopLevelStmt());
+    AST ast;
+    while (position < tokens.size() && currentTokenKind() != TK::EOF_) {
+        ast.push_back(parseTopLevelStmt());
     }
     
-    return Ast;
+    return ast;
 }
 
 
 #include <sys/stat.h>
 namespace fs {
-    bool file_exists(std::string &Path) {
-        struct stat S;
-        return stat(Path.c_str(), &S) == 0;
+    bool file_exists(std::string &path) {
+        struct stat s;
+        return stat(path.c_str(), &s) == 0;
     }
 }
 
 
 // TODO move the entire module resolution stuff somewhere else !?
-std::string Parser::ResolveImportPathRelativeToBaseDirectory(const std::string &ModuleName, const std::string &BaseDirectory) {
-    if (ModuleName[0] == '/') { // absolute path
-        return ModuleName;
+std::string Parser::resolveImportPathRelativeToBaseDirectory(const std::string &moduleName, const std::string &baseDirectory) {
+    if (moduleName[0] == '/') { // absolute path
+        return moduleName;
     }
     
-    std::string Path = std::string(BaseDirectory).append("/").append(ModuleName).append(".yo");
-    if (fs::file_exists(Path)) return Path;
+    std::string path = std::string(baseDirectory).append("/").append(moduleName).append(".yo");
+    if (fs::file_exists(path)) return path;
     
-    LKFatalError("Unable to resolve import of '%s' relative to '%s'", ModuleName.c_str(), BaseDirectory.c_str());
+    LKFatalError("Unable to resolve import of '%s' relative to '%s'", moduleName.c_str(), baseDirectory.c_str());
 }
 
 
 
-void Parser::ResolveImport() {
-    auto BaseDirectory = util::string::excludingLastPathComponent(CurrentToken().SourceLocation.Filepath);
+void Parser::resolveImport() {
+    auto baseDirectory = util::string::excludingLastPathComponent(currentToken().sourceLocation.filepath);
     assert_current_token_and_consume(TK::Use);
     
-    auto ModuleName = ParseStringLiteral()->Value;
+    auto moduleName = parseStringLiteral()->value;
     assert_current_token_and_consume(TK::Semicolon);
     
-    TokenList NewTokens;
+    TokenList newTokens;
     
-    auto IsStdlibImport = ModuleName[0] == ':';
-    if (IsStdlibImport && util::vector::contains(ImportedFiles, ModuleName)) {
+    auto isStdlibImport = moduleName[0] == ':';
+    if (isStdlibImport && util::vector::contains(importedFiles, moduleName)) {
         return;
-    } else if (IsStdlibImport && !UseCustomStdlibRoot) {
-        ImportedFiles.push_back(ModuleName);
-        NewTokens = Lexer().Lex(stdlib_resolution::GetContentsOfModuleWithName(ModuleName), ModuleName);
+    } else if (isStdlibImport && !useCustomStdlibRoot) {
+        importedFiles.push_back(moduleName);
+        newTokens = Lexer().lex(stdlib_resolution::getContentsOfModuleWithName(moduleName), moduleName);
     } else {
-        if (IsStdlibImport) {
-            ImportedFiles.push_back(ModuleName);
-            ModuleName.erase(ModuleName.begin());
-            BaseDirectory = CustomStdlibRoot;
+        if (isStdlibImport) {
+            importedFiles.push_back(moduleName);
+            moduleName.erase(moduleName.begin());
+            baseDirectory = customStdlibRoot;
         }
-        auto Path = ResolveImportPathRelativeToBaseDirectory(ModuleName, BaseDirectory);
-        if (util::vector::contains(ImportedFiles, Path)) return;
-        ImportedFiles.push_back(Path);
-        NewTokens = LexFile(Path);
+        auto path = resolveImportPathRelativeToBaseDirectory(moduleName, baseDirectory);
+        if (util::vector::contains(importedFiles, path)) return;
+        importedFiles.push_back(path);
+        newTokens = lexFile(path);
     }
     
-    Tokens.insert(Tokens.begin() + Position,
-                  NewTokens.begin(),
-                  NewTokens.end() - 1); // exclude EOF_
+    tokens.insert(tokens.begin() + position,
+                  newTokens.begin(),
+                  newTokens.end() - 1); // exclude EOF_
 }
 
 
 
 
-std::shared_ptr<TopLevelStmt> Parser::ParseTopLevelStmt() {
-    std::shared_ptr<TopLevelStmt> Stmt;
-    auto attributeList = ParseAttributes();
-    auto StartLocation = CurrentToken().SourceLocation;
+std::shared_ptr<TopLevelStmt> Parser::parseTopLevelStmt() {
+    std::shared_ptr<TopLevelStmt> stmt;
+    auto attributeList = parseAttributes();
+    auto startLocation = currentToken().sourceLocation;
     
-    switch (CurrentToken().Kind) {
+    switch (currentToken().kind) {
         case TK::Fn: {
-            Stmt = ParseFunctionDecl(std::make_shared<attributes::FunctionAttributes>(attributeList));
+            stmt = parseFunctionDecl(std::make_shared<attributes::FunctionAttributes>(attributeList));
             break;
         }
         case TK::Struct: {
-            Stmt = ParseStructDecl(std::make_shared<attributes::StructAttributes>(attributeList));
+            stmt = parseStructDecl(std::make_shared<attributes::StructAttributes>(attributeList));
             break;
         }
         case TK::Impl:
-            Stmt = ParseImplBlock();
+            stmt = parseImplBlock();
             break;
         case TK::Use:
-            ResolveImport(); // TODO can/should imports have annotations?
-            return ParseTopLevelStmt();
+            resolveImport(); // TODO can/should imports have annotations?
+            return parseTopLevelStmt();
         case TK::Using:
-            Stmt = ParseTypealias();
+            stmt = parseTypealias();
             break;
-        default: unhandled_token(CurrentToken());
+        default: unhandled_token(currentToken());
     }
     
-    Stmt->setSourceLocation(StartLocation);
+    stmt->setSourceLocation(startLocation);
     
-    return Stmt;
+    return stmt;
 }
 
 
-std::shared_ptr<StructDecl> Parser::ParseStructDecl(std::shared_ptr<attributes::StructAttributes> attributes) {
+std::shared_ptr<StructDecl> Parser::parseStructDecl(std::shared_ptr<attributes::StructAttributes> attributes) {
     assert_current_token_and_consume(TK::Struct);
     
-    auto Decl = std::make_shared<StructDecl>();
-    Decl->Name = ParseIdentifier();
-    Decl->attributes = attributes;
+    auto decl = std::make_shared<StructDecl>();
+    decl->name = parseIdentifier();
+    decl->attributes = attributes;
     
-    if (CurrentTokenKind() == TK::LessThanSign) {
-        Consume();
-        while (CurrentTokenKind() != TK::GreaterSign) {
-            Decl->TemplateArguments.push_back(ParseIdentifier()->Value);
-            if (CurrentTokenKind() == TK::Comma) Consume();
+    if (currentTokenKind() == TK::LessThanSign) {
+        consume();
+        while (currentTokenKind() != TK::GreaterSign) {
+            decl->templateArguments.push_back(parseIdentifier()->value);
+            if (currentTokenKind() == TK::Comma) consume();
         }
         assert_current_token_and_consume(TK::GreaterSign);
     }
     assert_current_token_and_consume(TK::OpeningCurlyBraces);
     
-    Decl->Members = ParseStructPropertyDeclList();
+    decl->members = parseStructPropertyDeclList();
     assert_current_token_and_consume(TK::ClosingCurlyBraces);
-    return Decl;
+    return decl;
 }
 
 
-std::shared_ptr<ImplBlock> Parser::ParseImplBlock() {
+std::shared_ptr<ImplBlock> Parser::parseImplBlock() {
     assert_current_token_and_consume(TK::Impl);
     
-    auto impl = std::make_shared<ImplBlock>(ParseIdentifier()->Value);
+    auto impl = std::make_shared<ImplBlock>(parseIdentifier()->value);
     assert_current_token_and_consume(TK::OpeningCurlyBraces);
     
-    while (CurrentTokenKind() == TK::Fn || CurrentTokenKind() == TK::Hashtag) {
+    while (currentTokenKind() == TK::Fn || currentTokenKind() == TK::Hashtag) {
         std::vector<attributes::Attribute> attributes;
-        if (CurrentTokenKind() == TK::Hashtag) {
-            attributes = ParseAttributes();
-            LKAssert(CurrentTokenKind() == TK::Fn);
+        if (currentTokenKind() == TK::Hashtag) {
+            attributes = parseAttributes();
+            LKAssert(currentTokenKind() == TK::Fn);
         }
-        auto functionDecl = ParseFunctionDecl(std::make_shared<attributes::FunctionAttributes>(attributes));
-        impl->Methods.push_back(functionDecl);
+        auto functionDecl = parseFunctionDecl(std::make_shared<attributes::FunctionAttributes>(attributes));
+        impl->methods.push_back(functionDecl);
     }
     
     assert_current_token_and_consume(TK::ClosingCurlyBraces);
@@ -277,30 +277,30 @@ std::shared_ptr<ImplBlock> Parser::ParseImplBlock() {
 }
 
 
-std::vector<yo::attributes::Attribute> Parser::ParseAttributes() {
+std::vector<yo::attributes::Attribute> Parser::parseAttributes() {
     // TODO save attribute source locations!
-    if (CurrentTokenKind() != TK::Hashtag) return {};
-    Consume();
+    if (currentTokenKind() != TK::Hashtag) return {};
+    consume();
     assert_current_token_and_consume(TK::OpeningSquareBrackets);
     
     std::vector<yo::attributes::Attribute> attributes;
     
     
-    while (auto Ident = ParseIdentifier()) {
-        auto key = Ident->Value;
+    while (auto ident = parseIdentifier()) {
+        auto key = ident->value;
         
-        switch (CurrentTokenKind()) {
+        switch (currentTokenKind()) {
             case TK::OpeningParens: {
-                Consume();
+                consume();
                 std::vector<std::string> members;
-                while (auto Ident = ParseIdentifier()) {
-                    members.push_back(Ident->Value);
-                    if (CurrentTokenKind() == TK::Comma) {
-                        Consume();
-                    } else if (CurrentTokenKind() == TK::ClosingParens) {
+                while (auto Ident = parseIdentifier()) {
+                    members.push_back(ident->value);
+                    if (currentTokenKind() == TK::Comma) {
+                        consume();
+                    } else if (currentTokenKind() == TK::ClosingParens) {
                         break;
                     } else {
-                        unhandled_token(CurrentToken());
+                        unhandled_token(currentToken());
                     }
                 }
                 assert_current_token_and_consume(TK::ClosingParens);
@@ -308,10 +308,10 @@ std::vector<yo::attributes::Attribute> Parser::ParseAttributes() {
                 break;
             }
             case TK::EqualsSign: {
-                Consume();
-                if (auto value = ParseStringLiteral()) {
-                    LKAssert(value->Kind == ast::StringLiteral::StringLiteralKind::NormalString);
-                    attributes.push_back(yo::attributes::Attribute(key, value->Value));
+                consume();
+                if (auto value = parseStringLiteral()) {
+                    LKAssert(value->kind == ast::StringLiteral::StringLiteralKind::NormalString);
+                    attributes.push_back(yo::attributes::Attribute(key, value->value));
                 } else {
                     LKFatalError("unable to parse attribute value");
                 }
@@ -324,17 +324,17 @@ std::vector<yo::attributes::Attribute> Parser::ParseAttributes() {
                 break;
                 
             default:
-                unhandled_token(CurrentToken());
+                unhandled_token(currentToken());
         }
 
-        if (CurrentTokenKind() == TK::Comma) {
-            Consume();
+        if (currentTokenKind() == TK::Comma) {
+            consume();
             assert_current_token(TK::Identifier); // Comma must be followed by another attribute
             continue;
-        } else if (CurrentTokenKind() == TK::ClosingSquareBrackets) {
-            Consume();
-            if (CurrentTokenKind() == TK::Hashtag && PeekKind() == TK::OpeningSquareBrackets) {
-                Consume(2);
+        } else if (currentTokenKind() == TK::ClosingSquareBrackets) {
+            consume();
+            if (currentTokenKind() == TK::Hashtag && peekKind() == TK::OpeningSquareBrackets) {
+                consume(2);
                 continue;
             } else {
                 break;
@@ -347,80 +347,80 @@ std::vector<yo::attributes::Attribute> Parser::ParseAttributes() {
 
 
 
-std::shared_ptr<FunctionSignature> Parser::ParseFunctionSignature(std::shared_ptr<attributes::FunctionAttributes> attributes) {
-    auto SourceLoc = GetCurrentSourceLocation();
+std::shared_ptr<FunctionSignature> Parser::parseFunctionSignature(std::shared_ptr<attributes::FunctionAttributes> attributes) {
+    auto sourceLoc = getCurrentSourceLocation();
     
     assert_current_token_and_consume(TK::Fn);
     
-    auto S = std::make_shared<ast::FunctionSignature>();
-    S->setSourceLocation(SourceLoc);
-    S->Name = ParseIdentifier()->Value;
-    S->attributes = attributes;
-    S->Kind = ast::FunctionSignature::FunctionKind::GlobalFunction; // (for functions in impl blocks, this will be changed to the proper value during irgen preflight)
+    auto signature = std::make_shared<ast::FunctionSignature>();
+    signature->setSourceLocation(sourceLoc);
+    signature->name = parseIdentifier()->value;
+    signature->attributes = attributes;
+    signature->kind = ast::FunctionSignature::FunctionKind::GlobalFunction; // (for functions in impl blocks, this will be changed to the proper value during irgen preflight)
     
-    if (CurrentTokenKind() == TK::LessThanSign) { // Template function
-        S->IsTemplateFunction = true;
-        Consume();
-        while (CurrentTokenKind() != TK::GreaterSign) {
-            S->TemplateArgumentNames.push_back(ParseIdentifier()->Value);
-            if (CurrentTokenKind() == TK::Comma) Consume();
+    if (currentTokenKind() == TK::LessThanSign) { // Template function
+        signature->isTemplateFunction = true;
+        consume();
+        while (currentTokenKind() != TK::GreaterSign) {
+            signature->templateArgumentNames.push_back(parseIdentifier()->value);
+            if (currentTokenKind() == TK::Comma) consume();
         }
         assert_current_token_and_consume(TK::GreaterSign);
     }
     assert_current_token_and_consume(TK::OpeningParens);
     
     //S->Parameters = ParseParameterList(true);
-    S->Parameters = {};
-    ParseFunctionParameterList(S);
+    signature->parameters = {};
+    parseFunctionParameterList(signature);
     assert_current_token_and_consume(TK::ClosingParens);
     
-    if (CurrentTokenKind() == TK::Colon) {
-        Consume();
-        S->ReturnType = ParseType();
+    if (currentTokenKind() == TK::Colon) {
+        consume();
+        signature->returnType = parseType();
     } else {
-        S->ReturnType = TypeInfo::Void;
+        signature->returnType = TypeInfo::Void;
     }
     
-    return S;
+    return signature;
 }
 
 
-std::shared_ptr<FunctionDecl> Parser::ParseFunctionDecl(std::shared_ptr<attributes::FunctionAttributes> attributes) {
-    auto FD = std::make_shared<FunctionDecl>();
-    FD->Signature = ParseFunctionSignature(attributes);
+std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(std::shared_ptr<attributes::FunctionAttributes> attributes) {
+    auto decl = std::make_shared<FunctionDecl>();
+    decl->signature = parseFunctionSignature(attributes);
     
-    if (CurrentTokenKind() == TK::OpeningCurlyBraces) {
-        FD->Body = ParseComposite();
-    } else if (CurrentTokenKind() == TK::Semicolon) {
-        Consume();
-        FD->Body = nullptr;
+    if (currentTokenKind() == TK::OpeningCurlyBraces) {
+        decl->body = parseComposite();
+    } else if (currentTokenKind() == TK::Semicolon) {
+        consume();
+        decl->body = nullptr;
     }
     
-    return FD;
+    return decl;
 }
 
 
 
-std::vector<std::shared_ptr<ast::VariableDecl>> Parser::ParseStructPropertyDeclList() {
+std::vector<std::shared_ptr<ast::VariableDecl>> Parser::parseStructPropertyDeclList() {
     std::vector<std::shared_ptr<ast::VariableDecl>> decls;
     
     
-    while (CurrentTokenKind() != TK::ClosingCurlyBraces) {
+    while (currentTokenKind() != TK::ClosingCurlyBraces) {
         // TODO
         //if (CurrentTokenKind() == TK::Hashtag) {
         //    auto attributes = ParseAttributes();
         //}
-        auto ident = ParseIdentifier();
+        auto ident = parseIdentifier();
         assert_current_token_and_consume(TK::Colon);
-        auto type = ParseType();
+        auto type = parseType();
         
-        auto Decl = std::make_shared<ast::VariableDecl>(ident, type);
-        Decl->setSourceLocation(ident->getSourceLocation());
-        decls.push_back(Decl);
+        auto decl = std::make_shared<ast::VariableDecl>(ident, type);
+        decl->setSourceLocation(ident->getSourceLocation());
+        decls.push_back(decl);
         
-        if (CurrentTokenKind() == TK::Comma) {
-            Consume();
-            LKAssert(CurrentTokenKind() != TK::ClosingCurlyBraces);
+        if (currentTokenKind() == TK::Comma) {
+            consume();
+            LKAssert(currentTokenKind() != TK::ClosingCurlyBraces);
         }
     }
     
@@ -430,106 +430,106 @@ std::vector<std::shared_ptr<ast::VariableDecl>> Parser::ParseStructPropertyDeclL
 
 
 
-void Parser::ParseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> &signature) {
-    constexpr auto Delimiter = TK::ClosingParens;
+void Parser::parseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> &signature) {
+    constexpr auto delimiter = TK::ClosingParens;
     
     uint64_t index = 0;
     uint64_t pos_lastEntry = UINT64_MAX;
-    while (CurrentTokenKind() != Delimiter) {
-        LKAssert(pos_lastEntry != Position); pos_lastEntry = Position;
+    while (currentTokenKind() != delimiter) {
+        LKAssert(pos_lastEntry != position); pos_lastEntry = position;
         
-        auto ident = ast::Identifier::EmptyIdent();
+        auto ident = ast::Identifier::emptyIdent();
         TypeInfo *type = TypeInfo::Unresolved;
         
-        if (CurrentTokenKind() == TK::Identifier && PeekKind() == TK::Colon) {
+        if (currentTokenKind() == TK::Identifier && peekKind() == TK::Colon) {
             // <ident>: <type>
-            ident = ParseIdentifier();
+            ident = parseIdentifier();
             assert_current_token_and_consume(TK::Colon);
-            type = ParseType();
-            if (PeekKind(0) == TK::Period && PeekKind(1) == TK::Period && PeekKind(2) == TK::Period) {
+            type = parseType();
+            if (peekKind(0) == TK::Period && peekKind(1) == TK::Period && peekKind(2) == TK::Period) {
                 throw; // TODO implement!
             }
-        } else if (CurrentTokenKind() == TK::Period && PeekKind(0) == TK::Period && PeekKind(2) == TK::Period) {
-            Consume(3);
-            LKAssert(CurrentTokenKind() == Delimiter);
+        } else if (currentTokenKind() == TK::Period && peekKind(0) == TK::Period && peekKind(2) == TK::Period) {
+            consume(3);
+            LKAssert(currentTokenKind() == delimiter);
             signature->attributes->variadic = true;
             return;
         } else {
             ident = std::make_shared<ast::Identifier>(std::string("$").append(std::to_string(index)));
-            type = ParseType();
+            type = parseType();
         }
         LKAssert(type);
         
         index += 1;
-        auto Decl = std::make_shared<ast::VariableDecl>(ident, type);
-        Decl->setSourceLocation(ident->getSourceLocation());
-        signature->Parameters.push_back(Decl);
+        auto decl = std::make_shared<ast::VariableDecl>(ident, type);
+        decl->setSourceLocation(ident->getSourceLocation());
+        signature->parameters.push_back(decl);
         
-        if (CurrentTokenKind() == TK::Comma) {
-            Consume();
-            LKAssert(CurrentTokenKind() != TK::ClosingParens);
+        if (currentTokenKind() == TK::Comma) {
+            consume();
+            LKAssert(currentTokenKind() != TK::ClosingParens);
         }
     }
 }
 
 
-TypeInfo *Parser::ParseType() {
+TypeInfo *Parser::parseType() {
     // TODO add source location to type statements?
-    if (CurrentTokenKind() == TK::Fn) {
-        Consume();
+    if (currentTokenKind() == TK::Fn) {
+        consume();
         TypeInfo::FunctionTypeInfo::CallingConvention cc;
-        if (CurrentTokenKind() == TK::Hashtag) { // TODO use a tilde instead !?
-            Consume();
-            auto cc_ident = ParseIdentifier();
-            if (cc_ident->Value == "c") {
+        if (currentTokenKind() == TK::Hashtag) { // TODO use a tilde instead !?
+            consume();
+            auto cc_ident = parseIdentifier();
+            if (cc_ident->value == "c") {
                 cc = TypeInfo::FunctionTypeInfo::CallingConvention::C;
-            } else if (cc_ident->Value == "yo") {
+            } else if (cc_ident->value == "yo") {
                 cc = TypeInfo::FunctionTypeInfo::CallingConvention::Yo;
             } else {
-                LKFatalError("unknown calling convention: %s", cc_ident->Value.c_str());
+                LKFatalError("unknown calling convention: %s", cc_ident->value.c_str());
             }
         }
         assert_current_token_and_consume(TK::OpeningParens);
         
         std::vector<TypeInfo *> parameterTypes;
-        while (auto T = ParseType()) {
+        while (auto T = parseType()) {
             parameterTypes.push_back(T);
-            if (CurrentTokenKind() == TK::Comma) {
-                Consume(); continue;
-            } else if (CurrentTokenKind() == TK::ClosingParens) {
-                Consume(); break;
+            if (currentTokenKind() == TK::Comma) {
+                consume(); continue;
+            } else if (currentTokenKind() == TK::ClosingParens) {
+                consume(); break;
             } else {
-                unhandled_token(CurrentToken());
+                unhandled_token(currentToken());
             }
         }
         assert_current_token_and_consume(TK::Colon);
-        auto returnType = ParseType();
+        auto returnType = parseType();
         
-        return TypeInfo::MakeFunctionType(cc, parameterTypes, returnType);
+        return TypeInfo::makeFunctionType(cc, parameterTypes, returnType);
         
     }
     
-    if (CurrentTokenKind() == TK::Identifier) {
-        auto Name = ParseIdentifier()->Value;
-        if (CurrentTokenKind() == TK::LessThanSign) {
-            Consume();
-            std::vector<TypeInfo *> TemplateParameters;
-            while (CurrentTokenKind() != TK::GreaterSign) {
-                auto Ty = ParseType();
-                if (!Ty) {
+    if (currentTokenKind() == TK::Identifier) {
+        auto name = parseIdentifier()->value;
+        if (currentTokenKind() == TK::LessThanSign) {
+            consume();
+            std::vector<TypeInfo *> templateParameters;
+            while (currentTokenKind() != TK::GreaterSign) {
+                auto ty = parseType();
+                if (!ty) {
                     LKFatalError("unable to parse type in struct template parameter list");
                 }
-                TemplateParameters.push_back(Ty);
+                templateParameters.push_back(ty);
             }
             assert_current_token_and_consume(TK::GreaterSign);
-            return TypeInfo::GetTemplatedStructWithName(Name, TemplateParameters);
+            return TypeInfo::makeTemplatedStructWithName(name, templateParameters);
         }
-        return TypeInfo::GetWithName(Name);
+        return TypeInfo::getWithName(name);
     }
     
-    if (CurrentTokenKind() == TK::Asterisk) {
-        Consume();
-        return ParseType()->getPointerTo();
+    if (currentTokenKind() == TK::Asterisk) {
+        consume();
+        return parseType()->getPointerTo();
     }
     
     return nullptr;
@@ -537,16 +537,16 @@ TypeInfo *Parser::ParseType() {
 
 
 
-std::shared_ptr<ast::TypealiasDecl> Parser::ParseTypealias() {
-    auto SourceLoc = GetCurrentSourceLocation();
+std::shared_ptr<ast::TypealiasDecl> Parser::parseTypealias() {
+    auto sourceLoc = getCurrentSourceLocation();
     assert_current_token_and_consume(TK::Using);
-    auto Name = ParseIdentifier()->Value;
+    auto name = parseIdentifier()->value;
     assert_current_token_and_consume(TK::EqualsSign);
-    auto Type = ParseType();
+    auto type = parseType();
     assert_current_token_and_consume(TK::Semicolon);
-    auto Decl = std::make_shared<ast::TypealiasDecl>(Name, Type);
-    Decl->setSourceLocation(SourceLoc);
-    return Decl;
+    auto decl = std::make_shared<ast::TypealiasDecl>(name, type);
+    decl->setSourceLocation(sourceLoc);
+    return decl;
 }
 
 
@@ -555,18 +555,18 @@ std::shared_ptr<ast::TypealiasDecl> Parser::ParseTypealias() {
 
 
 
-std::shared_ptr<Composite> Parser::ParseComposite() {
-    auto SourceLoc = GetCurrentSourceLocation();
+std::shared_ptr<Composite> Parser::parseComposite() {
+    auto sourceLoc = getCurrentSourceLocation();
     assert_current_token_and_consume(TK::OpeningCurlyBraces);
     
-    auto C = std::make_shared<Composite>();
-    C->setSourceLocation(SourceLoc);
-    while (CurrentTokenKind() != TK::ClosingCurlyBraces) {
-        C->Statements.push_back(ParseLocalStmt());
+    auto stmt = std::make_shared<Composite>();
+    stmt->setSourceLocation(sourceLoc);
+    while (currentTokenKind() != TK::ClosingCurlyBraces) {
+        stmt->statements.push_back(parseLocalStmt());
     }
     
     assert_current_token_and_consume(TK::ClosingCurlyBraces);
-    return C;
+    return stmt;
 }
 
 
@@ -574,175 +574,177 @@ std::shared_ptr<Composite> Parser::ParseComposite() {
 
 
 
-std::shared_ptr<LocalStmt> Parser::ParseLocalStmt() {
-    if (CurrentTokenKind() == TK::Return) {
-        return ParseReturnStmt();
+std::shared_ptr<LocalStmt> Parser::parseLocalStmt() {
+    // TODO make this a switch?
+    if (currentTokenKind() == TK::Return) {
+        return parseReturnStmt();
     }
     
-    if (CurrentTokenKind() == TK::Let) {
-        return ParseVariableDecl();
+    if (currentTokenKind() == TK::Let) {
+        return parseVariableDecl();
     }
     
-    if (CurrentTokenKind() == TK::If) {
-        return ParseIfStmt();
+    if (currentTokenKind() == TK::If) {
+        return parseIfStmt();
     }
     
-    if (CurrentTokenKind() == TK::While) {
-        return ParseWhileStmt();
+    if (currentTokenKind() == TK::While) {
+        return parseWhileStmt();
     }
     
-    if (CurrentTokenKind() == TK::For) {
-        return ParseForLoop();
+    if (currentTokenKind() == TK::For) {
+        return parseForLoop();
     }
     
-    auto SourceLoc = GetCurrentSourceLocation();
+    auto sourceLoc = getCurrentSourceLocation();
     
-    std::shared_ptr<LocalStmt> S;
-    std::shared_ptr<Expr> E; // A partially-parsed part of a local statement
+    std::shared_ptr<LocalStmt> stmt;
+    std::shared_ptr<Expr> expr; // A partially-parsed part of a local statement
     
-    E = ParseExpression();
-    E->setSourceLocation(SourceLoc);
+    expr = parseExpression();
+    expr->setSourceLocation(sourceLoc);
     
-    if (CurrentTokenKind() == TK::EqualsSign) { // Assignment
-        Consume();
-        auto Value = ParseExpression();
+    if (currentTokenKind() == TK::EqualsSign) { // Assignment
+        consume();
+        auto value = parseExpression();
         assert_current_token_and_consume(TK::Semicolon);
-        auto Assignment = std::make_shared<ast::Assignment>(E, Value);
-        Assignment->setSourceLocation(SourceLoc);
-        return Assignment;
+        auto assignment = std::make_shared<ast::Assignment>(expr, value);
+        assignment->setSourceLocation(sourceLoc);
+        return assignment;
     }
     
-    if (BinaryOperatorStartTokens.Contains(CurrentTokenKind())) {
-        if (auto Op = ParseBinopOperator()) {
+    if (binaryOperatorStartTokens.contains(currentTokenKind())) {
+        if (auto op = parseBinopOperator()) {
             assert_current_token_and_consume(TK::EqualsSign);
             
-            auto Value = std::make_shared<BinaryOperation>(*Op, E, ParseExpression());
-            S = std::make_shared<Assignment>(E, Value);
+            auto value = std::make_shared<BinaryOperation>(*op, expr, parseExpression());
+            stmt = std::make_shared<Assignment>(expr, value);
             assert_current_token_and_consume(TK::Semicolon);
-            S->setSourceLocation(SourceLoc);
-            return S;
+            stmt->setSourceLocation(sourceLoc);
+            return stmt;
         }
     }
     
-    if (CurrentTokenKind() == TK::Semicolon) {
-        Consume();
-        if (E) {
-            auto ExprStmt = std::make_shared<ast::ExprStmt>(E);
-            ExprStmt->setSourceLocation(SourceLoc);
-            return ExprStmt;
+    if (currentTokenKind() == TK::Semicolon) {
+        consume();
+        if (expr) {
+            auto exprStmt = std::make_shared<ast::ExprStmt>(expr);
+            exprStmt->setSourceLocation(sourceLoc);
+            return exprStmt;
         }
     }
     
-    unhandled_token(CurrentToken())
+    unhandled_token(currentToken())
 }
 
 
 
-std::shared_ptr<ReturnStmt> Parser::ParseReturnStmt() {
-    auto SourceLoc = GetCurrentSourceLocation();
+std::shared_ptr<ReturnStmt> Parser::parseReturnStmt() {
+    auto sourceLoc = getCurrentSourceLocation();
     assert_current_token_and_consume(TK::Return);
     
-    if (CurrentTokenKind() == TK::Semicolon) {
-        Consume();
+    if (currentTokenKind() == TK::Semicolon) {
+        consume();
         return std::make_shared<ReturnStmt>(nullptr);
     }
     
-    auto Expr = ParseExpression();
+    auto expr = parseExpression();
     assert_current_token_and_consume(TK::Semicolon);
-    auto RetStmt = std::make_shared<ReturnStmt>(Expr);
-    RetStmt->setSourceLocation(SourceLoc);
-    return RetStmt;
+    auto retStmt = std::make_shared<ReturnStmt>(expr);
+    retStmt->setSourceLocation(sourceLoc);
+    return retStmt;
 }
 
 
 
-std::shared_ptr<VariableDecl> Parser::ParseVariableDecl() {
-    auto SourceLoc = GetCurrentSourceLocation();
+std::shared_ptr<VariableDecl> Parser::parseVariableDecl() {
+    auto sourceLoc = getCurrentSourceLocation();
     assert_current_token_and_consume(TK::Let);
     
-    auto Identifier = ParseIdentifier();
-    auto Type = TypeInfo::Unresolved;
-    std::shared_ptr<Expr> InitialValue;
+    auto identifier = parseIdentifier();
+    auto type = TypeInfo::Unresolved;
+    std::shared_ptr<Expr> initialValue;
     
-    if (CurrentTokenKind() == TK::Colon) {
-        Consume();
-        Type = ParseType();
+    if (currentTokenKind() == TK::Colon) {
+        consume();
+        type = parseType();
     }
     
-    if (CurrentTokenKind() == TK::EqualsSign) {
-        Consume();
-        InitialValue = ParseExpression();
+    if (currentTokenKind() == TK::EqualsSign) {
+        consume();
+        initialValue = parseExpression();
     }
     
     assert_current_token_and_consume(TK::Semicolon);
     
-    auto Decl = std::make_shared<VariableDecl>(Identifier, Type, InitialValue);
-    Decl->setSourceLocation(SourceLoc);
-    return Decl;
+    auto decl = std::make_shared<VariableDecl>(identifier, type, initialValue);
+    decl->setSourceLocation(sourceLoc);
+    return decl;
 }
 
 
 
-std::shared_ptr<IfStmt> Parser::ParseIfStmt() {
+std::shared_ptr<IfStmt> Parser::parseIfStmt() {
     using Kind = ast::IfStmt::Branch::BranchKind;
-    auto SourceLoc = GetCurrentSourceLocation();
+    
+    auto sourceLoc = getCurrentSourceLocation();
     assert_current_token_and_consume(TK::If);
     
-    std::vector<std::shared_ptr<IfStmt::Branch>> Branches;
+    std::vector<std::shared_ptr<IfStmt::Branch>> branches;
     
-    auto MainExpr = ParseExpression();
+    auto mainExpr = parseExpression();
     assert_current_token(TK::OpeningCurlyBraces);
     
-    Branches.push_back(std::make_shared<IfStmt::Branch>(Kind::If,
-                                                        MainExpr,
-                                                        ParseComposite()));
+    branches.push_back(std::make_shared<IfStmt::Branch>(Kind::If,
+                                                        mainExpr,
+                                                        parseComposite()));
     
-    while (CurrentTokenKind() == TK::Else && PeekKind() == TK::If) {
-        Consume(2);
-        auto Expr = ParseExpression();
+    while (currentTokenKind() == TK::Else && peekKind() == TK::If) {
+        consume(2);
+        auto expr = parseExpression();
         assert_current_token(TK::OpeningCurlyBraces);
-        auto Body = ParseComposite();
-        Branches.push_back(std::make_shared<IfStmt::Branch>(Kind::ElseIf, Expr, Body));
+        auto body = parseComposite();
+        branches.push_back(std::make_shared<IfStmt::Branch>(Kind::ElseIf, expr, body));
     }
     
-    if (CurrentTokenKind() == TK::Else && PeekKind() == TK::OpeningCurlyBraces) {
-        Consume();
-        Branches.push_back(std::make_shared<IfStmt::Branch>(Kind::Else, nullptr, ParseComposite()));
+    if (currentTokenKind() == TK::Else && peekKind() == TK::OpeningCurlyBraces) {
+        consume();
+        branches.push_back(std::make_shared<IfStmt::Branch>(Kind::Else, nullptr, parseComposite()));
     }
     
-    auto If = std::make_shared<ast::IfStmt>(Branches);
-    If->setSourceLocation(SourceLoc);
-    return If;
+    auto ifStmt = std::make_shared<ast::IfStmt>(branches);
+    ifStmt->setSourceLocation(sourceLoc);
+    return ifStmt;
 }
 
 
 
 
-std::shared_ptr<ast::WhileStmt> Parser::ParseWhileStmt() {
-    auto SourceLoc = GetCurrentSourceLocation();
+std::shared_ptr<ast::WhileStmt> Parser::parseWhileStmt() {
+    auto sourceLoc = getCurrentSourceLocation();
     assert_current_token_and_consume(TK::While);
     
-    auto Condition = ParseExpression();
+    auto condition = parseExpression();
     assert_current_token(TK::OpeningCurlyBraces);
     
-    auto Stmt = std::make_shared<ast::WhileStmt>(Condition, ParseComposite());
-    Stmt->setSourceLocation(SourceLoc);
-    return Stmt;
+    auto stmt = std::make_shared<ast::WhileStmt>(condition, parseComposite());
+    stmt->setSourceLocation(sourceLoc);
+    return stmt;
 }
 
 
 
-std::shared_ptr<ForLoop> Parser::ParseForLoop() {
-    auto SourceLoc = GetCurrentSourceLocation();
+std::shared_ptr<ForLoop> Parser::parseForLoop() {
+    auto sourceLoc = getCurrentSourceLocation();
     assert_current_token_and_consume(TK::For);
-    auto Ident = ParseIdentifier();
+    auto ident = parseIdentifier();
     assert_current_token_and_consume(TK::In);
-    auto Expr = ParseExpression();
+    auto expr = parseExpression();
     assert_current_token(TK::OpeningCurlyBraces);
-    auto Body = ParseComposite();
-    auto Stmt = std::make_shared<ForLoop>(Ident, Expr, Body);
-    Stmt->setSourceLocation(SourceLoc);
-    return Stmt;
+    auto body = parseComposite();
+    auto stmt = std::make_shared<ForLoop>(ident, expr, body);
+    stmt->setSourceLocation(sourceLoc);
+    return stmt;
 }
 
 
@@ -753,49 +755,50 @@ std::shared_ptr<ForLoop> Parser::ParseForLoop() {
 
 // Parses a (potentially empty) list of expressions separated by commas, until Delimiter is reached
 // The delimiter is not consumed
-std::vector<std::shared_ptr<Expr>> Parser::ParseExpressionList(Token::TokenKind Delimiter) {
-    if (CurrentTokenKind() == Delimiter) return {};
+std::vector<std::shared_ptr<Expr>> Parser::parseExpressionList(Token::TokenKind delimiter) {
+    if (currentTokenKind() == delimiter) return {};
     
-    std::vector<std::shared_ptr<Expr>> Expressions;
+    std::vector<std::shared_ptr<Expr>> expressions;
     
     do {
-        Expressions.push_back(ParseExpression());
-        LKAssert(CurrentTokenKind() == TK::Comma || CurrentTokenKind() == Delimiter);
-        if (CurrentTokenKind() == TK::Comma) Consume();
-    } while (CurrentTokenKind() != Delimiter);
+        expressions.push_back(parseExpression());
+        LKAssert(currentTokenKind() == TK::Comma || currentTokenKind() == delimiter);
+        if (currentTokenKind() == TK::Comma) consume();
+    } while (currentTokenKind() != delimiter);
     
-    assert_current_token(Delimiter);
-    return Expressions;
+    assert_current_token(delimiter);
+    return expressions;
 }
 
 
 
-std::shared_ptr<Identifier> Parser::ParseIdentifier() {
-    if (CurrentTokenKind() != TK::Identifier) return nullptr;
-    auto Value = std::get<std::string>(CurrentToken().Data);
-    auto Ident = std::make_shared<Identifier>(Value);
-    Ident->setSourceLocation(GetCurrentSourceLocation());
-    Consume();
-    return Ident;
+std::shared_ptr<Identifier> Parser::parseIdentifier() {
+    if (currentTokenKind() != TK::Identifier) return nullptr;
+    auto value = std::get<std::string>(currentToken().data);
+    auto ident = std::make_shared<Identifier>(value);
+    ident->setSourceLocation(getCurrentSourceLocation());
+    consume();
+    return ident;
 }
 
         
-std::optional<ast::BinaryOperation::Operation> Parser::ParseBinopOperator() {
-    auto T = CurrentTokenKind();
-    if (!BinaryOperatorStartTokens.Contains(T)) throw;
+std::optional<ast::BinaryOperation::Operation> Parser::parseBinopOperator() {
+    auto token = currentTokenKind();
     
-    if (SingleTokenBinopOperatorTokenMapping.Contains(T)) {
-        Consume();
-        return SingleTokenBinopOperatorTokenMapping[T];
+    if (!binaryOperatorStartTokens.contains(token)) throw;
+    
+    if (singleTokenBinopOperatorTokenMapping.contains(token)) {
+        consume();
+        return singleTokenBinopOperatorTokenMapping[token];
     }
     
-    if (T == TK::LessThanSign && PeekKind() == TK::LessThanSign) {
-        Consume(2);
+    if (token == TK::LessThanSign && peekKind() == TK::LessThanSign) {
+        consume(2);
         return BinaryOperation::Operation::Shl;
     }
     
-    if (T == TK::GreaterSign && PeekKind() == TK::GreaterSign) {
-        Consume(2);
+    if (token == TK::GreaterSign && peekKind() == TK::GreaterSign) {
+        consume(2);
         return BinaryOperation::Operation::Shr;
     }
     
@@ -803,61 +806,61 @@ std::optional<ast::BinaryOperation::Operation> Parser::ParseBinopOperator() {
 }
 
 
-std::optional<ast::Comparison::Operation> Parser::ParseComparisonOperator() {
+std::optional<ast::Comparison::Operation> Parser::parseComparisonOperator() {
     using Op = ast::Comparison::Operation;
     
-    auto Token = CurrentTokenKind();
-    if (!BinaryOperatorStartTokens.Contains(Token)) throw;
+    auto token = currentTokenKind();
+    if (!binaryOperatorStartTokens.contains(token)) throw;
     
-    auto Next = PeekKind();
+    auto next = peekKind();
     
-    if (Token == TK::EqualsSign && Next == TK::EqualsSign) {
-        Consume(2); return Op::EQ;
+    if (token == TK::EqualsSign && next == TK::EqualsSign) {
+        consume(2); return Op::EQ;
     }
     
-    if (Token == TK::ExclamationMark && Next == TK::EqualsSign) {
-        Consume(2); return Op::NE;
+    if (token == TK::ExclamationMark && next == TK::EqualsSign) {
+        consume(2); return Op::NE;
     }
     
-    if (Token == TK::LessThanSign && Next == TK::EqualsSign) {
-        Consume(2); return Op::LE;
+    if (token == TK::LessThanSign && next == TK::EqualsSign) {
+        consume(2); return Op::LE;
     }
     
-    if (Token == TK::LessThanSign) {
-        Consume(); return Op::LT;
+    if (token == TK::LessThanSign) {
+        consume(); return Op::LT;
     }
     
-    if (Token == TK::GreaterSign && Next == TK::EqualsSign) {
-        Consume(2); return Op::GE;
+    if (token == TK::GreaterSign && next == TK::EqualsSign) {
+        consume(2); return Op::GE;
     }
     
-    if (Token == TK::GreaterSign) {
-        Consume(); return Op::GT;
-    }
-    
-    return std::nullopt;
-}
-
-
-std::optional<ast::LogicalOperation::Operation> Parser::ParseLogicalOperationOperator() {
-    auto Token = CurrentTokenKind();
-    if (!BinaryOperatorStartTokens.Contains(Token)) throw;
-    
-    auto Next = PeekKind();
-    
-    if (Token == TK::Ampersand && Next == TK::Ampersand) {
-        Consume(2); return ast::LogicalOperation::Operation::And;
-    }
-    if (Token == TK::Pipe && Next == TK::Pipe) {
-        Consume(2); return ast::LogicalOperation::Operation::Or;
+    if (token == TK::GreaterSign) {
+        consume(); return Op::GT;
     }
     
     return std::nullopt;
 }
 
 
-PrecedenceGroup GetOperatorPrecedenceGroup(BinaryOperation::Operation Op) {
-    switch (Op) {
+std::optional<ast::LogicalOperation::Operation> Parser::parseLogicalOperationOperator() {
+    auto token = currentTokenKind();
+    if (!binaryOperatorStartTokens.contains(token)) throw;
+    
+    auto next = peekKind();
+    
+    if (token == TK::Ampersand && next == TK::Ampersand) {
+        consume(2); return ast::LogicalOperation::Operation::And;
+    }
+    if (token == TK::Pipe && next == TK::Pipe) {
+        consume(2); return ast::LogicalOperation::Operation::Or;
+    }
+    
+    return std::nullopt;
+}
+
+
+PrecedenceGroup getOperatorPrecedenceGroup(BinaryOperation::Operation op) {
+    switch (op) {
     case BinaryOperation::Operation::Add:
     case BinaryOperation::Operation::Sub:
     case BinaryOperation::Operation::Or:
@@ -876,12 +879,12 @@ PrecedenceGroup GetOperatorPrecedenceGroup(BinaryOperation::Operation Op) {
 }
 
 
-PrecedenceGroup GetOperatorPrecedenceGroup(ast::Comparison::Operation) {
+PrecedenceGroup getOperatorPrecedenceGroup(ast::Comparison::Operation) {
     return PrecedenceGroup::Comparison;
 }
 
-PrecedenceGroup GetOperatorPrecedenceGroup(ast::LogicalOperation::Operation Op) {
-    switch (Op) {
+PrecedenceGroup getOperatorPrecedenceGroup(ast::LogicalOperation::Operation op) {
+    switch (op) {
         case LogicalOperation::Operation::And: return PrecedenceGroup::LogicalConjunction;
         case LogicalOperation::Operation::Or:  return PrecedenceGroup::LogicalDisjunction;
     }
@@ -889,75 +892,75 @@ PrecedenceGroup GetOperatorPrecedenceGroup(ast::LogicalOperation::Operation Op) 
 
 
 // Tokens that, if they appear on their own, mark the end of an expression
-static TokenSet ExpressionDelimitingTokens = {
+static TokenSet expressionDelimitingTokens = {
     TK::ClosingParens, TK::Semicolon, TK::Comma, TK::OpeningCurlyBraces, TK::ClosingSquareBrackets, TK::EqualsSign, TK::ClosingCurlyBraces
 };
 
 
-std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupConstraint) {
-    if (ExpressionDelimitingTokens.Contains(CurrentTokenKind())) {
+std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupConstraint) {
+    if (expressionDelimitingTokens.contains(currentTokenKind())) {
         return nullptr;
     }
     
-    auto SourceLoc = GetCurrentSourceLocation();
+    auto sourceLoc = getCurrentSourceLocation();
     
-    std::shared_ptr<Expr> E;
+    std::shared_ptr<Expr> expr;
     
-    if (CurrentTokenKind() == TK::OpeningParens) {
-        Consume();
-        E = ParseExpression();
+    if (currentTokenKind() == TK::OpeningParens) {
+        consume();
+        expr = parseExpression();
         assert_current_token_and_consume(TK::ClosingParens);
     
     }
     
-    if (!E && CurrentTokenKind() == TK::Match) {
-        E = ParseMatchExpr();
+    if (!expr && currentTokenKind() == TK::Match) {
+        expr = parseMatchExpr();
     }
     
-    if (!E) {
-        E = ParseNumberLiteral();
+    if (!expr) {
+        expr = parseNumberLiteral();
     }
     
-    if (!E) {
-        E = ParseUnaryExpr();
+    if (!expr) {
+        expr = parseUnaryExpr();
     }
     
-    if (!E) {
-        E = ParseStringLiteral();
+    if (!expr) {
+        expr = parseStringLiteral();
     }
     
-    if (!E) {
-        E = ParseIdentifier();
+    if (!expr) {
+        expr = parseIdentifier();
         
-        if (CurrentTokenKind() == TK::Colon && PeekKind() == TK::Colon) {
+        if (currentTokenKind() == TK::Colon && peekKind() == TK::Colon) {
             // a static member reference
             // Q: how do we know that for sure?
             // A: we only end up here if E was null before -> the ident and the two colons are at the beginning of the expression we're parsing
             
-            auto typeName = std::dynamic_pointer_cast<ast::Identifier>(E)->Value;
-            Consume(2);
-            auto memberName = ParseIdentifier()->Value;
-            E = std::make_shared<ast::StaticDeclRefExpr>(typeName, memberName);
+            auto typeName = std::dynamic_pointer_cast<ast::Identifier>(expr)->value;
+            consume(2);
+            auto memberName = parseIdentifier()->value;
+            expr = std::make_shared<ast::StaticDeclRefExpr>(typeName, memberName);
         }
     }
     
-    E->setSourceLocation(SourceLoc);
+    expr->setSourceLocation(sourceLoc);
     
     
     ast::Expr *_last_entry_expr_ptr = nullptr;
     
     while (true) {
-        LKAssert(E);
-        if (_last_entry_expr_ptr == E.get()) {
-            unhandled_token(CurrentToken());
+        LKAssert(expr);
+        if (_last_entry_expr_ptr == expr.get()) {
+            unhandled_token(currentToken());
         }
-        _last_entry_expr_ptr = E.get();
+        _last_entry_expr_ptr = expr.get();
         
-        if (ExpressionDelimitingTokens.Contains(CurrentTokenKind())) {
-            if (CurrentTokenKind() == TK::EqualsSign && PeekKind() == TK::EqualsSign) {
+        if (expressionDelimitingTokens.contains(currentTokenKind())) {
+            if (currentTokenKind() == TK::EqualsSign && peekKind() == TK::EqualsSign) {
                 goto parse_binop_expr;
             }
-            return E;
+            return expr;
         }
         
         // Q: What's going on here?
@@ -970,11 +973,11 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
         // The long term plan is splitting this up in a bunch of functions and having ParseExpression call them from the while loop, depending on which kind of expression seems most likely based on the current token
         
 //    parse_call_expr:
-        if (CurrentTokenKind() == TK::LessThanSign || CurrentTokenKind() == TK::OpeningParens) {
-            if (auto callExpr = ParseCallExpr(E)) {
-                E = callExpr;
+        if (currentTokenKind() == TK::LessThanSign || currentTokenKind() == TK::OpeningParens) {
+            if (auto callExpr = parseCallExpr(expr)) {
+                expr = callExpr;
                 continue; // TODO is the consume actually required/good?
-            } else if (CurrentTokenKind() == TK::LessThanSign) {
+            } else if (currentTokenKind() == TK::LessThanSign) {
                 goto parse_binop_expr; // use this as a hint that this is probably a binop expression?
             }
         }
@@ -982,10 +985,10 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
         
         
 //    parse_member_expr:
-        if (CurrentTokenKind() == TK::Period) { // member expr
-            Consume();
-            auto memberName = ParseIdentifier()->Value;
-            E = std::make_shared<ast::MemberExpr>(E, memberName);
+        if (currentTokenKind() == TK::Period) { // member expr
+            consume();
+            auto memberName = parseIdentifier()->value;
+            expr = std::make_shared<ast::MemberExpr>(expr, memberName);
             // TODO goto parse_call_expr if the current token is `<` or `(`?
             // member expressions are probably somewhat often also call targets?
         }
@@ -993,67 +996,67 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
         
         
 //    parse_subscript_expr:
-        if (CurrentTokenKind() == TK::OpeningSquareBrackets) {
-            Consume();
-            auto offsetExpr = ParseExpression();
+        if (currentTokenKind() == TK::OpeningSquareBrackets) {
+            consume();
+            auto offsetExpr = parseExpression();
             assert_current_token_and_consume(TK::ClosingSquareBrackets);
-            E = std::make_shared<ast::SubscriptExpr>(E, offsetExpr);
+            expr = std::make_shared<ast::SubscriptExpr>(expr, offsetExpr);
         }
         
         
         
     parse_binop_expr:
-        if (BinaryOperatorStartTokens.Contains(CurrentTokenKind())) {
+        if (binaryOperatorStartTokens.contains(currentTokenKind())) {
             // TODO should thid be a while loop? not really necessary since it's already embedded in a while loop but it might be useful (doesn't have to run all other token comparisons first, before reaching here)?
             save_pos(fallback);
             
             // Since there are multitple binary operators starting with the same initial token (`|` vs `||`, `<` vs `<<`, etc),
             // it's important we parse the different kinds of binary operators in the correct order
             
-            if (auto op = ParseLogicalOperationOperator()) {
-                auto op_precedence = GetOperatorPrecedenceGroup(*op);
-                if (op_precedence >= PrecedenceGroupConstraint) {
-                    auto rhs = ParseExpression(op_precedence);
-                    E = std::make_shared<LogicalOperation>(*op, E, rhs);
+            if (auto op = parseLogicalOperationOperator()) {
+                auto op_precedence = getOperatorPrecedenceGroup(*op);
+                if (op_precedence >= precedenceGroupConstraint) {
+                    auto rhs = parseExpression(op_precedence);
+                    expr = std::make_shared<LogicalOperation>(*op, expr, rhs);
                 } else {
                     restore_pos(fallback);
-                    return E;
+                    return expr;
                 }
-            } else if (CurrentTokenKind() == TK::Pipe && PeekKind() == TK::GreaterSign) { // `|>` {
+            } else if (currentTokenKind() == TK::Pipe && peekKind() == TK::GreaterSign) { // `|>` {
                 // TODO allow functions w/ explicit template arguments
                 // ie: `return argv[1] |> atoi |> static_cast<i64> |> fib;`
                 
-                if (PrecedenceGroupConstraint >= PrecedenceGroup::FunctionPipeline) {
-                    return E;
+                if (precedenceGroupConstraint >= PrecedenceGroup::FunctionPipeline) {
+                    return expr;
                 }
                 
-                Consume(2);
-                auto callTarget = ParseExpression(PrecedenceGroup::FunctionPipeline);
-                E = std::make_shared<ast::CallExpr>(callTarget, std::vector<std::shared_ptr<ast::Expr>>{ E });
+                consume(2);
+                auto callTarget = parseExpression(PrecedenceGroup::FunctionPipeline);
+                expr = std::make_shared<ast::CallExpr>(callTarget, std::vector<std::shared_ptr<ast::Expr>>{ expr });
                 continue;
                 
-            } else if (auto op = ParseBinopOperator()) {
-                if (CurrentTokenKind() == TK::EqualsSign) {
+            } else if (auto op = parseBinopOperator()) {
+                if (currentTokenKind() == TK::EqualsSign) {
                     // <expr> <op>= <expr>;
                     restore_pos(fallback);
-                    return E;
+                    return expr;
                 }
-                auto op_precedence = GetOperatorPrecedenceGroup(*op);
-                if (op_precedence >= PrecedenceGroupConstraint) {
-                    auto rhs = ParseExpression(op_precedence);
-                    E = std::make_shared<ast::BinaryOperation>(*op, E, rhs);
+                auto op_precedence = getOperatorPrecedenceGroup(*op);
+                if (op_precedence >= precedenceGroupConstraint) {
+                    auto rhs = parseExpression(op_precedence);
+                    expr = std::make_shared<ast::BinaryOperation>(*op, expr, rhs);
                 } else {
                     restore_pos(fallback);
-                    return E;
+                    return expr;
                 }
-            } else if (auto op = ParseComparisonOperator()) {
-                auto op_precedence = GetOperatorPrecedenceGroup(*op);
-                if (op_precedence >= PrecedenceGroupConstraint) {
-                    auto rhs = ParseExpression(PrecedenceGroup::Comparison);
-                    E = std::make_shared<ast::Comparison>(*op, E, rhs);
+            } else if (auto op = parseComparisonOperator()) {
+                auto op_precedence = getOperatorPrecedenceGroup(*op);
+                if (op_precedence >= precedenceGroupConstraint) {
+                    auto rhs = parseExpression(PrecedenceGroup::Comparison);
+                    expr = std::make_shared<ast::Comparison>(*op, expr, rhs);
                 } else {
                     restore_pos(fallback);
-                    return E;
+                    return expr;
                 }
                 
             } else {
@@ -1073,23 +1076,23 @@ std::shared_ptr<Expr> Parser::ParseExpression(PrecedenceGroup PrecedenceGroupCon
 
 
 
-std::shared_ptr<ast::CallExpr> Parser::ParseCallExpr(std::shared_ptr<ast::Expr> target) {
+std::shared_ptr<ast::CallExpr> Parser::parseCallExpr(std::shared_ptr<ast::Expr> target) {
     std::vector<TypeInfo *> explicitTemplateArgumentTypes;
     
-    if (CurrentTokenKind() == TK::LessThanSign) {
+    if (currentTokenKind() == TK::LessThanSign) {
         save_pos(pos_of_less_than_sign);
-        Consume();
-        while (CurrentTokenKind() != TK::GreaterSign) { // TODO this might become a problem if there is an `<>` operator?
-            auto type = ParseType();
+        consume();
+        while (currentTokenKind() != TK::GreaterSign) { // TODO this might become a problem if there is an `<>` operator?
+            auto type = parseType();
             if (!type) {
                 restore_pos(pos_of_less_than_sign);
                 return nullptr;
             }
             explicitTemplateArgumentTypes.push_back(type);
             
-            if (CurrentTokenKind() == TK::Comma) {
-                Consume(); continue;
-            } else if (CurrentTokenKind() == TK::GreaterSign) {
+            if (currentTokenKind() == TK::Comma) {
+                consume(); continue;
+            } else if (currentTokenKind() == TK::GreaterSign) {
                 break;
             } else {
                 // If we end up here, the less than sign is probably part of a comparison or bit shift
@@ -1102,7 +1105,7 @@ std::shared_ptr<ast::CallExpr> Parser::ParseCallExpr(std::shared_ptr<ast::Expr> 
     }
     assert_current_token_and_consume(TK::OpeningParens);
     
-    auto callArguments = ParseExpressionList(TK::ClosingParens);
+    auto callArguments = parseExpressionList(TK::ClosingParens);
     assert_current_token_and_consume(TK::ClosingParens);
     return std::make_shared<ast::CallExpr>(target, callArguments, explicitTemplateArgumentTypes);
 }
@@ -1111,39 +1114,39 @@ std::shared_ptr<ast::CallExpr> Parser::ParseCallExpr(std::shared_ptr<ast::Expr> 
 
 
 
-static TokenSet MemberAccessSeparatingTokens = {
+static TokenSet memberAccessSeparatingTokens = {
     TK::LessThanSign, TK::OpeningParens, TK::OpeningSquareBrackets, TK::Period, TK::Colon
 };
 
 
 
 
-std::shared_ptr<ast::MatchExpr> Parser::ParseMatchExpr() {
+std::shared_ptr<ast::MatchExpr> Parser::parseMatchExpr() {
     assert_current_token_and_consume(TK::Match);
-    auto Target = ParseExpression();
+    auto target = parseExpression();
     assert_current_token_and_consume(TK::OpeningCurlyBraces);
-    std::vector<std::shared_ptr<ast::MatchExpr::MatchExprBranch>> Branches;
+    std::vector<std::shared_ptr<ast::MatchExpr::MatchExprBranch>> branches;
     
     while (true) {
-        auto Patterns = ParseExpressionList(TK::EqualsSign);
+        auto patterns = parseExpressionList(TK::EqualsSign);
         assert_current_token_and_consume(TK::EqualsSign);
         assert_current_token_and_consume(TK::GreaterSign);
-        auto Expr = ParseExpression();
-        Branches.push_back(std::make_shared<ast::MatchExpr::MatchExprBranch>(Patterns, Expr));
+        auto expr = parseExpression();
+        branches.push_back(std::make_shared<ast::MatchExpr::MatchExprBranch>(patterns, expr));
         
-        switch (CurrentTokenKind()) {
+        switch (currentTokenKind()) {
             case TK::Comma:
-                Consume();
+                consume();
                 continue;
             case TK::ClosingCurlyBraces:
                 goto ret;
             default:
-                unhandled_token(CurrentToken());
+                unhandled_token(currentToken());
         }
     }
 ret:
     assert_current_token_and_consume(TK::ClosingCurlyBraces);
-    return std::make_shared<ast::MatchExpr>(Target, Branches);
+    return std::make_shared<ast::MatchExpr>(target, branches);
 }
 
 
@@ -1153,74 +1156,74 @@ ret:
 // MARK: Literals
 
 
-std::shared_ptr<NumberLiteral> Parser::ParseNumberLiteral() {
-    uint64_t Value;
-    NumberLiteral::NumberType Type;
-    bool IsNegated = false;
+std::shared_ptr<NumberLiteral> Parser::parseNumberLiteral() {
+    uint64_t value;
+    NumberLiteral::NumberType type;
+    bool isNegated = false;
     
     save_pos(prev_pos)
     
-    if (CurrentTokenKind() == TK::Minus) {
-        Consume();
-        IsNegated = true;
+    if (currentTokenKind() == TK::Minus) {
+        consume();
+        isNegated = true;
     }
     
-    switch (CurrentTokenKind()) {
+    switch (currentTokenKind()) {
         case TK::IntegerLiteral:
-            Value = std::get<uint64_t>(CurrentToken().Data);
-            Type = NumberLiteral::NumberType::Integer;
+            value = std::get<uint64_t>(currentToken().data);
+            type = NumberLiteral::NumberType::Integer;
             break;
         case TK::DoubleLiteral: throw;
         case TK::CharLiteral:
-            Value = std::get<char>(CurrentToken().Data);
-            Type = NumberLiteral::NumberType::Character;
+            value = std::get<char>(currentToken().data);
+            type = NumberLiteral::NumberType::Character;
             break;
         case TK::BoolLiteral:
-            Value = std::get<bool>(CurrentToken().Data);
-            Type = NumberLiteral::NumberType::Boolean;
+            value = std::get<bool>(currentToken().data);
+            type = NumberLiteral::NumberType::Boolean;
             break;
         default:
             restore_pos(prev_pos);
             return nullptr;
     }
-    Consume();
+    consume();
     
-    if (IsNegated) {
-        Value *= -1;
+    if (isNegated) {
+        value *= -1;
     }
-    return std::make_shared<NumberLiteral>(Value, Type);
+    return std::make_shared<NumberLiteral>(value, type);
 }
 
 
 
 
-std::shared_ptr<StringLiteral> Parser::ParseStringLiteral() {
-    auto &T = CurrentToken();
+std::shared_ptr<StringLiteral> Parser::parseStringLiteral() {
+    auto &token = currentToken();
     
-    if (T.Kind != TK::StringLiteral && T.Kind != TK::ByteStringLiteral) {
+    if (token.kind != TK::StringLiteral && token.kind != TK::ByteStringLiteral) {
         return nullptr;
     }
     
-    auto value = std::get<std::string>(T.Data);
-    auto kind = T.Kind == TK::StringLiteral
+    auto value = std::get<std::string>(token.data);
+    auto kind = token.kind == TK::StringLiteral
         ? StringLiteral::StringLiteralKind::NormalString
         : StringLiteral::StringLiteralKind::ByteString;
     
-    Consume();
+    consume();
     return std::make_shared<StringLiteral>(value, kind);
 }
 
 
-static MappedTokenSet<ast::UnaryExpr::Operation> UnaryOperators = {
+static MappedTokenSet<ast::UnaryExpr::Operation> unaryOperators = {
     { TK::Minus, UnaryExpr::Operation::Negate },
     { TK::Tilde, UnaryExpr::Operation::BitwiseNot },
     { TK::ExclamationMark, UnaryExpr::Operation::LogicalNegation}
 };
 
-std::shared_ptr<UnaryExpr> Parser::ParseUnaryExpr() {
-    if (!UnaryOperators.Contains(CurrentTokenKind())) return nullptr;
-    auto Op = UnaryOperators[CurrentTokenKind()];
-    Consume();
-    auto Expr = ParseExpression(PrecedenceGroup::PrefixOperator);
-    return std::make_shared<UnaryExpr>(Op, Expr);
+std::shared_ptr<UnaryExpr> Parser::parseUnaryExpr() {
+    if (!unaryOperators.contains(currentTokenKind())) return nullptr;
+    auto op = unaryOperators[currentTokenKind()];
+    consume();
+    auto expr = parseExpression(PrecedenceGroup::PrefixOperator);
+    return std::make_shared<UnaryExpr>(op, expr);
 }

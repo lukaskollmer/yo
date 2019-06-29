@@ -24,8 +24,8 @@ namespace yo::mangling {
 }
 
 
-bool yo::mangling::IsCanonicalInstanceMethodName(std::string_view Ident) {
-    return Ident[0] == '-';
+bool yo::mangling::isCanonicalInstanceMethodName(std::string_view ident) {
+    return ident[0] == '-';
 }
 
 
@@ -34,22 +34,22 @@ class ManglingStringBuilder {
   
 public:
     ManglingStringBuilder() {}
-    explicit ManglingStringBuilder(char Initial) : Buffer(std::string(1, Initial)) {}
-    explicit ManglingStringBuilder(std::string_view Initial) : Buffer(Initial) {}
+    explicit ManglingStringBuilder(char initial) : Buffer(std::string(1, initial)) {}
+    explicit ManglingStringBuilder(std::string_view initial) : Buffer(initial) {}
     
-    ManglingStringBuilder& appendWithCount(std::string_view Str) {
-        Buffer.append(std::to_string(Str.length()));
-        Buffer.append(Str);
+    ManglingStringBuilder& appendWithCount(std::string_view str) {
+        Buffer.append(std::to_string(str.length()));
+        Buffer.append(str);
         return *this;
     }
     
-    ManglingStringBuilder& append(std::string_view Str) {
-        Buffer.append(Str);
+    ManglingStringBuilder& append(std::string_view str) {
+        Buffer.append(str);
         return *this;
     }
     
-    ManglingStringBuilder& append(char Char) {
-        Buffer.push_back(Char);
+    ManglingStringBuilder& append(char c) {
+        Buffer.push_back(c);
         return *this;
     }
     
@@ -62,32 +62,32 @@ public:
 
 
 
-std::string mangling::MangleCanonicalName(std::string_view Type, std::string_view Method, ast::FunctionSignature::FunctionKind Kind) {
-    ManglingStringBuilder Mangler;
+std::string mangling::mangleCanonicalName(std::string_view type, std::string_view method, ast::FunctionSignature::FunctionKind kind) {
+    ManglingStringBuilder mangler;
     
-    switch (Kind) {
+    switch (kind) {
         case ast::FunctionSignature::FunctionKind::GlobalFunction:
-            return std::string(Method);
+            return std::string(method);
         case ast::FunctionSignature::FunctionKind::StaticMethod:
-            Mangler.append("+"); break;
+            mangler.append("+"); break;
         case ast::FunctionSignature::FunctionKind::InstanceMethod:
-            Mangler.append("-"); break;
+            mangler.append("-"); break;
     }
     
-    return Mangler
-        .appendWithCount(Type)
-        .appendWithCount(Method)
+    return mangler
+        .appendWithCount(type)
+        .appendWithCount(method)
         .str();
 }
 
 
 
-std::string mangling::MangleCanonicalNameForSignature(std::shared_ptr<ast::FunctionSignature> signature) {
+std::string mangling::mangleCanonicalNameForSignature(std::shared_ptr<ast::FunctionSignature> signature) {
     if (!signature->attributes->mangledName.empty()) {
         return signature->attributes->mangledName;
     }
-    auto typeName = signature->Kind == ast::FunctionSignature::FunctionKind::GlobalFunction ? "" : signature->ImplType->Name->Value;
-    return MangleCanonicalName(typeName, signature->Name, signature->Kind);
+    auto typeName = signature->kind == ast::FunctionSignature::FunctionKind::GlobalFunction ? "" : signature->implType->name->value;
+    return mangleCanonicalName(typeName, signature->name, signature->kind);
 }
 
 
@@ -109,14 +109,14 @@ std::string mangling::MangleCanonicalNameForSignature(std::shared_ptr<ast::Funct
 ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
     switch (TI->getKind()) {
         case TypeInfo::Kind::Primitive: {
-#define HANDLE(t, s) if (TI->Equals(TypeInfo::t)) { return append(s); }
+#define HANDLE(t, s) if (TI->equals(TypeInfo::t)) { return append(s); }
             HANDLE(i8,  "c") HANDLE(u8,  "C")
             HANDLE(i16, "s") HANDLE(u16, "S")
             HANDLE(i32, "i") HANDLE(u32, "I")
             HANDLE(i64, "q") HANDLE(u64, "Q")
             HANDLE(Void, "v")
             HANDLE(Bool, "b")
-            LKFatalError("unhandled type: %s", TI->Str().c_str());
+            LKFatalError("unhandled type: %s", TI->str().c_str());
 #undef HANDLE
         }
         
@@ -134,14 +134,14 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
             return appendEncodedType(TI->getPointee());
         
         case TypeInfo::Kind::Unresolved:
-            LKFatalError("should never reach here: %s", TI->Str().c_str());
+            LKFatalError("should never reach here: %s", TI->str().c_str());
         
         case TypeInfo::Kind::ComplexTemplated: {
             throw;
         }
     }
     
-    LKFatalError("[EncodeType] Unhandled type: %s", TI->Str().c_str());
+    LKFatalError("[EncodeType] Unhandled type: %s", TI->str().c_str());
 }
 
 
@@ -149,7 +149,7 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
 
 
 // Mangled name includes type encodings for return- & parameter types
-std::string mangling::MangleFullyResolvedNameForSignature(std::shared_ptr<ast::FunctionSignature> signature) {
+std::string mangling::mangleFullyResolvedNameForSignature(std::shared_ptr<ast::FunctionSignature> signature) {
     if (!signature->attributes->mangledName.empty()) {
         return signature->attributes->mangledName;
     }
@@ -157,25 +157,25 @@ std::string mangling::MangleFullyResolvedNameForSignature(std::shared_ptr<ast::F
     using FK = ast::FunctionSignature::FunctionKind;
     ManglingStringBuilder mangler(kCommonPrefix);
     
-    switch (signature->Kind) {
+    switch (signature->kind) {
         case FK::GlobalFunction:
             mangler.append(mangling::kFunctionAttributeGlobalFunction);
             break;
         case FK::InstanceMethod:
             mangler.append(mangling::kFunctionAttributeInstanceMethod);
-            mangler.appendWithCount(signature->ImplType->Name->Value);
+            mangler.appendWithCount(signature->implType->name->value);
             break;
         case FK::StaticMethod:
             mangler.append(mangling::kFunctionAttributeStaticMethod);
-            mangler.appendWithCount(signature->ImplType->Name->Value);
+            mangler.appendWithCount(signature->implType->name->value);
             break;
     }
     
-    mangler.appendWithCount(signature->Name);
-    mangler.appendEncodedType(signature->ReturnType);
+    mangler.appendWithCount(signature->name);
+    mangler.appendEncodedType(signature->returnType);
     
-    for (auto &param : signature->Parameters) {
-        mangler.appendEncodedType(param->Type);
+    for (auto &param : signature->parameters) {
+        mangler.appendEncodedType(param->type);
     }
     
     return mangler.str();
@@ -183,16 +183,16 @@ std::string mangling::MangleFullyResolvedNameForSignature(std::shared_ptr<ast::F
 
 
 
-std::string mangling::MangleTemplatedComplexType(TypeInfo *TI) {
-    ManglingStringBuilder Mangler(kCommonPrefix);
-    Mangler.append(kTemplatedComplexTypePrefix);
-    Mangler.appendWithCount(TI->getName());
+std::string mangling::mangleTemplatedComplexType(TypeInfo *TI) {
+    ManglingStringBuilder mangler(kCommonPrefix);
+    mangler.append(kTemplatedComplexTypePrefix);
+    mangler.appendWithCount(TI->getName());
     
     for (auto Ty : TI->getTemplateParameterTypes()) {
-        Mangler.appendEncodedType(Ty);
+        mangler.appendEncodedType(Ty);
     }
     
-    return Mangler.str();
+    return mangler.str();
 }
 
 

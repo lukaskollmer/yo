@@ -44,7 +44,7 @@
 
 
 
-void AddOptimizationPasses(llvm::legacy::PassManager &MPM, llvm::legacy::FunctionPassManager &FPM) {
+void addOptimizationPasses(llvm::legacy::PassManager &MPM, llvm::legacy::FunctionPassManager &FPM) {
     llvm::PassRegistry &PR = *llvm::PassRegistry::getPassRegistry();
     llvm::initializeCore(PR);
     llvm::initializeIPO(PR);
@@ -52,7 +52,7 @@ void AddOptimizationPasses(llvm::legacy::PassManager &MPM, llvm::legacy::Functio
     llvm::initializeSimpleInlinerPass(PR);
     
     llvm::PassManagerBuilder PMBuilder;
-    PMBuilder.OptLevel = yo::cl::opts::Optimize() ? 1 : 0;
+    PMBuilder.OptLevel = yo::cl::opts::optimize() ? 1 : 0;
     PMBuilder.SizeLevel = 0;
     
     if (PMBuilder.OptLevel > 1) {
@@ -71,37 +71,37 @@ void AddOptimizationPasses(llvm::legacy::PassManager &MPM, llvm::legacy::Functio
 
 
 // Returns EXIT_FAILURE when something went wrong, otherwise EXIT_SUCCESS
-int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &Filename, std::string &ExecutableOutputPath) {
+int emitExecutable(std::unique_ptr<llvm::Module> module, const std::string &filename, std::string &executableOutputPath) {
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmParser();
     llvm::InitializeNativeTargetAsmPrinter();
     
-    std::string Error;
-    auto TargetTriple = llvm::sys::getDefaultTargetTriple();
+    std::string error;
+    auto targetTriple = llvm::sys::getDefaultTargetTriple();
     
-    if (llvm::Triple(TargetTriple).isOSDarwin()) {
-        Module->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
+    if (llvm::Triple(targetTriple).isOSDarwin()) {
+        module->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
     }
     
-    auto Target = llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
+    auto target = llvm::TargetRegistry::lookupTarget(targetTriple, error);
     
     // Print an error and exit if we couldn't find the requested target.
     // This generally occurs if we've forgotten to initialise the
     // TargetRegistry or we have a bogus target triple.
-    if (!Target) {
-        llvm::errs() << Error;
+    if (!target) {
+        llvm::errs() << error;
         return EXIT_FAILURE;
     }
     
     auto CPU = "generic";
-    auto Features = "";
+    auto features = "";
     
     llvm::TargetOptions opt;
     auto RM = llvm::Optional<llvm::Reloc::Model>();
-    auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
+    auto targetMachine = target->createTargetMachine(targetTriple, CPU, features, opt, RM);
     
-    Module->setDataLayout(TargetMachine->createDataLayout());
-    Module->setTargetTriple(TargetTriple);
+    module->setDataLayout(targetMachine->createDataLayout());
+    module->setTargetTriple(targetTriple);
     
     
     std::error_code EC;
@@ -113,19 +113,19 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     
     
     //auto DebugDirPath = LKStringUtils_FormatIntoNewBuffer("%s/build/Debug/", cwd.data());
-    std::string DebugDirPath(cwd.data());
+    std::string debugDirPath(cwd.data());
     
-    EC = llvm::sys::fs::create_directories(DebugDirPath);
+    EC = llvm::sys::fs::create_directories(debugDirPath);
     
     if (EC) {
         LKFatalError("Unable to create directory: %s", EC.message().c_str());
     }
     
     
-    auto ObjectFilePath = yo::util::fmt_cstr("%s/%s.o",
-                                             DebugDirPath.c_str(),
-                                             yo::util::string::excludingFileExtension(Filename).c_str());
-    llvm::raw_fd_ostream dest(ObjectFilePath, EC, llvm::sys::fs::CreationDisposition::CD_OpenAlways);
+    auto objectFilePath = yo::util::fmt_cstr("%s/%s.o",
+                                             debugDirPath.c_str(),
+                                             yo::util::string::excludingFileExtension(filename).c_str());
+    llvm::raw_fd_ostream dest(objectFilePath, EC, llvm::sys::fs::CreationDisposition::CD_OpenAlways);
     
     if (EC) {
         llvm::outs() << "Could not open file: " << EC.message();
@@ -138,47 +138,47 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     
     
     llvm::legacy::PassManager PM;
-    llvm::legacy::FunctionPassManager FPM(Module.get());
+    llvm::legacy::FunctionPassManager FPM(module.get());
     
-    PM.add(llvm::createTargetTransformInfoWrapperPass(TargetMachine->getTargetIRAnalysis()));
-    FPM.add(llvm::createTargetTransformInfoWrapperPass(TargetMachine->getTargetIRAnalysis()));
+    PM.add(llvm::createTargetTransformInfoWrapperPass(targetMachine->getTargetIRAnalysis()));
+    FPM.add(llvm::createTargetTransformInfoWrapperPass(targetMachine->getTargetIRAnalysis()));
     
     FPM.add(llvm::createVerifierPass());
     PM.add(llvm::createVerifierPass());
     
-    if (yo::cl::opts::DumpLLVMPreOpt()) {
+    if (yo::cl::opts::dumpLLVMPreOpt()) {
         PM.add(llvm::createPrintModulePass(llvm::outs(), "Pre-Optimized IR:", true));
     }
-    AddOptimizationPasses(PM, FPM);
+    addOptimizationPasses(PM, FPM);
     
     
     FPM.doInitialization();
-    for (llvm::Function &F : *Module) {
+    for (llvm::Function &F : *module) {
         FPM.run(F);
     }
     FPM.doFinalization();
     
     
-    if (yo::cl::opts::DumpLLVM()) {
-        std::string Banner = !yo::cl::opts::Optimize() ? "Final IR:" : "Final IR (Optimized):";
-        PM.add(llvm::createPrintModulePass(llvm::outs(), Banner, true));
+    if (yo::cl::opts::dumpLLVM()) {
+        std::string banner = !yo::cl::opts::optimize() ? "Final IR:" : "Final IR (Optimized):";
+        PM.add(llvm::createPrintModulePass(llvm::outs(), banner, true));
     }
     
-    if (TargetMachine->addPassesToEmitFile(PM, dest, nullptr, llvm::TargetMachine::CGFT_ObjectFile)) {
+    if (targetMachine->addPassesToEmitFile(PM, dest, nullptr, llvm::TargetMachine::CGFT_ObjectFile)) {
         llvm::errs() << "TargetMachine can't emit a file of this type";
         return EXIT_FAILURE;
     }
     
-    PM.run(*Module);
+    PM.run(*module);
     dest.flush();
     
     
     
     
     auto clangPath = llvm::sys::findProgramByName("clang");
-    const auto ExecutablePath = yo::util::fmt_cstr("%s/%s", DebugDirPath.c_str(),
-                                                   yo::util::string::excludingFileExtension(Filename).c_str());
-    ExecutableOutputPath = ExecutablePath;
+    const auto executablePath = yo::util::fmt_cstr("%s/%s", debugDirPath.c_str(),
+                                                   yo::util::string::excludingFileExtension(filename).c_str());
+    executableOutputPath = executablePath;
     
     if (EC) {
         llvm::outs() << "Error creating output directory: " << EC.message();
@@ -186,8 +186,8 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
     }
     auto cmd = yo::util::fmt_cstr("%s %s -o %s -lc",
                                   clangPath->c_str(),
-                                  ObjectFilePath,
-                                  ExecutablePath);
+                                  objectFilePath,
+                                  executablePath);
     
     if (system(cmd) != 0) {
         return EXIT_FAILURE;
@@ -198,19 +198,19 @@ int EmitExecutable(std::unique_ptr<llvm::Module> Module, const std::string &File
 
 
 
-int RunExecutable(const std::string &ExecutablePath, const char *const *envp) {
-    auto argc = yo::cl::opts::RunArgs().size();
+int runExecutable(const std::string &executablePath, const char *const *envp) {
+    auto argc = yo::cl::opts::runArgs().size();
     auto argv = static_cast<char **>(calloc(argc + 2, sizeof(char *))); // +2 bc the first element is the executable path and the array is null terminated
-    argv[0] = strdup(ExecutablePath.c_str());
+    argv[0] = strdup(executablePath.c_str());
     
-    for (size_t I = 0; I < argc; I++) {
-        argv[I + 1] = strdup(yo::cl::opts::RunArgs()[I].c_str());
+    for (size_t i = 0; i < argc; i++) {
+        argv[i + 1] = strdup(yo::cl::opts::runArgs()[i].c_str());
     }
     llvm::llvm_shutdown();
     
-    auto Status = execve(argv[0], (char *const *) argv, (char *const *) envp);
+    auto status = execve(argv[0], (char *const *) argv, (char *const *) envp);
     perror("execve failed");
-    return Status;
+    return status;
 }
 
 
@@ -218,49 +218,49 @@ int RunExecutable(const std::string &ExecutablePath, const char *const *envp) {
 
 
 int main(int argc, const char * argv[], const char *const *envp) {
-    yo::cl::Init(argc, argv);
-    LKAssertImplication(yo::cl::opts::RunArgs().size() > 0, yo::cl::opts::Run());
+    yo::cl::init(argc, argv);
+    LKAssertImplication(yo::cl::opts::runArgs().size() > 0, yo::cl::opts::run());
     
-    yo::parser::Parser Parser;
+    yo::parser::Parser parser;
     
-    if (!yo::cl::opts::StdlibRoot().empty()) {
-        Parser.SetCustomStdlibRoot(yo::cl::opts::StdlibRoot());
+    if (!yo::cl::opts::stdlibRoot().empty()) {
+        parser.setCustomStdlibRoot(yo::cl::opts::stdlibRoot());
     }
     
-    std::string Filename = yo::cl::opts::InputFilename();
-    auto Ast = Parser.Parse(Filename);
+    std::string filename = yo::cl::opts::inputFilename();
+    auto ast = parser.parse(filename);
     
-    Filename = yo::util::string::lastPathCompotent(Filename);
+    filename = yo::util::string::lastPathCompotent(filename);
     
-    if (yo::cl::opts::PrintAST()) {
-        std::cout << yo::ast::Description(Ast) << std::endl;
+    if (yo::cl::opts::printAST()) {
+        std::cout << yo::ast::description(ast) << std::endl;
         return EXIT_SUCCESS;
     }
     
     
-    yo::irgen::IRGenerator Codegen("main");
-    Codegen.EnableARC = yo::cl::opts::ARC();
-    Codegen.Codegen(Ast);
+    yo::irgen::IRGenerator codegen("main");
+    codegen.enableARC = yo::cl::opts::arc();
+    codegen.codegen(ast);
     
-    auto M = Codegen.GetModule();
+    auto M = codegen.getModule();
     
-    if (yo::cl::opts::EmitLLVM()) {
+    if (yo::cl::opts::emitLLVM()) {
         std::error_code EC;
-        auto OutputFile = Filename.append(".ll");
-        llvm::raw_fd_ostream OS(OutputFile, EC);
+        auto outputFile = filename.append(".ll");
+        llvm::raw_fd_ostream OS(outputFile, EC);
         M->print(OS, nullptr, true, true);
         return EXIT_SUCCESS;
     }
     
-    std::string ExecutablePath;
+    std::string executablePath;
     
-    if (auto Status = EmitExecutable(std::move(M), Filename, ExecutablePath); Status != EXIT_SUCCESS) {
-        return Status;
+    if (auto status = emitExecutable(std::move(M), filename, executablePath); status != EXIT_SUCCESS) {
+        return status;
     }
     
-    if (yo::cl::opts::Run()) {
+    if (yo::cl::opts::run()) {
         // Only returns if execve failed
-        return RunExecutable(ExecutablePath, envp);
+        return runExecutable(executablePath, envp);
     }
     
     return EXIT_SUCCESS;

@@ -20,24 +20,24 @@ NS_START(yo::irgen)
 
 class TypeCache {
     // TODO what about enums?
-    std::map<std::string, std::shared_ptr<ast::StructDecl>> Structs;
-    std::map<std::string, TypeInfo *> Types;
+    std::map<std::string, std::shared_ptr<ast::StructDecl>> structs;
+    std::map<std::string, TypeInfo *> types;
     
 public:
     TypeCache() {}
     
-    void Insert(std::string Name, TypeInfo *Type);
+    void insert(std::string name, TypeInfo *type);
     
-    void RegisterStruct(std::string Name, std::shared_ptr<ast::StructDecl> Struct);
+    void registerStruct(std::string name, std::shared_ptr<ast::StructDecl> structDecl);
     
-    bool Contains(const std::string &Name);
-    TypeInfo *Get(const std::string &Name) { return Types.at(Name); }
-    std::shared_ptr<ast::StructDecl> GetStruct(const std::string &name);
+    bool contains(const std::string &name);
+    TypeInfo *get(const std::string &name) { return types.at(name); }
+    std::shared_ptr<ast::StructDecl> getStruct(const std::string &name);
     
-    bool StructHasMember(const std::string &structName, const std::string &memberName);
+    bool structHasMember(const std::string &structName, const std::string &memberName);
     
     // Returns (memberIndex, memberType)
-    std::pair<int64_t, TypeInfo *> GetMember(const std::string &structName, const std::string &memberName);
+    std::pair<int64_t, TypeInfo *> getMember(const std::string &structName, const std::string &memberName);
     
 };
 

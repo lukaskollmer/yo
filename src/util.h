@@ -72,12 +72,12 @@ char *fmt_cstr(const char *format, ...);
 
 
 struct Range {
-    long Location;
-    long Length;
+    long location;
+    long length;
     
-    Range() : Location(0), Length(0) {}
+    Range() : location(0), length(0) {}
     
-    Range(long Location, long Length) : Location(Location), Length(Length) {}
+    Range(long location, long length) : location(location), length(length) {}
 };
 
 
@@ -87,13 +87,13 @@ class LKDeferHandle {
 public:
     using Imp = std::function<void()>;
     
-    explicit LKDeferHandle(Imp Function) : Function(Function) {}
+    explicit LKDeferHandle(Imp fn) : fn(fn) {}
     ~LKDeferHandle() {
-        Function();
+        fn();
     }
     
 private:
-    Imp Function;
+    Imp fn;
 };
 
 #define defer(imp) LKDeferHandle CONCAT(__defer_handle__, __COUNTER__)(imp);
@@ -139,25 +139,25 @@ namespace typeinfo {
     
     
     template <typename T>
-    std::string GetTypename(const T &arg) {
+    std::string getTypename(const T &arg) {
         return demangle(typeid(arg).name());
     }
     
     
     template <typename T>
-    struct LKTypeInfo {
-        static const std::string Name;
+    struct TypeInfo {
+        static const std::string name;
     };
     
     template <typename T>
-    const std::string LKTypeInfo<T>::Name = demangle(typeid(T).name());
+    const std::string TypeInfo<T>::name = demangle(typeid(T).name());
 }
 
 
 namespace vector {
     template <typename T>
-    inline bool contains(const std::vector<T> &Vector, const T &Element) {
-        return std::find(Vector.begin(), Vector.end(), Element) != Vector.end();
+    inline bool contains(const std::vector<T> &vector, const T &element) {
+        return std::find(vector.begin(), vector.end(), element) != vector.end();
     }
     
     template <typename T, typename F>
@@ -177,10 +177,10 @@ namespace vector {
     }
     
     template <typename T, typename F>
-    std::vector<std::invoke_result_t<F, T&>> map(const std::vector<T> &Vector, F Fn) {
-        std::vector<std::invoke_result_t<F, T&>> Mapped(Vector.size());
-        std::transform(Vector.begin(), Vector.end(), Mapped.begin(), Fn);
-        return Mapped;
+    std::vector<std::invoke_result_t<F, T&>> map(const std::vector<T> &vector, F Fn) {
+        std::vector<std::invoke_result_t<F, T&>> mapped(vector.size());
+        std::transform(vector.begin(), vector.end(), mapped.begin(), Fn);
+        return mapped;
     }
     
     template <typename T, typename F>
@@ -214,48 +214,47 @@ namespace vector {
 
 namespace map {
     template <typename K, typename V>
-    inline bool contains_key(const std::map<K, V> &Map, const K &Key) {
-        return Map.find(Key) != Map.end();
+    inline bool contains_key(const std::map<K, V> &map, const K &key) {
+        return map.find(key) != map.end();
     }
     
     template <typename K, typename V>
-    inline std::optional<V> get_opt(const std::map<K, V> &Map, const K &Key) {
-        if (contains_key(Map, Key)) return Map.at(Key);
+    inline std::optional<V> get_opt(const std::map<K, V> &map, const K &key) {
+        if (contains_key(map, key)) return map.at(key);
         else return std::nullopt;
     }
 }
 
 
 namespace string {
-    std::string repeating(const char C, std::string::size_type N);
-    bool contains(const std::string_view String, const std::string_view Other);
+    bool contains(const std::string_view string, const std::string_view other);
     
     // There's a good reason why these two use std::string_view, but i don't remember it
-    bool has_prefix(const std::string_view String, const std::string_view Prefix);
-    bool has_suffix(const std::string_view String, const std::string_view Suffix);
+    bool has_prefix(const std::string_view string, const std::string_view prefix);
+    bool has_suffix(const std::string_view string, const std::string_view suffix);
     
-    std::string substr_from_index(const std::string String, LKUInteger Index);
+    std::string substr_from_index(const std::string string, LKUInteger index);
     
     // Returns a substring from the start of the string to the specified index
     // If `Index` is negative, it's counted from the end of the string
-    std::string substr_to_index(const std::string String, LKInteger Index);
+    std::string substr_to_index(const std::string string, LKInteger index);
     
-    std::string substr_with_range(const std::string String, Range Range);
+    std::string substr_with_range(const std::string string, Range range);
     
     
-    std::string replace_all(const std::string String, const std::string Pattern, const std::string Replacement);
+    std::string replace_all(const std::string string, const std::string pattern, const std::string replacement);
     
-    std::vector<std::string> split(const std::string String, const std::string Delimiter);
-    std::string join(const std::vector<std::string> &Strings, const std::string Delimiter);
+    std::vector<std::string> split(const std::string string, const std::string delimiter);
+    std::string join(const std::vector<std::string> &strings, const std::string delimiter);
     
-    std::string& append_with_indentation(std::string &Target, std::string &&Other, unsigned Indent);
+    std::string& append_with_indentation(std::string &target, std::string &&other, unsigned indent);
     
     
     // TODO move this into a path_utils namespace or something like that?
-    std::string lastPathCompotent(const std::string &Path);
-    std::string excludingLastPathComponent(const std::string &Path);
-    std::string excludingFileExtension(const std::string &Path);
-    std::pair<std::string, std::string> extractPathAndFilename(const std::string &Path);
+    std::string lastPathCompotent(const std::string &path);
+    std::string excludingLastPathComponent(const std::string &path);
+    std::string excludingFileExtension(const std::string &path);
+    std::pair<std::string, std::string> extractPathAndFilename(const std::string &path);
 }
 
 NS_END

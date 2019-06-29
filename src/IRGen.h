@@ -51,11 +51,11 @@ NS_START(yo::irgen)
 // TODO somehow consolidate ResolvedFunction and NEW_ResolvedFunction into a single type!
 
 struct ResolvedFunction {
-    std::shared_ptr<ast::FunctionDecl> Decl;
-    llvm::Function *LLVMFunction; // nullptr if Decl is a template function
+    std::shared_ptr<ast::FunctionDecl> decl;
+    llvm::Function *llvmFunction; // nullptr if Decl is a template function
     uint8_t argumentOffset;
     
-    ResolvedFunction(std::shared_ptr<ast::FunctionDecl> Decl, llvm::Function *LLVMFunction, uint8_t argumentOffset = 0) : Decl(Decl), LLVMFunction(LLVMFunction), argumentOffset(argumentOffset) {}
+    ResolvedFunction(std::shared_ptr<ast::FunctionDecl> decl, llvm::Function *llvmFunction, uint8_t argumentOffset = 0) : decl(decl), llvmFunction(llvmFunction), argumentOffset(argumentOffset) {}
 };
 
 
@@ -75,14 +75,14 @@ struct NEW_ResolvedFunction {
 
 // State of the function currently being generated
 struct FunctionState {
-    std::shared_ptr<ast::FunctionDecl> Decl; // TODO just the signature is enough
-    llvm::Function *LLVMFunction;
-    llvm::BasicBlock *ReturnBB;
-    llvm::Value *RetvalAlloca;
+    std::shared_ptr<ast::FunctionDecl> decl; // TODO just the signature is enough
+    llvm::Function *llvmFunction;
+    llvm::BasicBlock *returnBB;
+    llvm::Value *retvalAlloca;
     
-    FunctionState() : Decl(nullptr), LLVMFunction(nullptr), ReturnBB(nullptr), RetvalAlloca(nullptr) {}
-    FunctionState(std::shared_ptr<ast::FunctionDecl> Decl, llvm::Function *LLVMFunction, llvm::BasicBlock *ReturnBB, llvm::Value *RetvalAlloca)
-    : Decl(Decl), LLVMFunction(LLVMFunction), ReturnBB(ReturnBB), RetvalAlloca(RetvalAlloca) {}
+    FunctionState() : decl(nullptr), llvmFunction(nullptr), returnBB(nullptr), retvalAlloca(nullptr) {}
+    FunctionState(std::shared_ptr<ast::FunctionDecl> decl, llvm::Function *llvmFunction, llvm::BasicBlock *returnBB, llvm::Value *retvalAlloca)
+    : decl(decl), llvmFunction(llvmFunction), returnBB(returnBB), retvalAlloca(retvalAlloca) {}
 };
 
 
@@ -90,71 +90,73 @@ struct FunctionState {
 
 
 class IRGenerator {
-    std::unique_ptr<llvm::Module> Module;
+    std::unique_ptr<llvm::Module> module;
     llvm::Module *M;
-    llvm::IRBuilder<> Builder;
+    llvm::IRBuilder<> builder;
     
     
     // Debug Metadata
-    llvm::DIBuilder DIBuilder;
-    llvm::DICompileUnit *CompileUnit;
-    std::vector<llvm::DIScope *> DILexicalBlocks;
+    struct {
+        llvm::DIBuilder builder;
+        llvm::DICompileUnit *compileUnit;
+        std::vector<llvm::DIScope *> lexicalBlocks;
+    } debugInfo;
     
     
-    irgen::Scope Scope;
-    irgen::TypeCache TypeCache;
+    irgen::Scope scope;
+    irgen::TypeCache typeCache;
     
     llvm::Type *i8, *i16, *i32, *i64;
     llvm::Type *i8_ptr;
     llvm::Type *Void, *Bool, *Double, *i1;
     
-    std::map<std::string, std::vector<std::shared_ptr<ast::FunctionDecl>>> TemplateFunctions;
+    std::map<std::string, std::vector<std::shared_ptr<ast::FunctionDecl>>> templateFunctions;
     
     
     /// key: canonical function name
-    std::map<std::string, std::vector<ResolvedFunction>> Functions;
+    std::map<std::string, std::vector<ResolvedFunction>> functions;
     // key: fully resolved function name
-    std::map<std::string, std::shared_ptr<ast::FunctionSignature>> ResolvedFunctions;
+    std::map<std::string, std::shared_ptr<ast::FunctionSignature>> resolvedFunctions;
     
     
     // The function currently being generated
-    irgen::FunctionState CurrentFunction;
+    irgen::FunctionState currentFunction;
 
     
 public:
     static llvm::LLVMContext C;
     
-    explicit IRGenerator(const std::string ModuleName);
+    explicit IRGenerator(const std::string moduleName);
     
-    void Codegen(ast::AST &Ast);
+    void codegen(ast::AST &ast);
     
-    std::unique_ptr<llvm::Module> GetModule() {
-        return std::move(Module);
+    std::unique_ptr<llvm::Module> getModule() {
+        return std::move(module);
     }
     
     
     // Options
-    bool EnableARC = false;
+    bool enableARC = false;
     
 private:
-    struct FunctionCodegenOptions {
-        bool IsVariadic;
-        bool IsExternal;
-        std::optional<std::string> Typename;
-        
-        FunctionCodegenOptions() : IsVariadic(false), IsExternal(false), Typename(std::nullopt) {}
-    };
+//    struct FunctionCodegenOptions {
+//        bool isVariadic;
+//        bool isExternal;
+//        std::optional<std::string> typename_;
+//
+//        FunctionCodegenOptions() : isVariadic(false), isExternal(false), typename_(std::nullopt) {}
+//    };
     
     
-    void Preflight(ast::AST &Ast);
-    void RegisterFunction(std::shared_ptr<ast::FunctionDecl> Function);
-    void RegisterStructDecl(std::shared_ptr<ast::StructDecl> Struct);
-    void RegisterImplBlock(std::shared_ptr<ast::ImplBlock> ImplBlock);
+    void preflight(ast::AST &ast);
+    void registerFunction(std::shared_ptr<ast::FunctionDecl> function);
+    void registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl);
+    void registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock);
     
-    void VerifyDeclarations();
+    void verifyDeclarations();
     
     // Debug Metadata
-    void EmitDebugLocation(const std::shared_ptr<ast::Node> &Node);
+    void emitDebugLocation(const std::shared_ptr<ast::Node> &node);
     
     
     // lvalue/rvalue
@@ -163,63 +165,63 @@ private:
     };
     
     // Codegen
-    llvm::Value *Codegen(std::shared_ptr<ast::TopLevelStmt>);
-    llvm::Value *Codegen(std::shared_ptr<ast::LocalStmt>);
-    llvm::Value *Codegen(std::shared_ptr<ast::Expr>, CodegenReturnValueKind = CodegenReturnValueKind::Value);
+    llvm::Value *codegen(std::shared_ptr<ast::TopLevelStmt>);
+    llvm::Value *codegen(std::shared_ptr<ast::LocalStmt>);
+    llvm::Value *codegen(std::shared_ptr<ast::Expr>, CodegenReturnValueKind = CodegenReturnValueKind::Value);
     
-    llvm::Value *Codegen(std::shared_ptr<ast::FunctionDecl>);
-    llvm::Value *Codegen(std::shared_ptr<ast::StructDecl>);
-    llvm::Value *Codegen(std::shared_ptr<ast::ImplBlock>);
+    llvm::Value *codegen(std::shared_ptr<ast::FunctionDecl>);
+    llvm::Value *codegen(std::shared_ptr<ast::StructDecl>);
+    llvm::Value *codegen(std::shared_ptr<ast::ImplBlock>);
     
     
-    llvm::Value *Codegen(std::shared_ptr<ast::Composite>);
-    llvm::Value *Codegen(std::shared_ptr<ast::ReturnStmt>);
-    llvm::Value *Codegen(std::shared_ptr<ast::VariableDecl>);
-    llvm::Value *Codegen(std::shared_ptr<ast::Assignment>);
-    llvm::Value *Codegen(std::shared_ptr<ast::IfStmt>);
-    llvm::Value *Codegen(std::shared_ptr<ast::WhileStmt>);
-    llvm::Value *Codegen(std::shared_ptr<ast::ForLoop>);
+    llvm::Value *codegen(std::shared_ptr<ast::Composite>);
+    llvm::Value *codegen(std::shared_ptr<ast::ReturnStmt>);
+    llvm::Value *codegen(std::shared_ptr<ast::VariableDecl>);
+    llvm::Value *codegen(std::shared_ptr<ast::Assignment>);
+    llvm::Value *codegen(std::shared_ptr<ast::IfStmt>);
+    llvm::Value *codegen(std::shared_ptr<ast::WhileStmt>);
+    llvm::Value *codegen(std::shared_ptr<ast::ForLoop>);
     
-    llvm::Value *Codegen(std::shared_ptr<ast::NumberLiteral>);
-    llvm::Value *Codegen(std::shared_ptr<ast::StringLiteral>);
+    llvm::Value *codegen(std::shared_ptr<ast::NumberLiteral>);
+    llvm::Value *codegen(std::shared_ptr<ast::StringLiteral>);
     
-    llvm::Value *Codegen(std::shared_ptr<ast::Typecast>);
-    llvm::Value *Codegen(std::shared_ptr<ast::BinaryOperation>);
-    llvm::Value *Codegen(std::shared_ptr<ast::UnaryExpr>);
+    llvm::Value *codegen(std::shared_ptr<ast::Typecast>);
+    llvm::Value *codegen(std::shared_ptr<ast::BinaryOperation>);
+    llvm::Value *codegen(std::shared_ptr<ast::UnaryExpr>);
     
-    llvm::Value *Codegen(std::shared_ptr<ast::Identifier>, CodegenReturnValueKind);
-    llvm::Value *Codegen(std::shared_ptr<ast::RawLLVMValueExpr>);
+    llvm::Value *codegen(std::shared_ptr<ast::Identifier>, CodegenReturnValueKind);
+    llvm::Value *codegen(std::shared_ptr<ast::RawLLVMValueExpr>);
     
-    llvm::Value *Codegen(std::shared_ptr<ast::Comparison>);
-    llvm::Value *Codegen(std::shared_ptr<ast::LogicalOperation>);
+    llvm::Value *codegen(std::shared_ptr<ast::Comparison>);
+    llvm::Value *codegen(std::shared_ptr<ast::LogicalOperation>);
     
-    llvm::Value *Codegen(std::shared_ptr<ast::SubscriptExpr>, CodegenReturnValueKind);
-    llvm::Value *Codegen(std::shared_ptr<ast::MemberExpr>, CodegenReturnValueKind);
-    llvm::Value *Codegen(std::shared_ptr<ast::ExprStmt>);
-    llvm::Value *Codegen(std::shared_ptr<ast::CallExpr>);
+    llvm::Value *codegen(std::shared_ptr<ast::SubscriptExpr>, CodegenReturnValueKind);
+    llvm::Value *codegen(std::shared_ptr<ast::MemberExpr>, CodegenReturnValueKind);
+    llvm::Value *codegen(std::shared_ptr<ast::ExprStmt>);
+    llvm::Value *codegen(std::shared_ptr<ast::CallExpr>);
     
-    llvm::Value *Codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionSignature> Signature, std::shared_ptr<ast::CallExpr>);
+    llvm::Value *codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionSignature> signature, std::shared_ptr<ast::CallExpr>);
     
     
     // Match Expr
-    llvm::Value *Codegen(std::shared_ptr<ast::MatchExpr>);
+    llvm::Value *codegen(std::shared_ptr<ast::MatchExpr>);
     
     struct MatchExprPatternCodegenInfo {
-        TypeInfo *TargetType; // type of the expression we're matching against
-        std::shared_ptr<ast::Expr> TargetExpr; // the expression we're matching against
-        llvm::Value *TargetLLVMValue; // Codegen result for TargetExpr
-        std::shared_ptr<ast::Expr> PatternExpr;
+        TypeInfo *targetType; // type of the expression we're matching against
+        std::shared_ptr<ast::Expr> targetExpr; // the expression we're matching against
+        llvm::Value *targetLLVMValue; // Codegen result for TargetExpr
+        std::shared_ptr<ast::Expr> patternExpr;
     };
     // TODO? this should be the central point that handles all pattern checks and returns the correct expressions, based on the input types
-    llvm::Value *Codegen_HandleMatchPatternExpr(MatchExprPatternCodegenInfo);
+    llvm::Value *codegen_HandleMatchPatternExpr(MatchExprPatternCodegenInfo);
     
     
     // Types
-    llvm::Type *GetLLVMType(TypeInfo *TI);
-    llvm::DIType *GetDIType(TypeInfo *TI);
+    llvm::Type *getLLVMType(TypeInfo *TI);
+    llvm::DIType *getDIType(TypeInfo *TI);
     
     
-    llvm::DISubroutineType *_ToDISubroutineType(ast::FunctionSignature *);
+    llvm::DISubroutineType *_toDISubroutineType(ast::FunctionSignature *);
     
     // Applying trivial number literal casts
     
@@ -230,51 +232,51 @@ private:
     // both return true on success
     
     // `TypeOfExpr`: initial (unchanged) type of `Expr`
-    bool TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *Expr, TypeInfo *ExpectedType, TypeInfo **InitialTypeOfExpr = nullptr);
+    bool typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *expr, TypeInfo *expectedType, TypeInfo **initialTypeOfExpr = nullptr);
     
     // `{Lhs|Rhs}Ty`: type of lhs/rhs, after applying typecasts, if casts were applied
-    bool TypecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *Lhs, std::shared_ptr<ast::Expr> *Rhs, TypeInfo **LhsTy, TypeInfo **RhsTy);
+    bool typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *lhs, std::shared_ptr<ast::Expr> *rhs, TypeInfo **lhsTy, TypeInfo **rhsTy);
     
     
-    llvm::Value *GenerateStructInitializer(std::shared_ptr<ast::StructDecl> Struct);
+    llvm::Value *generateStructInitializer(std::shared_ptr<ast::StructDecl> structDecl);
     
     
     // Other stuff
-    std::shared_ptr<ast::FunctionSignature> GetResolvedFunctionWithName(const std::string &Name);
+    std::shared_ptr<ast::FunctionSignature> getResolvedFunctionWithName(const std::string &name);
     
-    TypeInfo *InstantiateTemplatedType(TypeInfo *TI);
+    TypeInfo *instantiateTemplatedType(TypeInfo *TI);
     
     // set omitCodegen to true if you only care about the return type of the call
     // for each callExpr, omitCodegen should be false exactly once!!!
-    NEW_ResolvedFunction ResolveCall(std::shared_ptr<ast::CallExpr>, bool omitCodegen);
-    std::optional<std::map<std::string, TypeInfo *>> AttemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset);
+    NEW_ResolvedFunction resolveCall(std::shared_ptr<ast::CallExpr>, bool omitCodegen);
+    std::optional<std::map<std::string, TypeInfo *>> attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset);
     
-    TypeInfo *GuessType(std::shared_ptr<ast::Expr>);
-    TypeInfo *GuessType(std::shared_ptr<ast::NumberLiteral>);
+    TypeInfo *guessType(std::shared_ptr<ast::Expr>);
+    TypeInfo *guessType(std::shared_ptr<ast::NumberLiteral>);
     
     // Returns true if SrcType is trivially convertible to DestType
-    bool IsTriviallyConvertible(TypeInfo *SrcType, TypeInfo *DestType);
-    bool ValueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiteral> Number, TypeInfo *TI);
+    bool isTriviallyConvertible(TypeInfo *srcType, TypeInfo *destType);
+    bool valueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiteral> number, TypeInfo *TI);
     
     
     
     // Utils
     
     template <typename F>
-    std::invoke_result_t<F> WithCleanSlate(F Fn) {
-        auto PrevScope = Scope;
-        auto PrevCurrentFunction = CurrentFunction;
-        auto PrevInsertBlock = Builder.GetInsertBlock();
+    std::invoke_result_t<F> withCleanSlate(F fn) {
+        auto prevScope = scope;
+        auto prevCurrentFunction = currentFunction;
+        auto prevInsertBlock = builder.GetInsertBlock();
         
-        Scope = irgen::Scope();
+        scope = irgen::Scope();
         
-        auto Retval = Fn();
+        auto retval = fn();
         
-        Scope = PrevScope;
-        CurrentFunction = PrevCurrentFunction;
-        Builder.SetInsertPoint(PrevInsertBlock);
+        scope = prevScope;
+        currentFunction = prevCurrentFunction;
+        builder.SetInsertPoint(prevInsertBlock);
         
-        return Retval;
+        return retval;
     }
 };
 

@@ -11,54 +11,54 @@
 
 using namespace yo;
 
-void AssertValidCharRange(char A, char B) {
-    LKAssert(A <= B);
+void AssertValidCharRange(char a, char b) {
+    LKAssert(a <= b);
 }
 
 
-CharacterSet::CharacterSet(char Start, char End) {
-    AssertValidCharRange(Start, End);
-    for (char C = Start; C <= End; C++) {
-        Characters.push_back(C);
+CharacterSet::CharacterSet(char start, char end) {
+    AssertValidCharRange(start, end);
+    for (char c = start; c <= end; c++) {
+        characters.push_back(c);
     }
 }
 
 
-CharacterSet::CharacterSet(std::string String) {
-    for (auto &C : String) {
-        Characters.push_back(C);
+CharacterSet::CharacterSet(std::string string) {
+    for (auto &c : string) {
+        characters.push_back(c);
     }
 }
 
 
-CharacterSet::CharacterSet(std::vector<std::pair<char, char>> Ranges) {
-    for (auto &Range : Ranges) {
-        AssertValidCharRange(Range.first, Range.second);
-        for (char C = Range.first; C <= Range.second; C++) {
-            Characters.push_back(C);
+CharacterSet::CharacterSet(std::vector<std::pair<char, char>> ranges) {
+    for (auto &range : ranges) {
+        AssertValidCharRange(range.first, range.second);
+        for (char c = range.first; c <= range.second; c++) {
+            characters.push_back(c);
         }
     }
 }
 
 
-bool CharacterSet::Contains(Character Char) {
-    for (auto &C : Characters) {
-        if (C == Char) return true;
+bool CharacterSet::contains(Character char_) {
+    for (auto c : characters) {
+        if (c == char_) return true;
     }
     return false;
 }
 
-bool CharacterSet::ContainsAllCharactersInString(std::string String) {
-    for (auto &C : String) {
-        if (!Contains(C)) return false;
+bool CharacterSet::containsAllCharactersInString(std::string string) {
+    for (auto c : string) {
+        if (!contains(c)) return false;
     }
     return true;
 }
 
 
-CharacterSet CharacterSet::Joined(CharacterSet Other) {
-    auto Chars = Characters;
-    Chars.reserve(Chars.size() + Other.Characters.size());
-    Chars.insert(Chars.end(), Other.Characters.begin(), Other.Characters.end());
-    return CharacterSet(Chars);
+CharacterSet CharacterSet::joined(CharacterSet other) {
+    auto chars = characters;
+    chars.reserve(chars.size() + other.characters.size());
+    chars.insert(chars.end(), other.characters.begin(), other.characters.end());
+    return CharacterSet(chars);
 }

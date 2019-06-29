@@ -16,26 +16,19 @@
 #include <map>
 
 
-
 // TODO
 // Some node kinds always fit on a single line (identifiers, numbers, maybe some other literals?). Implement that!
-
 
 
 using namespace yo;
 using namespace yo::ast;
 
-// TODO this is stupid
-bool ast::Expr::isLiteral() const {
-    return dynamic_cast<const ast::NumberLiteral *>(this)
-        || dynamic_cast<const ast::StringLiteral *>(this);
-}
 
 
 
 static std::shared_ptr<ast::Identifier> _emptyIdent;
 
-std::shared_ptr<ast::Identifier> ast::Identifier::EmptyIdent() {
+std::shared_ptr<ast::Identifier> ast::Identifier::emptyIdent() {
     if (!_emptyIdent) {
         _emptyIdent = std::make_shared<ast::Identifier>("");
     }
@@ -48,13 +41,13 @@ std::shared_ptr<ast::Identifier> ast::Identifier::EmptyIdent() {
 
 #pragma mark - AST Printing
 
-std::ostream& ast::operator<<(std::ostream &OS, const std::shared_ptr<ast::FunctionSignature> &Signature) {
-    OS << "fn " << Signature->Name;
-    if (Signature->IsTemplateFunction) {
+std::ostream& ast::operator<<(std::ostream &OS, const std::shared_ptr<ast::FunctionSignature> &signature) {
+    OS << "fn " << signature->name;
+    if (signature->isTemplateFunction) {
         OS << "<";
-        for (auto It = Signature->TemplateArgumentNames.begin(); It != Signature->TemplateArgumentNames.end(); It++) {
-            OS << *It;
-            if (It + 1 != Signature->TemplateArgumentNames.end()) {
+        for (auto it = signature->templateArgumentNames.begin(); it != signature->templateArgumentNames.end(); it++) {
+            OS << *it;
+            if (it + 1 != signature->templateArgumentNames.end()) {
                 OS << ", ";
             }
         }
@@ -62,31 +55,31 @@ std::ostream& ast::operator<<(std::ostream &OS, const std::shared_ptr<ast::Funct
     }
     OS << "(";
     
-    for (auto It = Signature->Parameters.begin(); It != Signature->Parameters.end(); It++) {
-        OS << (*It)->Type->Str();
-        if (It + 1 != Signature->Parameters.end()) {
+    for (auto it = signature->parameters.begin(); it != signature->parameters.end(); it++) {
+        OS << (*it)->type->str();
+        if (it + 1 != signature->parameters.end()) {
             OS << ", ";
         }
     }
-    OS << "): " << Signature->ReturnType->Str();
+    OS << "): " << signature->returnType->str();
     return OS;
 }
 
 
 #define CASE(n) case E::n: return #n;
 
-std::string FunctionKindToString(FunctionSignature::FunctionKind Kind) {
+std::string FunctionKindToString(FunctionSignature::FunctionKind kind) {
     using E = FunctionSignature::FunctionKind;
-    switch (Kind) {
+    switch (kind) {
         CASE(GlobalFunction)
         CASE(StaticMethod)
         CASE(InstanceMethod)
     }
 }
 
-std::string BinopOperationToString(BinaryOperation::Operation Op) {
+std::string BinopOperationToString(BinaryOperation::Operation op) {
     using E = BinaryOperation::Operation;
-    switch (Op) {
+    switch (op) {
         CASE(Add)
         CASE(Sub)
         CASE(Mul)
@@ -101,9 +94,9 @@ std::string BinopOperationToString(BinaryOperation::Operation Op) {
 }
 
 
-std::string ComparisonOpToString(Comparison::Operation Op) {
+std::string ComparisonOpToString(Comparison::Operation op) {
     using E = Comparison::Operation;
-    switch (Op) {
+    switch (op) {
         CASE(EQ)
         CASE(NE)
         CASE(LT)
@@ -114,18 +107,18 @@ std::string ComparisonOpToString(Comparison::Operation Op) {
 }
 
 
-std::string LogicalOperationOperatorToString(LogicalOperation::Operation Op) {
+std::string LogicalOperationOperatorToString(LogicalOperation::Operation op) {
     using E = LogicalOperation::Operation;
-    switch (Op) {
+    switch (op) {
         CASE(And)
         CASE(Or)
     }
 }
 
 
-std::string IfStmtBranchKindToString(IfStmt::Branch::BranchKind Kind) {
+std::string IfStmtBranchKindToString(IfStmt::Branch::BranchKind kind) {
     using E = IfStmt::Branch::BranchKind;
-    switch (Kind) {
+    switch (kind) {
         CASE(If)
         CASE(ElseIf)
         CASE(Else)
@@ -133,17 +126,17 @@ std::string IfStmtBranchKindToString(IfStmt::Branch::BranchKind Kind) {
 }
 
 
-std::string StringLiteralKindToString(StringLiteral::StringLiteralKind Kind) {
+std::string StringLiteralKindToString(StringLiteral::StringLiteralKind kind) {
     using E = StringLiteral::StringLiteralKind;
-    switch (Kind) {
+    switch (kind) {
         CASE(NormalString)
         CASE(ByteString)
     }
 }
 
-std::string NumberTypeToString(NumberLiteral::NumberType Type) {
+std::string NumberTypeToString(NumberLiteral::NumberType type) {
     using E = NumberLiteral::NumberType;
-    switch (Type) {
+    switch (type) {
         CASE(Integer)
         CASE(Double)
         CASE(Character)
@@ -151,9 +144,9 @@ std::string NumberTypeToString(NumberLiteral::NumberType Type) {
     }
 }
 
-std::string UnaryExprOpToString(UnaryExpr::Operation Op) {
+std::string UnaryExprOpToString(UnaryExpr::Operation op) {
     using E = UnaryExpr::Operation;
-    switch (Op) {
+    switch (op) {
         CASE(Negate)
         CASE(BitwiseNot)
         CASE(LogicalNegation)
@@ -174,32 +167,32 @@ inline constexpr unsigned INDENT_SIZE = 2;
 
 
 template <typename T>
-std::string ast_description(std::vector<std::shared_ptr<T>> _Nodes) {
-    std::vector<std::shared_ptr<T>> Nodes(_Nodes.begin(), _Nodes.end());
+std::string ast_description(std::vector<std::shared_ptr<T>> _nodes) {
+    std::vector<std::shared_ptr<T>> nodes(_nodes.begin(), _nodes.end());
     
-    std::string Desc;
-    Desc += "std::vector<";
-    Desc += util::typeinfo::LKTypeInfo<T>::Name;
-    Desc += "> [\n";
+    std::string desc;
+    desc += "std::vector<";
+    desc += util::typeinfo::TypeInfo<T>::name;
+    desc += "> [\n";
     
-    for (auto It = Nodes.begin(); It != Nodes.end(); It++) {
-        util::string::append_with_indentation(Desc,
-                                              *It ? (*It)->Description() : "<nullptr>",
+    for (auto it = nodes.begin(); it != nodes.end(); it++) {
+        util::string::append_with_indentation(desc,
+                                              *it ? (*it)->description() : "<nullptr>",
                                               INDENT_SIZE);
         
-        if (It + 1 != Nodes.end()) {
-            Desc += ",";
+        if (it + 1 != nodes.end()) {
+            desc += ",";
         }
-        Desc += "\n";
+        desc += "\n";
     }
-    Desc += "]";
+    desc += "]";
     
-    return Desc;
+    return desc;
 }
 
 
-std::string ast::Description(AST &Ast) {
-    return ast_description(Ast);
+std::string ast::description(AST &ast) {
+    return ast_description(ast);
 }
 
 
@@ -216,7 +209,7 @@ std::string to_string(T arg) {
         return std::to_string(arg);
     
     } else if constexpr(std::is_same_v<T, TypeInfo *>) {
-        return arg->Str();
+        return arg->str();
     
     } else if constexpr(std::is_same_v<T, FunctionSignature::FunctionKind>) {
         return FunctionKindToString(arg);
@@ -244,7 +237,7 @@ std::string to_string(T arg) {
     
     } else if constexpr(std::is_convertible_v<T, std::shared_ptr<Node>> || (std::is_pointer_v<T> && std::is_base_of_v<Node, typename std::remove_pointer_t<T>>)) {
         if (!arg) return "<nullptr>";
-        return arg->Description();
+        return arg->description();
     
     } else if constexpr(util::typeinfo::is_vector_of_convertible_v<T, std::shared_ptr<Node>>) {
         return ast_description(arg);
@@ -262,166 +255,166 @@ std::string to_string(T arg) {
 
 
 struct AttributeDescription {
-    const std::string Key;
-    const std::string Value;
+    const std::string key;
+    const std::string value;
     
     template <typename T>
-    AttributeDescription(const std::string Key, T Value) : Key(Key), Value(to_string(Value)) {}
+    AttributeDescription(const std::string key, T value) : key(key), value(to_string(value)) {}
 };
 
 using Mirror = std::vector<AttributeDescription>;
 
 
-Mirror Reflect(FunctionSignature *Signature) {
+Mirror Reflect(FunctionSignature *signature) {
     // TODO use the << operator instead?
     return {
-        { "name", Signature->Name },
-        { "kind", Signature->Kind },
-        { "parameters", Signature->Parameters },
-        { "returnType", Signature->ReturnType },
-        { "implType", Signature->ImplType }
+        { "name", signature->name },
+        { "kind", signature->kind },
+        { "parameters", signature->parameters },
+        { "returnType", signature->returnType },
+        { "implType", signature->implType }
     };
 }
 
 Mirror Reflect(FunctionDecl *FD) {
     return {
-        { "signature", FD->Signature },
-        { "body", FD->Body }
+        { "signature", FD->signature },
+        { "body", FD->body }
     };
 }
 
 Mirror Reflect(Composite *C) {
     return {
-        { "body", C->Statements }
+        { "body", C->statements }
     };
 }
 
-Mirror Reflect(ReturnStmt *Return) {
+Mirror Reflect(ReturnStmt *ret) {
     return {
-        { "expr", Return->Expression }
+        { "expr", ret->expression }
     };
 }
 
-Mirror Reflect(NumberLiteral *Number) {
+Mirror Reflect(NumberLiteral *number) {
     return {
-        { "type", Number->Type },
-        { "value", Number->Value }
+        { "type", number->type },
+        { "value", number->value }
     };
 }
 
-Mirror Reflect(Identifier *Ident) {
+Mirror Reflect(Identifier *ident) {
     return {
-        { "value", Ident->Value }
+        { "value", ident->value }
     };
 }
 
-Mirror Reflect(BinaryOperation *Binop) {
+Mirror Reflect(BinaryOperation *binop) {
     return {
-        { "op", Binop->Op },
-        { "lhs", Binop->LHS },
-        { "rhs", Binop->RHS }
+        { "op", binop->op },
+        { "lhs", binop->lhs },
+        { "rhs", binop->rhs }
     };
 }
 
-Mirror Reflect(VariableDecl *Decl) {
+Mirror Reflect(VariableDecl *decl) {
     return {
-        { "name", Decl->Name },
-        { "type", Decl->Type },
-        { "initial value", Decl->InitialValue }
+        { "name", decl->name },
+        { "type", decl->type },
+        { "initial value", decl->initialValue }
     };
 }
 
-Mirror Reflect(Comparison *Comp) {
+Mirror Reflect(Comparison *cmp) {
     return {
-        { "op", Comp->Op },
-        { "lhs", Comp->LHS },
-        { "rhs", Comp->RHS }
+        { "op", cmp->op },
+        { "lhs", cmp->lhs },
+        { "rhs", cmp->rhs }
     };
 }
 
-Mirror Reflect(LogicalOperation *LogOp) {
+Mirror Reflect(LogicalOperation *logOp) {
     return {
-        { "op", LogOp->Op },
-        { "lhs", LogOp->LHS },
-        { "rhs", LogOp->RHS }
+        { "op", logOp->op },
+        { "lhs", logOp->lhs },
+        { "rhs", logOp->rhs }
     };
 }
 
 Mirror Reflect(IfStmt *If) {
     return {
-        { "branches", If->Branches }
+        { "branches", If->branches }
     };
 }
 
-Mirror Reflect(IfStmt::Branch *Branch) {
+Mirror Reflect(IfStmt::Branch *branch) {
     return {
-        { "kind", Branch->Kind },
-        { "condition", Branch->Condition },
-        { "body", Branch->Body },
+        { "kind", branch->kind },
+        { "condition", branch->condition },
+        { "body", branch->body },
     };
 }
 
-Mirror Reflect(Assignment *Assignment) {
+Mirror Reflect(Assignment *assignment) {
     return {
-        { "target", Assignment->Target },
-        { "value", Assignment->Value }
+        { "target", assignment->target },
+        { "value", assignment->value }
     };
 }
 
-Mirror Reflect(Typecast *Cast) {
+Mirror Reflect(Typecast *cast) {
     return {
-        { "type", Cast->DestType },
-        { "expr", Cast->Expression }
+        { "type", cast->destType },
+        { "expr", cast->expression }
     };
 }
 
 
 Mirror Reflect(StructDecl *Struct) {
     return {
-        { "name", Struct->Name },
-        { "members", Struct->Members }
+        { "name", Struct->name },
+        { "members", Struct->members }
     };
 }
 
-Mirror Reflect(ImplBlock *ImplBlock) {
+Mirror Reflect(ImplBlock *implBlock) {
     return {
-        { "typename", ImplBlock->Typename },
-        { "methods", ImplBlock->Methods }
+        { "typename", implBlock->typename_ },
+        { "methods", implBlock->methods }
     };
 }
 
-Mirror Reflect(StringLiteral *String) {
+Mirror Reflect(StringLiteral *SL) {
     return {
-        { "kind", String->Kind },
-        { "value", String->Value }
+        { "kind", SL->kind },
+        { "value", SL->value }
     };
 }
 
-Mirror Reflect(UnaryExpr *UnaryExpr) {
+Mirror Reflect(UnaryExpr *unaryExpr) {
     return {
-        { "operation", UnaryExpr->Op },
-        { "expr", UnaryExpr->Expr }
+        { "operation", unaryExpr->op },
+        { "expr", unaryExpr->expr }
     };
 }
 
-Mirror Reflect(MatchExpr *MatchExpr) {
+Mirror Reflect(MatchExpr *matchExpr) {
     return {
-        { "target", MatchExpr->Target },
-        { "branches", MatchExpr->Branches }
+        { "target", matchExpr->target },
+        { "branches", matchExpr->branches }
     };
 }
 
-Mirror Reflect(MatchExpr::MatchExprBranch *Branch) {
+Mirror Reflect(MatchExpr::MatchExprBranch *branch) {
     return {
-        { "patterns", Branch->Patterns },
-        { "expr", Branch->Expression }
+        { "patterns", branch->patterns },
+        { "expr", branch->expression }
     };
 }
 
 Mirror Reflect(ast::CallExpr *callExpr) {
     std::string explicitTemplateArgumentTypes = "[ ";
     for (auto it = callExpr->explicitTemplateArgumentTypes.begin(); it != callExpr->explicitTemplateArgumentTypes.end(); it++) {
-        explicitTemplateArgumentTypes.append((*it)->Str());
+        explicitTemplateArgumentTypes.append((*it)->str());
         if (it + 1 != callExpr->explicitTemplateArgumentTypes.end()) {
             explicitTemplateArgumentTypes.append(", ");
         }
@@ -451,8 +444,8 @@ Mirror Reflect(ast::StaticDeclRefExpr *staticDeclRefExpr) {
 
 Mirror Reflect(ast::WhileStmt *whileStmt) {
     return {
-        { "condition", whileStmt->Condition },
-        { "body", whileStmt->Body },
+        { "condition", whileStmt->condition },
+        { "body", whileStmt->body },
     };
 }
 
@@ -469,18 +462,18 @@ Mirror Reflect(ast::ExprStmt *exprStmt) {
     };
 }
 
-Mirror Reflect(ast::TypealiasDecl *Typealias) {
+Mirror Reflect(ast::TypealiasDecl *typealias) {
     return {
-        { "name", Typealias->Typename },
-        { "type", Typealias->Type }
+        { "name", typealias->typename_ },
+        { "type", typealias->type }
     };
 }
 
 
 
 
-Mirror Reflect(Node *Node) {
-#define HANDLE(T) if (auto X = dynamic_cast<T*>(Node)) return Reflect(X);
+Mirror Reflect(Node *node) {
+#define HANDLE(T) if (auto X = dynamic_cast<T*>(node)) return Reflect(X);
     
     HANDLE(FunctionDecl)
     HANDLE(Composite)
@@ -510,7 +503,7 @@ Mirror Reflect(Node *Node) {
     HANDLE(ast::ExprStmt)
     HANDLE(ast::TypealiasDecl)
     
-    std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::GetTypename(*Node) << std::endl;
+    std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::getTypename(*node) << std::endl;
     throw;
 
 #undef HANDLE
@@ -518,30 +511,30 @@ Mirror Reflect(Node *Node) {
 
 
 
-std::string Node::Description() {
-    std::string Desc;
+std::string Node::description() {
+    std::string desc;
     
-    Desc.append(util::typeinfo::GetTypename(*this)).append(" [");
+    desc.append(util::typeinfo::getTypename(*this)).append(" [");
     auto M = Reflect(this);
     
     if (M.empty()) {
-        return Desc + "]";
+        return desc + "]";
     }
     
-    Desc += "\n";
+    desc += "\n";
     
-    for (auto It = M.begin(); It != M.end(); It++) {
-        auto &[Key, Value] = *It;
-        util::string::append_with_indentation(Desc, Key + ": " + Value, INDENT_SIZE);
+    for (auto it = M.begin(); it != M.end(); it++) {
+        auto &[key, value] = *it;
+        util::string::append_with_indentation(desc, key + ": " + value, INDENT_SIZE);
         
-        if (It + 1 != M.end()) {
-            Desc += ",";
+        if (it + 1 != M.end()) {
+            desc += ",";
         }
-        Desc += "\n";
+        desc += "\n";
     }
-    Desc += "]";
+    desc += "]";
     
-    return Desc;
+    return desc;
 }
 
 

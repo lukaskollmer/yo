@@ -12,47 +12,47 @@ using namespace yo;
 using namespace irgen;
 
 
-void Scope::Insert(const std::string &Identifier, TypeInfo *Type, ValueBinding Binding) {
-    auto B = std::make_shared<ValueBinding>(std::move(Binding));
-    Entries.push_back({Identifier, Type, B});
+void Scope::insert(const std::string &identifier, TypeInfo *type, ValueBinding binding) {
+    auto B = std::make_shared<ValueBinding>(std::move(binding));
+    entries.push_back({identifier, type, B});
 }
 
-ValueBinding *Scope::GetBinding(const std::string &Identifier) {
-    return _GetEntry(Identifier)->Binding.get();
+ValueBinding *Scope::getBinding(const std::string &identifier) {
+    return _getEntry(identifier)->binding.get();
 }
 
-TypeInfo *Scope::GetType(const std::string &Identifier) {
-    return _GetEntry(Identifier)->Type;
-}
-
-
-bool Scope::Contains(const std::string &name) {
-    return _GetEntry(name) != nullptr;
+TypeInfo *Scope::getType(const std::string &identifier) {
+    return _getEntry(identifier)->type;
 }
 
 
-Scope::Entry Scope::Remove(const std::string &Identifier) {
-    std::vector<Entry>::const_iterator Pos;
-    auto E = *_GetEntry(Identifier, &Pos);
-    Entries.erase(Pos);
-    return E;
+bool Scope::contains(const std::string &name) {
+    return _getEntry(name) != nullptr;
 }
 
-Scope::Entry *Scope::_GetEntry(const std::string &Identifier, std::vector<Entry>::const_iterator *Pos) {
-    for (auto It = Entries.end(); It-- != Entries.begin();) {
-        if (It->Ident == Identifier) {
-            if (Pos) *Pos = It;
-            return &*It;
+
+Scope::Entry Scope::remove(const std::string &identifier) {
+    std::vector<Entry>::const_iterator pos;
+    auto entry = *_getEntry(identifier, &pos);
+    entries.erase(pos);
+    return entry;
+}
+
+Scope::Entry *Scope::_getEntry(const std::string &identifier, std::vector<Entry>::const_iterator *pos) {
+    for (auto it = entries.end(); it-- != entries.begin();) {
+        if (it->ident == identifier) {
+            if (pos) *pos = it;
+            return &*it;
         }
     }
     return nullptr;
 }
 
-Scope::Marker Scope::GetMarker() {
-    return Entries.size();
+Scope::Marker Scope::getMarker() {
+    return entries.size();
 }
 
-std::vector<Scope::Entry> Scope::GetEntriesSinceMarker(Marker M) {
-    if (M >= Entries.size()) return {};
-    return std::vector<Entry>(Entries.begin() + M, Entries.end());
+std::vector<Scope::Entry> Scope::getEntriesSinceMarker(Marker M) {
+    if (M >= entries.size()) return {};
+    return std::vector<Entry>(entries.begin() + M, entries.end());
 }

@@ -16,7 +16,7 @@
 
 #define MODULE(_0, _1) { _0, std::string_view(reinterpret_cast<const char *>(stdlib_##_1##_yo), stdlib_##_1##_yo_len) }
 
-static std::map<std::string, std::string_view> StdlibModules = {
+static std::map<std::string, std::string_view> stdlibModules = {
     MODULE(":std/array", std_array),
     MODULE(":std/string", std_string),
     MODULE(":runtime/casts", runtime_casts),
@@ -26,9 +26,9 @@ static std::map<std::string, std::string_view> StdlibModules = {
 #undef MODULE
 
 
-std::string_view yo::stdlib_resolution::GetContentsOfModuleWithName(const std::string &Name) {
-    if (auto Module = util::map::get_opt(StdlibModules, Name)) {
-        return *Module;
+std::string_view yo::stdlib_resolution::getContentsOfModuleWithName(const std::string &name) {
+    if (auto module = util::map::get_opt(stdlibModules, name)) {
+        return *module;
     }
-    LKFatalError("Unable to resolve import of stdlib module '%s'", Name.c_str());
+    LKFatalError("Unable to resolve import of stdlib module '%s'", name.c_str());
 }

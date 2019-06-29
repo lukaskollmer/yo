@@ -20,21 +20,21 @@ NS_START(yo::parser)
 
 class Lexer {
 public:
-    TokenList Lex(std::string_view String, std::string &Filename);
+    TokenList lex(std::string_view string, std::string &filename);
     
 private:
-    TokenList Tokens;
+    TokenList tokens;
     
-    uint64_t Offset;
-    uint64_t Line;
-    uint64_t LineStart;
-    std::string Filename;
+    uint64_t offset;
+    uint64_t line;
+    uint64_t lineStart;
+    std::string filename;
     
-    uint64_t ColumnRelatoveToCurrentLine() {
-        return Offset - LineStart;
+    uint64_t columnRelativeToCurrentLine() {
+        return offset - lineStart;
     }
     
-    Token *HandleRawToken(const std::string &RawToken, Token::TokenKind TokenKind = Token::TokenKind::Unknown);
+    Token *handleRawToken(const std::string &rawToken, Token::TokenKind tokenKind = Token::TokenKind::Unknown);
 };
 
 NS_END
