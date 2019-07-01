@@ -1385,7 +1385,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
         auto expr = call->arguments[i - resolvedTarget.argumentOffset];
         TypeInfo *T;
         if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, expectedType, &T)) {
-            LKFatalError("Type mismatch in call to '%s'. Arg #%i: expected '%s', got '%s'",
+            LKFatalError("Type mismatch in call to '%s'. Arg #%zu: expected '%s', got '%s'",
                          mangleFullyResolved(resolvedTarget.signature).c_str(),
                          i, expectedType->str().c_str(), T->str().c_str());
         }
@@ -1414,7 +1414,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
         auto expr = call->arguments[i - resolvedTarget.argumentOffset];
         TypeInfo *T;
         if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, expectedType, &T)) {
-            LKFatalError("Type mismatch in call to '%s'. Arg #%i: expected '%s', got '%s'", llvmFunction->getName().str().c_str(), i, expectedType->str().c_str(), T->str().c_str());
+            LKFatalError("Type mismatch in call to '%s'. Arg #%zu: expected '%s', got '%s'", llvmFunction->getName().str().c_str(), i, expectedType->str().c_str(), T->str().c_str());
         }
         args.push_back(codegen(expr));
     }
