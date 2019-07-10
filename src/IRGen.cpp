@@ -6,8 +6,6 @@
 //  Copyright © 2019 Lukas Kollmer. All rights reserved.
 //
 
-// NOTE: Most (all?) of this is crap and will be rewritten eventually, once i know how codegen is actually supposed to be implemented (ideally some time after passing cc?)
-
 #include "IRGen.h"
 
 #include <optional>

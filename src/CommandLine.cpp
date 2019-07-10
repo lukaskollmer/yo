@@ -107,7 +107,7 @@ bool yo::cl::opts::arc() {
 
 
 void print_version(llvm::raw_ostream &OS) {
-    OS << "yo " << YO_VERSION << " (" << __DATE__ << ", " << __TIME__ << ")\n";
+    OS << "yo " << YO_VERSION << "\n"; // << " (" << __DATE__ << ", " << __TIME__ << ")\n";
     OS << "- LLVM: " << YO_LLVM_VERSION << "\n";
     OS << "- Compiled with: " << COMPILER << "\n";
 }
