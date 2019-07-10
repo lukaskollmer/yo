@@ -1388,7 +1388,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
                          i, expectedType->str().c_str(), T->str().c_str());
         }
         // TODO is modifying the arguments in-place necessarily a good idea?
-        call->arguments[i] = expr;
+        call->arguments[i - resolvedTarget.argumentOffset] = expr;
     }
     
     if (resolvedTarget.signature->attributes->intrinsic) {
