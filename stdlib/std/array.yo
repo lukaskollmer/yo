@@ -1,7 +1,6 @@
 // std/array.yo
 
-extern fn malloc(i64): *i8;
-extern fn free(*i8);
+use ":std/memory";
 
 
 struct Array {
