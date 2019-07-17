@@ -2,21 +2,26 @@ use ":runtime/casts";
 
 using size_t = u64;
 
-#[extern]
-fn malloc(i64): *i8;
-
-#[extern]
-fn calloc(size_t, size_t): *i8;
-
-#[extern]
-fn free(*i8): void;
+#[extern] fn malloc(i64): *i8;
+#[extern] fn calloc(size_t, size_t): *i8;
+#[extern] fn free(*i8): void;
 
 
+// Returns the size of `T`, in bytes.
+// For example, `sizeof<i64>()` would return 8.
 #[intrinsic]
 fn sizeof<T>(): size_t;
 
+
+// Allocate some memory
 fn alloc<T>(count: size_t): *T {
     let base = calloc(count, sizeof<T>());
     return reinterpret_cast<*T>(base);
+}
+
+// Deallocate some allocated memory.
+// TODO rename to memory::dealloc once namespaces are a thing
+fn yo_free<T>(ptr: *T) {
+    free(reinterpret_cast<*i8>(ptr));
 }
 
