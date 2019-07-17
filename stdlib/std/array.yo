@@ -12,10 +12,10 @@ struct Array {
 
 impl Array {
     fn new(): Array {
-        return Array::init(0, malloc(12) as *i64, 12);
+        return Array::init(0, alloc<i64>(12), 12);
     }
 
     fn dealloc(self: Array) {
-        free(self.elements as *i8);
+        yo_free(self.elements);
     }
 }
