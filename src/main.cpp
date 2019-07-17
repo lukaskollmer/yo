@@ -143,7 +143,6 @@ int emitExecutable(std::unique_ptr<llvm::Module> module, const std::string &file
     PM.add(llvm::createTargetTransformInfoWrapperPass(targetMachine->getTargetIRAnalysis()));
     FPM.add(llvm::createTargetTransformInfoWrapperPass(targetMachine->getTargetIRAnalysis()));
     
-    FPM.add(llvm::createVerifierPass());
     PM.add(llvm::createVerifierPass());
     
     if (yo::cl::opts::dumpLLVMPreOpt()) {
