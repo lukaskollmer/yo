@@ -1971,7 +1971,7 @@ TypeInfo *IRGenerator::guessType(std::shared_ptr<ast::Expr> expr) {
     IF(stringLiteral, ast::StringLiteral) {
         switch (stringLiteral->kind) {
             case ast::StringLiteral::StringLiteralKind::NormalString:
-                return TypeInfo::getWithName("String");
+                return TypeInfo::getWithName("String")->getPointerTo();
             case ast::StringLiteral::StringLiteralKind::ByteString:
                 return TypeInfo::i8_ptr;
         }
