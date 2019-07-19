@@ -470,7 +470,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     codegen(functionDecl->body);
     
     // TODO this is a bad idea!
-    if (!std::dynamic_pointer_cast<ast::ReturnStmt>(functionDecl->body->statements.back())) {
+    if (F->getReturnType()->isVoidTy() && !std::dynamic_pointer_cast<ast::ReturnStmt>(functionDecl->body->statements.back())) {
         codegen(std::make_shared<ast::ReturnStmt>(nullptr));
     }
     
