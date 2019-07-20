@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+
+  {% include header.html %}
+
+  <link rel="stylesheet" href="https://files.lukaskollmer.me/skeleton/normalize.css">
+  <link rel="stylesheet" href="https://files.lukaskollmer.me/skeleton/skeleton.css">
+  <link rel="stylesheet" href="/static/css/custom.css">
+
+</head>
+<body>
+
+  <div class="container">
+
+    {% if page.title %}
+    <h2>{{ page.title }}</h2>
+    {% endif %}
+
+    {{ content }}
+
+    <hr/>
+
+    <div class="row">
+      <div class="twelve columns" style="background-color: white; height: 20px; margin-bottom: 4%">
+        <p id="copyright" style="text-align: center;">(c) Lukas Kollmer</p>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="text/javascript">
+    document.getElementById('copyright').innerHTML = `© ${new Date().getFullYear()} Lukas Kollmer`;
+  </script>
+</body>
+</html>
