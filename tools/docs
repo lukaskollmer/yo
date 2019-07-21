@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+build () {
+    bundle exec jekyll build
+}
+
+serve () {
+    bundle exec jekyll serve
+}
+
+deploy () {
+    build
+    aws s3 sync --delete _site/ s3://yo-lang.net
+	aws cloudfront create-invalidation --distribution-id 'EFR5XO3UYE8F7' --paths "/*"
+}
+
+cd ./docs
+
+case "$1" in
+    "build") build ;;
+    "serve") serve ;;
+    "deploy") deploy ;;
+    *) echo "F"; exit 1 ;;
+esac

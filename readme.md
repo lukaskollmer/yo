@@ -25,7 +25,7 @@ fn main(argc: i32, argv: **i8): i32 {
 
 
 ## Documentation
-You can find some documentation [here](https://yo.lukaskollmer.me)
+You can find some documentation [here](https://yo-lang.net)
 
 
 ## Usage

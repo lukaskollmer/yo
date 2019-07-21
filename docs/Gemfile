@@ -19,11 +19,7 @@ gem "minima", "~> 2.0"
 
 # If you have any plugins, put them here!
 group :jekyll_plugins do
-  #gem "jekyll-feed", "~> 0.6"
-  # These are gems that are also used by guthub's markdown thing (see readme)
-  #gem "jekyll-seo-tag", "~> 2.2"
-  #gem "jekyll-github-metadata", "~> 2.9"
-  gem "jekyll-sitemap"
+  gem "jekyll-feed", "~> 0.6"
 end
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
@@ -32,4 +28,9 @@ gem "tzinfo-data", platforms: [:mingw, :mswin, :x64_mingw, :jruby]
 # Performance-booster for watching directories on Windows
 gem "wdm", "~> 0.1.0" if Gem.win_platform?
 
-#gem 'html-proofer'
+
+# Added at 2019-07-21 21:46:48 +0200 by lukas:
+gem "kramdown", "~> 1.17"
+
+# Added at 2019-07-21 21:47:04 +0200 by lukas:
+gem "rogue", "~> 0.1.1"

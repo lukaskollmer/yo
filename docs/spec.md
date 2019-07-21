@@ -1,14 +1,13 @@
 ---
-layout: markdown
+layout: default
+title: Specification
 ---
 
-# yo
 
-> the yo programming language
 
-<br>
+> **NOTE:** This is very much still work in progress and does not necessarily describe the language as implemented in the [GitHub repo](https://github.com/lukaskollmer/yo)
 
-**NOTE:** This is very much still work in progress and does not necessarily describe the language as implemented in the [GitHub repo](https://github.com/lukaskollmer/yo)
+<br/>
 
 <!--
 TODO: all sections should get unique `<a name="section_name"></a>` entry points to avoid ambiguity when linking to sections
@@ -266,27 +265,23 @@ impl Person {
 
 
 ## Expressions
-An expression is the computation of a value of a specific type.
+
+Every expression evaluates to a value of a specific type, which must be known at compile time.
+
 
 ### Typecasts
-```rust
-let x = 12; // inferred as i64
-let y = x as i32; // inferred as i32
-```
+
+#### static_cast type conversion
+The `static_cast<T>(<expr>)` intrinsic can be used to convert between related types
+
+#### reinterpret_cast pointer type conversion
+The `reinterpret_cast<T>(<expr>)` intrinsic can be used to convert between pointer types by reinterpreting the underlying bit pattern
 
 
-Cast types:
-- `static_cast<T>(expr)` convert between related types by applying one of a set of predefined conversions
-- `reinterpret_cast<T>(expr)` convert between types of the same size by reinterpreting the underlying bit pattern
 
 
 ### Lambdas
-A lambda is an anonymous function... TODO
-
-## Statements
-Yo differentiates between two kinds of statements: simple statements and control flow statements.
-
-### Control Flow: If-Statements
+A lambda expression constructs an anynomous function
 
 
 
@@ -342,35 +337,23 @@ Templates provide a way to declare a generic implementation of a struct or funct
 Templates don't exist "on their own": No code is generated when you only declare, but never use a template.  
 When the compiler encounters an instantiation of a struct template or a call to a template function, it generates a specialized version for the supplied generic arguments.
 
-
 ```rust
 // A function template
 fn add<T>(x: T, y: T): T {
     return x + y;
 }
-
-// // A struct template
-// struct List<T> {
-//     elements: *T,
-//     ...
-// }
-
-// impl List {
-//     fn append(self: List<T>, newElement: T) {
-//         // ...
-//     }
-// }
 ```
 
-generic specialization: TODO!!!
 
-```rust
-impl List {
-    fn sum(self: List<T>): T {
-        return reduce ...
-    }
-}
-```
 
+
+
+
+## Memory Management
+Yo currently doesn't have garbage collection / automatic reference counting.
+
+Use the `alloc<T>(size): *T` function to allocate memory on the heap.
+
+x
 ## License
 MIT @ [Lukas Kollmer](https://lukaskollmer.me)
