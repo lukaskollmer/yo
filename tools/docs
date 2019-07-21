@@ -11,7 +11,7 @@ serve () {
 deploy () {
     build
     aws s3 sync --delete _site/ s3://yo-lang.net
-	aws cloudfront create-invalidation --distribution-id 'EFR5XO3UYE8F7' --paths "/*"
+    aws cloudfront create-invalidation --distribution-id 'EFR5XO3UYE8F7' --paths "/*"
 }
 
 cd ./docs
