@@ -1,5 +1,5 @@
-# yo
-> the yo programming language
+# Yo
+> The Yo Programming Language
 
 <br>
 
