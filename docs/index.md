@@ -6,17 +6,53 @@ layout: default
 Yo is a compiled programming language with strong static typing
 
 ```rust
-#[extern] fn atoi(*i8): i32;
+#[extern] fn puts(*i8): i32;
 
-fn fib<T>(n: T): T {
-    return match n {
-        0, 1 => n,
-        _ => fib(n-1) + fib(n-2)
-    };
-}
-
-fn main(argc: i32, argv: **i8): i32 {
-    return argv[1] |> atoi |> fib;
+fn main(): i32 {
+    puts(b"Hello World!");
+    return 0;
 }
 ```
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+## Getting started
+
+- <a class="casual-underlined" href="/spec.html">Core Language Specification</a>
+- <a class="casual-underlined" href="/docs/index.html">Documentation</a>
+
+
+## Usage
+
+Build requirements:
+- make
+- cmake 3.10+
+- python 3.6+
+- llvm 8
+- clang (gcc probably works as well)
+
+```bash
+$ git clone https://github.com/lukaskollmer/yo && cd yo
+$ cmake . && make
+$ ./yo -help
+OVERVIEW: the yo programming language v2019-07-22_1909Z
+
+USAGE: yo [options] <input file> <run args>...
+
+OPTIONS:
+
+General Options:
+
+  -O                  - Enable Optimizations
+  -arc                - [internal] enable arc
+  -dump-llvm          - Dump LLVM IR
+  -dump-llvm-pre-opt  - Dump LLVM IR prior to running optimizations
+  -emit-llvm          - Emit LLVM IR
+  -print-ast          - Print the Abstract Syntax Tree
+  -run                - Run the generated executable after codegen
+  -stdlib-root=<path> - Load stdlib modules from <path>, instead of using the bundled ones
+
+Generic Options:
+
+  -help               - Display available options (-help-hidden for more)
+  -help-list          - Display list of available options (-help-list-hidden for more)
+  -version            - Display the version of this program
+```

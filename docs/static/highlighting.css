@@ -9,6 +9,20 @@ pre, code {
 }
 
 
+.markdown-body code {
+    padding: 0.2em 0;
+    margin: 0;
+    font-size: 85%;
+    background-color: rgba(27, 31, 35, 0.05);
+    border-radius: 3px;
+}
+
+
+.markdown-body code::before, .markdown-body code::after {
+    letter-spacing: -0.2em;
+    content: "\00a0";
+}
+
 .markdown-body pre {
     word-wrap: normal;
 }
@@ -42,8 +56,17 @@ pre, code {
     border: 0;
 }
 
+
+.markdown-body pre > code::before, .markdown-body pre > code::after {
+    content: unset;
+}
+
+
+
 :root {
     --color-keyword: #d73a49;
+    --color-function: #6f42c1;
+    --color-number: #005cc5;
 }
 
 
@@ -173,7 +196,8 @@ pre, code {
 }
 
 .highlight .m { /* Literal.Number */
-    color: #666666;
+    /* color: #666666; */
+    color: var(--color-number);
 }
 
 .highlight .s { /* Literal.String */
@@ -214,7 +238,7 @@ pre, code {
 
 .highlight .nf { /* Name.Function */
     color: #0000FF;
-    color: #6f42c1;
+    color: var(--color-function);
 }
 
 .highlight .nl { /* Name.Label */
@@ -222,8 +246,9 @@ pre, code {
 }
 
 .highlight .nn { /* Name.Namespace */
-    color: #0000FF;
-    font-weight: bold;
+    /* color: #0000FF; */
+    color: var(--color-function);
+    /* font-weight: bold; */
 }
 
 .highlight .nt { /* Name.Tag */
@@ -245,23 +270,28 @@ pre, code {
 }
 
 .highlight .mb { /* Literal.Number.Bin */
-    color: #666666;
+    /* color: #666666; */
+    color: var(--color-number);
 }
 
 .highlight .mf { /* Literal.Number.Float */
-    color: #666666;
+    /* color: #666666; */
+    color: var(--color-number);
 }
 
 .highlight .mh { /* Literal.Number.Hex */
-    color: #666666;
+    /* color: #666666; */
+    color: var(--color-number);
 }
 
 .highlight .mi { /* Literal.Number.Integer */
-    color: #666666;
+    /* color: #666666; */
+    color: var(--color-number);
 }
 
 .highlight .mo { /* Literal.Number.Oct */
-    color: #666666;
+    /* color: #666666; */
+    color: var(--color-number);
 }
 
 .highlight .sa { /* Literal.String.Affix */

@@ -5,60 +5,30 @@ title: Specification
 
 
 
-> **NOTE:** This is very much still work in progress and does not necessarily describe the language as implemented in the [GitHub repo](https://github.com/lukaskollmer/yo)
-
-<br/>
-
-<!--
-TODO: all sections should get unique `<a name="section_name"></a>` entry points to avoid ambiguity when linking to sections
-Problem: that means there needs to be some script to update/adjust the anchor links github inserts into the generated markdown
--->
-
-## Table of Contents
-
-- [Lexical Structure](#lexical-structure)
-  - [Comments](#comments)
-  - [Tokens](#tokens)
-  - [Identifiers](#identifiers)
-  - [Keywords](#keywords)
-  - [Punctuation](#punctuation)
-  - [Literals](#literals)
-    - [Integer literals](#integer-literals)
-    - [Floating-point literals](#floating-point-literals)
-    - [Character literal](#character-literal)
-    - [String literals](#string-literals)
-- [Types](#types)
-  - [Primitives](#primitive-types)
-  - [Functions](#functions)
-  - [Structs](#structs)
-  - [Annotations](#annotations)
-- [Expressions](#expressions)
-  - Literals (just link to literals section?)
-  - Member access
-  - Function call
-  - [Lambdas](#lambdas)
-  - etc
-  - [Typecasts](#typecasts)
-- [Statements](#statements)
-  - [Control flow](#control-flow)
-- [Templates](#templates)
-  
-  
-## Lexical structure
-Valid yo source code is written in Ascii. Some UTF-8 codepoints will probably work in identifiers and string literals, but there's no proper handling for characters outside the Ascii character set.
+<!-- > **NOTE:** This is very much still work in progress and does not necessarily describe the language as implemented in the [GitHub repo](https://github.com/lukaskollmer/yo) -->
 
 
-### Comments
+> **NOTE:** This is very much still work in progress and does not necessarily describe the language as implemented in the <a class="casual-underlined" href="https://github.com/lukaskollmer/yo">GitHub repo</a>
+
+
+<div id="toc"></div>
+
+
+<h2 sectionId="yo.lex">Lexical structure</h2>
+Valid Yo source code is written in Ascii. Some UTF-8 codepoints will probably work in identifiers and string literals, but there's no proper handling for characters outside the Ascii character set.
+
+
+<h3 sectionId="yo.lex.comment">Comments</h3>
 There are two kinds of comments:
 - Line Comments, starting with `//` and continuing until the end of the line
-- Comment Blocks, starting with `/*` and continuing until `*/`. Comment blocks cannot be nested
+- Comment Blocks, starting with `/*` and continuing until the next `*/`. Comment blocks cannot be nested
 
 
-### Tokens
-The yo lexer differentiates between the following kinds of tokens: identifiers, keywords, punctuation and literals.
+<h3 sectionId="yo.lex.tokens">Tokens</h3>
+The Yo lexer differentiates between the following kinds of tokens: identifiers, keywords, punctuation and literals.
 
 
-### Identifiers
+<h3 sectionId="yo.lex.ident">Identifiers</h3>
 An identifier is a sequence of one or more letters or digits. The first element must not be a digit.
 ```
 digit  = [0-9]
@@ -67,7 +37,7 @@ ident  = <letter> (<letter>|<digit>)*
 ```
 
 
-### Keywords
+<h3 sectionId="yo.lex.keyword">Keywords</h3>
 Yo reserves the following keywords:
 ```
 as
@@ -90,13 +60,13 @@ var
 ```
 
 
-### Punctuation
+<h3 sectionId="yo.lex.punctuation">Punctuation</h3>
 TODO
 
 
-### Literals
+<h3 sectionId="yo.lex.literals">Literals</h3>
 
-#### Integer literals
+<h4 sectionId="yo.lex.literals.int">Integer literals</h4>
 An integer literal is a sequence of digits. Depending on the prefix, the literal is interpreted as base 2, 8, 10 or 16.
 
 - Binary literals are prefixed with `0b` and can only contain the digits `0` and `1`
@@ -111,14 +81,14 @@ decimal_literal  =  [0-9]+        // base 10
 hex_literal      =  0x[0-9a-f]+   // base 16
 ```
 
-#### Floating-point literals
+<h4 sectionId="yo.lex.literals.float">Floating-point literals</h4>
 TODO
 
-#### Character literal
+<h4 sectionId="yo.lex.literals.char">Character literal</h4>
 A character literal is a valid ascii codepoint, enclosed by single quotes.
 TODO
 
-#### String literals
+<h4 sectionId="yo.lex.literals.string">String literals</h4>
 A string literal is a sequence of valid ascii codepoints enclosed by double quotes.  
 There are multiple kinds of string literals:
 
@@ -143,42 +113,10 @@ br"a\nb"  ->  'a', '\', 'n', 'b'  type: *i8
 
 
 
-## Types
+<h2 sectionId="yo.types">Types</h2>
 
-### Primitive types
+<h3 sectionId="yo.types.primitive">Primitive types</h3>
 Yo defines the following primitive types:
-
-
-<!--
-| Typename | Size (bytes) | Description             | Valid values       |
-| :-------:| :----------: | :---------------------- | :----------------: |
-| `void`   | 0            | The void type           | n/a                |
-| `i8`     | 1            | 8-bit signed integer    | `-2^7  ... 2^7-1`  |
-| `i16`    | 2            | 16-bit signed integer   | `-2^15 ... 2^15-1` |
-| `i32`    | 4            | 32-bit signed integer   | `-2^31 ... 2^31-1` |
-| `i64`    | 8            | 64-bit signed integer   | `-2^63 ... 2^63-1` |
-| `u8`     | 1            | 8-bit unsigned integer  | `0 ... 2^8-1`      |
-| `u16`    | 2            | 16-bit unsigned integer | `0 ... 2^16-1`     |
-| `u32`    | 4            | 32-bit unsigned integer | `0 ... 2^32-1`     |
-| `u64`    | 8            | 64-bit unsigned integer | `0 ... 2^64-1`     |
-| `bool`   | 1            | The bool type           | `true`, `false`    |
-| `double` | 8            | TODO                    | TODO               | -->
-
-
-<!-- | Typename | Size (bytes) | Valid values       |
-| :-------:| :----------: | :----------------: |
-| `void`   | 0            | n/a                |
-| `i8`     | 1            | `-2^7  ... 2^7-1`  |
-| `i16`    | 2            | `-2^15 ... 2^15-1` |
-| `i32`    | 4            | `-2^31 ... 2^31-1` |
-| `i64`    | 8            | `-2^63 ... 2^63-1` |
-| `u8`     | 1            | `0 ... 2^8-1`      |
-| `u16`    | 2            | `0 ... 2^16-1`     |
-| `u32`    | 4            | `0 ... 2^32-1`     |
-| `u64`    | 8            | `0 ... 2^64-1`     |
-| `bool`   | 1            | `true`, `false`    |
-| `double` | 8            | TODO               | -->
-
 
 | Typename | Size (bytes) | Description           | Valid values             |
 | :------- | :----------- | :-------------------- | :----------------------- |
@@ -194,7 +132,7 @@ Yo defines the following primitive types:
 - Pointers can only point to types with a size > 0. The yo equivalent of C's `void*` is `*i8`
 
 
-### Functions
+<h3 sectionId="yo.types.fn">Functions</h3>
 - Functions are declared using the `fn` keyword, have a return type and can take zero or more parameters
 - Functions that omit the return type are assumed to return `void`
 
@@ -234,8 +172,7 @@ x
 
 
 
-
-### Structs
+<h3 sectionId="yo.types.struct">Structs</h3>
 Custom types can be defined using the `struct` keyword. All struct types are uniquely identified by their name. A struct type can have properties and a set of member functions (methods) associated with it. Member functions must be declared in a separate `impl` block.
 
 - Instance methods are type member functions that can be called on an instance of the type. They must take `self: typename` as their first parameter
@@ -263,34 +200,31 @@ impl Person {
 ```
 
 
-
-## Expressions
+<h2 sectionId="yo.expr">Expressions</h2>
 
 Every expression evaluates to a value of a specific type, which must be known at compile time.
 
-
-### Typecasts
+<h3 sectionId="yo.expr.cast">Type conversions</h3>
 
 #### static_cast type conversion
-The `static_cast<T>(<expr>)` intrinsic can be used to convert between related types
+The `static_cast<T>(<expr>)` intrinsic converts between related types
 
 #### reinterpret_cast pointer type conversion
-The `reinterpret_cast<T>(<expr>)` intrinsic can be used to convert between pointer types by reinterpreting the underlying bit pattern
+The `reinterpret_cast<T>(<expr>)` intrinsic converts between pointer types, by reinterpreting the underlying bit pattern
 
 
 
-
-### Lambdas
+<h3 sectionId="yo.expr.lambda">Lambdas</h3>
 A lambda expression constructs an anynomous function
 
 
 
 
 
-## Attributes
+<h2 sectionId="yo.attr">Attributes</h2>
 Attributes can be used to provide the compiler with additional knowledge about a declaration.
 
-### Function Attributes
+<h3 sectionId="yo.attr.fn">Function Attributes</h3>
 
 | Name    |      |
 | :------ | :--- |
@@ -299,14 +233,16 @@ Attributes can be used to provide the compiler with additional knowledge about a
 | `no_mangle` | Don't mangle the function's name |
 | `mangle={string}` | Override a function's mangled name |
 | `side_effects(...)` | Specify a function's side effects |
-| `arc` | (wip!) enable arc on a per-function basis |
 
-### Struct Attributes
+<!-- | `arc` | (wip!) enable arc on a per-function basis | -->
+
+<h3 sectionId="yo.attr.struct">Struct Attributes</h3>
 
 | Name    |      |
 | :------ | :--- |
 | `no_init` | The compiler should not generate a default initializer for the type |
-| `arc` | (wip!) enable arc on a per-struct basis |
+
+<!-- | `arc` | (wip!) enable arc on a per-struct basis | -->
 
 **Note:**
 - the `no_mangle`, `mangle={string}` and `extern` attributes are mutually exclusive
@@ -330,8 +266,7 @@ printf(b"other string: %s\n", b"text");
 
 
 
-
-## Templates
+<h2 sectionId="yo.template">Templates</h2>
 Templates provide a way to declare a generic implementation of a struct or function.
 
 Templates don't exist "on their own": No code is generated when you only declare, but never use a template.  
@@ -348,12 +283,11 @@ fn add<T>(x: T, y: T): T {
 
 
 
-
-## Memory Management
+<h2 sectionId="yo.mem">Memory Management</h2>
 Yo currently doesn't have garbage collection / automatic reference counting.
 
 Use the `alloc<T>(size): *T` function to allocate memory on the heap.
 
-x
-## License
-MIT @ [Lukas Kollmer](https://lukaskollmer.me)
+
+
+<script src="{{ '/static/spec-sections.js' | relative_url }}">
