@@ -1,22 +1,8 @@
-* {
-    -webkit-text-size-adjust: 100%;
-}
-
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    -webkit-text-size-adjust: 100%;
+    margin: 8px;
 }
-
-
-
-.container {
-    max-width: 1000px;
-    margin-left: auto;
-    margin-right: auto;
-    line-height: 1.5;
-    color: #24292e;
-}
-
-
 
 h1 {
     font-size: 27px;
@@ -34,8 +20,18 @@ h3 {
 }
 
 
-h3, h4, h5, h6 {
-    margin-bottom: 10px;
+.container {
+    max-width: 1000px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.5;
+    color: #24292e;
+}
+
+
+table {
+    border-spacing: 0;
+    border-collapse: collapse;
 }
 
 
@@ -52,54 +48,13 @@ a.casual-underlined {
 }
 
 
-/* spec site */
-
-h1[sectionId], h2[sectionId], h3[sectionId], h4[sectionId], h5[sectionId], h6[sectionId] {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-}
-
-.section-id {
-    font-size: 70%;
-    font-weight: normal;
-    display: inline-flex;
-    align-items: center;
-}
-.section-id a {
-    color: dimgray;
-}
-
-
-.toc-entry.h2:not(:first) {
-    margin-top: 5px;
-}
-.toc-entry.h3 {
-    margin-left: 15px;
-}
-.toc-entry.h4 {
-    margin-left: 30px;
-}
-.toc-entry.h5 {
-    margin-left: 45px;
-}
-.toc-entry.h6 {
-    margin-left: 60px;
-}
 
 
 
 
-
-
-
-
-
-
-
-
-
-
+/*
+Site Header
+*/
 
 
 .site-header {
@@ -139,10 +94,6 @@ h1[sectionId], h2[sectionId], h3[sectionId], h4[sectionId], h5[sectionId], h6[se
 }
 
 
-
-
-
-
 .site-footer {
     border-top: 1px solid lightgray;
     text-align: center;
@@ -150,13 +101,25 @@ h1[sectionId], h2[sectionId], h3[sectionId], h4[sectionId], h5[sectionId], h6[se
 
 
 
-.markdown-body h1, .markdown-body h2 {
+
+/*
+Markdown Styling
+*/
+
+
+.markdown-body h1,
+.markdown-body h2 {
     padding-bottom: 0.2em;
     border-bottom: 1px solid lightgray;
     /* #eaecef; */
 }
 
-
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+    margin-bottom: 10px;
+}
 
 
 
@@ -168,11 +131,12 @@ h1[sectionId], h2[sectionId], h3[sectionId], h4[sectionId], h5[sectionId], h6[se
 
 
 
-blockquote {
+/* blockquote {
     margin: 0;
-}
+} */
 
 .markdown-body blockquote {
+    margin: 0;
     padding: 0 1em;
     color: #6a737d;
     border-left: 0.25em solid #dfe2e5;
@@ -185,11 +149,6 @@ blockquote {
     display: block;
     width: 100%;
     overflow: auto;
-}
-
-table {
-    border-spacing: 0;
-    border-collapse: collapse;
 }
 
 .markdown-body table tr {
@@ -212,4 +171,50 @@ table {
 } */
 .markdown-body table tr:nth-child(2n) {
     background-color: #f6f8fa;
+}
+
+
+
+
+
+
+
+/* spec site */
+
+.markdown-body h1[sectionId],
+.markdown-body h2[sectionId],
+.markdown-body h3[sectionId],
+.markdown-body h4[sectionId],
+.markdown-body h5[sectionId],
+.markdown-body h6[sectionId] {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.markdown-body .section-id {
+    font-size: 70%;
+    font-weight: normal;
+    display: inline-flex;
+    align-items: center;
+}
+.markdown-body .section-id a {
+    color: dimgray;
+}
+
+
+.markdown-body .toc-entry.h2:not(:first) {
+    margin-top: 5px;
+}
+.markdown-body .toc-entry.h3 {
+    margin-left: 15px;
+}
+.markdown-body .toc-entry.h4 {
+    margin-left: 30px;
+}
+.markdown-body .toc-entry.h5 {
+    margin-left: 45px;
+}
+.markdown-body .toc-entry.h6 {
+    margin-left: 60px;
 }
