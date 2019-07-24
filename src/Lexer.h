@@ -21,7 +21,7 @@ NS_START(yo::parser)
 class Lexer {
 public:
     // set `preserveFullInput` to true to preserve whitespace and comments
-    TokenList lex(std::string_view string, const std::string &filename, bool preserveFullInput = false);
+    TokenList lex(std::string_view sourceText, const std::string &filename, bool preserveFullInput = false);
     
 private:
     TokenList tokens;

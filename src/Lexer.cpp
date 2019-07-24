@@ -84,7 +84,7 @@ static std::map<std::string, Token::TokenKind> tokenKindMappings = {
 };
 
 
-TokenList Lexer::lex(std::string_view string, const std::string &filename, bool preserveFullInput) {
+TokenList Lexer::lex(std::string_view sourceText, const std::string &filename, bool preserveFullInput) {
     // Reset everything
     tokens = {};
     line = 0;
@@ -92,10 +92,10 @@ TokenList Lexer::lex(std::string_view string, const std::string &filename, bool 
     this->filename = filename;
     
     
-    auto length = string.length();
+    auto length = sourceText.length();
     
     for (offset = 0; offset < length; offset++) {
-        auto c = string[offset];
+        auto c = sourceText[offset];
         
         if (whitespaceCharacters.contains(c)) {
             if (preserveFullInput) {
@@ -107,7 +107,7 @@ TokenList Lexer::lex(std::string_view string, const std::string &filename, bool 
         // Q: Why is this a lambda?
         // A: We also need to adjust the current source position if we're in multiline strings/comments
         auto handleNewline = [&](bool ignorePreserveFullInput = false) {
-            LKAssert(string[offset] == '\n');
+            LKAssert(sourceText[offset] == '\n');
             if (preserveFullInput && !ignorePreserveFullInput) {
                 handleRawToken("\n", TK::Whitespace);
             }
@@ -121,13 +121,13 @@ TokenList Lexer::lex(std::string_view string, const std::string &filename, bool 
             continue;
         }
         
-        if (c == '/' && string[offset + 1] == '/') {
+        if (c == '/' && sourceText[offset + 1] == '/') {
             // Start of line comment
             uint64_t pos_prev = offset;
-            while (string[++offset] != '\n');
+            while (sourceText[++offset] != '\n');
             
             if (preserveFullInput) {
-                auto commentText = std::string(string.substr(pos_prev, offset - pos_prev));
+                auto commentText = std::string(sourceText.substr(pos_prev, offset - pos_prev));
                 handleRawToken(commentText, TK::LineComment);
             }
             
@@ -135,17 +135,17 @@ TokenList Lexer::lex(std::string_view string, const std::string &filename, bool 
             continue;
         }
         
-        if (c == '/' && string[offset + 1] == '*') {
+        if (c == '/' && sourceText[offset + 1] == '*') {
             // start of comment block
             // Note that we deliberately don't check whether a comment's end is within a string literal
             uint64_t startPos = offset;
             offset += 2;
-            while (string[offset++] != '*' && string[offset] != '/') {
-                if (string[offset] == '\n') handleNewline(true);
+            while (sourceText[offset++] != '*' && sourceText[offset] != '/') {
+                if (sourceText[offset] == '\n') handleNewline(true);
             }
             
             if (preserveFullInput) {
-                auto commentSourceText = std::string(string.substr(startPos, offset - startPos + 1));
+                auto commentSourceText = std::string(sourceText.substr(startPos, offset - startPos + 1));
                 handleRawToken(commentSourceText, TK::BlockComment);
             }
             
@@ -155,26 +155,26 @@ TokenList Lexer::lex(std::string_view string, const std::string &filename, bool 
         // Offset after returning is the character after the end of the escaped character
         // For example, if we're parsing `'\123x`, the Offset after returhing would "point" to the x
         auto parseEscapedCharacter = [&] () -> char {
-            LKAssert(string[offset] == '\\');
-            if (string[offset + 1] == '\\') {
+            LKAssert(sourceText[offset] == '\\');
+            if (sourceText[offset + 1] == '\\') {
                 // Escaped backslash
                 offset++;
                 return '\\';
             }
             
-            auto x = string[++offset];
+            auto x = sourceText[++offset];
             // Offset at this point is now the character after the backslash
             if (x == 'x' || octalDigits.contains(x)) { // Hex or octal value
                 auto isHex = x == 'x';
                 std::string rawValue;
                 
                 if (isHex) {
-                    rawValue.push_back(string[++offset]);
-                    rawValue.push_back(string[++offset]);
+                    rawValue.push_back(sourceText[++offset]);
+                    rawValue.push_back(sourceText[++offset]);
                     offset++;
                 } else {
-                    while (octalDigits.contains(string[offset]) && rawValue.length() < 3) {
-                        rawValue.push_back(string[offset++]);
+                    while (octalDigits.contains(sourceText[offset]) && rawValue.length() < 3) {
+                        rawValue.push_back(sourceText[offset++]);
                     }
                 }
                 
@@ -201,7 +201,7 @@ TokenList Lexer::lex(std::string_view string, const std::string &filename, bool 
 
         if (c == '\'') { // Char literal
             uint64_t initialOffset = offset;
-            c = string[++offset];
+            c = sourceText[++offset];
             char content;
             
             if (c == '\'') {
@@ -212,9 +212,9 @@ TokenList Lexer::lex(std::string_view string, const std::string &filename, bool 
                 content = c;
                 offset++;
             }
-            LKAssert(string[offset] == '\'');
+            LKAssert(sourceText[offset] == '\'');
             
-            auto rawSourceText = std::string(string.substr(initialOffset, offset - initialOffset + 1));
+            auto rawSourceText = std::string(sourceText.substr(initialOffset, offset - initialOffset + 1));
             handleRawToken(rawSourceText, TK::CharLiteral)->setData(content);
             continue;
         }
@@ -223,29 +223,29 @@ TokenList Lexer::lex(std::string_view string, const std::string &filename, bool 
         bool isByteStringLiteral = false;
         bool isRawStringLiteral = false;
         
-        if (c == 'b' && string[offset + 1 + (string[offset + 1] == 'r')] == DOUBLE_QUOTE) {
+        if (c == 'b' && sourceText[offset + 1 + (sourceText[offset + 1] == 'r')] == DOUBLE_QUOTE) {
             isByteStringLiteral = true;
             offset++;
         }
         
-        if (string[offset] == 'r' && string[offset + 1] == DOUBLE_QUOTE) { // Raw (unescaped) string literal
+        if (sourceText[offset] == 'r' && sourceText[offset + 1] == DOUBLE_QUOTE) { // Raw (unescaped) string literal
             isRawStringLiteral = true;
             offset++;
         }
         
-        if (string[offset] == DOUBLE_QUOTE) { // String literal
+        if (sourceText[offset] == DOUBLE_QUOTE) { // String literal
             uint64_t startOffset = offset - (isRawStringLiteral + isByteStringLiteral);
             
             std::string content;
             offset++;
             // Offset is at first char after opening quotes
             if (isRawStringLiteral) {
-                for (auto c = string[offset]; c != DOUBLE_QUOTE; c = string[++offset]) {
+                for (auto c = sourceText[offset]; c != DOUBLE_QUOTE; c = sourceText[++offset]) {
                     content.push_back(c);
                     if (c == '\n') handleNewline(true);
                 }
             } else {
-                for (auto c = string[offset]; c != DOUBLE_QUOTE; c = string[offset]) {
+                for (auto c = sourceText[offset]; c != DOUBLE_QUOTE; c = sourceText[offset]) {
                     if (c == '\\') {
                         content.push_back(parseEscapedCharacter());
                     } else {
@@ -255,9 +255,9 @@ TokenList Lexer::lex(std::string_view string, const std::string &filename, bool 
                     }
                 }
             }
-            LKAssert(string[offset] == DOUBLE_QUOTE);
+            LKAssert(sourceText[offset] == DOUBLE_QUOTE);
             
-            auto rawSourceText = std::string(string.substr(startOffset, offset - startOffset + 1));
+            auto rawSourceText = std::string(sourceText.substr(startOffset, offset - startOffset + 1));
             handleRawToken(rawSourceText, isByteStringLiteral ? TK::ByteStringLiteral : TK::StringLiteral)->setData(content);
             continue;
         }
@@ -275,7 +275,7 @@ TokenList Lexer::lex(std::string_view string, const std::string &filename, bool 
             std::string ident;
             do {
                 ident.push_back(c);
-                c = string[++offset];
+                c = sourceText[++offset];
             } while (identifierCharacters.contains(c));
             handleRawToken(ident);
             offset--;
@@ -285,7 +285,7 @@ TokenList Lexer::lex(std::string_view string, const std::string &filename, bool 
         if (decimalDigits.contains(c)) { // Number literal
             uint8_t base = 10;
             std::string rawValue;
-            auto next = string[offset + 1];
+            auto next = sourceText[offset + 1];
             
             if (c == '0') { // binary/octal/decimal/hex ?
                 if (next == 'b') {
@@ -306,8 +306,8 @@ TokenList Lexer::lex(std::string_view string, const std::string &filename, bool 
             // Invalid characters will be detected by `std::stoll` below
             
             do {
-                rawValue.push_back(string[offset]);
-            } while (hexadecimalDigits.contains(string[++offset]));
+                rawValue.push_back(sourceText[offset]);
+            } while (hexadecimalDigits.contains(sourceText[++offset]));
             
             
             uint64_t value;
@@ -327,7 +327,7 @@ TokenList Lexer::lex(std::string_view string, const std::string &filename, bool 
             offset--; // unavoidable :/
             continue;
         }
-        LKFatalError("unhandled character: '%c'", string[offset]);
+        LKFatalError("unhandled character: '%c'", sourceText[offset]);
     }
     
     handleRawToken("", TK::EOF_);
