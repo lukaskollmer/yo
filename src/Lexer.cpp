@@ -138,14 +138,15 @@ TokenList Lexer::lex(std::string_view string, const std::string &filename, bool 
         if (c == '/' && string[offset + 1] == '*') {
             // start of comment block
             // Note that we deliberately don't check whether a comment's end is within a string literal
-            uint64_t pos_prev = offset;
+            uint64_t startPos = offset;
             offset += 2;
             while (string[offset++] != '*' && string[offset] != '/') {
                 if (string[offset] == '\n') handleNewline(true);
             }
             
             if (preserveFullInput) {
-                throw;
+                auto commentSourceText = std::string(string.substr(startPos, offset - startPos + 1));
+                handleRawToken(commentSourceText, TK::BlockComment);
             }
             
             continue;
@@ -256,10 +257,8 @@ TokenList Lexer::lex(std::string_view string, const std::string &filename, bool 
             }
             LKAssert(string[offset] == DOUBLE_QUOTE);
             
-            
             auto rawSourceText = std::string(string.substr(startOffset, offset - startOffset + 1));
             handleRawToken(rawSourceText, isByteStringLiteral ? TK::ByteStringLiteral : TK::StringLiteral)->setData(content);
-            //offset--; // unavoidable :/
             continue;
         }
         
