@@ -54,6 +54,8 @@ add_executable(yo
   src/Mangling.cpp
   src/Parser.h
   src/Parser.cpp
+  src/Pygmentize.h
+  src/Pygmentize.cpp
   src/Scope.h
   src/Scope.cpp
   src/StdlibResolution.h

@@ -8,6 +8,8 @@
 
 #include "util.h"
 #include "CommandLine.h"
+#include "Lexer.h"
+#include "Pygmentize.h"
 #include "Parser.h"
 #include "AST.h"
 #include "IRGen.h"
@@ -219,6 +221,17 @@ int runExecutable(const std::string &executablePath, const char *const *envp) {
 int main(int argc, const char * argv[], const char *const *envp) {
     yo::cl::init(argc, argv);
     LKAssertImplication(yo::cl::opts::runArgs().size() > 0, yo::cl::opts::run());
+    LKAssert((yo::cl::opts::run() && yo::cl::opts::pygmentize()) == false); // TODO implement more sophisticated mutual exclusion checking
+    
+    std::string inputFile = yo::cl::opts::inputFile();
+    std::string inputFilename = yo::util::fs::path_utils::getFilename(inputFile);
+    
+    if (yo::cl::opts::pygmentize()) {
+        auto tokens = yo::parser::Lexer().lex(yo::util::fs::read_file(inputFile), inputFilename, true);
+        std::cout << yo::lex::pygmentize(tokens) << std::endl;
+        return EXIT_SUCCESS;
+    }
+    
     
     yo::parser::Parser parser;
     
@@ -226,10 +239,9 @@ int main(int argc, const char * argv[], const char *const *envp) {
         parser.setCustomStdlibRoot(yo::cl::opts::stdlibRoot());
     }
     
-    std::string filename = yo::cl::opts::inputFilename();
-    auto ast = parser.parse(filename);
+    auto ast = parser.parse(inputFile);
     
-    filename = yo::util::string::lastPathCompotent(filename);
+    //filename = yo::util::string::lastPathCompotent(filename);
     
     if (yo::cl::opts::printAST()) {
         std::cout << yo::ast::description(ast) << std::endl;
@@ -245,7 +257,7 @@ int main(int argc, const char * argv[], const char *const *envp) {
     
     if (yo::cl::opts::emitLLVM()) {
         std::error_code EC;
-        auto outputFile = filename.append(".ll");
+        auto outputFile = std::string(inputFilename).append(".ll");
         llvm::raw_fd_ostream OS(outputFile, EC);
         M->print(OS, nullptr, true, true);
         return EXIT_SUCCESS;
@@ -253,13 +265,14 @@ int main(int argc, const char * argv[], const char *const *envp) {
     
     std::string executablePath;
     
-    if (auto status = emitExecutable(std::move(M), filename, executablePath); status != EXIT_SUCCESS) {
+    if (auto status = emitExecutable(std::move(M), inputFilename, executablePath); status != EXIT_SUCCESS) {
         return status;
     }
     
     if (yo::cl::opts::run()) {
         // Only returns if execve failed
-        return runExecutable(executablePath, envp);
+        runExecutable(executablePath, envp);
+        return EXIT_FAILURE;
     }
     
     return EXIT_SUCCESS;

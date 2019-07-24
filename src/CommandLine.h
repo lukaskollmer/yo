@@ -17,11 +17,12 @@ namespace yo::cl {
 }
 
 namespace yo::cl::opts {
+    bool pygmentize();
     bool run();
     const std::vector<std::string>& runArgs();
     
-    const std::string& inputFilename();
-    const std::string& outputFilename();
+    const std::string& inputFile();
+    const std::string& outputFile();
     
     const std::string& stdlibRoot();
     

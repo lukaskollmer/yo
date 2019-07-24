@@ -22,13 +22,19 @@ NS_START(yo::cl::internal)
 
 static llvm::cl::OptionCategory CLIOptionsCategory("General Options");
 
-static llvm::cl::opt<std::string> InputFilename(llvm::cl::Positional,
-                                                   llvm::cl::desc("<input file>"),
-                                                   llvm::cl::Required,
-                                                   llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<std::string> InputFile(llvm::cl::Positional,
+                                            llvm::cl::desc("<input file>"),
+                                            llvm::cl::Required,
+                                            llvm::cl::cat(CLIOptionsCategory));
 
 static llvm::cl::opt<bool> Run("run", llvm::cl::desc("Run the generated executable after codegen"),
                                   llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> pygmentize("pygmentize",
+                                      llvm::cl::desc("pygmentize input"),
+                                      llvm::cl::cat(CLIOptionsCategory));
+
 
 static llvm::cl::opt<bool> PrintAST("print-ast", llvm::cl::desc("Print the Abstract Syntax Tree"),
                                        llvm::cl::cat(CLIOptionsCategory));
@@ -57,8 +63,13 @@ static llvm::cl::opt<std::string> StdlibRoot("stdlib-root",
 static llvm::cl::opt<bool> ARC("arc", llvm::cl::desc("[internal] enable arc"),
                                llvm::cl::cat(CLIOptionsCategory));
 
+
 NS_END
 
+
+bool yo::cl::opts::pygmentize() {
+    return internal::pygmentize;
+}
 
 bool yo::cl::opts::run() {
     return internal::Run;
@@ -68,13 +79,13 @@ const std::vector<std::string>& yo::cl::opts::runArgs() {
     return internal::RunArgs;
 }
 
-const std::string& yo::cl::opts::inputFilename() {
-    return internal::InputFilename;
+const std::string& yo::cl::opts::inputFile() {
+    return internal::InputFile;
 }
 
-//const std::string& yo::cl::opts::OutputFilename() {
-//    return yo::cl::OutputFilename;
-//}
+const std::string& yo::cl::opts::outputFile() {
+    LKFatalError("TODO Implement");
+}
 
 const std::string& yo::cl::opts::stdlibRoot() {
     return internal::StdlibRoot;

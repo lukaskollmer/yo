@@ -13,6 +13,8 @@
 #include <cxxabi.h>
 #include <cstring>
 #include <cstdarg>
+#include <fstream>
+#include <sstream>
 
 
 using namespace yo;
@@ -197,6 +199,27 @@ std::pair<std::string, std::string> util::string::extractPathAndFilename(const s
 
 
 
+std::string util::fs::read_file(const std::string path) {
+    // TODO interpret path == "-" as stdin
+    std::ifstream file(path);
+    std::ostringstream contents;
+    contents << file.rdbuf();
+    file.close();
+    return contents.str();
+}
+
+
+std::string util::fs::path_utils::getFilename(const std::string &path) {
+    if (path == "-") {
+        return "<stdin>";
+    }
+    
+    auto pos = path.rfind('/');
+    if (pos == std::string::npos) {
+        return path;
+    }
+    return path.substr(pos + 1);
+}
 
 
 /*

@@ -257,4 +257,16 @@ namespace string {
     std::pair<std::string, std::string> extractPathAndFilename(const std::string &path);
 }
 
+
+
+namespace fs {
+    std::string read_file(const std::string path);
+}
+
+namespace fs::path_utils {
+    std::string getFilename(const std::string &path);
+}
+
+
+
 NS_END
