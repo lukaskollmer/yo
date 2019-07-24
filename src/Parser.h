@@ -55,7 +55,7 @@ public:
     }
     
 private:
-    TokenList tokens;
+    std::vector<Token> tokens;
     uint64_t position;
     std::vector<std::string> importedFiles;
     
@@ -66,14 +66,14 @@ private:
     void resolveImport();
     std::string resolveImportPathRelativeToBaseDirectory(const std::string &moduleName, const std::string &baseDirectory);
     
-    const Token& currentToken() { return *tokens[position]; }
-    const Token& nextToken() { return *tokens[++position]; }
+    const Token& currentToken() { return tokens[position]; }
+    const Token& nextToken() { return tokens[++position]; }
     
     Token::TokenKind currentTokenKind() {
         return currentToken().getKind();
     }
     const Token& peek(uint64_t offset = 1) {
-        return *tokens[position + offset];
+        return tokens[position + offset];
     }
     Token::TokenKind peekKind(uint64_t offset = 1) {
         return peek(offset).getKind();

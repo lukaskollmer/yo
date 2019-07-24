@@ -16,7 +16,7 @@ void repr_token(std::ostringstream &OS, const yo::parser::Token &token);
 
 
 
-std::string yo::lex::pygmentize(const parser::TokenList &tokens) {
+std::string yo::lex::pygmentize(const std::vector<parser::Token> &tokens) {
     std::ostringstream html;
     html << "<div class=\"language-yo\">";
     html << "<div class=\"highlight\">";
@@ -24,7 +24,7 @@ std::string yo::lex::pygmentize(const parser::TokenList &tokens) {
     html << "<code>";
     
     for (auto &token : tokens) {
-        repr_token(html, *token);
+        repr_token(html, token);
     }
     
     html << "</code>";

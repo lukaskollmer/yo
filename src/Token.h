@@ -20,7 +20,6 @@
 NS_START(yo::parser)
 
 class Token;
-using TokenList = std::vector<std::shared_ptr<Token>>; // TODO why is this a pointer?
 
 struct TokenSourceLocation {
     std::string filepath;
@@ -90,6 +89,7 @@ private:
     TokenSourceLocation sourceLocation;
     
 public:
+    Token() : kind(TokenKind::Unknown) {}
     explicit Token(std::string sourceText, TokenKind kind) : sourceText(sourceText), kind(kind) {}
     
     template <typename T>
@@ -109,42 +109,6 @@ public:
     
     template <typename T>
     T getData() const { return std::get<T>(data); }
-    
-    
-    
-//    static std::shared_ptr<Token> WithKind(TokenKind kind) {
-//        return std::make_shared<Token>(kind);
-//    }
-//
-//    static std::shared_ptr<Token> Identifier(std::string name) {
-//        auto T = WithKind(TokenKind::Identifier);
-//        T->data = name;
-//        return T;
-//    }
-//
-//    static std::shared_ptr<Token> IntegerLiteral(uint64_t value) {
-//        auto T = WithKind(TokenKind::IntegerLiteral);
-//        T->data = value;
-//        return T;
-//    }
-//
-//    static std::shared_ptr<Token> StringLiteral(std::string value) {
-//        auto T = WithKind(TokenKind::StringLiteral);
-//        T->data = value;
-//        return T;
-//    }
-//
-//    static std::shared_ptr<Token> CharLiteral(char value) {
-//        auto T = WithKind(TokenKind::CharLiteral);
-//        T->data = value;
-//        return T;
-//    }
-//
-//    static std::shared_ptr<Token> BoolLiteral(bool value) {
-//        auto T = WithKind(TokenKind::BoolLiteral);
-//        T->data = value;
-//        return T;
-//    }
 };
 
 std::ostream &operator<<(std::ostream &OS, const Token &T);

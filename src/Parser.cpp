@@ -117,13 +117,8 @@ static MappedTokenSet<ast::BinaryOperation::Operation> singleTokenBinopOperatorT
 // For example, if we parse an identifier, after returning from `ParseIdentifier`, Position would point to the token after that identifier
 
 
-TokenList lexFile(std::string &path) {
-    std::ifstream file(path);
-    std::ostringstream contents;
-    contents << file.rdbuf();
-    file.close();
-
-    return Lexer().lex(contents.str(), path);
+std::vector<Token> lexFile(std::string &path) {
+    return Lexer().lex(util::fs::read_file(path), path);
 }
 
 
@@ -171,7 +166,7 @@ void Parser::resolveImport() {
     auto moduleName = parseStringLiteral()->value;
     assert_current_token_and_consume(TK::Semicolon);
     
-    TokenList newTokens;
+    std::vector<Token> newTokens;
     
     auto isStdlibImport = moduleName[0] == ':';
     if (isStdlibImport && util::vector::contains(importedFiles, moduleName)) {

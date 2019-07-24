@@ -21,21 +21,21 @@ NS_START(yo::parser)
 class Lexer {
 public:
     // set `preserveFullInput` to true to preserve whitespace and comments
-    TokenList lex(std::string_view sourceText, const std::string &filename, bool preserveFullInput = false);
+    std::vector<Token> lex(std::string_view sourceText, const std::string &filepath, bool preserveFullInput = false);
     
 private:
-    TokenList tokens;
+    std::vector<Token> tokens;
     
     uint64_t offset;
     uint64_t line;
     uint64_t lineStart;
-    std::string filename;
+    std::string filepath;
     
     uint64_t columnRelativeToCurrentLine() {
         return offset - lineStart;
     }
     
-    Token *handleRawToken(const std::string &rawToken, Token::TokenKind tokenKind = Token::TokenKind::Unknown);
+    Token& handleRawToken(const std::string &tokenSourceText, Token::TokenKind tokenKind = Token::TokenKind::Unknown);
 };
 
 NS_END

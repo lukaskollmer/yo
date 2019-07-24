@@ -10,5 +10,5 @@
 #include <string>
 
 namespace yo::lex {
-    std::string pygmentize(const parser::TokenList &tokens);
+    std::string pygmentize(const std::vector<parser::Token> &tokens);
 }

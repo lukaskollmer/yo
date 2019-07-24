@@ -84,12 +84,12 @@ static std::map<std::string, Token::TokenKind> tokenKindMappings = {
 };
 
 
-TokenList Lexer::lex(std::string_view sourceText, const std::string &filename, bool preserveFullInput) {
+std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string &filepath, bool preserveFullInput) {
     // Reset everything
     tokens = {};
     line = 0;
     lineStart = 0;
-    this->filename = filename;
+    this->filepath = filepath;
     
     
     auto length = sourceText.length();
@@ -215,7 +215,7 @@ TokenList Lexer::lex(std::string_view sourceText, const std::string &filename, b
             LKAssert(sourceText[offset] == '\'');
             
             auto rawSourceText = std::string(sourceText.substr(initialOffset, offset - initialOffset + 1));
-            handleRawToken(rawSourceText, TK::CharLiteral)->setData(content);
+            handleRawToken(rawSourceText, TK::CharLiteral).setData(content);
             continue;
         }
         
@@ -258,7 +258,7 @@ TokenList Lexer::lex(std::string_view sourceText, const std::string &filename, b
             LKAssert(sourceText[offset] == DOUBLE_QUOTE);
             
             auto rawSourceText = std::string(sourceText.substr(startOffset, offset - startOffset + 1));
-            handleRawToken(rawSourceText, isByteStringLiteral ? TK::ByteStringLiteral : TK::StringLiteral)->setData(content);
+            handleRawToken(rawSourceText, isByteStringLiteral ? TK::ByteStringLiteral : TK::StringLiteral).setData(content);
             continue;
         }
         
@@ -323,7 +323,7 @@ TokenList Lexer::lex(std::string_view sourceText, const std::string &filename, b
             // TODO turn this into a nice error message
             LKAssert(length == rawValue.length()); // The string contained illegal characters (eg: 0b110012)
             
-            handleRawToken(rawValue, TK::IntegerLiteral)->setData(value);
+            handleRawToken(rawValue, TK::IntegerLiteral).setData(value);
             offset--; // unavoidable :/
             continue;
         }
@@ -343,37 +343,33 @@ uint8_t _isBoolLiteral(std::string_view str) {
 }
 
 
-Token *Lexer::handleRawToken(const std::string &rawToken, Token::TokenKind tokenKind) {
-    std::shared_ptr<Token> token;
+Token& Lexer::handleRawToken(const std::string &tokenSourceText, Token::TokenKind tokenKind) {
+    Token token;
     
     if (tokenKind != TK::Unknown) {
-        token = std::make_shared<Token>(rawToken, tokenKind);
+        token = Token(tokenSourceText, tokenKind);
     }
-    
-    else if (tokenKindMappings.find(rawToken) != tokenKindMappings.end()) { // TODO turn this into a `if (auto x; x== ...)`
-        token = std::make_shared<Token>(rawToken, tokenKindMappings[rawToken]);
+    else if (auto it = tokenKindMappings.find(tokenSourceText); it != tokenKindMappings.end()) { // TODO turn this into a `if (auto x; x== ...)`
+        token = Token(tokenSourceText, it->second);
     }
-    
-    else if (identifierStartCharacters.contains(rawToken.at(0)) && identifierCharacters.containsAllCharactersInString(rawToken.substr(1))) {
-        if (auto val = _isBoolLiteral(rawToken); val != 0) {
-            token = std::make_shared<Token>(rawToken, TK::BoolLiteral);
-            token->setData<bool>(val - 1);
+    else if (identifierStartCharacters.contains(tokenSourceText.at(0)) && identifierCharacters.containsAllCharactersInString(tokenSourceText.substr(1))) {
+        if (auto val = _isBoolLiteral(tokenSourceText); val != 0) {
+            token = Token(tokenSourceText, TK::BoolLiteral);
+            token.setData<bool>(val - 1);
         } else {
-            token = std::make_shared<Token>(rawToken, TK::Identifier);
-            token->setData(rawToken);
+            token = Token(tokenSourceText, TK::Identifier);
+            token.setData(tokenSourceText);
         }
     }
-    
-    
-    if (!token) {
-        LKLog("didn't initialize token for '%s'", rawToken.c_str());
+    else {
+        LKLog("didn't initialize token for '%s'", tokenSourceText.c_str());
         exit(EXIT_FAILURE);
     }
     
     auto column = columnRelativeToCurrentLine();
-    token->setSourceLocation(TokenSourceLocation(filename, line + 1, column + 1, offset - column));
+    token.setSourceLocation(TokenSourceLocation(filepath, line + 1, column + 1, offset - column));
     
     tokens.push_back(token);
-    return token.get();
+    return tokens.back();
 }
 
