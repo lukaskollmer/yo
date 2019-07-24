@@ -23,7 +23,7 @@ using TK = Token::TokenKind;
 static constexpr char DOUBLE_QUOTE = '"';
 
 static CharacterSet letters({{'a', 'z'}, {'A', 'Z'}});
-static CharacterSet ignoredCharacters(" "); // TODO make this "all whitespace" instead
+static CharacterSet whitespaceCharacters(" "); // TODO make this "all whitespace" instead
 static CharacterSet binaryDigits("01");
 static CharacterSet octalDigits("01234567");
 static CharacterSet decimalDigits("0123456789");
@@ -84,7 +84,7 @@ static std::map<std::string, Token::TokenKind> tokenKindMappings = {
 };
 
 
-TokenList Lexer::lex(std::string_view string, std::string &filename) {
+TokenList Lexer::lex(std::string_view string, const std::string &filename, bool preserveFullInput) {
     // Reset everything
     tokens = {};
     line = 0;
@@ -97,13 +97,20 @@ TokenList Lexer::lex(std::string_view string, std::string &filename) {
     for (offset = 0; offset < length; offset++) {
         auto c = string[offset];
         
-        if (ignoredCharacters.contains(c)) {
+        if (whitespaceCharacters.contains(c)) {
+            if (preserveFullInput) {
+                handleRawToken(std::string(1, c), TK::Whitespace);
+            }
             continue;
         }
         
         // Q: Why is this a lambda?
         // A: We also need to adjust the current source position if we're in multiline strings/comments
-        auto handleNewline = [&]() {
+        auto handleNewline = [&](bool ignorePreserveFullInput = false) {
+            LKAssert(string[offset] == '\n');
+            if (preserveFullInput && !ignorePreserveFullInput) {
+                handleRawToken("\n", TK::Whitespace);
+            }
             line++;
             lineStart = offset + 1;
         };
@@ -116,7 +123,14 @@ TokenList Lexer::lex(std::string_view string, std::string &filename) {
         
         if (c == '/' && string[offset + 1] == '/') {
             // Start of line comment
+            uint64_t pos_prev = offset;
             while (string[++offset] != '\n');
+            
+            if (preserveFullInput) {
+                auto commentText = std::string(string.substr(pos_prev, offset - pos_prev));
+                handleRawToken(commentText, TK::LineComment);
+            }
+            
             handleNewline();
             continue;
         }
@@ -124,10 +138,16 @@ TokenList Lexer::lex(std::string_view string, std::string &filename) {
         if (c == '/' && string[offset + 1] == '*') {
             // start of comment block
             // Note that we deliberately don't check whether a comment's end is within a string literal
+            uint64_t pos_prev = offset;
             offset += 2;
             while (string[offset++] != '*' && string[offset] != '/') {
-                if (string[offset] == '\n') handleNewline();
+                if (string[offset] == '\n') handleNewline(true);
             }
+            
+            if (preserveFullInput) {
+                throw;
+            }
+            
             continue;
         }
         
@@ -179,6 +199,7 @@ TokenList Lexer::lex(std::string_view string, std::string &filename) {
         
 
         if (c == '\'') { // Char literal
+            uint64_t initialOffset = offset;
             c = string[++offset];
             char content;
             
@@ -190,10 +211,10 @@ TokenList Lexer::lex(std::string_view string, std::string &filename) {
                 content = c;
                 offset++;
             }
-            
             LKAssert(string[offset] == '\'');
-            auto token = handleRawToken("", TK::CharLiteral);
-            token->data = content;
+            
+            auto rawSourceText = std::string(string.substr(initialOffset, offset - initialOffset + 1));
+            handleRawToken(rawSourceText, TK::CharLiteral)->setData(content);
             continue;
         }
         
@@ -212,30 +233,33 @@ TokenList Lexer::lex(std::string_view string, std::string &filename) {
         }
         
         if (string[offset] == DOUBLE_QUOTE) { // String literal
+            uint64_t startOffset = offset - (isRawStringLiteral + isByteStringLiteral);
+            
             std::string content;
             offset++;
             // Offset is at first char after opening quotes
             if (isRawStringLiteral) {
                 for (auto c = string[offset]; c != DOUBLE_QUOTE; c = string[++offset]) {
                     content.push_back(c);
-                    if (c == '\n') handleNewline();
+                    if (c == '\n') handleNewline(true);
                 }
             } else {
                 for (auto c = string[offset]; c != DOUBLE_QUOTE; c = string[offset]) {
                     if (c == '\\') {
                         content.push_back(parseEscapedCharacter());
                     } else {
-                        if (c == '\n') handleNewline();
+                        if (c == '\n') handleNewline(true);
                         content.push_back(c);
                         offset++;
                     }
                 }
             }
-            LKAssert(string[offset++] == DOUBLE_QUOTE);
+            LKAssert(string[offset] == DOUBLE_QUOTE);
             
-            auto token = handleRawToken("", isByteStringLiteral ? TK::ByteStringLiteral : TK::StringLiteral);
-            token->data = content;
-            offset--; // unavoidable :/
+            
+            auto rawSourceText = std::string(string.substr(startOffset, offset - startOffset + 1));
+            handleRawToken(rawSourceText, isByteStringLiteral ? TK::ByteStringLiteral : TK::StringLiteral)->setData(content);
+            //offset--; // unavoidable :/
             continue;
         }
         
@@ -300,8 +324,7 @@ TokenList Lexer::lex(std::string_view string, std::string &filename) {
             // TODO turn this into a nice error message
             LKAssert(length == rawValue.length()); // The string contained illegal characters (eg: 0b110012)
             
-            auto token = handleRawToken("", TK::IntegerLiteral);
-            token->data = value;
+            handleRawToken(rawValue, TK::IntegerLiteral)->setData(value);
             offset--; // unavoidable :/
             continue;
         }
@@ -325,18 +348,20 @@ Token *Lexer::handleRawToken(const std::string &rawToken, Token::TokenKind token
     std::shared_ptr<Token> token;
     
     if (tokenKind != TK::Unknown) {
-        token = Token::WithKind(tokenKind);
+        token = std::make_shared<Token>(rawToken, tokenKind);
     }
     
     else if (tokenKindMappings.find(rawToken) != tokenKindMappings.end()) { // TODO turn this into a `if (auto x; x== ...)`
-        token = Token::WithKind(tokenKindMappings[rawToken]);
+        token = std::make_shared<Token>(rawToken, tokenKindMappings[rawToken]);
     }
     
     else if (identifierStartCharacters.contains(rawToken.at(0)) && identifierCharacters.containsAllCharactersInString(rawToken.substr(1))) {
         if (auto val = _isBoolLiteral(rawToken); val != 0) {
-            token = Token::BoolLiteral(val - 1);
+            token = std::make_shared<Token>(rawToken, TK::BoolLiteral);
+            token->setData<bool>(val - 1);
         } else {
-            token = Token::Identifier(rawToken);
+            token = std::make_shared<Token>(rawToken, TK::Identifier);
+            token->setData(rawToken);
         }
     }
     
@@ -347,7 +372,7 @@ Token *Lexer::handleRawToken(const std::string &rawToken, Token::TokenKind token
     }
     
     auto column = columnRelativeToCurrentLine();
-    token->sourceLocation = TokenSourceLocation(filename, line + 1, column + 1, offset - column);
+    token->setSourceLocation(TokenSourceLocation(filename, line + 1, column + 1, offset - column));
     
     tokens.push_back(token);
     return token.get();

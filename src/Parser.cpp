@@ -26,22 +26,22 @@ using TK = Token::TokenKind;
 #pragma mark - Parser Utils
 
 #define assert_current_token(expected) \
-do { if (auto T = currentToken(); T.kind != expected) { \
-    auto &S = T.sourceLocation; \
-    std::cout << "[token assert] Expected: " << expected << ", got: " << T.kind << ". (file: " << S.filepath << ":" << S.line << ":" << S.column << ")\n";  \
+do { if (auto T = currentToken(); T.getKind() != expected) { \
+    auto &S = T.getSourceLocation(); \
+    std::cout << "[token assert] Expected: " << expected << ", got: " << T.getKind() << ". (file: " << S.filepath << ":" << S.line << ":" << S.column << ")\n";  \
     throw; \
 } } while (0)
 
 #define assert_current_token_and_consume(expected) \
-do { if (auto T = currentToken(); T.kind != expected) { \
-    auto &S = T.sourceLocation; \
-    std::cout << "[token assert] Expected: " << expected << ", got: " << T.kind << ". (file: " << S.filepath << ":" << S.line << ":" << S.column << ")\n";  \
+do { if (auto T = currentToken(); T.getKind() != expected) { \
+    auto &S = T.getSourceLocation(); \
+    std::cout << "[token assert] Expected: " << expected << ", got: " << T.getKind() << ". (file: " << S.filepath << ":" << S.line << ":" << S.column << ")\n";  \
     throw; \
 } else { consume(); } } while (0)
 
 #define unhandled_token(T)                                                                                                      \
 {                                                                                                                               \
-    auto &SL = T.sourceLocation;                                                                                                \
+    auto &SL = T.getSourceLocation();                                                                                                \
     std::cout << "Unhandled Token: " << T << " at " << SL.filepath << ":" << SL.line << ":" << SL.column << std::endl; throw;   \
 }
 
@@ -165,7 +165,7 @@ std::string Parser::resolveImportPathRelativeToBaseDirectory(const std::string &
 
 
 void Parser::resolveImport() {
-    auto baseDirectory = util::string::excludingLastPathComponent(currentToken().sourceLocation.filepath);
+    auto baseDirectory = util::string::excludingLastPathComponent(currentToken().getSourceLocation().filepath);
     assert_current_token_and_consume(TK::Use);
     
     auto moduleName = parseStringLiteral()->value;
@@ -202,9 +202,9 @@ void Parser::resolveImport() {
 std::shared_ptr<TopLevelStmt> Parser::parseTopLevelStmt() {
     std::shared_ptr<TopLevelStmt> stmt;
     auto attributeList = parseAttributes();
-    auto startLocation = currentToken().sourceLocation;
+    auto startLocation = currentToken().getSourceLocation();
     
-    switch (currentToken().kind) {
+    switch (currentToken().getKind()) {
         case TK::Fn: {
             stmt = parseFunctionDecl(std::make_shared<attributes::FunctionAttributes>(attributeList));
             break;
@@ -772,8 +772,7 @@ std::vector<std::shared_ptr<Expr>> Parser::parseExpressionList(Token::TokenKind 
 
 std::shared_ptr<Identifier> Parser::parseIdentifier() {
     if (currentTokenKind() != TK::Identifier) return nullptr;
-    auto value = std::get<std::string>(currentToken().data);
-    auto ident = std::make_shared<Identifier>(value);
+    auto ident = std::make_shared<Identifier>(currentToken().getData<std::string>());
     ident->setSourceLocation(getCurrentSourceLocation());
     consume();
     return ident;
@@ -1168,16 +1167,16 @@ std::shared_ptr<NumberLiteral> Parser::parseNumberLiteral() {
     
     switch (currentTokenKind()) {
         case TK::IntegerLiteral:
-            value = std::get<uint64_t>(currentToken().data);
+            value = currentToken().getData<uint64_t>();
             type = NumberLiteral::NumberType::Integer;
             break;
         case TK::DoubleLiteral: throw;
         case TK::CharLiteral:
-            value = std::get<char>(currentToken().data);
+            value = currentToken().getData<char>();
             type = NumberLiteral::NumberType::Character;
             break;
         case TK::BoolLiteral:
-            value = std::get<bool>(currentToken().data);
+            value = currentToken().getData<bool>();
             type = NumberLiteral::NumberType::Boolean;
             break;
         default:
@@ -1198,12 +1197,12 @@ std::shared_ptr<NumberLiteral> Parser::parseNumberLiteral() {
 std::shared_ptr<StringLiteral> Parser::parseStringLiteral() {
     auto &token = currentToken();
     
-    if (token.kind != TK::StringLiteral && token.kind != TK::ByteStringLiteral) {
+    if (token.getKind() != TK::StringLiteral && token.getKind() != TK::ByteStringLiteral) {
         return nullptr;
     }
     
-    auto value = std::get<std::string>(token.data);
-    auto kind = token.kind == TK::StringLiteral
+    auto value = token.getData<std::string>();
+    auto kind = token.getKind() == TK::StringLiteral
         ? StringLiteral::StringLiteralKind::NormalString
         : StringLiteral::StringLiteralKind::ByteString;
     

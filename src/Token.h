@@ -20,7 +20,7 @@
 NS_START(yo::parser)
 
 class Token;
-using TokenList = std::vector<std::shared_ptr<Token>>;
+using TokenList = std::vector<std::shared_ptr<Token>>; // TODO why is this a pointer?
 
 struct TokenSourceLocation {
     std::string filepath;
@@ -45,12 +45,14 @@ public:
         
         // Tokens w/ associated data
         Identifier,
-        StringLiteral,
+        StringLiteral, // TODO rename to NormalStringLiteral or StdStringLiteral?
         ByteStringLiteral,
         CharLiteral,
         IntegerLiteral,
         DoubleLiteral,
         BoolLiteral,
+        Whitespace,
+        LineComment, BlockComment,
         
         // Punctuation
         OpeningParens,
@@ -74,6 +76,7 @@ public:
         As, Using
     };
     
+private:
     std::variant<
         bool,
         char,
@@ -82,49 +85,70 @@ public:
         std::string
     > data;
     
+    std::string sourceText;
     TokenKind kind;
     TokenSourceLocation sourceLocation;
     
+public:
+    explicit Token(std::string sourceText, TokenKind kind) : sourceText(sourceText), kind(kind) {}
     
-    Token(TokenKind kind) : kind(kind) {}
+    template <typename T>
+    Token(std::string sourceText, TokenKind kind, T data) : data(data), sourceText(sourceText), kind(kind) {}
     
-    static std::shared_ptr<Token> WithKind(TokenKind kind) {
-        return std::make_shared<Token>(kind);
-    }
     
-    static std::shared_ptr<Token> Identifier(std::string name) {
-        auto T = WithKind(TokenKind::Identifier);
-        T->data = name;
-        return T;
-    }
+    const std::string& getSourceText() const { return sourceText; }
     
-    static std::shared_ptr<Token> IntegerLiteral(uint64_t value) {
-        auto T = WithKind(TokenKind::IntegerLiteral);
-        T->data = value;
-        return T;
-    }
+    TokenKind getKind() const { return kind; }
+    void setKind(TokenKind kind) { this->kind = kind; }
     
-    static std::shared_ptr<Token> StringLiteral(std::string value) {
-        auto T = WithKind(TokenKind::StringLiteral);
-        T->data = value;
-        return T;
-    }
+    const TokenSourceLocation& getSourceLocation() const { return sourceLocation; }
+    void setSourceLocation(TokenSourceLocation sourceLoc) { sourceLocation = sourceLoc; }
     
-    static std::shared_ptr<Token> CharLiteral(char value) {
-        auto T = WithKind(TokenKind::CharLiteral);
-        T->data = value;
-        return T;
-    }
+    template <typename T>
+    void setData(T value) { data = value; }
     
-    static std::shared_ptr<Token> BoolLiteral(bool value) {
-        auto T = WithKind(TokenKind::BoolLiteral);
-        T->data = value;
-        return T;
-    }
+    template <typename T>
+    T getData() const { return std::get<T>(data); }
+    
+    
+    
+//    static std::shared_ptr<Token> WithKind(TokenKind kind) {
+//        return std::make_shared<Token>(kind);
+//    }
+//
+//    static std::shared_ptr<Token> Identifier(std::string name) {
+//        auto T = WithKind(TokenKind::Identifier);
+//        T->data = name;
+//        return T;
+//    }
+//
+//    static std::shared_ptr<Token> IntegerLiteral(uint64_t value) {
+//        auto T = WithKind(TokenKind::IntegerLiteral);
+//        T->data = value;
+//        return T;
+//    }
+//
+//    static std::shared_ptr<Token> StringLiteral(std::string value) {
+//        auto T = WithKind(TokenKind::StringLiteral);
+//        T->data = value;
+//        return T;
+//    }
+//
+//    static std::shared_ptr<Token> CharLiteral(char value) {
+//        auto T = WithKind(TokenKind::CharLiteral);
+//        T->data = value;
+//        return T;
+//    }
+//
+//    static std::shared_ptr<Token> BoolLiteral(bool value) {
+//        auto T = WithKind(TokenKind::BoolLiteral);
+//        T->data = value;
+//        return T;
+//    }
 };
 
-std::ostream &operator<<(std::ostream &OS, Token &T);
-std::ostream &operator<<(std::ostream &OS, Token::TokenKind TK);
+std::ostream &operator<<(std::ostream &OS, const Token &T);
+std::ostream &operator<<(std::ostream &OS, const Token::TokenKind TK);
 
 
 NS_END

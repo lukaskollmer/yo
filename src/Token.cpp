@@ -62,6 +62,9 @@ std::string TokenKindToString(Token::TokenKind kind) {
         CASE(In)
         CASE(Match)
         CASE(QuestionMark)
+        CASE(Whitespace)
+        CASE(LineComment)
+        CASE(BlockComment)
     }
 #undef CASE
 }
@@ -75,31 +78,32 @@ std::string escape_char(char c) {
     }
 }
 
-std::ostream& yo::parser::operator<<(std::ostream &OS, Token &T) {
-    OS << "<Token " << TokenKindToString(T.kind);
-    switch (T.kind) {
+
+std::ostream &yo::parser::operator<<(std::ostream &OS, const Token::TokenKind TK) {
+    return OS << TokenKindToString(TK);
+}
+
+
+std::ostream& yo::parser::operator<<(std::ostream &OS, const Token &T) {
+    OS << "<Token " << TokenKindToString(T.getKind());
+    switch (T.getKind()) {
         case Token::TokenKind::Identifier:
         case Token::TokenKind::StringLiteral:
         case Token::TokenKind::ByteStringLiteral:
-            OS << " '" << std::get<std::string>(T.data) << "'";
+        case Token::TokenKind::Whitespace:
+            OS << " '" << T.getData<std::string>() << "'";
             break;
         case Token::TokenKind::IntegerLiteral:
-            OS << " " << std::get<uint64_t>(T.data);
+            OS << " " << T.getData<uint64_t>();
             break;
         case Token::TokenKind::CharLiteral:
-            OS << " '" << escape_char(std::get<char>(T.data)) << "'";
+            OS << " '" << escape_char(T.getData<char>()) << "'";
             break;
         case Token::TokenKind::DoubleLiteral:
-            OS << " " << std::get<double>(T.data);
+            OS << " " << T.getData<double>();
             break;
         default: break;
     }
     
     return OS << ">";
-}
-
-
-
-std::ostream &yo::parser::operator<<(std::ostream &OS, Token::TokenKind TK) {
-    return OS << TokenKindToString(TK);
 }
