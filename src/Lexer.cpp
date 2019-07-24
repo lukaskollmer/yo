@@ -349,7 +349,7 @@ Token& Lexer::handleRawToken(const std::string &tokenSourceText, Token::TokenKin
     if (tokenKind != TK::Unknown) {
         token = Token(tokenSourceText, tokenKind);
     }
-    else if (auto it = tokenKindMappings.find(tokenSourceText); it != tokenKindMappings.end()) { // TODO turn this into a `if (auto x; x== ...)`
+    else if (auto it = tokenKindMappings.find(tokenSourceText); it != tokenKindMappings.end()) {
         token = Token(tokenSourceText, it->second);
     }
     else if (identifierStartCharacters.contains(tokenSourceText.at(0)) && identifierCharacters.containsAllCharactersInString(tokenSourceText.substr(1))) {
