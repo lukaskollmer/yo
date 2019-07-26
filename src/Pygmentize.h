@@ -6,6 +6,8 @@
 //  Copyright © 2019 Lukas Kollmer. All rights reserved.
 //
 
+#pragma once
+
 #include "Token.h"
 #include <string>
 

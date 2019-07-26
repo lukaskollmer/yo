@@ -6,6 +6,8 @@
 //  Copyright © 2019 Lukas Kollmer. All rights reserved.
 //
 
+#pragma once
+
 #include <string>
 #include <memory>
 #include "AST.h"
