@@ -75,23 +75,41 @@ Site Header
 
 .site-header-left {
     font-weight: 500;
+    font-size: 18px;
 }
 
 .site-header-right {
     display: flex;
     flex-direction: column;
-    justify-content: center;;
+    justify-content: center;
 }
 
 .site-header-right-links {
-    display: inline-flex;
+    display: flex;
     flex-direction: row;
-    align-content: space-between;
+    justify-content: space-between;
 }
 
-.site-header-link:not(:last-child) {
-    margin-right: 15px;
+
+
+
+.site-header-right-links > .site-header-link:not(:first-child) {
+    margin-left: 15px;
 }
+
+
+/* @media screen and (max-width: 400) {
+    .site-header-right-links > .site-header-link:not(:first-child) {
+        margin-left: 10px;
+    }
+} */
+
+@media screen and (max-width: 400px) {
+    .site-header-right-links > .site-header-link:not(:first-child) {
+        margin-left: 10px;
+    }
+}
+
 
 
 .site-footer {
