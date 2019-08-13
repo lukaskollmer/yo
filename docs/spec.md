@@ -101,15 +101,16 @@ There are multiple kinds of string literals:
 - **Byte string literals**  
   Prefixed by a `b`. They represent a pointer to a sequence of ascii bytes
 
-The `b` and `r` prefixes can be combined to create a raw bytestring
+The `b` and `r` prefixes can be combined to create a raw bytestring.
 
-```rust
-// The character sequences string literals evaluate to (pseudocode)
-  "a\nb"  ->  'a', '\n', 'b'      type: String
- r"a\nb"  ->  'a', '\', 'n', 'b'  type: String
- b"a\nb"  ->  'a', '\n', 'b'      type: *i8
-br"a\nb"  ->  'a', '\', 'n', 'b'  type: *i8
-```
+
+| Literal    | Bytes              | Type      |
+| :--------- | :----------------- | :-------- |
+| `"a\nb"`   | `a`, `\n`, `b`     | `*String` |
+| `r"a\nb"`  | `a`, `\`, `n`, `b` | `*String` |
+| `b"a\nb"`  | `a`, `\n`, `b`     | `*i8`     |
+| `br"a\nb"` | `a`, `\`, `n`, `b` | `*i8`     |
+
 
 
 
@@ -187,14 +188,14 @@ struct Person {
 }
 
 impl Person {
-    // `self` parameter -> instance method
-    fn increaseAge(self: Person) {
-        self.age += 1;
-    }
-
     // no `self` parameter -> static method
     fn me(): Person {
         return Person::init("Lukas", 20);
+    }
+
+    // `self` parameter -> instance method
+    fn increaseAge(self: Person) {
+        self.age += 1;
     }
 }
 ```
