@@ -15,11 +15,9 @@
 #include <memory>
 #include <variant>
 
-// TODO rename Token -> SourceToken, Kind -> Token?
+
 
 NS_START(yo::parser)
-
-class Token;
 
 struct TokenSourceLocation {
     std::string filepath;
@@ -72,7 +70,7 @@ public:
         Fn, Struct, Impl,
         Let, Return,
         If, Else, While, For, In, Match,
-        As, Using
+        As
     };
     
 private:

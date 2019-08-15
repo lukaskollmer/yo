@@ -55,7 +55,6 @@ std::string TokenKindToString(Token::TokenKind kind) {
         CASE(Hashtag)
         CASE(Use)
         CASE(While)
-        CASE(Using)
         CASE(BoolLiteral)
         CASE(Tilde)
         CASE(For)

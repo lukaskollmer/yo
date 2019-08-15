@@ -208,15 +208,19 @@ std::shared_ptr<TopLevelStmt> Parser::parseTopLevelStmt() {
             stmt = parseStructDecl(std::make_shared<attributes::StructAttributes>(attributeList));
             break;
         }
-        case TK::Impl:
+        case TK::Impl: {
             stmt = parseImplBlock();
             break;
-        case TK::Use:
-            resolveImport(); // TODO can/should imports have annotations?
-            return parseTopLevelStmt();
-        case TK::Using:
-            stmt = parseTypealias();
-            break;
+        }
+        case TK::Use: {
+            if (peekKind() == TK::StringLiteral) {
+                resolveImport();
+                return parseTopLevelStmt();
+            } else if (peekKind() == TK::Identifier) {
+                stmt = parseTypealias();
+                break;
+            }
+        }
         default: unhandled_token(currentToken());
     }
     
@@ -532,7 +536,7 @@ TypeInfo *Parser::parseType() {
 
 std::shared_ptr<ast::TypealiasDecl> Parser::parseTypealias() {
     auto sourceLoc = getCurrentSourceLocation();
-    assert_current_token_and_consume(TK::Using);
+    assert_current_token_and_consume(TK::Use);
     auto name = parseIdentifier()->value;
     assert_current_token_and_consume(TK::EqualsSign);
     auto type = parseType();

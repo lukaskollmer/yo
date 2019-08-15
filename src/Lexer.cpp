@@ -77,7 +77,6 @@ static std::map<std::string, Token::TokenKind> tokenKindMappings = {
     { "impl",   TK::Impl   },
     { "use",    TK::Use    },
     { "while",  TK::While  },
-    { "using",  TK::Using  },
     { "for",    TK::For    },
     { "in",     TK::In     },
     { "match",  TK::Match  },
