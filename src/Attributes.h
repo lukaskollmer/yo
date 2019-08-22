@@ -33,6 +33,9 @@ namespace yo::attributes {
         Attribute(std::string_view key, const std::vector<std::string> &elements) : key(key), dataKind(DataKind::Array), data(elements) {}
         
         std::string_view getKey() const { return key; }
+        
+        template <typename T>
+        const T& getData() const { return std::get<T>(data); }
     };
     
     
@@ -43,26 +46,17 @@ namespace yo::attributes {
     };
     
     struct FunctionAttributes {
-        bool variadic;
-        bool no_mangle;
-        bool intrinsic;
-        bool arc;
-        bool extern_;
-        bool inline_;
-        bool always_inline;
-        std::string mangledName;
-        std::vector<SideEffect> side_effects;
+        bool variadic = false;
+        bool no_mangle = false;
+        bool intrinsic = false;
+        bool arc = false;
+        bool extern_ = false;
+        bool inline_ = false;
+        bool always_inline = false;
+        std::string mangledName = "";
+        std::vector<SideEffect> side_effects = { SideEffect::Unknown };
         
-        FunctionAttributes() {
-            variadic = false;
-            no_mangle = false;
-            intrinsic = false;
-            arc = false;
-            extern_ = false;
-            mangledName = "";
-            side_effects = { SideEffect::Unknown };
-        }
-        
+        FunctionAttributes() {}
         explicit FunctionAttributes(const std::vector<Attribute>&);
         
         bool operator ==(const FunctionAttributes &) const;

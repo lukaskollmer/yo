@@ -10,7 +10,8 @@
 
 #include "util.h"
 #include "Token.h"
-#include "TypeInfo.h"
+//#include "TypeInfo.h"
+#include "TypeDesc.h"
 #include "Attributes.h"
 
 #include <memory>
@@ -33,14 +34,31 @@ std::string description(AST &ast);
 
 
 class Expr;
-class Identifier;
-class VariableDecl;
+class Ident;
+class VarDecl;
 class Composite;
 class StructDecl;
 
 
 class Node {
 public:
+    enum class NodeKind {
+        // Top Level Statements
+        FunctionDecl, ImplBlock, StructDecl, TypealiasDecl,
+        
+        // Local Statements
+        Assignment, Composite, ExprStmt, ForLoop, IfStmt, ReturnStmt, VarDecl, WhileStmt,
+        
+        // Expressions
+        BinOp, CallExpr, CompOp, Ident, LogicalOp, MatchExpr, MemberExpr, NumberLiteral, RawLLVMValueExpr, StaticDeclRefExpr,
+        StringLiteral, SubscriptExpr, CastExpr, UnaryExpr,
+        
+        // Things that shouldn't inherit from Node, but do
+        FunctionSignature, IfStmtBranch, MatchExprBranch
+    };
+    
+    NodeKind getNodeKind() const { return kind; }
+    
     virtual std::string description();
     const parser::TokenSourceLocation &getSourceLocation() const {
         return sourceLocation;
@@ -51,17 +69,28 @@ public:
     }
     
 protected:
+    Node(NodeKind kind) : kind(kind) {}
     virtual ~Node() = default;
     
+    const NodeKind kind;
     parser::TokenSourceLocation sourceLocation;
 };
 
 
-class TopLevelStmt : public Node {};
+class TopLevelStmt : public Node {
+protected:
+    TopLevelStmt(NodeKind kind) : Node(kind) {}
+};
 
-class LocalStmt : public Node {};
+class LocalStmt : public Node {
+protected:
+    LocalStmt(NodeKind kind) : Node(kind) {}
+};
 
-class Expr : public Node {};
+class Expr : public Node {
+protected:
+    Expr(NodeKind kind) : Node(kind) {}
+};
 
 
 // Note: some of the nested subclasses also inherit from ast::Node. one could argue that this is philosophically wrong, but it greatly simplifies ast printing
@@ -83,18 +112,18 @@ public:
     
     std::string name;
     FunctionKind kind;
-    TypeInfo *returnType;
-    std::vector<std::shared_ptr<VariableDecl>> parameters;
-    std::shared_ptr<ast::StructDecl> implType; // If this is a static or instance method, the type it is a member of
+    std::shared_ptr<TypeDesc> returnType;
+    std::vector<std::shared_ptr<VarDecl>> parameters;
+    irgen::StructType *implType;
     
     std::shared_ptr<attributes::FunctionAttributes> attributes;
     
-    TypeInfo *variadicType;
+//    TypeInfo *variadicType;
     
     bool isTemplateFunction = false;
     std::vector<std::string> templateArgumentNames;
     
-    explicit FunctionSignature() {
+    explicit FunctionSignature() : Node(Node::NodeKind::FunctionSignature) {
         attributes = std::make_shared<attributes::FunctionAttributes>();
     }
     
@@ -113,18 +142,18 @@ public:
     std::shared_ptr<FunctionSignature> signature;
     std::shared_ptr<Composite> body;
     
-    FunctionDecl() {}
+    FunctionDecl() : TopLevelStmt(Node::NodeKind::FunctionDecl) {}
 };
 
 
 class StructDecl : public TopLevelStmt {
 public:
-    std::shared_ptr<Identifier> name;
-    std::vector<std::shared_ptr<VariableDecl>> members;
+    std::shared_ptr<Ident> name;
+    std::vector<std::shared_ptr<VarDecl>> members;
     std::vector<std::string> templateArguments;
     std::shared_ptr<attributes::StructAttributes> attributes;
     
-    StructDecl() {}
+    StructDecl() : TopLevelStmt(Node::NodeKind::StructDecl) {}
     
     bool isTemplateStruct() { return !templateArguments.empty(); }
 };
@@ -134,17 +163,17 @@ public:
     std::string typename_;
     std::vector<std::shared_ptr<FunctionDecl>> methods;
     
-    ImplBlock(std::string typename_) : typename_(typename_) {}
-    ImplBlock(std::string typename_, std::vector<std::shared_ptr<FunctionDecl>> methods) : typename_(typename_), methods(methods) {}
+    ImplBlock(std::string typename_) : TopLevelStmt(Node::NodeKind::ImplBlock), typename_(typename_) {}
+    ImplBlock(std::string typename_, std::vector<std::shared_ptr<FunctionDecl>> methods) : TopLevelStmt(Node::NodeKind::ImplBlock), typename_(typename_), methods(methods) {}
 };
 
 
 class TypealiasDecl : public TopLevelStmt {
 public:
     std::string typename_;
-    TypeInfo *type;
+    std::shared_ptr<TypeDesc> type;
     
-    TypealiasDecl(std::string typename_, TypeInfo *type) : typename_(typename_), type(type) {}
+    TypealiasDecl(std::string typename_, std::shared_ptr<TypeDesc> type) : TopLevelStmt(Node::NodeKind::TypealiasDecl), typename_(typename_), type(type) {}
 };
 
 
@@ -155,8 +184,8 @@ class Composite : public LocalStmt {
 public:
     std::vector<std::shared_ptr<LocalStmt>> statements;
     
-    Composite() {}
-    Composite(std::vector<std::shared_ptr<LocalStmt>> statements) : statements(statements) {}
+    Composite() : LocalStmt(Node::NodeKind::Composite) {}
+    Composite(std::vector<std::shared_ptr<LocalStmt>> statements) : LocalStmt(Node::NodeKind::Composite), statements(statements) {}
     
     bool isEmpty() const {
         return statements.empty();
@@ -168,19 +197,20 @@ class ReturnStmt : public LocalStmt {
 public:
     std::shared_ptr<Expr> expression;
     
-    explicit ReturnStmt(std::shared_ptr<Expr> expression) : expression(expression) {}
+    explicit ReturnStmt(std::shared_ptr<Expr> expression) : LocalStmt(Node::NodeKind::ReturnStmt), expression(expression) {}
 };
 
 
 
-class VariableDecl : public LocalStmt {
+// TODO rename to VarDecl?
+class VarDecl : public LocalStmt {
 public:
-    std::shared_ptr<Identifier> name; // TODO does something like this really warrant a pointer?
-    TypeInfo *type;
+    std::shared_ptr<Ident> name; // TODO does something like this really warrant a pointer?
+    std::shared_ptr<TypeDesc> type;
     std::shared_ptr<Expr> initialValue;
     
-    VariableDecl(std::shared_ptr<Identifier> name, TypeInfo *type, std::shared_ptr<Expr> initialValue = nullptr)
-    : name(name), type(type), initialValue(initialValue) {}
+    VarDecl(std::shared_ptr<Ident> name, std::shared_ptr<TypeDesc> type, std::shared_ptr<Expr> initialValue = nullptr)
+    : LocalStmt(Node::NodeKind::VarDecl), name(name), type(type), initialValue(initialValue) {}
 };
 
 
@@ -189,7 +219,7 @@ public:
     std::shared_ptr<Expr> target;
     std::shared_ptr<Expr> value;
     
-    Assignment(std::shared_ptr<Expr> target, std::shared_ptr<Expr> value) : target(target), value(value) {}
+    Assignment(std::shared_ptr<Expr> target, std::shared_ptr<Expr> value) : LocalStmt(Node::NodeKind::Assignment), target(target), value(value) {}
 };
 
 
@@ -207,12 +237,12 @@ public:
         std::shared_ptr<Composite> body;
         
         Branch(BranchKind kind, std::shared_ptr<Expr> condition, std::shared_ptr<Composite> body)
-        : kind(kind), condition(condition), body(body) {}
+        : Node(Node::NodeKind::IfStmtBranch), kind(kind), condition(condition), body(body) {}
     };
     
     std::vector<std::shared_ptr<Branch>> branches;
     
-    IfStmt(std::vector<std::shared_ptr<Branch>> branches) : branches(branches) {}
+    IfStmt(std::vector<std::shared_ptr<Branch>> branches) : LocalStmt(Node::NodeKind::IfStmt), branches(branches) {}
 };
 
 
@@ -221,18 +251,18 @@ public:
     std::shared_ptr<ast::Expr> condition;
     std::shared_ptr<ast::Composite> body;
     
-    WhileStmt(std::shared_ptr<Expr> condition, std::shared_ptr<Composite> body) : condition(condition), body(body) {}
+    WhileStmt(std::shared_ptr<Expr> condition, std::shared_ptr<Composite> body) : LocalStmt(Node::NodeKind::WhileStmt), condition(condition), body(body) {}
 };
 
 
 class ForLoop : public LocalStmt {
 public:
-    std::shared_ptr<ast::Identifier> ident;
+    std::shared_ptr<ast::Ident> ident;
     std::shared_ptr<ast::Expr> expr;
     std::shared_ptr<ast::Composite> body;
     
-    ForLoop(std::shared_ptr<ast::Identifier> ident, std::shared_ptr<ast::Expr> expr, std::shared_ptr<ast::Composite> body)
-    : ident(ident), expr(expr), body(body) {}
+    ForLoop(std::shared_ptr<ast::Ident> ident, std::shared_ptr<ast::Expr> expr, std::shared_ptr<ast::Composite> body)
+    : LocalStmt(Node::NodeKind::ForLoop), ident(ident), expr(expr), body(body) {}
 };
 
 
@@ -245,19 +275,19 @@ public:
 class RawLLVMValueExpr : public Expr {
 public:
     llvm::Value *value;
-    TypeInfo *type;
+    yo::irgen::Type *type;
     
-    RawLLVMValueExpr(llvm::Value *value, TypeInfo *ty) : value(value), type(ty) {}
+    RawLLVMValueExpr(llvm::Value *value, yo::irgen::Type *ty) : Expr(Node::NodeKind::RawLLVMValueExpr), value(value), type(ty) {}
 };
 
 
-class Identifier : public Expr {
+class Ident : public Expr {
 public:
     const std::string value;
     
-    explicit Identifier(std::string value) : value(value) {}
+    explicit Ident(std::string value) : Expr(Node::NodeKind::Ident), value(value) {}
     
-    static std::shared_ptr<Identifier> emptyIdent();
+    static std::shared_ptr<Ident> emptyIdent();
 };
 
 
@@ -271,7 +301,7 @@ public:
     const uint64_t value;
     const NumberType type;
     
-    explicit NumberLiteral(uint64_t value, NumberType type) : value(value), type(type) {}
+    explicit NumberLiteral(uint64_t value, NumberType type) : Expr(Node::NodeKind::NumberLiteral), value(value), type(type) {}
     
     static std::shared_ptr<NumberLiteral> integer(uint64_t value) {
         return std::make_shared<NumberLiteral>(value, NumberType::Integer);
@@ -289,7 +319,7 @@ public:
     std::string value;
     StringLiteralKind kind;
     
-    explicit StringLiteral(std::string value, StringLiteralKind kind) : value(value), kind(kind) {}
+    explicit StringLiteral(std::string value, StringLiteralKind kind) : Expr(Node::NodeKind::StringLiteral), value(value), kind(kind) {}
 };
 
 
@@ -299,7 +329,7 @@ class ExprStmt : public LocalStmt {
 public:
     std::shared_ptr<ast::Expr> expr;
     
-    explicit ExprStmt(std::shared_ptr<ast::Expr> expr) : expr(expr) {}
+    explicit ExprStmt(std::shared_ptr<ast::Expr> expr) : LocalStmt(Node::NodeKind::ExprStmt), expr(expr) {}
 };
 
 
@@ -310,7 +340,7 @@ public:
     std::string typeName;
     std::string memberName;
     
-    StaticDeclRefExpr(const std::string &typeName, const std::string &memberName) : typeName(typeName), memberName(memberName) {}
+    StaticDeclRefExpr(const std::string &typeName, const std::string &memberName) : Expr(Node::NodeKind::StaticDeclRefExpr), typeName(typeName), memberName(memberName) {}
 };
 
 
@@ -321,12 +351,12 @@ class CallExpr : public Expr {
 public:
     std::shared_ptr<Expr> target;
     std::vector<std::shared_ptr<Expr>> arguments;
-    std::vector<TypeInfo *> explicitTemplateArgumentTypes;
+    std::vector<std::shared_ptr<TypeDesc>> explicitTemplateArgumentTypes;
     
     CallExpr(std::shared_ptr<Expr> target,
              std::vector<std::shared_ptr<Expr>> arguments = {},
-             std::vector<TypeInfo *> explicitTemplateArgumentTypes = {})
-    : target(target), arguments(arguments), explicitTemplateArgumentTypes(explicitTemplateArgumentTypes) {}
+             std::vector<std::shared_ptr<TypeDesc>> explicitTemplateArgumentTypes = {})
+    : Expr(Node::NodeKind::CallExpr), target(target), arguments(arguments), explicitTemplateArgumentTypes(explicitTemplateArgumentTypes) {}
 };
 
 
@@ -337,7 +367,7 @@ public:
     std::shared_ptr<Expr> target;
     std::string memberName;
     
-    MemberExpr(std::shared_ptr<Expr> target, std::string memberName) : target(target), memberName(memberName) {}
+    MemberExpr(std::shared_ptr<Expr> target, std::string memberName) : Expr(Node::NodeKind::MemberExpr), target(target), memberName(memberName) {}
 };
 
 
@@ -347,7 +377,7 @@ public:
     std::shared_ptr<ast::Expr> target;
     std::shared_ptr<ast::Expr> offset;
     
-    SubscriptExpr(std::shared_ptr<ast::Expr> target, std::shared_ptr<ast::Expr> offset) : target(target), offset(offset) {}
+    SubscriptExpr(std::shared_ptr<ast::Expr> target, std::shared_ptr<ast::Expr> offset) : Expr(Node::NodeKind::SubscriptExpr), target(target), offset(offset) {}
 };
 
 
@@ -356,17 +386,17 @@ public:
 
 
 
-class Typecast : public Expr {
+class CastExpr : public Expr {
 public:
     enum class CastKind {
         StaticCast, Bitcast
     };
     std::shared_ptr<Expr> expression;
-    TypeInfo *destType;
+    std::shared_ptr<TypeDesc> destType;
     CastKind kind;
     
-    Typecast(std::shared_ptr<Expr> expression, TypeInfo *destType, CastKind kind)
-    : expression(expression), destType(destType), kind(kind) {}
+    CastExpr(std::shared_ptr<Expr> expression, std::shared_ptr<TypeDesc> destType, CastKind kind)
+    : Expr(Node::NodeKind::CastExpr), expression(expression), destType(destType), kind(kind) {}
 };
 
 
@@ -379,17 +409,18 @@ public:
         std::vector<std::shared_ptr<Expr>> patterns;
         std::shared_ptr<Expr> expression;
         
-        MatchExprBranch(std::vector<std::shared_ptr<Expr>> patterns, std::shared_ptr<Expr> expression) : patterns(patterns), expression(expression) {}
+        MatchExprBranch(std::vector<std::shared_ptr<Expr>> patterns, std::shared_ptr<Expr> expression)
+        : Node(Node::NodeKind::MatchExprBranch), patterns(patterns), expression(expression) {}
     };
     
     std::shared_ptr<Expr> target;
     std::vector<std::shared_ptr<MatchExprBranch>> branches;
     
-    MatchExpr(std::shared_ptr<Expr> target, std::vector<std::shared_ptr<MatchExprBranch>> branches) : target(target), branches(branches) {}
+    MatchExpr(std::shared_ptr<Expr> target, std::vector<std::shared_ptr<MatchExprBranch>> branches) : Expr(Node::NodeKind::MatchExpr), target(target), branches(branches) {}
 };
 
 
-class BinaryOperation : public Expr {
+class BinOp : public Expr {
 public:
     enum class Operation {
         Add, Sub, Mul, Div, Mod,
@@ -400,7 +431,7 @@ public:
     std::shared_ptr<Expr> lhs;
     std::shared_ptr<Expr> rhs;
     
-    BinaryOperation(Operation op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs) : op(op), lhs(lhs), rhs(rhs) {}
+    BinOp(Operation op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs) : Expr(Node::NodeKind::BinOp), op(op), lhs(lhs), rhs(rhs) {}
 };
 
 
@@ -417,7 +448,7 @@ public:
     std::shared_ptr<Expr> lhs;
     std::shared_ptr<Expr> rhs;
     
-    Comparison(Operation op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs) : op(op), lhs(lhs), rhs(rhs) {}
+    Comparison(Operation op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs) : Expr(Node::NodeKind::CompOp), op(op), lhs(lhs), rhs(rhs) {}
 };
 
 
@@ -431,7 +462,7 @@ public:
     std::shared_ptr<Expr> lhs;
     std::shared_ptr<Expr> rhs;
     
-    LogicalOperation(Operation op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs) : op(op), lhs(lhs), rhs(rhs) {}
+    LogicalOperation(Operation op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs) : Expr(Node::NodeKind::LogicalOp), op(op), lhs(lhs), rhs(rhs) {}
 };
 
 
@@ -444,7 +475,7 @@ public:
     Operation op;
     std::shared_ptr<ast::Expr> expr;
     
-    UnaryExpr(Operation op, std::shared_ptr<ast::Expr> expr) : op(op), expr(expr) {}
+    UnaryExpr(Operation op, std::shared_ptr<ast::Expr> expr) : Expr(Node::NodeKind::UnaryExpr), op(op), expr(expr) {}
 };
 
 NS_END

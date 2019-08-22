@@ -14,25 +14,33 @@
 #include <optional>
 
 #include "AST.h"
-#include "TypeInfo.h"
+//#include "TypeInfo.h"
+#include "IRGen.h"
 
 
 NS_START(yo::irgen)
 
 class TemplateResolver {
-    using TemplateTypeMapping = std::map<std::string, TypeInfo *>;
+public:
+    using TemplateTypeMapping = std::map<std::string, std::shared_ptr<ast::TypeDesc>>;
+    
+    static std::shared_ptr<ast::FunctionDecl> specializeWithTemplateMapping(std::shared_ptr<ast::FunctionDecl>, TemplateTypeMapping);
+    
+private:
     const TemplateTypeMapping templateArgumentMapping;
+    //const IRGenerator &irgen;
     
-    explicit TemplateResolver(TemplateTypeMapping templateArgumentMapping) : templateArgumentMapping(templateArgumentMapping) {}
+    explicit TemplateResolver(/*const IRGenerator &irgen,*/ TemplateTypeMapping templateArgumentMapping) : /*irgen(irgen),*/ templateArgumentMapping(templateArgumentMapping) {}
     
-    TypeInfo *resolveType(TypeInfo *TI);
+    //TypeInfo *resolveType(TypeInfo *TI);
+    std::shared_ptr<ast::TypeDesc> resolveType(std::shared_ptr<ast::TypeDesc>);
     
     std::shared_ptr<ast::FunctionDecl> specialize(std::shared_ptr<ast::FunctionDecl>);
     
     std::shared_ptr<ast::LocalStmt> specialize(std::shared_ptr<ast::LocalStmt>);
     std::shared_ptr<ast::Expr> specialize(std::shared_ptr<ast::Expr>);
     
-    std::shared_ptr<ast::VariableDecl> specialize(std::shared_ptr<ast::VariableDecl>);
+    std::shared_ptr<ast::VarDecl> specialize(std::shared_ptr<ast::VarDecl>);
     std::shared_ptr<ast::Assignment> specialize(std::shared_ptr<ast::Assignment>);
     std::shared_ptr<ast::ReturnStmt> specialize(std::shared_ptr<ast::ReturnStmt>);
     std::shared_ptr<ast::WhileStmt> specialize(std::shared_ptr<ast::WhileStmt>);
@@ -45,11 +53,8 @@ class TemplateResolver {
     std::shared_ptr<ast::SubscriptExpr> specialize(std::shared_ptr<ast::SubscriptExpr>);
     std::shared_ptr<ast::MemberExpr> specialize(std::shared_ptr<ast::MemberExpr>);
     std::shared_ptr<ast::Comparison> specialize(std::shared_ptr<ast::Comparison>);
-    std::shared_ptr<ast::BinaryOperation> specialize(std::shared_ptr<ast::BinaryOperation>);
+    std::shared_ptr<ast::BinOp> specialize(std::shared_ptr<ast::BinOp>);
     std::shared_ptr<ast::LogicalOperation> specialize(std::shared_ptr<ast::LogicalOperation>);
-    
-public:
-    static std::shared_ptr<ast::FunctionDecl> specializeWithTemplateMapping(std::shared_ptr<ast::FunctionDecl>, TemplateTypeMapping);
 };
 
 NS_END

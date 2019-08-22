@@ -12,6 +12,7 @@
 
 using namespace yo;
 
+
 namespace yo::mangling {
     inline constexpr char kCommonPrefix = '_';
     inline constexpr char kFunctionAttributeGlobalFunction = 'F';
@@ -53,7 +54,7 @@ public:
         return *this;
     }
     
-    ManglingStringBuilder& appendEncodedType(TypeInfo *TI);
+    ManglingStringBuilder& appendEncodedType(yo::irgen::Type *ty);
     
     std::string& str() { return Buffer; }
 };
@@ -86,7 +87,7 @@ std::string mangling::mangleCanonicalNameForSignature(std::shared_ptr<ast::Funct
     if (!signature->attributes->mangledName.empty()) {
         return signature->attributes->mangledName;
     }
-    auto typeName = signature->kind == ast::FunctionSignature::FunctionKind::GlobalFunction ? "" : signature->implType->name->value;
+    auto typeName = signature->kind == ast::FunctionSignature::FunctionKind::GlobalFunction ? "" : signature->implType->getName();
     return mangleCanonicalName(typeName, signature->name, signature->kind);
 }
 
@@ -106,42 +107,83 @@ std::string mangling::mangleCanonicalNameForSignature(std::shared_ptr<ast::Funct
  
  */
 
-ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(TypeInfo *TI) {
-    switch (TI->getKind()) {
-        case TypeInfo::Kind::Primitive: {
-#define HANDLE(t, s) if (TI->equals(TypeInfo::t)) { return append(s); }
-            HANDLE(i8,  "c") HANDLE(u8,  "C")
-            HANDLE(i16, "s") HANDLE(u16, "S")
-            HANDLE(i32, "i") HANDLE(u32, "I")
-            HANDLE(i64, "q") HANDLE(u64, "Q")
-            HANDLE(Void, "v")
-            HANDLE(Bool, "b")
-            LKFatalError("unhandled type: %s", TI->str().c_str());
-#undef HANDLE
-        }
-        
-        case TypeInfo::Kind::Pointer:
-            return append("P").appendEncodedType(TI->getPointee());
-        
-        case TypeInfo::Kind::Complex:
-            return appendWithCount(TI->getName());
-            //return append("{").append(TI->getName()).append("}");
-        
-        case TypeInfo::Kind::Function:
-            throw;
 
-        case TypeInfo::Kind::Typealias:
-            return appendEncodedType(TI->getPointee());
-        
-        case TypeInfo::Kind::Unresolved:
-            LKFatalError("should never reach here: %s", TI->str().c_str());
-        
-        case TypeInfo::Kind::ComplexTemplated: {
-            throw;
-        }
-    }
+static std::map<yo::irgen::NumericalType::NumericalTypeID, std::string_view> numericalTypeEncodings = {
+    { yo::irgen::NumericalType::NumericalTypeID::Bool,    "b" },
+    { yo::irgen::NumericalType::NumericalTypeID::Float64, "f" },
     
-    LKFatalError("[EncodeType] Unhandled type: %s", TI->str().c_str());
+    { yo::irgen::NumericalType::NumericalTypeID::Int8,  "c" },
+    { yo::irgen::NumericalType::NumericalTypeID::Int16, "s" },
+    { yo::irgen::NumericalType::NumericalTypeID::Int32, "i" },
+    { yo::irgen::NumericalType::NumericalTypeID::Int64, "q" },
+    
+    { yo::irgen::NumericalType::NumericalTypeID::UInt8,  "C" },
+    { yo::irgen::NumericalType::NumericalTypeID::UInt16, "S" },
+    { yo::irgen::NumericalType::NumericalTypeID::UInt32, "I" },
+    { yo::irgen::NumericalType::NumericalTypeID::UInt64, "Q" },
+};
+
+
+
+ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(yo::irgen::Type *ty) {
+    using TypeID = yo::irgen::Type::TypeID;
+    switch (ty->getTypeId()) {
+        case TypeID::Void:
+            return append("v");
+        
+        case TypeID::Numerical: {
+            auto *numTy = static_cast<yo::irgen::NumericalType*>(ty);
+            return append(numericalTypeEncodings.at(numTy->getNumericalTypeID()));
+        }
+        
+        case TypeID::Pointer: {
+            auto *pointerTy = static_cast<yo::irgen::PointerType*>(ty);
+            return append("P").appendEncodedType(pointerTy->getPointee());
+        }
+        
+        case TypeID::Function:
+            LKFatalError("TODO");
+        
+        case TypeID::Struct: {
+            return appendWithCount(static_cast<irgen::StructType *>(ty)->getName());
+        }
+            
+    }
+//    switch (TI->getKind()) {
+//        case TypeInfo::Kind::Primitive: {
+//#define HANDLE(t, s) if (TI->equals(TypeInfo::t)) { return append(s); }
+//            HANDLE(i8,  "c") HANDLE(u8,  "C")
+//            HANDLE(i16, "s") HANDLE(u16, "S")
+//            HANDLE(i32, "i") HANDLE(u32, "I")
+//            HANDLE(i64, "q") HANDLE(u64, "Q")
+//            HANDLE(Void, "v")
+//            HANDLE(Bool, "b")
+//            LKFatalError("unhandled type: %s", TI->str().c_str());
+//#undef HANDLE
+//        }
+//
+//        case TypeInfo::Kind::Pointer:
+//            return append("P").appendEncodedType(TI->getPointee());
+//
+//        case TypeInfo::Kind::Complex:
+//            return appendWithCount(TI->getName());
+//            //return append("{").append(TI->getName()).append("}");
+//
+//        case TypeInfo::Kind::Function:
+//            throw;
+//
+//        case TypeInfo::Kind::Typealias:
+//            return appendEncodedType(TI->getPointee());
+//
+//        case TypeInfo::Kind::Unresolved:
+//            LKFatalError("should never reach here: %s", TI->str().c_str());
+//
+//        case TypeInfo::Kind::ComplexTemplated: {
+//            throw;
+//        }
+//    }
+//
+//    LKFatalError("[EncodeType] Unhandled type: %s", TI->str().c_str());
 }
 
 
@@ -163,19 +205,19 @@ std::string mangling::mangleFullyResolvedNameForSignature(std::shared_ptr<ast::F
             break;
         case FK::InstanceMethod:
             mangler.append(mangling::kFunctionAttributeInstanceMethod);
-            mangler.appendWithCount(signature->implType->name->value);
+            mangler.appendWithCount(signature->implType->getName());
             break;
         case FK::StaticMethod:
             mangler.append(mangling::kFunctionAttributeStaticMethod);
-            mangler.appendWithCount(signature->implType->name->value);
+            mangler.appendWithCount(signature->implType->getName());
             break;
     }
     
     mangler.appendWithCount(signature->name);
-    mangler.appendEncodedType(signature->returnType);
+    mangler.appendEncodedType(signature->returnType->getResolvedType());
     
     for (auto &param : signature->parameters) {
-        mangler.appendEncodedType(param->type);
+        mangler.appendEncodedType(param->type->getResolvedType());
     }
     
     return mangler.str();
@@ -183,16 +225,16 @@ std::string mangling::mangleFullyResolvedNameForSignature(std::shared_ptr<ast::F
 
 
 
-std::string mangling::mangleTemplatedComplexType(TypeInfo *TI) {
-    ManglingStringBuilder mangler(kCommonPrefix);
-    mangler.append(kTemplatedComplexTypePrefix);
-    mangler.appendWithCount(TI->getName());
-    
-    for (auto Ty : TI->getTemplateParameterTypes()) {
-        mangler.appendEncodedType(Ty);
-    }
-    
-    return mangler.str();
-}
+//std::string mangling::mangleTemplatedComplexType(TypeInfo *TI) {
+//    ManglingStringBuilder mangler(kCommonPrefix);
+//    mangler.append(kTemplatedComplexTypePrefix);
+//    mangler.appendWithCount(TI->getName());
+//
+//    for (auto Ty : TI->getTemplateParameterTypes()) {
+//        mangler.appendEncodedType(Ty);
+//    }
+//
+//    return mangler.str();
+//}
 
 

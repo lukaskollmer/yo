@@ -47,7 +47,7 @@ using TK = yo::parser::Token::TokenKind;
 
 
 static std::map<TK, std::string_view> tokenKindClassMappings = {
-    { TK::Identifier, "" }
+    { TK::Ident, "" }
 };
 
 // Classname mapping: see comments in https://github.com/richleland/pygments-css/blob/master/default.css

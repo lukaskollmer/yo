@@ -27,19 +27,44 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::specializeWithTemplateMappi
 }
 
 
-TypeInfo *TemplateResolver::resolveType(TypeInfo *TI) {
-    if (TI->equals(TypeInfo::Unresolved)) return TI;
+std::shared_ptr<ast::TypeDesc> TemplateResolver::resolveType(std::shared_ptr<ast::TypeDesc> typeDesc) {
+    if (!typeDesc) return nullptr;
     
-    if (util::map::contains_key(templateArgumentMapping, TI->getName())) {
-        auto X = templateArgumentMapping.at(TI->getName());
-        return X;
+    switch (typeDesc->getKind()) {
+        case ast::TypeDesc::Kind::Pointer:
+            return ast::TypeDesc::makePointer(resolveType(typeDesc->getPointee()));
+        
+        case ast::TypeDesc::Kind::Nominal: {
+            if (auto ty = util::map::get_opt(templateArgumentMapping, typeDesc->getName())) {
+                return ty.value();
+            }
+            return typeDesc;
+        }
+        
+        case ast::TypeDesc::Kind::Function:
+            LKFatalError("TODO");
+        
+        case ast::TypeDesc::Kind::Resolved:
+            return typeDesc;
     }
+//    switch (typeDesc->getKind()) {
+//        case ast::TypeDesc::Kind::Pointer:
+//            return resol
+//    }
     
-    if (TI->getKind() == TypeInfo::Kind::Pointer) {
-        return resolveType(TI->getPointee())->getPointerTo();
-    }
     
-    return TI;
+    //if (TI->equals(TypeInfo::Unresolved)) return TI;
+    
+//    if (util::map::contains_key(templateArgumentMapping, TI->getName())) {
+//        auto X = templateArgumentMapping.at(TI->getName());
+//        return X;
+//    }
+//
+//    if (TI->getKind() == TypeInfo::Kind::Pointer) {
+//        return resolveType(TI->getPointee())->getPointerTo();
+//    }
+//
+//    return TI;
 }
 
 
@@ -61,14 +86,14 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::specialize(std::shared_ptr<
     
     for (auto &param : specializedFunction->signature->parameters) {
         auto SL = param->getSourceLocation();
-        param = std::make_shared<ast::VariableDecl>(param->name, resolveType(param->type));
+        param = std::make_shared<ast::VarDecl>(param->name, resolveType(param->type));
         param->setSourceLocation(SL);
     }
     
     specializedFunction->signature->returnType = resolveType(specializedFunction->signature->returnType);
     
     for (auto &[name, type] : templateArgumentMapping) {
-        if (!type->equals(TypeInfo::Unresolved)) {
+        if (type) {
             auto it = std::find(specializedFunction->signature->templateArgumentNames.begin(),
                                 specializedFunction->signature->templateArgumentNames.end(), name);
             specializedFunction->signature->templateArgumentNames.erase(it);
@@ -101,7 +126,7 @@ throw; }
 std::shared_ptr<ast::LocalStmt> TemplateResolver::specialize(std::shared_ptr<ast::LocalStmt> stmt) {
     HANDLE(stmt, ReturnStmt)
     HANDLE(stmt, Assignment)
-    HANDLE(stmt, VariableDecl)
+    HANDLE(stmt, VarDecl)
     HANDLE(stmt, WhileStmt)
     HANDLE(stmt, IfStmt)
     HANDLE(stmt, ExprStmt)
@@ -111,8 +136,8 @@ std::shared_ptr<ast::LocalStmt> TemplateResolver::specialize(std::shared_ptr<ast
 std::shared_ptr<ast::Expr> TemplateResolver::specialize(std::shared_ptr<ast::Expr> expr) {
     if (!expr) return expr;
     IGNORE(expr, NumberLiteral)
-    IGNORE(expr, Identifier)
-    HANDLE(expr, BinaryOperation)
+    IGNORE(expr, Ident)
+    HANDLE(expr, BinOp)
     HANDLE(expr, Comparison)
     IGNORE(expr, StringLiteral)
     HANDLE(expr, LogicalOperation)
@@ -225,8 +250,8 @@ std::shared_ptr<ast::MatchExpr> TemplateResolver::specialize(std::shared_ptr<ast
 }
 
 
-std::shared_ptr<ast::VariableDecl> TemplateResolver::specialize(std::shared_ptr<ast::VariableDecl> decl) {
-    auto X = std::make_shared<ast::VariableDecl>(decl->name, resolveType(decl->type), specialize(decl->initialValue));
+std::shared_ptr<ast::VarDecl> TemplateResolver::specialize(std::shared_ptr<ast::VarDecl> decl) {
+    auto X = std::make_shared<ast::VarDecl>(decl->name, resolveType(decl->type), specialize(decl->initialValue));
     X->setSourceLocation(decl->getSourceLocation());
     return X;
 }
@@ -239,8 +264,8 @@ std::shared_ptr<ast::Comparison> TemplateResolver::specialize(std::shared_ptr<as
 }
 
 
-std::shared_ptr<ast::BinaryOperation> TemplateResolver::specialize(std::shared_ptr<ast::BinaryOperation> binop) {
-    auto X = std::make_shared<ast::BinaryOperation>(binop->op, specialize(binop->lhs), specialize(binop->rhs));
+std::shared_ptr<ast::BinOp> TemplateResolver::specialize(std::shared_ptr<ast::BinOp> binop) {
+    auto X = std::make_shared<ast::BinOp>(binop->op, specialize(binop->lhs), specialize(binop->rhs));
     X->setSourceLocation(binop->getSourceLocation());
     return X;
 }

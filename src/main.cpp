@@ -254,6 +254,8 @@ int main(int argc, const char * argv[], const char *const *envp) {
     codegen.codegen(ast);
     
     auto M = codegen.getModule();
+    //llvm::LLVMContext ctx;
+    //auto M = llvm::make_unique<llvm::Module>("name", ctx);
     
     if (yo::cl::opts::emitLLVM()) {
         std::error_code EC;

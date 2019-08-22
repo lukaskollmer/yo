@@ -16,7 +16,7 @@ fn main(): i32 {
 
 ## Getting started
 
-- <a class="casual-underlined" href="/spec.html">Core Language Specification</a>
+- <a class="casual-underlined" href="/spec.html">Language Specification</a>
 - <a class="casual-underlined" href="/docs/index.html">Documentation</a>
 
 

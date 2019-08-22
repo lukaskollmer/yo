@@ -13,7 +13,6 @@
 #include <initializer_list>
 #include <optional>
 
-#include "TypeInfo.h"
 #include "Token.h"
 #include "util.h"
 #include "Lexer.h"
@@ -98,15 +97,15 @@ private:
     
     void parseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> &signature);
     
-    std::vector<std::shared_ptr<ast::VariableDecl>> parseStructPropertyDeclList();
+    std::vector<std::shared_ptr<ast::VarDecl>> parseStructPropertyDeclList();
     
-    TypeInfo *parseType();
+    std::shared_ptr<ast::TypeDesc> parseType();
     
     std::shared_ptr<ast::Composite> parseComposite();
     
     std::shared_ptr<ast::LocalStmt> parseLocalStmt();
     std::shared_ptr<ast::ReturnStmt> parseReturnStmt();
-    std::shared_ptr<ast::VariableDecl> parseVariableDecl();
+    std::shared_ptr<ast::VarDecl> parseVariableDecl();
     
     std::shared_ptr<ast::IfStmt> parseIfStmt();
     std::shared_ptr<ast::WhileStmt> parseWhileStmt();
@@ -122,7 +121,7 @@ private:
     
     
     std::vector<std::shared_ptr<ast::Expr>> parseExpressionList(Token::TokenKind delimiter);
-    std::shared_ptr<ast::Identifier> parseIdentifier();
+    std::shared_ptr<ast::Ident> parseIdentifier();
     
     std::shared_ptr<ast::MatchExpr> parseMatchExpr();
     
@@ -132,7 +131,7 @@ private:
     
     // Why do these return optional?
     // Binop and Comparison operators can have the same initial token (ie, << and <, or & and &&)
-    std::optional<ast::BinaryOperation::Operation> parseBinopOperator();
+    std::optional<ast::BinOp::Operation> parseBinopOperator();
     std::optional<ast::Comparison::Operation> parseComparisonOperator();
     std::optional<ast::LogicalOperation::Operation> parseLogicalOperationOperator();
 };

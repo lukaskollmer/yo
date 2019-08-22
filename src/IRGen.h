@@ -16,8 +16,8 @@
 #include "llvm/IR/DIBuilder.h"
 
 #include "AST.h"
+#include "Type.h"
 #include "Scope.h"
-#include "TypeCache.h"
 #include "util.h"
 
 
@@ -25,27 +25,6 @@
 NS_START(yo::irgen)
 
 
-
-// TODO
-//class StringLiteralCache {
-//    std::map<std::string, llvm::Value *> Cache;
-//
-//public:
-//    llvm::Value *Get(std::string)
-//};
-
-
-//class Counter {
-//    uint64_t Value;
-//    const uint64_t InitialValue;
-//
-//public:
-//    explicit Counter(uint64_t InitialValue = 0) : Value(InitialValue), InitialValue(InitialValue) {}
-//
-//    uint64_t Increment() { return ++Value; }
-//    uint64_t GetCurrent() { return Value; }
-//    void Reset() { Value = InitialValue; }
-//};
 
 
 // TODO somehow consolidate ResolvedFunction and NEW_ResolvedFunction into a single type!
@@ -104,7 +83,11 @@ class IRGenerator {
     
     
     irgen::Scope scope;
-    irgen::TypeCache typeCache;
+    //irgen::TypeCache typeCache;
+    
+    // Finalized nominal types
+    // If the type is a template specialization, the key is the mangled name
+    std::map<std::string, Type *> nominalTypes;
     
     llvm::Type *i8, *i16, *i32, *i64;
     llvm::Type *i8_ptr;
@@ -153,8 +136,6 @@ private:
     void registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl);
     void registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock);
     
-    void verifyDeclarations();
-    
     // Debug Metadata
     void emitDebugLocation(const std::shared_ptr<ast::Node> &node);
     
@@ -163,6 +144,7 @@ private:
     enum class CodegenReturnValueKind {
         Value, Address
     };
+    
     
     // Codegen
     llvm::Value *codegen(std::shared_ptr<ast::TopLevelStmt>);
@@ -176,7 +158,7 @@ private:
     
     llvm::Value *codegen(std::shared_ptr<ast::Composite>);
     llvm::Value *codegen(std::shared_ptr<ast::ReturnStmt>);
-    llvm::Value *codegen(std::shared_ptr<ast::VariableDecl>);
+    llvm::Value *codegen(std::shared_ptr<ast::VarDecl>);
     llvm::Value *codegen(std::shared_ptr<ast::Assignment>);
     llvm::Value *codegen(std::shared_ptr<ast::IfStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::WhileStmt>);
@@ -185,11 +167,11 @@ private:
     llvm::Value *codegen(std::shared_ptr<ast::NumberLiteral>);
     llvm::Value *codegen(std::shared_ptr<ast::StringLiteral>);
     
-    llvm::Value *codegen(std::shared_ptr<ast::Typecast>);
-    llvm::Value *codegen(std::shared_ptr<ast::BinaryOperation>);
+    llvm::Value *codegen(std::shared_ptr<ast::CastExpr>);
+    llvm::Value *codegen(std::shared_ptr<ast::BinOp>);
     llvm::Value *codegen(std::shared_ptr<ast::UnaryExpr>);
     
-    llvm::Value *codegen(std::shared_ptr<ast::Identifier>, CodegenReturnValueKind);
+    llvm::Value *codegen(std::shared_ptr<ast::Ident>, CodegenReturnValueKind);
     llvm::Value *codegen(std::shared_ptr<ast::RawLLVMValueExpr>);
     
     llvm::Value *codegen(std::shared_ptr<ast::Comparison>);
@@ -207,7 +189,7 @@ private:
     llvm::Value *codegen(std::shared_ptr<ast::MatchExpr>);
     
     struct MatchExprPatternCodegenInfo {
-        TypeInfo *targetType; // type of the expression we're matching against
+        Type *targetType; // type of the expression we're matching against
         std::shared_ptr<ast::Expr> targetExpr; // the expression we're matching against
         llvm::Value *targetLLVMValue; // Codegen result for TargetExpr
         std::shared_ptr<ast::Expr> patternExpr;
@@ -217,8 +199,10 @@ private:
     
     
     // Types
-    llvm::Type *getLLVMType(TypeInfo *TI);
-    llvm::DIType *getDIType(TypeInfo *TI);
+    Type* resolveTypeDesc(std::shared_ptr<ast::TypeDesc>);
+    llvm::Type *getLLVMType(Type *);
+    llvm::DIType *getDIType(Type *);
+    
     
     
     llvm::DISubroutineType *_toDISubroutineType(ast::FunctionSignature *);
@@ -232,10 +216,10 @@ private:
     // both return true on success
     
     // `TypeOfExpr`: initial (unchanged) type of `Expr`
-    bool typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *expr, TypeInfo *expectedType, TypeInfo **initialTypeOfExpr = nullptr);
+    bool typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *expr, Type *expectedType, Type **initialTypeOfExpr = nullptr);
     
     // `{Lhs|Rhs}Ty`: type of lhs/rhs, after applying typecasts, if casts were applied
-    bool typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *lhs, std::shared_ptr<ast::Expr> *rhs, TypeInfo **lhsTy, TypeInfo **rhsTy);
+    bool typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *lhs, std::shared_ptr<ast::Expr> *rhs, Type **lhsTy, Type **rhsTy);
     
     
     llvm::Value *generateStructInitializer(std::shared_ptr<ast::StructDecl> structDecl);
@@ -244,19 +228,18 @@ private:
     // Other stuff
     std::shared_ptr<ast::FunctionSignature> getResolvedFunctionWithName(const std::string &name);
     
-    TypeInfo *instantiateTemplatedType(TypeInfo *TI);
+    Type *instantiateTemplatedType(std::shared_ptr<ast::TypeDesc>);
     
     // set omitCodegen to true if you only care about the return type of the call
     // for each callExpr, omitCodegen should be false exactly once!!!
     NEW_ResolvedFunction resolveCall(std::shared_ptr<ast::CallExpr>, bool omitCodegen);
-    std::optional<std::map<std::string, TypeInfo *>> attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset);
+    std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset);
     
-    TypeInfo *guessType(std::shared_ptr<ast::Expr>);
-    TypeInfo *guessType(std::shared_ptr<ast::NumberLiteral>);
+    //TypeInfo *guessType(std::shared_ptr<ast::Expr>);
+    //TypeInfo *guessType(std::shared_ptr<ast::NumberLiteral>);
+    Type* guessType(std::shared_ptr<ast::Expr>);
     
-    // Returns true if SrcType is trivially convertible to DestType
-    bool isTriviallyConvertible(TypeInfo *srcType, TypeInfo *destType);
-    bool valueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiteral> number, TypeInfo *TI);
+    bool valueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiteral>, Type *);
     
     
     

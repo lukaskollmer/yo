@@ -16,7 +16,7 @@ std::string TokenKindToString(Token::TokenKind kind) {
     switch (kind) {
         CASE(Unknown)
         CASE(EOF_)
-        CASE(Identifier)
+        CASE(Ident)
         CASE(IntegerLiteral)
         CASE(OpeningParens)
         CASE(ClosingParens)
@@ -86,7 +86,7 @@ std::ostream &yo::parser::operator<<(std::ostream &OS, const Token::TokenKind TK
 std::ostream& yo::parser::operator<<(std::ostream &OS, const Token &T) {
     OS << "<Token " << TokenKindToString(T.getKind());
     switch (T.getKind()) {
-        case Token::TokenKind::Identifier:
+        case Token::TokenKind::Ident:
         case Token::TokenKind::StringLiteral:
         case Token::TokenKind::ByteStringLiteral:
         case Token::TokenKind::Whitespace:

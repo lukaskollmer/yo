@@ -26,11 +26,11 @@ using namespace yo::ast;
 
 
 
-static std::shared_ptr<ast::Identifier> _emptyIdent;
+static std::shared_ptr<ast::Ident> _emptyIdent;
 
-std::shared_ptr<ast::Identifier> ast::Identifier::emptyIdent() {
+std::shared_ptr<ast::Ident> ast::Ident::emptyIdent() {
     if (!_emptyIdent) {
-        _emptyIdent = std::make_shared<ast::Identifier>("");
+        _emptyIdent = std::make_shared<ast::Ident>("");
     }
     return _emptyIdent;
 }
@@ -77,8 +77,8 @@ std::string FunctionKindToString(FunctionSignature::FunctionKind kind) {
     }
 }
 
-std::string BinopOperationToString(BinaryOperation::Operation op) {
-    using E = BinaryOperation::Operation;
+std::string BinopOperationToString(BinOp::Operation op) {
+    using E = BinOp::Operation;
     switch (op) {
         CASE(Add)
         CASE(Sub)
@@ -208,13 +208,18 @@ std::string to_string(T arg) {
     } else if constexpr(std::is_integral_v<T>) {
         return std::to_string(arg);
     
-    } else if constexpr(std::is_same_v<T, TypeInfo *>) {
+    //} else if constexpr(std::is_same_v<T, TypeInfo *>) {
+    //    return arg->str();
+    } else if constexpr(std::is_same_v<T, TypeDesc*> || std::is_convertible_v<T, std::shared_ptr<TypeDesc>>) {
+        return arg->str();
+        
+    } else if constexpr(std::is_base_of_v<irgen::Type, typename std::remove_pointer_t<T>>) {
         return arg->str();
     
     } else if constexpr(std::is_same_v<T, FunctionSignature::FunctionKind>) {
         return FunctionKindToString(arg);
     
-    } else if constexpr(std::is_same_v<T, BinaryOperation::Operation>) {
+    } else if constexpr(std::is_same_v<T, BinOp::Operation>) {
         return BinopOperationToString(arg);
     
     } else if constexpr(std::is_same_v<T, Comparison::Operation>) {
@@ -302,13 +307,13 @@ Mirror Reflect(NumberLiteral *number) {
     };
 }
 
-Mirror Reflect(Identifier *ident) {
+Mirror Reflect(Ident *ident) {
     return {
         { "value", ident->value }
     };
 }
 
-Mirror Reflect(BinaryOperation *binop) {
+Mirror Reflect(BinOp *binop) {
     return {
         { "op", binop->op },
         { "lhs", binop->lhs },
@@ -316,7 +321,7 @@ Mirror Reflect(BinaryOperation *binop) {
     };
 }
 
-Mirror Reflect(VariableDecl *decl) {
+Mirror Reflect(VarDecl *decl) {
     return {
         { "name", decl->name },
         { "type", decl->type },
@@ -361,7 +366,7 @@ Mirror Reflect(Assignment *assignment) {
     };
 }
 
-Mirror Reflect(Typecast *cast) {
+Mirror Reflect(CastExpr *cast) {
     return {
         { "type", cast->destType },
         { "expr", cast->expression }
@@ -479,15 +484,15 @@ Mirror Reflect(Node *node) {
     HANDLE(Composite)
     HANDLE(ReturnStmt)
     HANDLE(NumberLiteral)
-    HANDLE(Identifier)
-    HANDLE(BinaryOperation)
-    HANDLE(VariableDecl)
+    HANDLE(Ident)
+    HANDLE(BinOp)
+    HANDLE(VarDecl)
     HANDLE(Comparison)
     HANDLE(LogicalOperation)
     HANDLE(IfStmt)
     HANDLE(IfStmt::Branch)
     HANDLE(Assignment)
-    HANDLE(Typecast)
+    HANDLE(CastExpr)
     HANDLE(StructDecl)
     HANDLE(ImplBlock)
     HANDLE(StringLiteral)

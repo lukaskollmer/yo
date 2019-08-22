@@ -27,7 +27,7 @@ fn markForRelease<T>(obj: T) {
 #[no_init]
 struct LKMetadataAccessor {
     retainCount: u64,
-    deallocPtr: fn#c(*i8): void
+    deallocPtr: #[convention=C] (*i8) -> void
 }
 
 

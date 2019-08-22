@@ -12,7 +12,7 @@
 #include <vector>
 #include <functional>
 #include "llvm/IR/Value.h"
-#include "TypeInfo.h"
+#include "Type.h"
 
 #include "util.h"
 
@@ -35,7 +35,7 @@ struct ValueBinding {
 class Scope {
     struct Entry {
         std::string ident;
-        TypeInfo *type;
+        Type *type;
         std::shared_ptr<ValueBinding> binding;
     };
     
@@ -44,12 +44,12 @@ class Scope {
 public:
     using Marker = uint64_t;
     
-    void insert(const std::string &identifier, TypeInfo *type, ValueBinding binding);
+    void insert(const std::string &identifier, Type *type, ValueBinding binding);
     
     // All of these return null if the scope doesn't contain the identifier
     bool contains(const std::string &name);
     ValueBinding *getBinding(const std::string &identifier);
-    TypeInfo *getType(const std::string &identifier);
+    Type *getType(const std::string &identifier);
     
     Entry remove(const std::string &identifier);
     Entry *_getEntry(const std::string &odentifier, std::vector<Entry>::const_iterator *pos = nullptr);

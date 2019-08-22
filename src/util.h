@@ -214,13 +214,13 @@ namespace vector {
 
 namespace map {
     template <typename K, typename V>
-    inline bool contains_key(const std::map<K, V> &map, const K &key) {
+    inline bool has_key(const std::map<K, V> &map, const K &key) {
         return map.find(key) != map.end();
     }
     
     template <typename K, typename V>
     inline std::optional<V> get_opt(const std::map<K, V> &map, const K &key) {
-        if (contains_key(map, key)) return map.at(key);
+        if (has_key(map, key)) return map.at(key);
         else return std::nullopt;
     }
 }

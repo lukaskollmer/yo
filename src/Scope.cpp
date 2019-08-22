@@ -12,7 +12,7 @@ using namespace yo;
 using namespace irgen;
 
 
-void Scope::insert(const std::string &identifier, TypeInfo *type, ValueBinding binding) {
+void Scope::insert(const std::string &identifier, Type *type, ValueBinding binding) {
     auto B = std::make_shared<ValueBinding>(std::move(binding));
     entries.push_back({identifier, type, B});
 }
@@ -21,7 +21,7 @@ ValueBinding *Scope::getBinding(const std::string &identifier) {
     return _getEntry(identifier)->binding.get();
 }
 
-TypeInfo *Scope::getType(const std::string &identifier) {
+Type *Scope::getType(const std::string &identifier) {
     return _getEntry(identifier)->type;
 }
 

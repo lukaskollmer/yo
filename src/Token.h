@@ -41,7 +41,7 @@ public:
         EOF_,
         
         // Tokens w/ associated data
-        Identifier,
+        Ident,
         StringLiteral, // TODO rename to NormalStringLiteral or StdStringLiteral?
         ByteStringLiteral,
         CharLiteral,

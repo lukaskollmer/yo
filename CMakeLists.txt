@@ -64,10 +64,10 @@ add_executable(yo
   src/TemplateResolution.cpp
   src/Token.h
   src/Token.cpp
-  src/TypeCache.h
-  src/TypeCache.cpp
-  src/TypeInfo.h
-  src/TypeInfo.cpp
+  src/Type.h
+  src/Type.cpp
+  src/TypeDesc.h
+  src/TypeDesc.cpp
 
   src/util.h
   src/util.cpp

@@ -356,7 +356,7 @@ Token& Lexer::handleRawToken(const std::string &tokenSourceText, Token::TokenKin
             token = Token(tokenSourceText, TK::BoolLiteral);
             token.setData<bool>(val - 1);
         } else {
-            token = Token(tokenSourceText, TK::Identifier);
+            token = Token(tokenSourceText, TK::Ident);
             token.setData(tokenSourceText);
         }
     }
