@@ -75,6 +75,8 @@ public:
     bool isFunctionTy() const { return typeId == TypeID::Function; }
     bool isStructTy() const { return typeId == TypeID::Struct; }
     
+    Type* getPointerElementType() const;
+    
     PointerType* getPointerTo();
 
     
@@ -91,6 +93,10 @@ public:
     static NumericalType* getUInt32Type();
     static NumericalType* getUInt64Type();
     static NumericalType* getFloat64Type(); // An IEEE 754 binary64 floating point type
+    
+    static bool classof(const Type *type) {
+        return type->getTypeId() == TypeID::Void; // Void is the only primitive that doesn't live in a subclass
+    }
 };
 
 
@@ -118,6 +124,9 @@ public:
     bool isSigned() const;
     bool isIntegerTy() const;
 
+    static bool classof(const Type *type) {
+        return type->getTypeId() == TypeID::Numerical;
+    }
 };
 
 
@@ -135,6 +144,10 @@ public:
     virtual std::string getName() const;
     virtual std::string str() const;
     Type* getPointee() const { return pointee; }
+    
+    static bool classof(const Type *type) {
+        return type->getTypeId() == TypeID::Pointer;
+    }
 };
 
 
@@ -161,6 +174,10 @@ public:
     
     static FunctionType* create(Type *returnType, std::vector<Type *> parameterTypes, CallingConvention cc) {
         return new FunctionType(returnType, parameterTypes, cc);
+    }
+    
+    static bool classof(const Type *type) {
+        return type->getTypeId() == TypeID::Function;
     }
 };
 
@@ -194,6 +211,10 @@ public:
     
     static StructType* create(std::string name, MembersT members) {
         return new StructType(name, members);
+    }
+    
+    static bool classof(const Type *type) {
+        return type->getTypeId() == TypeID::Struct;
     }
 };
 

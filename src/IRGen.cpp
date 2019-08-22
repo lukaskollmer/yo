@@ -20,6 +20,8 @@ using namespace yo;
 using namespace yo::irgen;
 using namespace yo::util::llvm_utils;
 
+using NK = ast::Node::NodeKind;
+
 
 inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
 static const std::string kRetvalAllocaIdentifier = "%retval";
@@ -125,18 +127,17 @@ void IRGenerator::preflight(ast::AST &ast) {
     std::vector<std::shared_ptr<ast::StructDecl>> structDecls;
     std::vector<std::shared_ptr<ast::ImplBlock>> implBlocks;
     
-#define HANDLE(T, dest) if (auto X = std::dynamic_pointer_cast<ast::T>(node)) { dest.push_back(X); continue; }
-    
+#define CASE(node, kind, dest) case NK::kind: { dest.push_back(std::static_pointer_cast<ast::kind>(node)); continue; }
     for (auto &node : ast) {
-        HANDLE(TypealiasDecl, typealiases)
-        HANDLE(FunctionDecl, functionDecls)
-        HANDLE(StructDecl, structDecls)
-        HANDLE(ImplBlock, implBlocks)
-        
-        unhandled_node(node)
+        switch(node->getNodeKind()) {
+            CASE(node, TypealiasDecl, typealiases)
+            CASE(node, FunctionDecl, functionDecls)
+            CASE(node, StructDecl, structDecls)
+            CASE(node, ImplBlock, implBlocks)
+            default: continue;
+        }
     }
-    
-#undef HANDLE
+#undef CASE
     
     for (auto &typealiasDecl : typealiases) {
         // TODO is this a good idea?
@@ -228,13 +229,10 @@ void IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl
         LKFatalError("TODO");
     }
     
-    // Might be null!
-    auto LKMetadataAccessor = static_cast<StructType *>(nominalTypes["LKMetadataAccessor"]);
-    
+    auto LKMetadataAccessor = llvm::dyn_cast_or_null<StructType>(nominalTypes["LKMetadataAccessor"]);
     
     auto structName = structDecl->name->value;
     // TODO add a check somewhere here to make sure there are no duplicate struct members
-    
     
     uint64_t memberCount = structDecl->members.size();
     if (LKMetadataAccessor) memberCount += LKMetadataAccessor->getMembers().size();
@@ -295,7 +293,7 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
             }
         }
         fn->signature->kind = kind;
-        fn->signature->implType = static_cast<StructType *>(type);
+        fn->signature->implType = llvm::dyn_cast<StructType>(type);
         registerFunction(fn);
     }
 }
@@ -308,9 +306,9 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
 
 
 
-#define CASE(node, kind, ...) case ast::Node::NodeKind::kind: return codegen(std::static_pointer_cast<ast::kind>(node), ## __VA_ARGS__);
-#define CASE2(node, kind, ty, ...) case ast::Node::NodeKind::kind: return codegen(std::static_pointer_cast<ast::ty>(node), ## __VA_ARGS__);
-#define SKIP(node, kind) case ast::Node::NodeKind::kind: return nullptr;
+#define CASE(node, kind, ...) case NK::kind: return codegen(std::static_pointer_cast<ast::kind>(node), ## __VA_ARGS__);
+#define CASE2(node, kind, ty, ...) case NK::kind: return codegen(std::static_pointer_cast<ast::ty>(node), ## __VA_ARGS__);
+#define SKIP(node, kind) case NK::kind: return nullptr;
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
     switch (TLS->getNodeKind()) {
@@ -559,9 +557,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         auto &param = signature->parameters.at(i);
         auto varInfo = debugInfo.builder.createParameterVariable(SP, alloca->getName(), i + 1, unit,
                                                                  param->getSourceLocation().line,
-                                                                 //getDIType(param->type)
-                                                                 resolveTypeDesc(param->type)->getLLVMDIType()
-                                                                 );
+                                                                 resolveTypeDesc(param->type)->getLLVMDIType());
         debugInfo.builder.insertDeclare(alloca, varInfo, debugInfo.builder.createExpression(),
                                 llvm::DILocation::get(C, param->getSourceLocation().line, param->getSourceLocation().column, SP),
                                 entryBB);
@@ -760,7 +756,7 @@ bool integerLiteralFitsInType(uint64_t value, Type *type) {
 #define HANDLE(size_expr, signed_t, unsigned_t) if (size == (size_expr)) { return isSigned ? value_fits_in_type<signed_t>(value) : value_fits_in_type<unsigned_t>(value); }
     
     LKAssert(type->isNumericalTy());
-    auto *numTy = static_cast<NumericalType *>(type);
+    auto *numTy = llvm::dyn_cast<NumericalType>(type);
     auto size = numTy->getSize();
     bool isSigned = numTy->isSigned();
     
@@ -930,7 +926,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> cast) {
                     op = llvm::Instruction::CastOps::Trunc;
                 } else {
                     // casting to a larger type
-                    if (static_cast<NumericalType *>(srcTy)->isSigned()) {
+                    if (llvm::dyn_cast<NumericalType>(srcTy)->isSigned()) {
                         op = llvm::Instruction::CastOps::SExt;
                     } else {
                         op = llvm::Instruction::CastOps::ZExt;
@@ -956,9 +952,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, C
     
     auto targetTy = guessType(memberExpr->target);
     LKAssert(targetTy->isPointerTy());
-    auto pointerTy = static_cast<PointerType *>(targetTy);
+    auto pointerTy = llvm::dyn_cast<PointerType>(targetTy);
     LKAssert(pointerTy->getPointee()->isStructTy());
-    auto structTy = static_cast<StructType *>(pointerTy->getPointee());
+    auto structTy = llvm::dyn_cast<StructType>(pointerTy->getPointee());
     
     auto [memberIndex, memberType] = structTy->getMember(memberExpr->memberName);
     LKAssert(memberType != nullptr && "member does not exist");
@@ -967,15 +963,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, C
         llvm::ConstantInt::get(i32, 0),
         llvm::ConstantInt::get(i32, memberIndex)
     };
-    
-    //llvm::outs() << offsets[0] << " | " << offsets[1] << '\n';
-    
-    //auto _1 = codegen(memberExpr->target);
-    //llvm::outs() << _1 << "\n";
-    
-    //auto Ty = _1->getType();
-    //llvm::outs() << Ty << "\n";
-    //llvm::outs() << Ty->getPointerElementType() << "\n";
     
     auto V = builder.CreateGEP(codegen(memberExpr->target), offsets);
     
@@ -1015,8 +1002,8 @@ bool isValidMatchPatternForMatchedExprType(std::shared_ptr<ast::Expr> patternExp
     // Only patterns that are trivially and can be matched w/out side effects are allowed
     // TODO add the side effect checking
     
-    if (dynamic_cast<ast::Ident *>(patternExpr.get())) {
-        throw;
+    if (patternExpr->getNodeKind() == NK::Ident) {
+        LKFatalError("TODO");
         return true;
     }
     
@@ -1233,21 +1220,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::BinOp> binop) {
     
     LKAssert(lhsTy->isNumericalTy() && rhsTy->isNumericalTy());
     LKAssert(lhsTy == rhsTy);
-    bool isSigned = static_cast<NumericalType *>(lhsTy)->isSigned();
+    bool isSigned = llvm::dyn_cast<NumericalType>(lhsTy)->isSigned();
     return builder.CreateBinOp(getLLVMBinaryOpInstruction_Int(binop->op, isSigned), codegen(lhs), codegen(rhs));
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1306,7 +1281,7 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
             if (mapping->second == nullptr) {
                 while (paramIndirectionCount-- > 0) {
                     LKAssert(guessedArgumentType->isPointerTy());
-                    guessedArgumentType = static_cast<PointerType *>(guessedArgumentType)->getPointee();
+                    guessedArgumentType = llvm::dyn_cast<PointerType>(guessedArgumentType)->getPointee();
                 }
                 mapping->second = guessedArgumentType;
             } else {
@@ -1353,7 +1328,7 @@ NEW_ResolvedFunction IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> cal
         if (scope.contains(targetName)) {
             auto ty = scope.getType(targetName);
             LKAssert(ty->isFunctionTy() && "cannot call a non-function variable");
-            auto fnTy = static_cast<FunctionType *>(ty);
+            auto fnTy = llvm::dyn_cast<FunctionType>(ty);
             return NEW_ResolvedFunction(makeFunctionSignatureFromFunctionTypeInfo(fnTy),
                                         omitCodegen ? nullptr : codegen(ident),
                                         argumentOffsetForCallingConvention(fnTy->getCallingConvention()));
@@ -1371,21 +1346,15 @@ NEW_ResolvedFunction IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> cal
         
         auto targetTy = guessType(memberExpr->target);
         LKAssert(targetTy->isPointerTy());
-        auto ptrTy = static_cast<PointerType *>(targetTy);
+        auto ptrTy = llvm::dyn_cast<PointerType>(targetTy);
         LKAssert(ptrTy->getPointee()->isStructTy());
-        auto structTy = static_cast<StructType *>(ptrTy->getPointee());
-        //LKAssert(targetTy->isPointerTy() && targetTy->getPointee()->isComplex());
-        // TODO re-implement the ->isComplex() assertion
-        //auto structName = targetTy->getPointee()->getName();
+        auto structTy = llvm::dyn_cast<StructType>(ptrTy->getPointee());
         auto structName = structTy->getName();
         
-        //if (typeCache.structHasMember(structName, memberExpr->memberName)) {
-        //if (structTy->hasMember(memberExpr->memberName)) {
         if (auto [memberIndex, memberTy] = structTy->getMember(memberExpr->memberName); memberTy != nullptr) {
-            //auto memberTy = typeCache.getMember(structName, memberExpr->memberName).second;
             LKAssert(memberTy->isFunctionTy() && "cannot call a non-function struct member");
             // struct properties cannot be overloaded, simply return what we found
-            auto fnTy = static_cast<FunctionType *>(memberTy);
+            auto fnTy = llvm::dyn_cast<FunctionType>(memberTy);
             return NEW_ResolvedFunction(makeFunctionSignatureFromFunctionTypeInfo(fnTy),
                                         omitCodegen ? nullptr : codegen(memberExpr),
                                         argumentOffsetForCallingConvention(fnTy->getCallingConvention()));
@@ -1663,7 +1632,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::UnaryExpr> unaryExpr) {
         
         case ast::UnaryExpr::Operation::LogicalNegation: {
             auto ty = guessType(expr);
-            LKAssert(ty == Type::getBoolType() || ty->isPointerTy() || (ty->isNumericalTy() && static_cast<NumericalType *>(ty)->isIntegerTy()));
+            LKAssert(ty == Type::getBoolType() || ty->isPointerTy() || (ty->isNumericalTy() && llvm::dyn_cast<NumericalType>(ty)->isIntegerTy()));
             return builder.CreateIsNull(codegen(expr)); // TODO this seems like a cop-out answer?
         }
     }
@@ -1778,7 +1747,7 @@ void vec_append(std::vector<T> &dest, const std::vector<T> &src) {
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ForLoop> forLoop) {
     emitDebugLocation(forLoop);
     
-    // TODO this is disgusting
+    // TODO the code below is pretty bad
     
     LKFatalError("TODO");
     
@@ -1862,8 +1831,8 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Comparison> comparison) {
         LKFatalError("Cannot compare unrelated types '%s' and '%s'", rhsTy->str().c_str(), rhsTy->str().c_str());
     }
     
-    auto numTyLhs = static_cast<NumericalType *>(lhsTy);
-    auto numTyRhs = static_cast<NumericalType *>(rhsTy);
+    auto numTyLhs = llvm::dyn_cast<NumericalType>(lhsTy);
+    auto numTyRhs = llvm::dyn_cast<NumericalType>(rhsTy);
     
     //if (lhsTy->equals(rhsTy)) {
     if (numTyLhs == numTyRhs) {
@@ -1930,7 +1899,7 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
             return handle_llvm_type(Void);
         
         case Type::TypeID::Numerical: {
-            auto numTy = static_cast<NumericalType *>(type);
+            auto numTy = llvm::dyn_cast<NumericalType>(type);
             switch (numTy->getNumericalTypeID()) {
                 case NumericalType::NumericalTypeID::Bool:
                     return handle_llvm_type(Bool);
@@ -1963,7 +1932,7 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
             Type *ty = type;
             while (ty->isPointerTy()) {
                 numIndirections += 1;
-                ty = static_cast<PointerType *>(ty)->getPointee();
+                ty = llvm::dyn_cast<PointerType>(ty)->getPointee();
             }
             
             auto llvmType = getLLVMType(ty);
@@ -1975,7 +1944,7 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
         }
         
         case Type::TypeID::Struct: {
-            auto structTy = static_cast<StructType *>(type);
+            auto structTy = llvm::dyn_cast<StructType>(type);
             auto name = structTy->getName();
             
             auto llvmStructTy = llvm::StructType::create(C, name);
@@ -1986,7 +1955,7 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
         }
         
         case Type::TypeID::Function: {
-            auto fnTy = static_cast<FunctionType *>(type);
+            auto fnTy = llvm::dyn_cast<FunctionType>(type);
             auto paramTypes = util::vector::map(fnTy->getParameterTypes(), [this](auto ty) { return getLLVMType(ty); });
             auto llvmFnTy = llvm::FunctionType::get(getLLVMType(fnTy->getReturnType()), paramTypes, false); // TODO support variadic function types?
             return handle_llvm_type(llvmFnTy->getPointerTo());
@@ -2024,19 +1993,19 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
             return nullptr;
         
         case Type::TypeID::Pointer: {
-            auto pointee = static_cast<PointerType *>(type)->getPointee();
+            auto pointee = llvm::dyn_cast<PointerType>(type)->getPointee();
             return handle_di_type(debugInfo.builder.createPointerType(getDIType(pointee), pointerWidth));
         }
         
         case Type::TypeID::Numerical: {
-            auto numTy = static_cast<NumericalType *>(type);
+            auto numTy = llvm::dyn_cast<NumericalType>(type);
             auto ty = debugInfo.builder.createBasicType(numTy->getName(), numTy->getPrimitiveSizeInBits(),
                                                         numTy->isSigned() ? llvm::dwarf::DW_ATE_signed : llvm::dwarf::DW_ATE_unsigned);
             return handle_di_type(ty);
         }
         
         case Type::TypeID::Function: {
-            auto fnTy = static_cast<FunctionType *>(type);
+            auto fnTy = llvm::dyn_cast<FunctionType>(type);
             
             std::vector<llvm::Metadata *> paramTypes;
             paramTypes.reserve(fnTy->getNumberOfParameters());
@@ -2052,7 +2021,7 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
         }
         
         case Type::TypeID::Struct: {
-            auto structTy = static_cast<StructType *>(type);
+            auto structTy = llvm::dyn_cast<StructType>(type);
             auto name = structTy->getName();
             
             return nullptr; // TODO implement
@@ -2122,7 +2091,7 @@ bool IRGenerator::valueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiter
     
     //LKAssert(number->type == NT::Integer && TI->isIntegerType());
     LKAssert(number->type == NT::Integer && type->isNumericalTy());
-    auto numTy = static_cast<NumericalType *>(type);
+    auto numTy = llvm::dyn_cast<NumericalType>(type);
     LKAssert(numTy->isIntegerTy());
     LKAssert(number->value >= 0); // TODO whatthefuc? this will never be false since ast::NumberLitera::Value is unsigned!!!!!
     
@@ -2137,7 +2106,6 @@ bool IRGenerator::valueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiter
 
 
 Type* IRGenerator::guessType(std::shared_ptr<ast::Expr> expr) {
-    using NK = ast::Node::NodeKind;
     switch (expr->getNodeKind()) {
         case NK::NumberLiteral: {
             using NT = ast::NumberLiteral::NumberType;
@@ -2184,16 +2152,16 @@ Type* IRGenerator::guessType(std::shared_ptr<ast::Expr> expr) {
             // TODO allow non-pointer subscripting
             auto targetTy = guessType(static_cast<ast::SubscriptExpr *>(expr.get())->target);
             LKAssert(targetTy->isPointerTy());
-            return static_cast<PointerType *>(targetTy)->getPointee();
+            return llvm::dyn_cast<PointerType>(targetTy)->getPointee();
         }
         
         case NK::MemberExpr: {
             auto memberExpr = static_cast<ast::MemberExpr *>(expr.get());
             auto targetTy = guessType(memberExpr->target);
             LKAssert(targetTy->isPointerTy());
-            auto ptrTy = static_cast<PointerType *>(targetTy);
+            auto ptrTy = llvm::dyn_cast<PointerType>(targetTy);
             LKAssert(ptrTy->getPointee()->isStructTy());
-            return static_cast<StructType *>(ptrTy->getPointee())->getMember(memberExpr->memberName).second;
+            return llvm::dyn_cast<StructType>(ptrTy->getPointee())->getMember(memberExpr->memberName).second;
         }
         
         case NK::UnaryExpr: {
@@ -2270,7 +2238,7 @@ namespace astgen {
 
 llvm::Value *IRGenerator::generateStructInitializer(std::shared_ptr<ast::StructDecl> structDecl) {
     auto structName = structDecl->name->value;
-    auto structType = static_cast<StructType *>(nominalTypes[structName]);
+    auto structType = llvm::dyn_cast<StructType>(nominalTypes[structName]);
 
     auto F = functions[mangling::mangleCanonicalName(structName, "init", ast::FunctionSignature::FunctionKind::StaticMethod)][0].decl;
 
