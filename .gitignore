@@ -15,6 +15,7 @@ _deps
 yo.xcodeproj/
 
 # Other
+.DS_Store
 temp/
 yo.build/
 Debug/
