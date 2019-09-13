@@ -14,7 +14,7 @@ fn main(): i32 {
 }
 ```
 
-## Getting started
+## Learn more
 
 - <a class="casual-underlined" href="/spec.html">Language Specification</a>
 - <a class="casual-underlined" href="/docs/index.html">Documentation</a>

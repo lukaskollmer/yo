@@ -5,8 +5,6 @@ title: Specification
 
 
 
-<!-- > **NOTE:** This is very much still work in progress and does not necessarily describe the language as implemented in the [GitHub repo](https://github.com/lukaskollmer/yo) -->
-
 
 > **NOTE:** This is very much still work in progress and does not necessarily describe the language as implemented in the <a class="casual-underlined" href="https://github.com/lukaskollmer/yo">GitHub repo</a>
 
@@ -40,23 +38,7 @@ ident  = <letter> (<letter>|<digit>)*
 <h3 sectionId="yo.lex.keyword">Keywords</h3>
 Yo reserves the following keywords:
 ```
-as
-else
-fn
-if
-impl
-let
-return
-struct
-use
-while
-
-for
-in
-defer
-match
-mut
-var
+defer else fn for if impl in let mut match return struct use var while
 ```
 
 
@@ -119,16 +101,16 @@ The `b` and `r` prefixes can be combined to create a raw bytestring.
 <h3 sectionId="yo.types.primitive">Primitive types</h3>
 Yo defines the following primitive types:
 
-| Typename | Size (bytes) | Description           | Valid values             |
+| Typename | Size (bytes) | Description           | Values                   |
 | :------- | :----------- | :-------------------- | :----------------------- |
 | `void`   | 0            | the void type         | n/a                      |
 | `u{N}`   | N/8          | unsigned integer type | `0 ... 2^N-1`            |
 | `i{N}`   | N/8          | signed integer type   | `-2^(N-1) ... 2^(N-1)-1` |
 | `bool`   | 1            | the boolean type      | `true`, `false`          |
-| `double` | 8            | todo                  | todo                     |
+| `f64`    | 8            | IEEE-754 binary64     | todo                     |
 
 - Valid integer type sizes are: N = 8, 16, 32, 64
-- An integer type's prefix indicates it's signedness: `i8` is a signed integer, `u8` an unsigned integer
+- An integer type's prefix indicates its signedness: `i8` is a signed integer, `u8` an unsigned integer
 - A pointer to a type is declared by prefixing the type with an asterisk: `*i8` is a pointer to an `i8`
 - Pointers can only point to types with a size > 0. The yo equivalent of C's `void*` is `*i8`
 
@@ -160,15 +142,16 @@ fn printf(*i8, ...): i64;
 #### Function pointer types
 The following syntax denotes a function pointer type:
 ```rust
-fn(T...): U     // yo function pointer
-fn#c(T...): U   //  C function pointer
+(A1, A2, ...) -> R
 ```
-- `T...`: The function's parameter types
-- `U`: The function's return type
+- `A1, A2, ...`: The function's parameter types
+- `R`: The function's return type
 
-**Example**  
+**Example** A struct storing a function pointer
 ```rust
-x
+struct Foo {
+    add: (i64, i64) -> i64
+}
 ```
 
 
@@ -207,12 +190,22 @@ Every expression evaluates to a value of a specific type, which must be known at
 
 <h3 sectionId="yo.expr.cast">Type conversions</h3>
 
-#### static_cast type conversion
-The `static_cast<T>(<expr>)` intrinsic converts between related types
+- **`static_cast`**
+```rust
+#[intrinsic]
+fn static_cast<R, T>(arg: T) -> R;
+```
+The `static_cast` intrinsic converts an expression of type `T` to a related type `R` if there is a known conversion from `T` to `R`.
+The following conversions are built-in:
+  - i8 > u8
+  - f64 > int
 
-#### reinterpret_cast pointer type conversion
-The `reinterpret_cast<T>(<expr>)` intrinsic converts between pointer types, by reinterpreting the underlying bit pattern
-
+- **`reinterpret_cast`**
+```rust
+#[intrinsic]
+fn reinterpret_cast<R, T>(arg: T) -> R;
+```
+The `reinterpret_cast` intrinsic converts between any two types `T` and `R`, by reinterpreting the value's bit pattern. `T` and `R` are required to have the exact same bit width.
 
 
 <h3 sectionId="yo.expr.lambda">Lambdas</h3>
