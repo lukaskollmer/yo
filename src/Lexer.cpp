@@ -11,8 +11,7 @@
 #include <map>
 
 #include "Lexer.h"
-#include "CharacterSet.h"
-//#include "util.h"
+#include "util.h"
 
 
 using namespace yo;
@@ -22,15 +21,48 @@ using TK = Token::TokenKind;
 
 static constexpr char DOUBLE_QUOTE = '"';
 
-static CharacterSet letters({{'a', 'z'}, {'A', 'Z'}});
-static CharacterSet whitespaceCharacters(" "); // TODO make this "all whitespace" instead
-static CharacterSet binaryDigits("01");
-static CharacterSet octalDigits("01234567");
-static CharacterSet decimalDigits("0123456789");
-static CharacterSet hexadecimalDigits("0123456789abcdef");
-static CharacterSet identifierStartCharacters = letters.joined(CharacterSet("_"));
-static CharacterSet identifierCharacters = identifierStartCharacters.joined(decimalDigits);
-static CharacterSet singleCharTokens(".,+-*/;:=<>%!&^#|~(){}[]@");
+
+inline bool charIsInInclusiveRange(char c, char start, char end) {
+    return c >= start && c <= end;
+}
+
+
+inline bool isWhitespaceChar(char c) {
+    return c == ' '; // TODO there are other kinds of whitespace
+}
+
+inline bool isBinaryDigitChar(char c) {
+    return c == '0' || c == '1';
+}
+
+inline bool isOctalDigitChar(char c) {
+    return charIsInInclusiveRange(c, '0', '7');
+}
+
+inline bool isDecimalDigitChar(char c) {
+    return charIsInInclusiveRange(c, '0', '9');
+}
+
+inline bool isHexDigitChar(char c) {
+    return charIsInInclusiveRange(c, '0', '9') || charIsInInclusiveRange(c, 'a', 'f');
+}
+
+inline bool isLetterChar(char c) {
+    return charIsInInclusiveRange(c, 'a', 'z') || charIsInInclusiveRange(c, 'A', 'Z');
+}
+
+inline bool isIdentStartChar(char c) {
+    return c == '_' || isLetterChar(c);
+}
+
+inline bool isIdentChar(char c) {
+    return isIdentStartChar(c) || isDecimalDigitChar(c);
+}
+
+inline bool isSingleCharToken(char c) {
+    static std::string_view singleCharTokens = ".,+-*/;:=<>%!&^#|~(){}[]@";
+    return singleCharTokens.find(c) != std::string_view::npos;
+}
 
 
 
@@ -96,7 +128,8 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string &fi
     for (offset = 0; offset < length; offset++) {
         auto c = sourceText[offset];
         
-        if (whitespaceCharacters.contains(c)) {
+        //if (whitespaceCharacters.contains(c)) {
+        if (isWhitespaceChar(c)) {
             if (preserveFullInput) {
                 handleRawToken(std::string(1, c), TK::Whitespace);
             }
@@ -163,7 +196,7 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string &fi
             
             auto x = sourceText[++offset];
             // Offset at this point is now the character after the backslash
-            if (x == 'x' || octalDigits.contains(x)) { // Hex or octal value
+            if (x == 'x' || isOctalDigitChar(x)) { // Hex or octal value
                 auto isHex = x == 'x';
                 std::string rawValue;
                 
@@ -172,7 +205,7 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string &fi
                     rawValue.push_back(sourceText[++offset]);
                     offset++;
                 } else {
-                    while (octalDigits.contains(sourceText[offset]) && rawValue.length() < 3) {
+                    while (isOctalDigitChar(sourceText[offset]) && rawValue.length() < 3) {
                         rawValue.push_back(sourceText[offset++]);
                     }
                 }
@@ -264,24 +297,24 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string &fi
         // If either of these is true, the string should've been handled above
         LKAssert(!isRawStringLiteral && !isByteStringLiteral);
         
-        if (singleCharTokens.contains(c)) {
+        if (isSingleCharToken(c)) {
             std::string x(1, c);
             handleRawToken(x);
             continue;
         }
         
-        if (identifierStartCharacters.contains(c)) {
+        if (isIdentStartChar(c)) {
             std::string ident;
             do {
                 ident.push_back(c);
                 c = sourceText[++offset];
-            } while (identifierCharacters.contains(c));
+            } while (isIdentChar(c));
             handleRawToken(ident);
             offset--;
             continue;
         }
         
-        if (decimalDigits.contains(c)) { // Number literal
+        if (isDecimalDigitChar(c)) { // Number literal
             uint8_t base = 10;
             std::string rawValue;
             auto next = sourceText[offset + 1];
@@ -293,11 +326,11 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string &fi
                 } else if (next == 'x') {
                     offset += 2;
                     base = 16;
-                } else if (octalDigits.contains(next)) {
+                } else if (isOctalDigitChar(next)) {
                     base = 8;
                 } else {
                     // A single 0, not followed by another numeric digit
-                    LKAssert(!hexadecimalDigits.contains(next));
+                    LKAssert(!isHexDigitChar(next));
                 }
             }
             
@@ -306,7 +339,7 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string &fi
             
             do {
                 rawValue.push_back(sourceText[offset]);
-            } while (hexadecimalDigits.contains(sourceText[++offset]));
+            } while (isHexDigitChar(sourceText[++offset]));
             
             
             uint64_t value;
@@ -335,7 +368,7 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string &fi
 
 
 // this might seems stupid, but it does in fact save 2 string comparisons per identifier parsed
-uint8_t _isBoolLiteral(std::string_view str) {
+uint8_t isBoolLiteral(std::string_view str) {
     if (str == "false") return 1;
     else if (str == "true") return 2;
     else return 0;
@@ -351,8 +384,8 @@ Token& Lexer::handleRawToken(const std::string &tokenSourceText, Token::TokenKin
     else if (auto it = tokenKindMappings.find(tokenSourceText); it != tokenKindMappings.end()) {
         token = Token(tokenSourceText, it->second);
     }
-    else if (identifierStartCharacters.contains(tokenSourceText.at(0)) && identifierCharacters.containsAllCharactersInString(tokenSourceText.substr(1))) {
-        if (auto val = _isBoolLiteral(tokenSourceText); val != 0) {
+    else if (isIdentStartChar(tokenSourceText[0]) && util::string::allCharsMatch(tokenSourceText.substr(1), isIdentChar)) {
+        if (auto val = isBoolLiteral(tokenSourceText); val != 0) {
             token = Token(tokenSourceText, TK::BoolLiteral);
             token.setData<bool>(val - 1);
         } else {

@@ -52,6 +52,9 @@ std::string util::typeinfo::demangle(const char *name) {
 }
 
 
+
+#pragma mark - util::string
+
 bool util::string::contains(const std::string_view string, const std::string_view other) {
     return string.find(other) != std::string_view::npos;
 }
@@ -79,15 +82,15 @@ bool util::string::has_suffix(const std::string_view string, const std::string_v
 }
 
 
-std::string util::string::substr_with_range(const std::string string, Range range) {
+std::string util::string::substr_with_range(const std::string &string, Range range) {
     return string.substr(range.location, range.length);
 }
 
-std::string util::string::substr_from_index(const std::string string, LKUInteger index) {
+std::string util::string::substr_from_index(const std::string &string, LKUInteger index) {
     return string.substr(index, string.length() - index);
 }
 
-std::string util::string::substr_to_index(const std::string string, LKInteger index) {
+std::string util::string::substr_to_index(const std::string &string, LKInteger index) {
     if (index < 0) {
         return string.substr(0, string.length() + index);
     }
@@ -95,7 +98,7 @@ std::string util::string::substr_to_index(const std::string string, LKInteger in
 }
 
 
-std::string util::string::replace_all(const std::string string, const std::string pattern, const std::string replacement) {
+std::string util::string::replace_all(const std::string &string, const std::string &pattern, const std::string &replacement) {
     std::string retval = string;
     size_t index = 0;
     while (true) {
@@ -112,7 +115,7 @@ std::string util::string::replace_all(const std::string string, const std::strin
 
 
 
-std::vector<std::string> util::string::split(const std::string string, const std::string delimiter) {
+std::vector<std::string> util::string::split(const std::string &string, const std::string &delimiter) {
     std::vector<std::string> retval;
     
     std::string::size_type pos = 0;
@@ -134,7 +137,7 @@ std::vector<std::string> util::string::split(const std::string string, const std
 
 
 
-std::string util::string::join(const std::vector<std::string> &strings, const std::string delimiter) {
+std::string util::string::join(const std::vector<std::string> &strings, const std::string &delimiter) {
     std::string retval;
     
     for (auto it = strings.begin(); it != strings.end(); it++) {
@@ -199,7 +202,7 @@ std::pair<std::string, std::string> util::string::extractPathAndFilename(const s
 
 
 
-std::string util::fs::read_file(const std::string path) {
+std::string util::fs::read_file(const std::string &path) {
     // TODO interpret path == "-" as stdin
     std::ifstream file(path);
     std::ostringstream contents;

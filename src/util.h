@@ -229,23 +229,28 @@ namespace map {
 namespace string {
     bool contains(const std::string_view string, const std::string_view other);
     
+    template <typename F>
+    bool allCharsMatch(std::string_view string, F fn) {
+        return std::all_of(string.begin(), string.end(), fn);
+    }
+    
     // There's a good reason why these two use std::string_view, but i don't remember it
     bool has_prefix(const std::string_view string, const std::string_view prefix);
     bool has_suffix(const std::string_view string, const std::string_view suffix);
     
-    std::string substr_from_index(const std::string string, LKUInteger index);
+    std::string substr_from_index(const std::string &string, LKUInteger index);
     
     // Returns a substring from the start of the string to the specified index
     // If `Index` is negative, it's counted from the end of the string
-    std::string substr_to_index(const std::string string, LKInteger index);
+    std::string substr_to_index(const std::string &string, LKInteger index);
     
-    std::string substr_with_range(const std::string string, Range range);
+    std::string substr_with_range(const std::string &string, Range range);
     
     
-    std::string replace_all(const std::string string, const std::string pattern, const std::string replacement);
+    std::string replace_all(const std::string &string, const std::string &pattern, const std::string &replacement);
     
-    std::vector<std::string> split(const std::string string, const std::string delimiter);
-    std::string join(const std::vector<std::string> &strings, const std::string delimiter);
+    std::vector<std::string> split(const std::string &string, const std::string &delimiter);
+    std::string join(const std::vector<std::string> &strings, const std::string &delimiter);
     
     std::string& append_with_indentation(std::string &target, std::string &&other, unsigned indent);
     
@@ -260,7 +265,7 @@ namespace string {
 
 
 namespace fs {
-    std::string read_file(const std::string path);
+    std::string read_file(const std::string &path);
 }
 
 namespace fs::path_utils {
