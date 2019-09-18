@@ -1,8 +1,10 @@
 {
     "name": "yo-lang",
     "displayName": "yo-lang",
-    "description": "Yo",
     "version": "0.0.1",
+    "publisher": "lukaskollmer",
+    "description": "Yo",
+    "repository": "https://github.com/lukaskollmer/yo",
     "engines": {
         "vscode": "^1.35.0"
     },

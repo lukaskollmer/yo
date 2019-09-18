@@ -2,16 +2,17 @@
 
 args=("$@")
 
-build () {
+
+docs_build () {
     bundle exec jekyll build
 }
 
-serve () {
+docs_serve () {
     bundle exec jekyll serve
 }
 
 deploy () {
-    build
+    docs_build
     aws s3 sync --delete _site/ s3://yo-lang.net
     if [ "${args[1]}" != "-s3-only" ]
     then
@@ -19,12 +20,24 @@ deploy () {
     fi
 }
 
-cd ./docs
+docs() {
+    cd ./docs
+    case "${args[1]}" in
+        "build") docs_build ;;
+        "serve") docs_serve ;;
+        "deploy") docs_deploy ;;
+        *) echo "F"; exit 1 ;;
+    esac
+}
+
+
+vscode() {
+    code --extensionDevelopmentPath="`pwd`/tools/yo-lang-vscode/" .
+}
 
 
 case "${args[0]}" in
-    "build") build ;;
-    "serve") serve ;;
-    "deploy") deploy ;;
+    "docs") docs ;;
+    "vscode") vscode ;;
     *) echo "F"; exit 1 ;;
 esac
