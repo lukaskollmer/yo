@@ -403,6 +403,7 @@ Type* resolvePrimitiveType(std::string_view name) {
     HANDLE("u16",  Type::getUInt16Type())
     HANDLE("u32",  Type::getUInt32Type())
     HANDLE("u64",  Type::getUInt64Type())
+    HANDLE("f64",  Type::getFloat64Type())
 #undef HANDLE
     return nullptr;
 }
