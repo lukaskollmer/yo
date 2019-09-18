@@ -115,16 +115,15 @@ public:
     std::shared_ptr<TypeDesc> returnType;
     std::vector<std::shared_ptr<VarDecl>> parameters;
     irgen::StructType *implType;
-    
     std::shared_ptr<attributes::FunctionAttributes> attributes;
     
-//    TypeInfo *variadicType;
     
     bool isTemplateFunction = false;
     std::vector<std::string> templateArgumentNames;
     
     explicit FunctionSignature() : Node(Node::NodeKind::FunctionSignature) {
         attributes = std::make_shared<attributes::FunctionAttributes>();
+        implType = nullptr;
     }
     
     bool isFullSpecialization() {

@@ -199,6 +199,10 @@ std::string ast::description(AST &ast) {
 
 template <typename T>
 std::string to_string(T arg) {
+    if constexpr(std::is_pointer_v<T> || util::typeinfo::is_shared_ptr_v<T>) {
+        if (!arg) return "<nullptr>";
+    }
+    
     if constexpr(std::is_same_v<T, const char *>) {
         return std::string(arg);
     
@@ -208,8 +212,6 @@ std::string to_string(T arg) {
     } else if constexpr(std::is_integral_v<T>) {
         return std::to_string(arg);
     
-    //} else if constexpr(std::is_same_v<T, TypeInfo *>) {
-    //    return arg->str();
     } else if constexpr(std::is_same_v<T, TypeDesc*> || std::is_convertible_v<T, std::shared_ptr<TypeDesc>>) {
         return arg->str();
         
@@ -241,7 +243,6 @@ std::string to_string(T arg) {
         return UnaryExprOpToString(arg);
     
     } else if constexpr(std::is_convertible_v<T, std::shared_ptr<Node>> || (std::is_pointer_v<T> && std::is_base_of_v<Node, typename std::remove_pointer_t<T>>)) {
-        if (!arg) return "<nullptr>";
         return arg->description();
     
     } else if constexpr(util::typeinfo::is_vector_of_convertible_v<T, std::shared_ptr<Node>>) {
