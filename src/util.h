@@ -135,6 +135,17 @@ namespace typeinfo {
     // True if `T` is an `std::vector` of elements convertible to `U`
     template <typename T, typename U>
     inline constexpr bool is_vector_of_convertible_v = std::is_same<T, std::vector<typename T::value_type, typename T::allocator_type>>::value && std::is_convertible<typename T::value_type, U>::value;
+    
+    
+    template <typename T>
+    struct is_shared_ptr : std::false_type {};
+    
+    template <typename T>
+    struct is_shared_ptr<std::shared_ptr<T>> : std::true_type {};
+    
+    template <typename T>
+    inline constexpr bool is_shared_ptr_v = is_shared_ptr<T>::value;
+    
 
     
     

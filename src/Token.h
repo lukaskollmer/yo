@@ -25,7 +25,7 @@ struct TokenSourceLocation {
     uint64_t column;
     uint64_t length;
     
-    TokenSourceLocation() {}
+    TokenSourceLocation() : filepath{}, line(0), column(0), length(0) {}
     TokenSourceLocation(const std::string &filepath, uint64_t line, uint64_t column, uint64_t length) : filepath(filepath), line(line), column(column), length(length) {}
 };
 
