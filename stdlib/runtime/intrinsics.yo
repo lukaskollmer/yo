@@ -17,6 +17,11 @@
 #[intrinsic] fn __gt<T>(T, T) -> bool;
 #[intrinsic] fn __lt<T>(T, T) -> bool;
 
+// short-circuited logical AND operator
+#[intrinsic] fn operator && (lhs: bool, rhs: bool) -> bool;
+// short-circuited logical OR operator
+#[intrinsic] fn operator || (lhs: bool, rhs: bool) -> bool;
+
 
 #[always_inline]
 fn operator + <T> (lhs: T, rhs: T) -> T {
@@ -68,13 +73,6 @@ fn operator >> <T> (lhs: T, rhs: T) -> T {
     return __shr(lhs, rhs);
 }
 
-
-
-// short-circuited logical AND operator
-#[intrinsic] fn operator && (lhs: bool, rhs: bool) -> bool;
-
-// short-circuited logical OR operator
-#[intrinsic] fn operator || (lhs: bool, rhs: bool) -> bool;
 
 
 #[always_inline]
