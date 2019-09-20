@@ -9,7 +9,7 @@
 #pragma once
 
 
-#define YO_VERSION "@YO_BUILD_DATE@"
+#define YO_VERSION "@YO_VERSION@"
 
 #define YO_LLVM_VERSION "@LLVM_VERSION@"
 
