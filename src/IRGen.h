@@ -78,7 +78,7 @@ class IRGenerator {
     
     llvm::Type *i8, *i16, *i32, *i64;
     llvm::Type *i8_ptr;
-    llvm::Type *Void, *Bool, *Double, *i1;
+    llvm::Type *Void, *Double, *i1;
     
     std::map<std::string, std::vector<std::shared_ptr<ast::FunctionDecl>>> templateFunctions;
     
@@ -110,15 +110,6 @@ public:
     bool enableARC = false;
     
 private:
-//    struct FunctionCodegenOptions {
-//        bool isVariadic;
-//        bool isExternal;
-//        std::optional<std::string> typename_;
-//
-//        FunctionCodegenOptions() : isVariadic(false), isExternal(false), typename_(std::nullopt) {}
-//    };
-    
-    
     void preflight(const ast::AST& ast);
     void registerFunction(std::shared_ptr<ast::FunctionDecl> function);
     void registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl);
@@ -157,14 +148,12 @@ private:
     llvm::Value *codegen(std::shared_ptr<ast::StringLiteral>);
     
     llvm::Value *codegen(std::shared_ptr<ast::CastExpr>);
-    llvm::Value *codegen(std::shared_ptr<ast::BinOp>);
     llvm::Value *codegen(std::shared_ptr<ast::UnaryExpr>);
     
     llvm::Value *codegen(std::shared_ptr<ast::Ident>, CodegenReturnValueKind);
     llvm::Value *codegen(std::shared_ptr<ast::RawLLVMValueExpr>);
     
-    llvm::Value *codegen(std::shared_ptr<ast::Comparison>);
-    llvm::Value *codegen(std::shared_ptr<ast::LogicalOperation>);
+    llvm::Value *codegen(std::shared_ptr<ast::BinOp>);
     
     llvm::Value *codegen(std::shared_ptr<ast::SubscriptExpr>, CodegenReturnValueKind);
     llvm::Value *codegen(std::shared_ptr<ast::MemberExpr>, CodegenReturnValueKind);
@@ -172,6 +161,9 @@ private:
     llvm::Value *codegen(std::shared_ptr<ast::CallExpr>);
     
     llvm::Value *codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionDecl>, std::shared_ptr<ast::CallExpr>);
+    llvm::Value *codegen_HandleArithmeticIntrinsic(ast::Operator, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs);
+    llvm::Value *codegen_HandleComparisonIntrinsic(ast::Operator, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs);
+    llvm::Value *codegen_HandleLogOpIntrinsic(ast::Operator, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs);
     
     
     // Match Expr
@@ -218,6 +210,7 @@ private:
     std::shared_ptr<ast::FunctionDecl> getResolvedFunctionWithName(const std::string &name);
     
     Type *instantiateTemplatedType(std::shared_ptr<ast::TypeDesc>);
+    
     
     // set omitCodegen to true if you only care about the return type of the call
     // for each callExpr, omitCodegen should be false exactly once!!!

@@ -108,6 +108,14 @@ PointerType* Type::getPointerTo() {
 #pragma mark - NumericalType
 
 
+bool NumericalType::isBoolTy() const {
+    return numericalTypeId == NumericalTypeID::Bool;
+}
+
+bool NumericalType::isFloatTy() const {
+    return numericalTypeId == NumericalTypeID::Float64;
+}
+
 bool NumericalType::isIntegerTy() const {
     switch (numericalTypeId) {
         case NumericalTypeID::Int8:
@@ -124,6 +132,8 @@ bool NumericalType::isIntegerTy() const {
             return false;
     }
 }
+
+
 
 std::string NumericalType::str() const {
     return getName();

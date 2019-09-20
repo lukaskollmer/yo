@@ -10,7 +10,6 @@
 
 #include "util.h"
 #include "Token.h"
-//#include "TypeInfo.h"
 #include "TypeDesc.h"
 #include "Attributes.h"
 
@@ -31,6 +30,41 @@ using AST = std::vector<std::shared_ptr<TopLevelStmt>>;
 
 
 std::string description(const AST& ast);
+
+
+
+
+enum class Operator : uint8_t {
+    /* +  */ Add,
+    /* -  */ Sub,
+    /* *  */ Mul,
+    /* /  */ Div,
+    /* %  */ Mod,
+    /* &  */ And,
+    /* |  */ Or,
+    /* ^  */ Xor,
+    /* << */ Shl,
+    /* >> */ Shr,
+    /* -  */ Neg,
+    /* ~  */ BNot,  // bitwise not
+    /* !  */ BNeg,  // boolean negation
+    
+    /* && */ LAnd,  // logical and
+    /* || */ LOr,   // logical or
+    
+    /* == */ EQ,
+    /* != */ NE,
+    /* < */  LT,
+    /* <= */ LE,
+    /* > */  GT,
+    /* >= */ GE,
+    
+    /* |> */ FnPipe,
+    
+    
+    /* =  */ Assign,
+};
+
 
 
 class Expr;
@@ -442,56 +476,30 @@ public:
 };
 
 
+
 class BinOp : public Expr {
-public:
-    enum class Operation {
-        Add, Sub, Mul, Div, Mod,
-        And, Or, Xor, Shl, Shr
-    };
-    
-    Operation op;
+    Operator op;
     std::shared_ptr<Expr> lhs;
     std::shared_ptr<Expr> rhs;
     
-    BinOp(Operation op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs) : Expr(Node::NodeKind::BinOp), op(op), lhs(lhs), rhs(rhs) {}
+public:
+    BinOp(Operator op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs) : Expr(Node::NodeKind::BinOp), op(op), lhs(lhs), rhs(rhs) {}
+    
+    Operator getOperator() const { return op; }
+    std::shared_ptr<Expr> getLhs() const { return lhs; }
+    std::shared_ptr<Expr> getRhs() const { return rhs; }
 };
 
 
 
-class Comparison : public Expr {
-public:
-    enum class Operation {
-        EQ, NE, // == / !=
-        LT, LE, // > \ >=
-        GT, GE  // < \ <=
-    };
-    
-    Operation op;
-    std::shared_ptr<Expr> lhs;
-    std::shared_ptr<Expr> rhs;
-    
-    Comparison(Operation op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs) : Expr(Node::NodeKind::CompOp), op(op), lhs(lhs), rhs(rhs) {}
-};
-
-
-class LogicalOperation : public Expr {
-public:
-    enum class Operation {
-        And, Or
-    };
-    
-    Operation op;
-    std::shared_ptr<Expr> lhs;
-    std::shared_ptr<Expr> rhs;
-    
-    LogicalOperation(Operation op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs) : Expr(Node::NodeKind::LogicalOp), op(op), lhs(lhs), rhs(rhs) {}
-};
 
 
 class UnaryExpr : public Expr {
 public:
-    enum class Operation {
-        Negate, BitwiseNot, LogicalNegation
+    enum class Operation : uint8_t {
+        Negate,// = Operator::Neg,
+        BitwiseNot,
+        LogicalNegation
     };
     
     Operation op;

@@ -91,20 +91,6 @@ static TokenSet binaryOperatorStartTokens = {
 
 
 
-static MappedTokenSet<ast::BinOp::Operation> singleTokenBinopOperatorTokenMapping = {
-    { TK::Plus,           BinOp::Operation::Add },
-    { TK::Minus,          BinOp::Operation::Sub },
-    { TK::Asterisk,       BinOp::Operation::Mul },
-    { TK::ForwardSlash,   BinOp::Operation::Div },
-    { TK::PercentageSign, BinOp::Operation::Mod },
-    { TK::Ampersand,      BinOp::Operation::And },
-    { TK::Pipe,           BinOp::Operation::Or  },
-    { TK::Circumflex,     BinOp::Operation::Xor }
-};
-
-
-
-
 #pragma mark - Parser
 
 
@@ -357,8 +343,10 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
     
     auto name = parseIdentAsString();
     if (name == "operator") {
+        auto op = parseOperator();
+        LKAssert(op.has_value());
         functionKind = FunctionKind::OperatorOverload;
-        LKFatalError("TODO");
+        name = mangling::encodeOperator(op.value());
     }
     
     
@@ -636,15 +624,16 @@ std::shared_ptr<LocalStmt> Parser::parseLocalStmt() {
     }
     
     if (binaryOperatorStartTokens.contains(currentTokenKind())) {
-        if (auto op = parseBinopOperator()) {
-            assert_current_token_and_consume(TK::EqualsSign);
-            
-            auto value = std::make_shared<BinOp>(*op, expr, parseExpression());
-            stmt = std::make_shared<Assignment>(expr, value);
-            assert_current_token_and_consume(TK::Semicolon);
-            stmt->setSourceLocation(sourceLoc);
-            return stmt;
-        }
+        LKFatalError("TODO reimplement");
+//        if (auto op = parseBinopOperator()) {
+//            assert_current_token_and_consume(TK::EqualsSign);
+//
+//            auto value = std::make_shared<BinOp>(*op, expr, parseExpression());
+//            stmt = std::make_shared<Assignment>(expr, value);
+//            assert_current_token_and_consume(TK::Semicolon);
+//            stmt->setSourceLocation(sourceLoc);
+//            return stmt;
+//        }
     }
     
     if (currentTokenKind() == TK::Semicolon) {
@@ -810,113 +799,54 @@ std::shared_ptr<Ident> Parser::parseIdent() {
 
 
 
-std::optional<ast::BinOp::Operation> Parser::parseBinopOperator() {
-    auto token = currentTokenKind();
-    
-    if (!binaryOperatorStartTokens.contains(token)) throw;
-    
-    if (singleTokenBinopOperatorTokenMapping.contains(token)) {
-        consume();
-        return singleTokenBinopOperatorTokenMapping[token];
-    }
-    
-    if (token == TK::LessThanSign && peekKind() == TK::LessThanSign) {
-        consume(2);
-        return BinOp::Operation::Shl;
-    }
-    
-    if (token == TK::GreaterSign && peekKind() == TK::GreaterSign) {
-        consume(2);
-        return BinOp::Operation::Shr;
-    }
-    
-    return std::nullopt;
-}
 
-
-std::optional<ast::Comparison::Operation> Parser::parseComparisonOperator() {
-    using Op = ast::Comparison::Operation;
-    
-    auto token = currentTokenKind();
-    if (!binaryOperatorStartTokens.contains(token)) throw;
-    
-    auto next = peekKind();
-    
-    if (token == TK::EqualsSign && next == TK::EqualsSign) {
-        consume(2); return Op::EQ;
-    }
-    
-    if (token == TK::ExclamationMark && next == TK::EqualsSign) {
-        consume(2); return Op::NE;
-    }
-    
-    if (token == TK::LessThanSign && next == TK::EqualsSign) {
-        consume(2); return Op::LE;
-    }
-    
-    if (token == TK::LessThanSign) {
-        consume(); return Op::LT;
-    }
-    
-    if (token == TK::GreaterSign && next == TK::EqualsSign) {
-        consume(2); return Op::GE;
-    }
-    
-    if (token == TK::GreaterSign) {
-        consume(); return Op::GT;
-    }
-    
-    return std::nullopt;
-}
-
-
-std::optional<ast::LogicalOperation::Operation> Parser::parseLogicalOperationOperator() {
-    auto token = currentTokenKind();
-    if (!binaryOperatorStartTokens.contains(token)) throw;
-    
-    auto next = peekKind();
-    
-    if (token == TK::Ampersand && next == TK::Ampersand) {
-        consume(2); return ast::LogicalOperation::Operation::And;
-    }
-    if (token == TK::Pipe && next == TK::Pipe) {
-        consume(2); return ast::LogicalOperation::Operation::Or;
-    }
-    
-    return std::nullopt;
-}
-
-
-PrecedenceGroup getOperatorPrecedenceGroup(BinOp::Operation op) {
+PrecedenceGroup getOperatorPrecedenceGroup(Operator op) {
     switch (op) {
-    case BinOp::Operation::Add:
-    case BinOp::Operation::Sub:
-    case BinOp::Operation::Or:
-    case BinOp::Operation::Xor:
-        return PrecedenceGroup::Addition;
-    case BinOp::Operation::Mul:
-    case BinOp::Operation::Div:
-    case BinOp::Operation::Mod:
-    case BinOp::Operation::And:
-        return PrecedenceGroup::Multiplication;
-    case BinOp::Operation::Shl:
-    case BinOp::Operation::Shr:
-        return PrecedenceGroup::Bitshift;
+        case Operator::Add:
+        case Operator::Sub:
+        case Operator::Or:
+        case Operator::Xor:
+            return PrecedenceGroup::Addition;
+        
+        case Operator::Mul:
+        case Operator::Div:
+        case Operator::Mod:
+        case Operator::And:
+            return PrecedenceGroup::Multiplication;
+        
+        case Operator::Shl:
+        case Operator::Shr:
+            return PrecedenceGroup::Bitshift;
+        
+        case Operator::Neg:
+        case Operator::BNot:
+        case Operator::BNeg:
+            return PrecedenceGroup::PrefixOperator;
+        
+        case Operator::LAnd:
+            return PrecedenceGroup::LogicalConjunction;
+        
+        case Operator::LOr:
+            return PrecedenceGroup::LogicalDisjunction;
+        
+        case Operator::EQ:
+        case Operator::NE:
+        case Operator::LT:
+        case Operator::LE:
+        case Operator::GT:
+        case Operator::GE:
+            return PrecedenceGroup::Comparison;
+        
+        case Operator::FnPipe:
+            return PrecedenceGroup::FunctionPipeline;
+        
+        case Operator::Assign:
+            return PrecedenceGroup::Assignment;
     }
-    throw;
 }
 
 
-PrecedenceGroup getOperatorPrecedenceGroup(ast::Comparison::Operation) {
-    return PrecedenceGroup::Comparison;
-}
 
-PrecedenceGroup getOperatorPrecedenceGroup(ast::LogicalOperation::Operation op) {
-    switch (op) {
-        case LogicalOperation::Operation::And: return PrecedenceGroup::LogicalConjunction;
-        case LogicalOperation::Operation::Or:  return PrecedenceGroup::LogicalDisjunction;
-    }
-}
 
 
 // Tokens that, if they appear on their own, mark the end of an expression
@@ -1032,28 +962,13 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
         }
         
         
+    parse_binop_expr: {
+        save_pos(fallback);
         
-    parse_binop_expr:
-        if (binaryOperatorStartTokens.contains(currentTokenKind())) {
-            // TODO should thid be a while loop? not really necessary since it's already embedded in a while loop but it might be useful (doesn't have to run all other token comparisons first, before reaching here)?
-            save_pos(fallback);
+        if (auto op_ = parseOperator()) {
+            auto op = op_.value();
             
-            // Since there are multitple binary operators starting with the same initial token (`|` vs `||`, `<` vs `<<`, etc),
-            // it's important we parse the different kinds of binary operators in the correct order
-            
-            if (auto op = parseLogicalOperationOperator()) {
-                auto op_precedence = getOperatorPrecedenceGroup(*op);
-                if (op_precedence >= precedenceGroupConstraint) {
-                    auto rhs = parseExpression(op_precedence);
-                    expr = std::make_shared<LogicalOperation>(*op, expr, rhs);
-                } else {
-                    restore_pos(fallback);
-                    return expr;
-                }
-            } else if (currentTokenKind() == TK::Pipe && peekKind() == TK::GreaterSign) { // `|>` {
-                // TODO allow functions w/ explicit template arguments
-                // ie: `return argv[1] |> atoi |> static_cast<i64> |> fib;`
-                
+            if (op == Operator::FnPipe) {
                 if (precedenceGroupConstraint >= PrecedenceGroup::FunctionPipeline) {
                     return expr;
                 }
@@ -1062,37 +977,20 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
                 auto callTarget = parseExpression(PrecedenceGroup::FunctionPipeline);
                 expr = std::make_shared<ast::CallExpr>(callTarget, std::vector<std::shared_ptr<ast::Expr>>{ expr });
                 continue;
-                
-            } else if (auto op = parseBinopOperator()) {
-                if (currentTokenKind() == TK::EqualsSign) {
-                    // <expr> <op>= <expr>;
-                    restore_pos(fallback);
-                    return expr;
-                }
-                auto op_precedence = getOperatorPrecedenceGroup(*op);
-                if (op_precedence >= precedenceGroupConstraint) {
-                    auto rhs = parseExpression(op_precedence);
-                    expr = std::make_shared<ast::BinOp>(*op, expr, rhs);
-                } else {
-                    restore_pos(fallback);
-                    return expr;
-                }
-            } else if (auto op = parseComparisonOperator()) {
-                auto op_precedence = getOperatorPrecedenceGroup(*op);
-                if (op_precedence >= precedenceGroupConstraint) {
-                    auto rhs = parseExpression(PrecedenceGroup::Comparison);
-                    expr = std::make_shared<ast::Comparison>(*op, expr, rhs);
-                } else {
-                    restore_pos(fallback);
-                    return expr;
-                }
-                
+            }
+            
+            
+            auto precedence = getOperatorPrecedenceGroup(op);
+            
+            if (precedence >= precedenceGroupConstraint) {
+                auto rhs = parseExpression(precedence);
+                expr = std::make_shared<ast::BinOp>(op, expr, rhs);
             } else {
-                // We reach here if the current token is a binary operator starting token, but we didn't manage to parse anything valid out of it
-                continue;
+                restore_pos(fallback);
+                return expr;
             }
         }
-        
+    } // end of parse_binop_expr
     } // end ParseExpression main while loop
     
     LKFatalError("should never reach here");
@@ -1100,6 +998,110 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
 
 
 
+
+
+std::optional<ast::Operator> Parser::parseOperator() {
+    switch (currentTokenKind()) {
+        case TK::Plus:
+            consume();
+            return Operator::Add;
+        
+        case TK::Minus:
+            consume();
+            return Operator::Sub;
+        
+        case TK::Asterisk:
+            consume();
+            return Operator::Mul;
+        
+        case TK::ForwardSlash:
+            consume();
+            return Operator::Div;
+        
+        case TK::PercentageSign:
+            consume();
+            return Operator::Mod;
+        
+        case TK::Circumflex:
+            consume();
+            return Operator::Xor;
+            
+        case TK::Ampersand: {
+            if (peekKind() == TK::Ampersand) {
+                consume(2);
+                return Operator::LAnd;
+            } else {
+                consume();
+                return Operator::And;
+            }
+        }
+        
+        case TK::LessThanSign: {
+            if (peekKind() == TK::LessThanSign && peekKind(2) != TK::Ident) {
+                consume(2);
+                return Operator::Shl;
+            } else if (peekKind() == TK::EqualsSign) {
+                consume(2);
+                return Operator::LE;
+            } else {
+                consume();
+                return Operator::LT;
+            }
+        }
+        
+        case TK::GreaterSign: {
+            if (peekKind() == TK::GreaterSign) {
+                consume(2);
+                return Operator::Shr;
+            } else if (peekKind() == TK::EqualsSign) {
+                consume(2);
+                return Operator::GE;
+            } else {
+                consume();
+                return Operator::GT;
+            }
+        }
+        
+        case TK::Tilde:
+            consume();
+            return Operator::BNot;
+        
+        case TK::ExclamationMark: {
+            if (peekKind() == TK::EqualsSign) {
+                consume(2);
+                return Operator::NE;
+            } else {
+                consume();
+                return Operator::BNot;
+            }
+        }
+        
+        case TK::EqualsSign: {
+            if (peekKind() == TK::EqualsSign) {
+                consume(2);
+                return Operator::EQ;
+            } else {
+                consume();
+                return Operator::Assign;
+            }
+        }
+        
+        case TK::Pipe: {
+            if (peekKind() == TK::GreaterSign) {
+                consume(2);
+                return Operator::FnPipe;
+            } else if (peekKind() == TK::Pipe) {
+                consume(2);
+                return Operator::LOr;
+            } else {
+                consume();
+                return Operator::Or;
+            }
+        }
+        default:
+            return std::nullopt;
+    }
+}
 
 
 

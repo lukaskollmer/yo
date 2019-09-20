@@ -131,14 +131,13 @@ std::shared_ptr<ast::Expr> TemplateResolver::specialize(std::shared_ptr<ast::Exp
     if (!expr) return expr;
     IGNORE(expr, NumberLiteral)
     IGNORE(expr, Ident)
-    HANDLE(expr, BinOp)
-    HANDLE(expr, Comparison)
     IGNORE(expr, StringLiteral)
-    HANDLE(expr, LogicalOperation)
     HANDLE(expr, MatchExpr)
     HANDLE(expr, CallExpr)
     HANDLE(expr, SubscriptExpr)
     HANDLE(expr, MemberExpr)
+    HANDLE(expr, BinOp)
+    HANDLE(expr, UnaryExpr)
     unhandled_node(expr)
 }
 
@@ -252,22 +251,15 @@ std::shared_ptr<ast::VarDecl> TemplateResolver::specialize(std::shared_ptr<ast::
 }
 
 
-std::shared_ptr<ast::Comparison> TemplateResolver::specialize(std::shared_ptr<ast::Comparison> comparison) {
-    auto X = std::make_shared<ast::Comparison>(comparison->op, specialize(comparison->lhs), specialize(comparison->rhs));
-    X->setSourceLocation(comparison->getSourceLocation());
-    return X;
-}
-
-
 std::shared_ptr<ast::BinOp> TemplateResolver::specialize(std::shared_ptr<ast::BinOp> binop) {
-    auto X = std::make_shared<ast::BinOp>(binop->op, specialize(binop->lhs), specialize(binop->rhs));
+    auto X = std::make_shared<ast::BinOp>(binop->getOperator(), specialize(binop->getLhs()), specialize(binop->getRhs()));
     X->setSourceLocation(binop->getSourceLocation());
     return X;
 }
 
 
-std::shared_ptr<ast::LogicalOperation> TemplateResolver::specialize(std::shared_ptr<ast::LogicalOperation> logicalOperation) {
-    auto X = std::make_shared<ast::LogicalOperation>(logicalOperation->op, specialize(logicalOperation->lhs), specialize(logicalOperation->rhs));
-    X->setSourceLocation(logicalOperation->getSourceLocation());
+std::shared_ptr<ast::UnaryExpr> TemplateResolver::specialize(std::shared_ptr<ast::UnaryExpr> expr) {
+    auto X = std::make_shared<ast::UnaryExpr>(expr->op, specialize(expr->expr));
+    X->setSourceLocation(expr->getSourceLocation());
     return X;
 }

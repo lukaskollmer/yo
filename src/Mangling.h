@@ -23,6 +23,8 @@ namespace yo::mangling {
     
     bool isCanonicalInstanceMethodName(std::string_view ident);
     
-    
-    std::string mangleOperator(ast::BinOp::Operation op);
+    // Operators
+    std::string encodeOperator(ast::Operator);
+    std::string mangleCanonicalName(ast::Operator);
+    ast::Operator demangleCanonicalOperatorEncoding(std::string_view);
 }

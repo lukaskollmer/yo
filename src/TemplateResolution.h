@@ -53,9 +53,8 @@ private:
     std::shared_ptr<ast::CallExpr> specialize(std::shared_ptr<ast::CallExpr>);
     std::shared_ptr<ast::SubscriptExpr> specialize(std::shared_ptr<ast::SubscriptExpr>);
     std::shared_ptr<ast::MemberExpr> specialize(std::shared_ptr<ast::MemberExpr>);
-    std::shared_ptr<ast::Comparison> specialize(std::shared_ptr<ast::Comparison>);
     std::shared_ptr<ast::BinOp> specialize(std::shared_ptr<ast::BinOp>);
-    std::shared_ptr<ast::LogicalOperation> specialize(std::shared_ptr<ast::LogicalOperation>);
+    std::shared_ptr<ast::UnaryExpr> specialize(std::shared_ptr<ast::UnaryExpr>);
 };
 
 NS_END

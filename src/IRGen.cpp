@@ -56,7 +56,7 @@ IRGenerator::IRGenerator(const std::string moduleName)
     
     i8_ptr = i8->getPointerTo();
     Void = llvm::Type::getVoidTy(C);
-    i1 = Bool = llvm::Type::getInt1Ty(C);
+    i1 = llvm::Type::getInt1Ty(C);
     Double = llvm::Type::getDoubleTy(C);
     
     debugInfo.compileUnit = debugInfo.builder.createCompileUnit(llvm::dwarf::DW_LANG_C,
@@ -339,20 +339,18 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::LocalStmt> localStmt) {
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Expr> expr, CodegenReturnValueKind returnValueKind) {
     switch (expr->getNodeKind()) {
-      CASE(expr, NumberLiteral)
-      CASE(expr, BinOp)
-      CASE(expr, Ident, returnValueKind)
-      CASE2(expr, CompOp, Comparison)
-      CASE2(expr, LogicalOp, LogicalOperation)
-      CASE(expr, CastExpr)
-      CASE(expr, StringLiteral)
-      CASE(expr, UnaryExpr)
-      CASE(expr, MatchExpr)
-      CASE(expr, RawLLVMValueExpr)
-      CASE(expr, MemberExpr, returnValueKind)
-      CASE(expr, SubscriptExpr, returnValueKind)
-      CASE(expr, CallExpr)
-      default: unhandled_node(expr)
+    CASE(expr, NumberLiteral)
+    CASE(expr, Ident, returnValueKind)
+    CASE(expr, CastExpr)
+    CASE(expr, StringLiteral)
+    CASE(expr, UnaryExpr)
+    CASE(expr, MatchExpr)
+    CASE(expr, RawLLVMValueExpr)
+    CASE(expr, MemberExpr, returnValueKind)
+    CASE(expr, SubscriptExpr, returnValueKind)
+    CASE(expr, CallExpr)
+    CASE(expr, BinOp)
+    default: unhandled_node(expr)
     }
 }
 
@@ -1009,6 +1007,29 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::SubscriptExpr> subscript,
 
 
 
+llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::UnaryExpr> unaryExpr) {
+    emitDebugLocation(unaryExpr);
+    
+    auto expr = unaryExpr->expr;
+    
+    switch (unaryExpr->op) {
+        case ast::UnaryExpr::Operation::Negate:
+            return builder.CreateNeg(codegen(expr));
+            
+        case ast::UnaryExpr::Operation::BitwiseNot:
+            return builder.CreateNot(codegen(expr));
+            
+        case ast::UnaryExpr::Operation::LogicalNegation: {
+            auto ty = guessType(expr);
+            LKAssert(ty == Type::getBoolType() || ty->isPointerTy() || (ty->isNumericalTy() && llvm::dyn_cast<NumericalType>(ty)->isIntegerTy()));
+            return builder.CreateIsNull(codegen(expr)); // TODO this seems like a cop-out answer?
+        }
+    }
+}
+
+
+
+
 bool isValidMatchPatternForMatchedExprType(std::shared_ptr<ast::Expr> patternExpr, Type *matchedExprType) {
     // Only patterns that are trivially and can be matched w/out side effects are allowed
     // TODO add the side effect checking
@@ -1039,9 +1060,9 @@ llvm::Value *IRGenerator::codegen_HandleMatchPatternExpr(MatchExprPatternCodegen
     if (TT->isNumericalTy()) {
         if (auto numberLiteral = std::dynamic_pointer_cast<ast::NumberLiteral>(PE)) {
             if (valueIsTriviallyConvertibleTo(numberLiteral, TT)) {
-                return codegen(std::make_shared<ast::Comparison>(ast::Comparison::Operation::EQ,
-                                                                 std::make_shared<ast::RawLLVMValueExpr>(info.targetLLVMValue, TT),
-                                                                 numberLiteral));
+                auto cmp = std::make_shared<ast::BinOp>(ast::Operator::EQ,
+                                                        std::make_shared<ast::RawLLVMValueExpr>(info.targetLLVMValue, TT),
+                                                        numberLiteral);
             }
         } else {
             LKFatalError("Incompatible Match types: cannot match %s against %s", TT->str().c_str(), PT->str().c_str());
@@ -1144,43 +1165,42 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MatchExpr> matchExpr) {
 
 
 
-
-llvm::Instruction::BinaryOps getLLVMBinaryOpInstruction_Int(ast::BinOp::Operation op, bool isSigned) {
-    using Operation = ast::BinOp::Operation;
-    using BinaryOps = llvm::Instruction::BinaryOps;
+bool isValidBinopOperator(ast::Operator op) {
+    using Op = ast::Operator;
     
-    switch (op) {
-        case Operation::Add: return BinaryOps::Add;
-        case Operation::Sub: return BinaryOps::Sub;
-        case Operation::Mul: return BinaryOps::Mul;
-        case Operation::Div: return isSigned ? BinaryOps::SDiv : BinaryOps::UDiv;
-        case Operation::Mod: return isSigned ? BinaryOps::SRem : BinaryOps::URem;
-        case Operation::And: return BinaryOps::And;
-        case Operation::Or:  return BinaryOps::Or;
-        case Operation::Xor: return BinaryOps::And;
-        case Operation::Shl: return BinaryOps::Shl;
-        case Operation::Shr: return BinaryOps::LShr; // TODO (important) arithmetic or logical right shift?
-    }
-    
-    llvm_unreachable("should never reach here");
+    return op == Op::Add
+        || op == Op::Sub
+        || op == Op::Mul
+        || op == Op::Div
+        || op == Op::Mod
+        || op == Op::And
+        || op == Op::Or
+        || op == Op::Xor
+        || op == Op::Shl
+        || op == Op::Shr
+        || op == Op::And
+        || op == Op::LOr
+        || op == Op::EQ
+        || op == Op::NE
+        || op == Op::LT
+        || op == Op::LE
+        || op == Op::GT
+        || op == Op::GE
+        || op == Op::LAnd
+        || op == Op::LOr;
 }
 
 
 
-
-llvm::Instruction::BinaryOps getLLVMBinaryOpInstruction_Double(ast::BinOp::Operation op) {
-    using Operation = ast::BinOp::Operation;
-    using BinaryOps = llvm::Instruction::BinaryOps;
+llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::BinOp> binop) {
+    LKAssert(isValidBinopOperator(binop->getOperator()));
     
-    switch (op) {
-        case Operation::Add: return BinaryOps::FAdd;
-        case Operation::Sub: return BinaryOps::FSub;
-        case Operation::Mul: return BinaryOps::FMul;
-        case Operation::Div: return BinaryOps::FDiv;
-        case Operation::Mod: return BinaryOps::FRem;
-        default: llvm_unreachable("nope");
-    }
+    auto callExpr = std::make_shared<ast::CallExpr>(makeIdent(mangling::mangleCanonicalName(binop->getOperator())),
+                                                    std::vector<std::shared_ptr<ast::Expr>> { binop->getLhs(), binop->getRhs() });
+    return codegen(callExpr);
+    
 }
+
 
 
 bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *lhs, std::shared_ptr<ast::Expr> *rhs, Type **lhsTy_out, Type **rhsTy_out) {
@@ -1218,27 +1238,10 @@ bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
 }
 
 
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::BinOp> binop) {
-    emitDebugLocation(binop);
-    
-    auto lhs = binop->lhs;
-    auto rhs = binop->rhs;
-    Type *lhsTy, *rhsTy;
-    
-    if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&lhs, &rhs, &lhsTy, &rhsTy)) {
-        LKFatalError("unable to create binop for supplied operand types '%s' and '%s'", lhsTy->str().c_str(), rhsTy->str().c_str());
-    }
-    
-    LKAssert(lhsTy->isNumericalTy() && rhsTy->isNumericalTy());
-    LKAssert(lhsTy == rhsTy);
-    bool isSigned = llvm::dyn_cast<NumericalType>(lhsTy)->isSigned();
-    return builder.CreateBinOp(getLLVMBinaryOpInstruction_Int(binop->op, isSigned), codegen(lhs), codegen(rhs));
-}
 
 
 
-
-
+#pragma mark - function calls
 
 
 
@@ -1607,6 +1610,30 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
 
 
 
+
+
+#pragma mark - Intrinsics
+
+static const std::map<std::string_view, ast::Operator> intrinsicsArithmeticOperationMapping = {
+    { "__add", ast::Operator::Add },
+    { "__sub", ast::Operator::Sub },
+    { "__mul", ast::Operator::Mul },
+    { "__div", ast::Operator::Div },
+    { "__mod", ast::Operator::Mod },
+    { "__and", ast::Operator::And },
+    { "__or",  ast::Operator::Or  },
+    { "__xor", ast::Operator::Xor },
+    { "__shl", ast::Operator::Shl },
+    { "__shr", ast::Operator::Shr },
+};
+
+static const std::map<std::string_view, ast::Operator> intrinsicsComparisonOperationMapping = {
+    { "__eq", ast::Operator::EQ },
+    { "__lt", ast::Operator::LT },
+    { "__gt", ast::Operator::GT }
+};
+
+
 llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionDecl> funcDecl, std::shared_ptr<ast::CallExpr> call) {
     auto name = mangling::mangleCanonicalName(funcDecl);
     
@@ -1621,9 +1648,24 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
     }
     
     if (name == "sizeof") {
-        //auto T = getLLVMType(call->explicitTemplateArgumentTypes[0]);
         auto ty = resolveTypeDesc(call->explicitTemplateArgumentTypes[0])->getLLVMType();
         return llvm::ConstantInt::get(i64, module->getDataLayout().getTypeAllocSize(ty));
+    }
+    
+    if (auto op = util::map::get_opt(intrinsicsArithmeticOperationMapping, std::string_view(name))) {
+        LKAssert(call->arguments.size() == 2);
+        return codegen_HandleArithmeticIntrinsic(op.value(), call->arguments[0], call->arguments[1]);
+    }
+    
+    if (auto op = util::map::get_opt(intrinsicsComparisonOperationMapping, std::string_view(name))) {
+        LKAssert(call->arguments.size() == 2);
+        return codegen_HandleComparisonIntrinsic(op.value(), call->arguments[0], call->arguments[1]);
+    }
+    
+    
+    if (auto op = mangling::demangleCanonicalOperatorEncoding(name); op == ast::Operator::LAnd || op == ast::Operator::LOr) {
+        LKAssert(call->arguments.size() == 2);
+        return codegen_HandleLogOpIntrinsic(op, call->arguments[0], call->arguments[1]);
     }
     
     std::cout << "Unhandled call to intrinsic: " << name << std::endl;
@@ -1632,25 +1674,209 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
 
 
 
-
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::UnaryExpr> unaryExpr) {
-    emitDebugLocation(unaryExpr);
+llvm::Instruction::BinaryOps getLLVMBinaryOpInstruction_Int(ast::Operator op, bool isSigned) {
+    using Op = ast::Operator;
+    using LLVMBinOp = llvm::Instruction::BinaryOps;
     
-    auto expr = unaryExpr->expr;
-    
-    switch (unaryExpr->op) {
-        case ast::UnaryExpr::Operation::Negate:
-            return builder.CreateNeg(codegen(expr));
-        
-        case ast::UnaryExpr::Operation::BitwiseNot:
-            return builder.CreateNot(codegen(expr));
-        
-        case ast::UnaryExpr::Operation::LogicalNegation: {
-            auto ty = guessType(expr);
-            LKAssert(ty == Type::getBoolType() || ty->isPointerTy() || (ty->isNumericalTy() && llvm::dyn_cast<NumericalType>(ty)->isIntegerTy()));
-            return builder.CreateIsNull(codegen(expr)); // TODO this seems like a cop-out answer?
-        }
+    switch (op) {
+        case Op::Add: return LLVMBinOp::Add;
+        case Op::Sub: return LLVMBinOp::Sub;
+        case Op::Mul: return LLVMBinOp::Mul;
+        case Op::Div: return isSigned ? LLVMBinOp::SDiv : LLVMBinOp::UDiv;
+        case Op::Mod: return isSigned ? LLVMBinOp::SRem : LLVMBinOp::URem;
+        case Op::And: return LLVMBinOp::And;
+        case Op::Or:  return LLVMBinOp::Or;
+        case Op::Xor: return LLVMBinOp::And;
+        case Op::Shl: return LLVMBinOp::Shl;
+        case Op::Shr: return LLVMBinOp::LShr; // TODO (important) arithmetic or logical right shift?
+        default: LKFatalError("");
     }
+}
+
+llvm::Instruction::BinaryOps getLLVMBinaryOpInstruction_Float(ast::Operator op) {
+    using Op = ast::Operator;
+    using LLVMBinOp = llvm::Instruction::BinaryOps;
+    
+    switch (op) {
+        case Op::Add: return LLVMBinOp::FAdd;
+        case Op::Sub: return LLVMBinOp::FSub;
+        case Op::Mul: return LLVMBinOp::FMul;
+        case Op::Div: return LLVMBinOp::FDiv;
+        case Op::Mod: return LLVMBinOp::FRem;
+        default: LKFatalError("");
+    }
+}
+
+
+
+bool isValidIntArithBinop(ast::Operator op) {
+    using Op = ast::Operator;
+    return op == Op::Add
+        || op == Op::Sub
+        || op == Op::Mul
+        || op == Op::Div
+        || op == Op::Mod
+        || op == Op::And
+        || op == Op::Or
+        || op == Op::Xor
+        || op == Op::Shl
+        || op == Op::Shr;
+}
+
+bool isValidFloatArithBinop(ast::Operator op) {
+    using Op = ast::Operator;
+    return op == Op::Add
+        || op == Op::Sub
+        || op == Op::Mul
+        || op == Op::Div;
+}
+
+
+llvm::Value* IRGenerator::codegen_HandleArithmeticIntrinsic(ast::Operator op, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs) {
+    emitDebugLocation(lhs);
+    
+    Type *lhsTy, *rhsTy;
+    
+    if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&lhs, &rhs, &lhsTy, &rhsTy)) {
+        LKFatalError("unable to create binop for supplied operand types '%s' and '%s'", lhsTy->str().c_str(), rhsTy->str().c_str());
+    }
+    
+    LKAssert(lhsTy->isNumericalTy() && rhsTy->isNumericalTy());
+    LKAssert(lhsTy == rhsTy);
+    auto numTy = llvm::dyn_cast<NumericalType>(lhsTy);
+    
+    if (numTy->isIntegerTy() || numTy->isBoolTy()) {
+        LKAssert(isValidIntArithBinop(op));
+    } else if (numTy->isFloatTy()) {
+        LKAssert(isValidFloatArithBinop(op));
+    } else {
+        LKAssert("TODO: invalid operand type?");
+    }
+    
+    auto llvmOp = numTy->isFloatTy() ? getLLVMBinaryOpInstruction_Float(op) : getLLVMBinaryOpInstruction_Int(op, numTy->isSigned());
+    return builder.CreateBinOp(llvmOp, codegen(lhs), codegen(rhs));
+}
+
+
+
+llvm::CmpInst::Predicate getMatchingLLVMCmpInstPredicateForComparisonOperator_Int(ast::Operator op, bool isSigned) {
+    using Op = ast::Operator;
+    using Pred = llvm::CmpInst::Predicate;
+    
+    switch (op) {
+        case Op::EQ: return Pred::ICMP_EQ;
+        case Op::NE: return Pred::ICMP_NE;
+        case Op::LT: return isSigned ? Pred::ICMP_SLT : Pred::ICMP_ULT;
+        case Op::LE: return isSigned ? Pred::ICMP_SLE : Pred::ICMP_ULE;
+        case Op::GT: return isSigned ? Pred::ICMP_SGT : Pred::ICMP_UGT;
+        case Op::GE: return isSigned ? Pred::ICMP_SGE : Pred::ICMP_UGE;
+        default: LKFatalError("");
+    }
+}
+
+
+llvm::CmpInst::Predicate getMatchingLLVMCmpInstPredicateForComparisonOperator_Float(ast::Operator op) {
+    using Op = ast::Operator;
+    using Pred = llvm::CmpInst::Predicate;
+    
+    switch (op) {
+        case Op::EQ: return Pred::FCMP_OEQ;
+        case Op::NE: return Pred::FCMP_ONE;
+        case Op::LT: return Pred::FCMP_OLT;
+        case Op::LE: return Pred::FCMP_OLE;
+        case Op::GT: return Pred::FCMP_OGT;
+        case Op::GE: return Pred::FCMP_OGE;
+        default: LKFatalError("");
+    }
+}
+
+
+
+llvm::Value* IRGenerator::codegen_HandleComparisonIntrinsic(ast::Operator op, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs) {
+    emitDebugLocation(lhs);
+    
+    auto lhsTy = guessType(lhs);
+    auto rhsTy = guessType(rhs);
+    
+    llvm::CmpInst::Predicate pred;
+    llvm::Value *lhsVal, *rhsVal;
+    
+    // Floats?
+    if (lhsTy == rhsTy && lhsTy == Type::getFloat64Type()) {
+        return builder.CreateFCmp(getMatchingLLVMCmpInstPredicateForComparisonOperator_Float(op),
+                                  codegen(lhs), codegen(rhs));
+    }
+    
+    // Are both integers?
+    if (!(lhsTy->isNumericalTy() && rhsTy->isNumericalTy())) {
+        LKFatalError("Cannot compare unrelated types '%s' and '%s'", rhsTy->str().c_str(), rhsTy->str().c_str());
+    }
+    
+    auto numTyLhs = llvm::dyn_cast<NumericalType>(lhsTy);
+    auto numTyRhs = llvm::dyn_cast<NumericalType>(rhsTy);
+    
+    if (numTyLhs == numTyRhs) {
+        pred = getMatchingLLVMCmpInstPredicateForComparisonOperator_Int(op, numTyLhs->isSigned());
+        lhsVal = codegen(lhs);
+        rhsVal = codegen(rhs);
+    } else {
+        // Both are integers, but different types
+        
+        Type *castDestTy;
+        auto largerSize = std::max(numTyLhs->getSize(), numTyRhs->getSize());
+        
+        if (largerSize <= Type::getInt32Type()->getSize()) {
+            castDestTy = Type::getInt32Type();
+        } else {
+            LKAssert(largerSize == Type::getInt64Type()->getSize());
+            castDestTy = Type::getInt64Type();
+        }
+        
+        lhsVal = codegen(std::make_shared<ast::CastExpr>(lhs, ast::TypeDesc::makeResolved(castDestTy), ast::CastExpr::CastKind::StaticCast));
+        rhsVal = codegen(std::make_shared<ast::CastExpr>(rhs, ast::TypeDesc::makeResolved(castDestTy), ast::CastExpr::CastKind::StaticCast));
+        pred = getMatchingLLVMCmpInstPredicateForComparisonOperator_Int(op, numTyLhs->isSigned() || numTyRhs->isSigned());
+        
+    }
+    
+    return builder.CreateICmp(pred, lhsVal, rhsVal);
+}
+
+
+
+
+
+llvm::Value* IRGenerator::codegen_HandleLogOpIntrinsic(ast::Operator op, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs) {
+    LKAssert(op == ast::Operator::LAnd || op == ast::Operator::LOr);
+    LKAssert(guessType(lhs) == Type::getBoolType() && guessType(rhs) == Type::getBoolType());
+    
+    const auto isAnd = op == ast::Operator::LAnd;
+    
+    auto llvmTrueVal = llvm::ConstantInt::getTrue(i1);
+    auto llvmFalseVal = llvm::ConstantInt::getFalse(i1);
+    auto F = currentFunction.llvmFunction;
+    
+    auto lhsBB = builder.GetInsertBlock();
+    auto rhsBB = llvm::BasicBlock::Create(C, "rhs");
+    auto mergeBB = llvm::BasicBlock::Create(C, "merge");
+    
+    builder.CreateCondBr(builder.CreateICmpEQ(codegen(lhs), llvmTrueVal),
+                         isAnd ? rhsBB : mergeBB,
+                         isAnd ? mergeBB : rhsBB);
+    
+    
+    F->getBasicBlockList().push_back(rhsBB);
+    builder.SetInsertPoint(rhsBB);
+    auto rhsVal = builder.CreateICmpEQ(codegen(rhs), llvmTrueVal);
+    builder.CreateBr(mergeBB);
+    
+    F->getBasicBlockList().push_back(mergeBB);
+    builder.SetInsertPoint(mergeBB);
+    
+    auto phi = builder.CreatePHI(i1, 2);
+    phi->addIncoming(isAnd ? llvmFalseVal : llvmTrueVal, lhsBB);
+    phi->addIncoming(rhsVal, rhsBB);
+    
+    return phi;
 }
 
 
@@ -1792,107 +2018,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ForLoop> forLoop) {
 
 
 
-#pragma mark - Comparisons/Conditions
-
-llvm::CmpInst::Predicate getMatchingLLVMCmpInstPredicateForComparisonOperator_Float(ast::Comparison::Operation op) {
-    using Operation = ast::Comparison::Operation;
-    using Predicate = llvm::CmpInst::Predicate;
-    
-    switch (op) {
-        case Operation::EQ: return Predicate::FCMP_OEQ;
-        case Operation::NE: return Predicate::FCMP_ONE;
-        case Operation::LT: return Predicate::FCMP_OLT;
-        case Operation::LE: return Predicate::FCMP_OLE;
-        case Operation::GT: return Predicate::FCMP_OGT;
-        case Operation::GE: return Predicate::FCMP_OGE;
-    }
-}
-
-llvm::CmpInst::Predicate getMatchingLLVMCmpInstPredicateForComparisonOperator_Int(ast::Comparison::Operation op, bool isSigned) {
-    using Operation = ast::Comparison::Operation;
-    using Predicate = llvm::CmpInst::Predicate;
-    
-    switch (op) {
-        case Operation::EQ: return Predicate::ICMP_EQ;
-        case Operation::NE: return Predicate::ICMP_NE;
-        case Operation::LT: return isSigned ? Predicate::ICMP_SLT : Predicate::ICMP_ULT;
-        case Operation::LE: return isSigned ? Predicate::ICMP_SLE : Predicate::ICMP_ULE;
-        case Operation::GT: return isSigned ? Predicate::ICMP_SGT : Predicate::ICMP_UGT;
-        case Operation::GE: return isSigned ? Predicate::ICMP_SGE : Predicate::ICMP_UGE;
-    }
-}
-
-
-
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Comparison> comparison) {
-    emitDebugLocation(comparison);
-    
-    auto lhsTy = guessType(comparison->lhs);
-    auto rhsTy = guessType(comparison->rhs);
-    
-    llvm::CmpInst::Predicate pred;
-    llvm::Value *lhs, *rhs;
-    
-    // Floats?
-    //if (lhsTy->equals(TypeInfo::Double) && rhsTy->equals(TypeInfo::Double)) {
-    if (lhsTy == rhsTy && lhsTy == Type::getFloat64Type()) {
-        return builder.CreateFCmp(getMatchingLLVMCmpInstPredicateForComparisonOperator_Float(comparison->op),
-                                  codegen(comparison->lhs), codegen(comparison->rhs));
-    }
-    
-    // Are both integers?
-    if (!(lhsTy->isNumericalTy() && rhsTy->isNumericalTy())) {
-    //if (!lhsTy->isIntegerType() || !rhsTy->isIntegerType()) {
-        LKFatalError("Cannot compare unrelated types '%s' and '%s'", rhsTy->str().c_str(), rhsTy->str().c_str());
-    }
-    
-    auto numTyLhs = llvm::dyn_cast<NumericalType>(lhsTy);
-    auto numTyRhs = llvm::dyn_cast<NumericalType>(rhsTy);
-    
-    //if (lhsTy->equals(rhsTy)) {
-    if (numTyLhs == numTyRhs) {
-        pred = getMatchingLLVMCmpInstPredicateForComparisonOperator_Int(comparison->op, numTyLhs->isSigned());
-        lhs = codegen(comparison->lhs);
-        rhs = codegen(comparison->rhs);
-    } else {
-        // Both are integers, but different types
-
-        Type *castDestTy;
-        auto largerSize = std::max(numTyLhs->getSize(), numTyRhs->getSize());
-        
-        if (largerSize <= Type::getInt32Type()->getSize()) {
-            castDestTy = Type::getInt32Type();
-        } else {
-            LKAssert(largerSize == Type::getInt64Type()->getSize());
-            castDestTy = Type::getInt64Type();
-        }
-        
-        lhs = codegen(std::make_shared<ast::CastExpr>(comparison->lhs, ast::TypeDesc::makeResolved(castDestTy), ast::CastExpr::CastKind::StaticCast));
-        rhs = codegen(std::make_shared<ast::CastExpr>(comparison->rhs, ast::TypeDesc::makeResolved(castDestTy), ast::CastExpr::CastKind::StaticCast));
-        pred = getMatchingLLVMCmpInstPredicateForComparisonOperator_Int(comparison->op, numTyLhs->isSigned() || numTyRhs->isSigned());
-        
-    }
-    
-    return builder.CreateICmp(pred, lhs, rhs);
-}
-
-
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::LogicalOperation> logOp) {
-    emitDebugLocation(logOp);
-    
-    
-    // TODO rewrite
-    auto lhs = codegen(logOp->lhs);
-    auto rhs = codegen(logOp->rhs);
-    
-    LKAssert(lhs->getType() == Bool && rhs->getType() == Bool);
-    
-    auto op = logOp->op == ast::LogicalOperation::Operation::And
-        ? llvm::Instruction::BinaryOps::And
-        : llvm::Instruction::BinaryOps::Or;
-    
-    return builder.CreateBinOp(op, lhs, rhs);
-}
 
 
 
@@ -1917,7 +2042,7 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
             auto numTy = llvm::dyn_cast<NumericalType>(type);
             switch (numTy->getNumericalTypeID()) {
                 case NumericalType::NumericalTypeID::Bool:
-                    return handle_llvm_type(Bool);
+                    return handle_llvm_type(i1);
                 
                 case NumericalType::NumericalTypeID::Int8:
                 case NumericalType::NumericalTypeID::UInt8:
@@ -1998,7 +2123,7 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
     
     auto& DL = module->getDataLayout();
     
-    auto byteWidth = DL.getTypeSizeInBits(i8);
+    //auto byteWidth = DL.getTypeSizeInBits(i8);
     auto pointerWidth = DL.getPointerSizeInBits();
     
     switch (type->getTypeId()) {
@@ -2090,19 +2215,20 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
 bool IRGenerator::valueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiteral> number, Type *type) {
     using NT = ast::NumberLiteral::NumberType;
     
+    if (!type->isNumericalTy()) return false; // TODO is this too strict?
+    
     // Allowed trivial conversions:
     // int literal to any int type (as long as the value fits)
     // int literal to double
     
-    //if (number->type == NT::Boolean) return TI->equals(TypeInfo::Bool);
     if (number->type == NT::Boolean) return type == Type::getBoolType();
     
-    //if (TI->equals(TypeInfo::Double)) {
     if (type == Type::getFloat64Type()) {
         return number->type == NT::Double || number->type == NT::Integer;
     }
     
-    //LKAssert(number->type == NT::Integer && TI->isIntegerType());
+    if (!type->isNumericalTy()) return false;
+    
     LKAssert(number->type == NT::Integer && type->isNumericalTy());
     auto numTy = llvm::dyn_cast<NumericalType>(type);
     LKAssert(numTy->isIntegerTy());
@@ -2158,9 +2284,6 @@ Type* IRGenerator::guessType(std::shared_ptr<ast::Expr> expr) {
         case NK::RawLLVMValueExpr:
             return static_cast<ast::RawLLVMValueExpr *>(expr.get())->type;
         
-        case NK::BinOp:
-            return guessType(static_cast<ast::BinOp *>(expr.get())->lhs);
-        
         case NK::SubscriptExpr: {
             // TODO allow non-pointer subscripting
             auto targetTy = guessType(static_cast<ast::SubscriptExpr *>(expr.get())->target);
@@ -2183,9 +2306,20 @@ Type* IRGenerator::guessType(std::shared_ptr<ast::Expr> expr) {
         
         case NK::CompOp:
             return Type::getBoolType();
+        
+        case NK::BinOp: {
+            auto binopExpr = static_cast<ast::BinOp *>(expr.get());
+            auto mangledCanonicalName = mangling::mangleCanonicalName(binopExpr->getOperator());
+            // TODO don't allocate an object for every check!
+            auto tempCallExpr = std::make_shared<ast::CallExpr>(makeIdent(mangledCanonicalName),
+                                                                std::vector<std::shared_ptr<ast::Expr>>{ binopExpr->getLhs(), binopExpr->getRhs() });
+            return resolveTypeDesc(resolveCall(tempCallExpr, true).signature.returnType);
+        }
+        
+        default:
+            unhandled_node(expr);
+            LKFatalError("TODO");
     }
-    unhandled_node(expr);
-    LKFatalError("TODO");
 }
 
 

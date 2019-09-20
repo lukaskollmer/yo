@@ -9,6 +9,7 @@
 #include "Mangling.h"
 #include "util.h"
 #include <map>
+#include <charconv>
 
 using namespace yo;
 
@@ -104,7 +105,10 @@ std::string mangling::mangleCanonicalName(std::shared_ptr<ast::FunctionDecl> fun
     if (!funcDecl->getAttributes().mangledName.empty()) {
         return funcDecl->getAttributes().mangledName;
     }
-    auto typeName = funcDecl->getFunctionKind() == ast::FunctionKind::GlobalFunction ? "" : funcDecl->getImplType()->getName();
+    std::string typeName;
+    if (funcDecl->isOfKind(ast::FunctionKind::StaticMethod) || funcDecl->isOfKind(ast::FunctionKind::InstanceMethod)) {
+        typeName = funcDecl->getImplType()->getName();
+    }
     return mangleCanonicalName(typeName, funcDecl->getName(), funcDecl->getFunctionKind());
 }
 
@@ -247,16 +251,25 @@ std::string mangling::mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> fun
 
 
 
-//std::string mangling::mangleTemplatedComplexType(TypeInfo *TI) {
-//    ManglingStringBuilder mangler(kCommonPrefix);
-//    mangler.append(kTemplatedComplexTypePrefix);
-//    mangler.appendWithCount(TI->getName());
-//
-//    for (auto Ty : TI->getTemplateParameterTypes()) {
-//        mangler.appendEncodedType(Ty);
-//    }
-//
-//    return mangler.str();
-//}
+
+
+std::string mangling::encodeOperator(ast::Operator op) {
+    return std::to_string(static_cast<uint8_t>(op));
+}
+
+
+std::string mangling::mangleCanonicalName(ast::Operator op) {
+    std::string str;
+    str.push_back(kCanonicalPrefixOperatorOverload);
+    str.append(encodeOperator(op));
+    return str;
+}
+
+
+ast::Operator mangling::demangleCanonicalOperatorEncoding(std::string_view sv) {
+    uint8_t value;
+    std::from_chars(sv.data() + 1, sv.data() + sv.size(), value);
+    return static_cast<ast::Operator>(value);
+}
 
 

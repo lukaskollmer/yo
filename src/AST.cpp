@@ -63,43 +63,6 @@ std::string FunctionKindToString(FunctionKind kind) {
     }
 }
 
-std::string BinopOperationToString(BinOp::Operation op) {
-    using E = BinOp::Operation;
-    switch (op) {
-        CASE(Add)
-        CASE(Sub)
-        CASE(Mul)
-        CASE(Div)
-        CASE(Mod)
-        CASE(And)
-        CASE(Or)
-        CASE(Xor)
-        CASE(Shl)
-        CASE(Shr)
-    }
-}
-
-
-std::string ComparisonOpToString(Comparison::Operation op) {
-    using E = Comparison::Operation;
-    switch (op) {
-        CASE(EQ)
-        CASE(NE)
-        CASE(LT)
-        CASE(LE)
-        CASE(GT)
-        CASE(GE)
-    }
-}
-
-
-std::string LogicalOperationOperatorToString(LogicalOperation::Operation op) {
-    using E = LogicalOperation::Operation;
-    switch (op) {
-        CASE(And)
-        CASE(Or)
-    }
-}
 
 
 std::string IfStmtBranchKindToString(IfStmt::Branch::BranchKind kind) {
@@ -136,6 +99,36 @@ std::string UnaryExprOpToString(UnaryExpr::Operation op) {
         CASE(Negate)
         CASE(BitwiseNot)
         CASE(LogicalNegation)
+    }
+}
+
+
+std::string operatorToString(ast::Operator op) {
+    using E = ast::Operator;
+    switch (op) {
+        CASE(Add)
+        CASE(Sub)
+        CASE(Mul)
+        CASE(Div)
+        CASE(Mod)
+        CASE(And)
+        CASE(Or)
+        CASE(Xor)
+        CASE(Shl)
+        CASE(Shr)
+        CASE(Neg)
+        CASE(BNot)
+        CASE(BNeg)
+        CASE(LAnd)
+        CASE(LOr)
+        CASE(EQ)
+        CASE(NE)
+        CASE(LT)
+        CASE(LE)
+        CASE(GT)
+        CASE(GE)
+        CASE(FnPipe)
+        CASE(Assign)
     }
 }
 
@@ -227,15 +220,6 @@ std::string to_string(T arg) {
     } else if constexpr(std::is_same_v<T, FunctionKind>) {
         return FunctionKindToString(arg);
     
-    } else if constexpr(std::is_same_v<T, BinOp::Operation>) {
-        return BinopOperationToString(arg);
-    
-    } else if constexpr(std::is_same_v<T, Comparison::Operation>) {
-        return ComparisonOpToString(arg);
-    
-    } else if constexpr(std::is_same_v<T, LogicalOperation::Operation>) {
-        return LogicalOperationOperatorToString(arg);
-    
     } else if constexpr(std::is_same_v<T, IfStmt::Branch::BranchKind>) {
         return IfStmtBranchKindToString(arg);
     
@@ -247,6 +231,9 @@ std::string to_string(T arg) {
         
     } else if constexpr(std::is_same_v<T, UnaryExpr::Operation>) {
         return UnaryExprOpToString(arg);
+        
+    } else if constexpr(std::is_same_v<T, ast::Operator>) {
+        return operatorToString(arg);
     
     } else if constexpr(std::is_convertible_v<T, std::shared_ptr<Node>> || (std::is_pointer_v<T> && std::is_base_of_v<Node, typename std::remove_pointer_t<T>>)) {
         return arg->description();
@@ -326,14 +313,6 @@ Mirror Reflect(const Ident *ident) {
     };
 }
 
-Mirror Reflect(const BinOp *binop) {
-    return {
-        { "op", binop->op },
-        { "lhs", binop->lhs },
-        { "rhs", binop->rhs }
-    };
-}
-
 Mirror Reflect(const VarDecl *decl) {
     return {
         { "name", decl->name },
@@ -342,25 +321,9 @@ Mirror Reflect(const VarDecl *decl) {
     };
 }
 
-Mirror Reflect(const Comparison *cmp) {
-    return {
-        { "op", cmp->op },
-        { "lhs", cmp->lhs },
-        { "rhs", cmp->rhs }
-    };
-}
-
-Mirror Reflect(const LogicalOperation *logOp) {
-    return {
-        { "op", logOp->op },
-        { "lhs", logOp->lhs },
-        { "rhs", logOp->rhs }
-    };
-}
-
 Mirror Reflect(const IfStmt *If) {
     return {
-        { "branches", If->branches }
+        { "branches", If->branches },
     };
 }
 
@@ -487,6 +450,14 @@ Mirror Reflect(const ast::TypealiasDecl *typealias) {
     };
 }
 
+Mirror Reflect(const ast::BinOp *binop) {
+    return {
+        { "op", binop->getOperator() },
+        { "lhs", binop->getLhs() },
+        { "rhs", binop->getRhs() },
+    };
+}
+
 
 
 
@@ -501,10 +472,7 @@ Mirror Reflect(const Node *node) {
         CASE(ReturnStmt)
         CASE(NumberLiteral)
         CASE(Ident)
-        CASE(BinOp)
         CASE(VarDecl)
-        CASE2(CompOp, Comparison)
-        CASE2(LogicalOp, LogicalOperation)
         CASE(IfStmt)
         CASE2(IfStmtBranch, IfStmt::Branch)
         CASE(Assignment)
@@ -523,8 +491,10 @@ Mirror Reflect(const Node *node) {
         CASE(SubscriptExpr)
         CASE(ExprStmt)
         CASE(TypealiasDecl)
+        CASE(BinOp)
         default:
             std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::getTypename(*node) << std::endl;
+            LKFatalError("");
     }
 #undef CASE2
 #undef CASE

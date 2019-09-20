@@ -28,6 +28,8 @@ enum class PrecedenceGroup : uint8_t {
     Initial = 0,
     FunctionPipeline,
     
+    Assignment,
+    
     LogicalDisjunction,
     LogicalConjunction,
     Comparison,
@@ -112,6 +114,8 @@ private:
     
     std::shared_ptr<ast::Expr> parseExpression(PrecedenceGroup currentPrecedenceGroup = PrecedenceGroup::Initial);
     
+    std::optional<ast::Operator> parseOperator();
+    
     
     // Parses a CallExpr
     // Precondition: The current token most be either a less than sign or opening parentheses
@@ -129,12 +133,6 @@ private:
     std::shared_ptr<ast::NumberLiteral> parseNumberLiteral();
     std::shared_ptr<ast::StringLiteral> parseStringLiteral();
     std::shared_ptr<ast::UnaryExpr> parseUnaryExpr();
-    
-    // Why do these return optional?
-    // Binop and Comparison operators can have the same initial token (ie, << and <, or & and &&)
-    std::optional<ast::BinOp::Operation> parseBinopOperator();
-    std::optional<ast::Comparison::Operation> parseComparisonOperator();
-    std::optional<ast::LogicalOperation::Operation> parseLogicalOperationOperator();
 };
 
 NS_END

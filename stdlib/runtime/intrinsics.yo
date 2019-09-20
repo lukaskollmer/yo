@@ -1,0 +1,110 @@
+#[intrinsic] fn __add<T>(T, T) -> T;
+#[intrinsic] fn __sub<T>(T, T) -> T;
+#[intrinsic] fn __mul<T>(T, T) -> T;
+#[intrinsic] fn __div<T>(T, T) -> T;
+#[intrinsic] fn __mod<T>(T, T) -> T;
+
+// bitwise AND
+#[intrinsic] fn __and<T>(T, T) -> T;
+// bitwise OR
+#[intrinsic] fn __or<T>(T, T) -> T;
+
+#[intrinsic] fn __xor<T>(T, T) -> T;
+#[intrinsic] fn __shl<T>(T, T) -> T;
+#[intrinsic] fn __shr<T>(T, T) -> T;
+
+#[intrinsic] fn __eq<T>(T, T) -> bool;
+#[intrinsic] fn __gt<T>(T, T) -> bool;
+#[intrinsic] fn __lt<T>(T, T) -> bool;
+
+
+#[always_inline]
+fn operator + <T> (lhs: T, rhs: T) -> T {
+    return __add(lhs, rhs);
+}
+
+#[always_inline]
+fn operator - <T> (lhs: T, rhs: T) -> T {
+    return __sub(lhs, rhs);
+}
+
+#[always_inline]
+fn operator * <T> (lhs: T, rhs: T) -> T {
+    return __mul(lhs, rhs);
+}
+
+#[always_inline]
+fn operator / <T> (lhs: T, rhs: T) -> T {
+    return __div(lhs, rhs);
+}
+
+#[always_inline]
+fn operator % <T> (lhs: T, rhs: T) -> T {
+    return __mod(lhs, rhs);
+}
+
+#[always_inline]
+fn operator & <T> (lhs: T, rhs: T) -> T {
+    return __and(lhs, rhs);
+}
+
+#[always_inline]
+fn operator | <T> (lhs: T, rhs: T) -> T {
+    return __or(lhs, rhs);
+}
+
+#[always_inline]
+fn operator ^ <T> (lhs: T, rhs: T) -> T {
+    return __xor(lhs, rhs);
+}
+
+#[always_inline]
+fn operator << <T> (lhs: T, rhs: T) -> T {
+    return __shl(lhs, rhs);
+}
+
+#[always_inline]
+fn operator >> <T> (lhs: T, rhs: T) -> T {
+    return __shr(lhs, rhs);
+}
+
+
+
+// short-circuited logical AND operator
+#[intrinsic] fn operator && (lhs: bool, rhs: bool) -> bool;
+
+// short-circuited logical OR operator
+#[intrinsic] fn operator || (lhs: bool, rhs: bool) -> bool;
+
+
+#[always_inline]
+fn operator == <T>(lhs: T, rhs: T) -> bool {
+    return __eq(lhs, rhs);
+}
+
+#[always_inline]
+fn operator != <T>(lhs: T, rhs: T) -> bool {
+    return !(lhs == rhs);
+}
+
+
+#[always_inline]
+fn operator > <T> (lhs: T, rhs: T) -> bool {
+    return __gt(lhs, rhs);
+}
+
+
+#[always_inline]
+fn operator < <T> (lhs: T, rhs: R) -> bool {
+    return __lt(lhs, rhs);
+}
+
+#[always_inline]
+fn operator <= <T>(lhs: T, rhs: T) -> bool {
+    return lhs < rhs && lhs == rhs;
+}
+
+#[always_inline]
+fn operator >= <T>(lhs: T, rhs: T) -> bool {
+    return lhs > rhs && lhs == rhs;
+}
