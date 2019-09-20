@@ -323,11 +323,12 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string &fi
                 if (next == 'b') {
                     offset += 2;
                     base = 2;
+                } else if (next == 'o') {
+                    offset += 2;
+                    base = 8;
                 } else if (next == 'x') {
                     offset += 2;
                     base = 16;
-                } else if (isOctalDigitChar(next)) {
-                    base = 8;
                 } else {
                     // A single 0, not followed by another numeric digit
                     LKAssert(!isHexDigitChar(next));

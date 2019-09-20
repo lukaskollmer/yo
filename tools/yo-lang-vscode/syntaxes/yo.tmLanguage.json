@@ -23,12 +23,12 @@
         {
             "comment": "Number Literal (Octal)",
             "name":"constant.numeric.oct.yo",
-            "match": "\\b0[0-7]+\\b"
+            "match": "\\b0o[0-7]+\\b"
         },
         {
             "comment": "Number Literal (Decimal)",
             "name":"constant.numeric.dec.yo",
-            "match": "\\b[1-9][0-9]*\\b"
+            "match": "\\b[0-9]+\\b"
         },
         {
             "comment": "Number Literal (Hexadecimal)",
@@ -47,7 +47,7 @@
         {
             "comment": "Function Declarations",
             "begin": "\\b(fn)\\s+([a-zA-Z_][a-zA-Z_0-9]*)\\b",
-            "end": "(:.*)?[{;]",
+            "end": "(->.*)?[{;]",
             "beginCaptures": {
                 "1": { "name": "keyword.other.fn.yo" },
                 "2": { "name": "entity.name.function.yo" }
