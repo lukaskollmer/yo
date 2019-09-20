@@ -25,55 +25,41 @@ using namespace yo::ast;
 
 
 
-
-static std::shared_ptr<ast::Ident> _emptyIdent;
-
-std::shared_ptr<ast::Ident> ast::Ident::emptyIdent() {
-    if (!_emptyIdent) {
-        _emptyIdent = std::make_shared<ast::Ident>("");
-    }
-    return _emptyIdent;
-}
-
-
-
-
-
 #pragma mark - AST Printing
 
-std::ostream& ast::operator<<(std::ostream &OS, const std::shared_ptr<ast::FunctionSignature> &signature) {
-    OS << "fn " << signature->name;
-    if (signature->isTemplateFunction) {
+std::ostream& ast::operator<<(std::ostream &OS, const ast::FunctionSignature& signature) {
+    if (signature.isTemplateFunction()) {
         OS << "<";
-        for (auto it = signature->templateArgumentNames.begin(); it != signature->templateArgumentNames.end(); it++) {
+        for (auto it = signature.templateArgumentNames.begin(); it != signature.templateArgumentNames.end(); it++) {
             OS << *it;
-            if (it + 1 != signature->templateArgumentNames.end()) {
+            if (it + 1 != signature.templateArgumentNames.end()) {
                 OS << ", ";
             }
         }
         OS << ">";
     }
     OS << "(";
-    
-    for (auto it = signature->parameters.begin(); it != signature->parameters.end(); it++) {
+
+    for (auto it = signature.parameters.begin(); it != signature.parameters.end(); it++) {
         OS << (*it)->type->str();
-        if (it + 1 != signature->parameters.end()) {
+        if (it + 1 != signature.parameters.end()) {
             OS << ", ";
         }
     }
-    OS << "): " << signature->returnType->str();
+    OS << ") -> " << signature.returnType->str();
     return OS;
 }
 
 
 #define CASE(n) case E::n: return #n;
 
-std::string FunctionKindToString(FunctionSignature::FunctionKind kind) {
-    using E = FunctionSignature::FunctionKind;
+std::string FunctionKindToString(FunctionKind kind) {
+    using E = FunctionKind;
     switch (kind) {
         CASE(GlobalFunction)
         CASE(StaticMethod)
         CASE(InstanceMethod)
+        CASE(OperatorOverload)
     }
 }
 
@@ -165,21 +151,18 @@ std::string UnaryExprOpToString(UnaryExpr::Operation op) {
 inline constexpr unsigned INDENT_SIZE = 2;
 
 
+// TODO somehow consolidate the two functions below. they're pretty much identical
+
 
 template <typename T>
-std::string ast_description(std::vector<std::shared_ptr<T>> _nodes) {
-    std::vector<std::shared_ptr<T>> nodes(_nodes.begin(), _nodes.end());
-    
+std::string ast_description(const std::vector<T>& nodes) {
     std::string desc;
     desc += "std::vector<";
     desc += util::typeinfo::TypeInfo<T>::name;
     desc += "> [\n";
     
     for (auto it = nodes.begin(); it != nodes.end(); it++) {
-        util::string::append_with_indentation(desc,
-                                              *it ? (*it)->description() : "<nullptr>",
-                                              INDENT_SIZE);
-        
+        util::string::append_with_indentation(desc, it->description(), INDENT_SIZE);
         if (it + 1 != nodes.end()) {
             desc += ",";
         }
@@ -191,7 +174,30 @@ std::string ast_description(std::vector<std::shared_ptr<T>> _nodes) {
 }
 
 
-std::string ast::description(AST &ast) {
+template <typename T>
+std::string ast_description(std::vector<std::shared_ptr<T>> nodes) {
+    std::string desc;
+    desc += "std::vector<";
+    desc += util::typeinfo::TypeInfo<T>::name;
+    desc += "> [\n";
+
+    for (auto it = nodes.begin(); it != nodes.end(); it++) {
+        util::string::append_with_indentation(desc,
+                                              *it ? (*it)->description() : "<nullptr>",
+                                              INDENT_SIZE);
+
+        if (it + 1 != nodes.end()) {
+            desc += ",";
+        }
+        desc += "\n";
+    }
+    desc += "]";
+
+    return desc;
+}
+
+
+std::string ast::description(const AST& ast) {
     return ast_description(ast);
 }
 
@@ -218,7 +224,7 @@ std::string to_string(T arg) {
     } else if constexpr(std::is_base_of_v<irgen::Type, typename std::remove_pointer_t<T>>) {
         return arg->str();
     
-    } else if constexpr(std::is_same_v<T, FunctionSignature::FunctionKind>) {
+    } else if constexpr(std::is_same_v<T, FunctionKind>) {
         return FunctionKindToString(arg);
     
     } else if constexpr(std::is_same_v<T, BinOp::Operation>) {
@@ -244,8 +250,14 @@ std::string to_string(T arg) {
     
     } else if constexpr(std::is_convertible_v<T, std::shared_ptr<Node>> || (std::is_pointer_v<T> && std::is_base_of_v<Node, typename std::remove_pointer_t<T>>)) {
         return arg->description();
-    
+        
+    } else if constexpr(std::is_convertible_v<T, const Node&>) {
+        return arg.description();
+        
     } else if constexpr(util::typeinfo::is_vector_of_convertible_v<T, std::shared_ptr<Node>>) {
+        return ast_description(arg);
+        
+    } else if constexpr(util::typeinfo::is_vector_v<T> && std::is_base_of_v<Node, typename T::value_type>) {
         return ast_description(arg);
     
     } else {
@@ -271,50 +283,50 @@ struct AttributeDescription {
 using Mirror = std::vector<AttributeDescription>;
 
 
-Mirror Reflect(FunctionSignature *signature) {
-    // TODO use the << operator instead?
+Mirror Reflect(const FunctionSignature* signature) {
     return {
-        { "name", signature->name },
-        { "kind", signature->kind },
         { "parameters", signature->parameters },
-        { "returnType", signature->returnType },
-        { "implType", signature->implType }
+        { "returnType", signature->returnType }
     };
 }
 
-Mirror Reflect(FunctionDecl *FD) {
+Mirror Reflect(const FunctionDecl *FD) {
     return {
-        { "signature", FD->signature },
-        { "body", FD->body }
+        { "funcKind", FD->getFunctionKind() },
+        { "name", FD->getName() },
+        { "signature", FD->getSignature() },
+        //{ "attributes", FD->getAttributes() }, // TODO
+        { "body", FD->getBody() },
+        { "implType", FD->getImplType() }
     };
 }
 
-Mirror Reflect(Composite *C) {
+Mirror Reflect(const Composite *C) {
     return {
         { "body", C->statements }
     };
 }
 
-Mirror Reflect(ReturnStmt *ret) {
+Mirror Reflect(const ReturnStmt *ret) {
     return {
         { "expr", ret->expression }
     };
 }
 
-Mirror Reflect(NumberLiteral *number) {
+Mirror Reflect(const NumberLiteral *number) {
     return {
         { "type", number->type },
         { "value", number->value }
     };
 }
 
-Mirror Reflect(Ident *ident) {
+Mirror Reflect(const Ident *ident) {
     return {
         { "value", ident->value }
     };
 }
 
-Mirror Reflect(BinOp *binop) {
+Mirror Reflect(const BinOp *binop) {
     return {
         { "op", binop->op },
         { "lhs", binop->lhs },
@@ -322,7 +334,7 @@ Mirror Reflect(BinOp *binop) {
     };
 }
 
-Mirror Reflect(VarDecl *decl) {
+Mirror Reflect(const VarDecl *decl) {
     return {
         { "name", decl->name },
         { "type", decl->type },
@@ -330,7 +342,7 @@ Mirror Reflect(VarDecl *decl) {
     };
 }
 
-Mirror Reflect(Comparison *cmp) {
+Mirror Reflect(const Comparison *cmp) {
     return {
         { "op", cmp->op },
         { "lhs", cmp->lhs },
@@ -338,7 +350,7 @@ Mirror Reflect(Comparison *cmp) {
     };
 }
 
-Mirror Reflect(LogicalOperation *logOp) {
+Mirror Reflect(const LogicalOperation *logOp) {
     return {
         { "op", logOp->op },
         { "lhs", logOp->lhs },
@@ -346,13 +358,13 @@ Mirror Reflect(LogicalOperation *logOp) {
     };
 }
 
-Mirror Reflect(IfStmt *If) {
+Mirror Reflect(const IfStmt *If) {
     return {
         { "branches", If->branches }
     };
 }
 
-Mirror Reflect(IfStmt::Branch *branch) {
+Mirror Reflect(const IfStmt::Branch *branch) {
     return {
         { "kind", branch->kind },
         { "condition", branch->condition },
@@ -360,14 +372,14 @@ Mirror Reflect(IfStmt::Branch *branch) {
     };
 }
 
-Mirror Reflect(Assignment *assignment) {
+Mirror Reflect(const Assignment *assignment) {
     return {
         { "target", assignment->target },
         { "value", assignment->value }
     };
 }
 
-Mirror Reflect(CastExpr *cast) {
+Mirror Reflect(const CastExpr *cast) {
     return {
         { "type", cast->destType },
         { "expr", cast->expression }
@@ -375,49 +387,49 @@ Mirror Reflect(CastExpr *cast) {
 }
 
 
-Mirror Reflect(StructDecl *Struct) {
+Mirror Reflect(const StructDecl *Struct) {
     return {
         { "name", Struct->name },
         { "members", Struct->members }
     };
 }
 
-Mirror Reflect(ImplBlock *implBlock) {
+Mirror Reflect(const ImplBlock *implBlock) {
     return {
         { "typename", implBlock->typename_ },
         { "methods", implBlock->methods }
     };
 }
 
-Mirror Reflect(StringLiteral *SL) {
+Mirror Reflect(const StringLiteral *SL) {
     return {
         { "kind", SL->kind },
         { "value", SL->value }
     };
 }
 
-Mirror Reflect(UnaryExpr *unaryExpr) {
+Mirror Reflect(const UnaryExpr *unaryExpr) {
     return {
         { "operation", unaryExpr->op },
         { "expr", unaryExpr->expr }
     };
 }
 
-Mirror Reflect(MatchExpr *matchExpr) {
+Mirror Reflect(const MatchExpr *matchExpr) {
     return {
         { "target", matchExpr->target },
         { "branches", matchExpr->branches }
     };
 }
 
-Mirror Reflect(MatchExpr::MatchExprBranch *branch) {
+Mirror Reflect(const MatchExpr::MatchExprBranch *branch) {
     return {
         { "patterns", branch->patterns },
         { "expr", branch->expression }
     };
 }
 
-Mirror Reflect(ast::CallExpr *callExpr) {
+Mirror Reflect(const ast::CallExpr *callExpr) {
     std::string explicitTemplateArgumentTypes = "[ ";
     for (auto it = callExpr->explicitTemplateArgumentTypes.begin(); it != callExpr->explicitTemplateArgumentTypes.end(); it++) {
         explicitTemplateArgumentTypes.append((*it)->str());
@@ -434,41 +446,41 @@ Mirror Reflect(ast::CallExpr *callExpr) {
     };
 }
 
-Mirror Reflect(ast::MemberExpr *memberExpr) {
+Mirror Reflect(const ast::MemberExpr *memberExpr) {
     return {
         { "target", memberExpr->target },
         { "memberName", memberExpr->memberName }
     };
 }
 
-Mirror Reflect(ast::StaticDeclRefExpr *staticDeclRefExpr) {
+Mirror Reflect(const ast::StaticDeclRefExpr *staticDeclRefExpr) {
     return {
         { "typeName", staticDeclRefExpr->typeName },
         { "memberName", staticDeclRefExpr->memberName }
     };
 }
 
-Mirror Reflect(ast::WhileStmt *whileStmt) {
+Mirror Reflect(const ast::WhileStmt *whileStmt) {
     return {
         { "condition", whileStmt->condition },
         { "body", whileStmt->body },
     };
 }
 
-Mirror Reflect(ast::SubscriptExpr *subscriptExpr) {
+Mirror Reflect(const ast::SubscriptExpr *subscriptExpr) {
     return {
         { "target", subscriptExpr->target },
         { "offset", subscriptExpr->offset },
     };
 }
 
-Mirror Reflect(ast::ExprStmt *exprStmt) {
+Mirror Reflect(const ast::ExprStmt *exprStmt) {
     return {
         { "expr", exprStmt->expr }
     };
 }
 
-Mirror Reflect(ast::TypealiasDecl *typealias) {
+Mirror Reflect(const ast::TypealiasDecl *typealias) {
     return {
         { "name", typealias->typename_ },
         { "type", typealias->type }
@@ -478,46 +490,49 @@ Mirror Reflect(ast::TypealiasDecl *typealias) {
 
 
 
-Mirror Reflect(Node *node) {
-#define HANDLE(T) if (auto X = dynamic_cast<T*>(node)) return Reflect(X);
+Mirror Reflect(const Node *node) {
+#define CASE(ty) case NK::ty: return Reflect(static_cast<const ty *>(node));
+#define CASE2(c, ty) case NK::c: return Reflect(static_cast<const ty *>(node));
+    using NK = Node::NodeKind;
     
-    HANDLE(FunctionDecl)
-    HANDLE(Composite)
-    HANDLE(ReturnStmt)
-    HANDLE(NumberLiteral)
-    HANDLE(Ident)
-    HANDLE(BinOp)
-    HANDLE(VarDecl)
-    HANDLE(Comparison)
-    HANDLE(LogicalOperation)
-    HANDLE(IfStmt)
-    HANDLE(IfStmt::Branch)
-    HANDLE(Assignment)
-    HANDLE(CastExpr)
-    HANDLE(StructDecl)
-    HANDLE(ImplBlock)
-    HANDLE(StringLiteral)
-    HANDLE(FunctionSignature)
-    HANDLE(UnaryExpr)
-    HANDLE(MatchExpr)
-    HANDLE(MatchExpr::MatchExprBranch)
-    HANDLE(ast::CallExpr)
-    HANDLE(ast::MemberExpr)
-    HANDLE(ast::StaticDeclRefExpr)
-    HANDLE(ast::WhileStmt)
-    HANDLE(ast::SubscriptExpr)
-    HANDLE(ast::ExprStmt)
-    HANDLE(ast::TypealiasDecl)
-    
-    std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::getTypename(*node) << std::endl;
-    throw;
-
-#undef HANDLE
+    switch (node->getNodeKind()) {
+        CASE(FunctionDecl)
+        CASE(Composite)
+        CASE(ReturnStmt)
+        CASE(NumberLiteral)
+        CASE(Ident)
+        CASE(BinOp)
+        CASE(VarDecl)
+        CASE2(CompOp, Comparison)
+        CASE2(LogicalOp, LogicalOperation)
+        CASE(IfStmt)
+        CASE2(IfStmtBranch, IfStmt::Branch)
+        CASE(Assignment)
+        CASE(CastExpr)
+        CASE(StructDecl)
+        CASE(ImplBlock)
+        CASE(StringLiteral)
+        CASE(FunctionSignature)
+        CASE(UnaryExpr)
+        CASE(MatchExpr)
+        CASE2(MatchExprBranch, MatchExpr::MatchExprBranch)
+        CASE(CallExpr)
+        CASE(MemberExpr)
+        CASE(StaticDeclRefExpr)
+        CASE(WhileStmt)
+        CASE(SubscriptExpr)
+        CASE(ExprStmt)
+        CASE(TypealiasDecl)
+        default:
+            std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::getTypename(*node) << std::endl;
+    }
+#undef CASE2
+#undef CASE
 }
 
 
 
-std::string Node::description() {
+std::string Node::description() const {
     std::string desc;
     
     desc.append(util::typeinfo::getTypename(*this)).append(" [");

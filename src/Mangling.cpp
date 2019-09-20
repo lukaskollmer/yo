@@ -18,9 +18,15 @@ namespace yo::mangling {
     inline constexpr char kFunctionAttributeGlobalFunction = 'F';
     inline constexpr char kFunctionAttributeInstanceMethod = 'I';
     inline constexpr char kFunctionAttributeStaticMethod   = 'S';
+    inline constexpr char kFunctionAttributeOperatorOverload = 'O';
     
     inline constexpr char kTemplatedComplexTypePrefix = 'T';
 //    inline constexpr char kComplexTypePrefix = 'C';
+    
+    
+    inline constexpr char kCanonicalPrefixInstanceMethod = '-';
+    inline constexpr char kCanonicalPrefixStaticMethod = '+';
+    inline constexpr char kCanonicalPrefixOperatorOverload = '~';
 
 }
 
@@ -63,16 +69,27 @@ public:
 
 
 
-std::string mangling::mangleCanonicalName(std::string_view type, std::string_view method, ast::FunctionSignature::FunctionKind kind) {
+std::string mangling::mangleCanonicalName(std::string_view type, std::string_view method, ast::FunctionKind kind) {
+    using FK = ast::FunctionKind;
+    
     ManglingStringBuilder mangler;
     
     switch (kind) {
-        case ast::FunctionSignature::FunctionKind::GlobalFunction:
+        case ast::FunctionKind::GlobalFunction:
             return std::string(method);
-        case ast::FunctionSignature::FunctionKind::StaticMethod:
-            mangler.append("+"); break;
-        case ast::FunctionSignature::FunctionKind::InstanceMethod:
-            mangler.append("-"); break;
+            
+        case FK::OperatorOverload:
+            mangler.append(kCanonicalPrefixOperatorOverload);
+            mangler.append(method);
+            return mangler.str();
+        
+        case FK::StaticMethod:
+            mangler.append(kCanonicalPrefixStaticMethod);
+            break;
+        
+        case FK::InstanceMethod:
+            mangler.append(kCanonicalPrefixInstanceMethod);
+            break;
     }
     
     return mangler
@@ -83,12 +100,12 @@ std::string mangling::mangleCanonicalName(std::string_view type, std::string_vie
 
 
 
-std::string mangling::mangleCanonicalNameForSignature(std::shared_ptr<ast::FunctionSignature> signature) {
-    if (!signature->attributes->mangledName.empty()) {
-        return signature->attributes->mangledName;
+std::string mangling::mangleCanonicalName(std::shared_ptr<ast::FunctionDecl> funcDecl) {
+    if (!funcDecl->getAttributes().mangledName.empty()) {
+        return funcDecl->getAttributes().mangledName;
     }
-    auto typeName = signature->kind == ast::FunctionSignature::FunctionKind::GlobalFunction ? "" : signature->implType->getName();
-    return mangleCanonicalName(typeName, signature->name, signature->kind);
+    auto typeName = funcDecl->getFunctionKind() == ast::FunctionKind::GlobalFunction ? "" : funcDecl->getImplType()->getName();
+    return mangleCanonicalName(typeName, funcDecl->getName(), funcDecl->getFunctionKind());
 }
 
 
@@ -191,32 +208,37 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(yo::irgen::Type 
 
 
 // Mangled name includes type encodings for return- & parameter types
-std::string mangling::mangleFullyResolvedNameForSignature(std::shared_ptr<ast::FunctionSignature> signature) {
-    if (!signature->attributes->mangledName.empty()) {
-        return signature->attributes->mangledName;
+std::string mangling::mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> funcDecl) {
+    if (!funcDecl->getAttributes().mangledName.empty()) {
+        return funcDecl->getAttributes().mangledName;
     }
     
-    using FK = ast::FunctionSignature::FunctionKind;
     ManglingStringBuilder mangler(kCommonPrefix);
     
-    switch (signature->kind) {
-        case FK::GlobalFunction:
-            mangler.append(mangling::kFunctionAttributeGlobalFunction);
+    switch (funcDecl->getFunctionKind()) {
+        case ast::FunctionKind::GlobalFunction:
+            mangler.append(kFunctionAttributeGlobalFunction);
             break;
-        case FK::InstanceMethod:
-            mangler.append(mangling::kFunctionAttributeInstanceMethod);
-            mangler.appendWithCount(signature->implType->getName());
+        
+        case ast::FunctionKind::OperatorOverload:
+            mangler.append(kFunctionAttributeOperatorOverload);
             break;
-        case FK::StaticMethod:
-            mangler.append(mangling::kFunctionAttributeStaticMethod);
-            mangler.appendWithCount(signature->implType->getName());
+        
+        case ast::FunctionKind::InstanceMethod:
+            mangler.append(kFunctionAttributeInstanceMethod);
+            mangler.appendWithCount(funcDecl->getImplType()->getName());
+            break;
+        
+        case ast::FunctionKind::StaticMethod:
+            mangler.append(kFunctionAttributeStaticMethod);
+            mangler.appendWithCount(funcDecl->getImplType()->getName());
             break;
     }
     
-    mangler.appendWithCount(signature->name);
-    mangler.appendEncodedType(signature->returnType->getResolvedType());
+    mangler.appendWithCount(funcDecl->getName());
+    mangler.appendEncodedType(funcDecl->getSignature().returnType->getResolvedType());
     
-    for (auto &param : signature->parameters) {
+    for (auto &param : funcDecl->getSignature().parameters) {
         mangler.appendEncodedType(param->type->getResolvedType());
     }
     

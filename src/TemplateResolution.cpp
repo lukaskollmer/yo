@@ -75,43 +75,37 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::specialize(std::shared_ptr<
     }
 #endif
     
-    auto specializedFunction = std::make_shared<ast::FunctionDecl>();
-    specializedFunction->setSourceLocation(decl->getSourceLocation());
-    specializedFunction->signature = std::make_shared<ast::FunctionSignature>(*decl->signature);
-    specializedFunction->signature->setSourceLocation(decl->signature->getSourceLocation());
-//    SpecializedFunction->body = std::make_shared<ast::Composite>();
-//    SpecializedFunction->body->setSourceLocation(Decl->body->getSourceLocation());
+    auto signature = decl->getSignature();
     
-    // 1. Substitute in signature (params & return type)
-    
-    for (auto &param : specializedFunction->signature->parameters) {
-        auto SL = param->getSourceLocation();
+    // Substitute in signature (params & return type)
+    for (auto &param : signature.parameters) {
+        auto loc = param->getSourceLocation();
         param = std::make_shared<ast::VarDecl>(param->name, resolveType(param->type));
-        param->setSourceLocation(SL);
+        param->setSourceLocation(loc);
     }
-    
-    specializedFunction->signature->returnType = resolveType(specializedFunction->signature->returnType);
+    signature.returnType = resolveType(signature.returnType);
     
     for (auto &[name, type] : templateArgumentMapping) {
         if (type) {
-            auto it = std::find(specializedFunction->signature->templateArgumentNames.begin(),
-                                specializedFunction->signature->templateArgumentNames.end(), name);
-            specializedFunction->signature->templateArgumentNames.erase(it);
+            auto it = std::find(signature.templateArgumentNames.begin(),
+                                signature.templateArgumentNames.end(), name);
+            signature.templateArgumentNames.erase(it);
         } else {
-            LKFatalError("Unresolved argument type in template function: %s (%s)", name.c_str(), mangling::mangleCanonicalNameForSignature(decl->signature).c_str());
+            LKFatalError("Unresolved argument type in template function: %s (%s)", name.c_str(), mangling::mangleCanonicalName(decl).c_str());
         }
     }
     
-    //std::cout << "Before:\n" << Decl->signature << "\nAfter:\n" << SpecializedFunction->signature << std::endl;
     
-    if (specializedFunction->signature->attributes->intrinsic) {
-        LKAssert(decl->body == nullptr);
-        return specializedFunction;
+    auto specializedFuncDecl = std::make_shared<ast::FunctionDecl>(decl->getFunctionKind(), decl->getName(), signature, decl->getAttributes());
+    specializedFuncDecl->setSourceLocation(decl->getSourceLocation());
+    
+    if (decl->getAttributes().intrinsic) {
+        LKAssert(decl->getBody().empty());
+        return specializedFuncDecl;
     }
     
-    specializedFunction->body = specialize(decl->body);
-    specializedFunction->body->setSourceLocation(decl->body->getSourceLocation());
-    return specializedFunction;
+    specializedFuncDecl->setBody(specialize(decl->getBody()));
+    return specializedFuncDecl;
 }
 
 
@@ -155,9 +149,14 @@ std::shared_ptr<ast::Expr> TemplateResolver::specialize(std::shared_ptr<ast::Exp
 
 
 std::shared_ptr<ast::Composite> TemplateResolver::specialize(std::shared_ptr<ast::Composite> composite) {
-    auto X = std::make_shared<ast::Composite>(util::vector::map(composite->statements, [this](auto s) { return specialize(s); }));
+    auto X = std::make_shared<ast::Composite>(specialize(composite->statements));
     X->setSourceLocation(composite->getSourceLocation());
     return X;
+}
+
+
+std::vector<std::shared_ptr<ast::LocalStmt>> TemplateResolver::specialize(std::vector<std::shared_ptr<ast::LocalStmt>> stmtList) {
+    return util::vector::map(stmtList, [this](auto &stmt) { return specialize(stmt); });
 }
 
 std::shared_ptr<ast::ReturnStmt> TemplateResolver::specialize(std::shared_ptr<ast::ReturnStmt> returnStmt) {
@@ -234,14 +233,10 @@ std::shared_ptr<ast::MatchExpr> TemplateResolver::specialize(std::shared_ptr<ast
     // TODO file a radar ?!
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-lambda-capture"
-    auto branches = util::vector::map(matchExpr->branches, [this](auto branch) -> auto {
-//        auto Patterns = util::vector::map(Branch->Patterns, [this](auto Pattern) -> auto { return specialize(Pattern); });
-//        return std::make_shared<ast::MatchExpr::MatchExprBranch>(Patterns, specialize(Branch->Expression));
-        
-        auto X = std::make_shared<ast::MatchExpr::MatchExprBranch>(util::vector::map(branch->patterns, [this](auto p) { return specialize(p); }),
-                                                                   specialize(branch->expression));
-        X->setSourceLocation(branch->getSourceLocation());
-        return X;
+    std::vector<ast::MatchExpr::MatchExprBranch> branches = util::vector::map(matchExpr->branches, [this] (const auto& branch) {
+        auto x = ast::MatchExpr::MatchExprBranch(util::vector::map(branch.patterns, [this](auto p) {return specialize(p); }), specialize(branch.expression));
+        x.setSourceLocation(branch.getSourceLocation());
+        return x;
     });
 #pragma clang diagnostic pop
     auto X = std::make_shared<ast::MatchExpr>(specialize(matchExpr->target), branches);

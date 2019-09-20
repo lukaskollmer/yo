@@ -4,7 +4,7 @@
 
 
 #[always_inline]
-fn retain<T>(obj: T): T {
+fn retain<T>(obj: T) -> T {
     retain_imp(reinterpret_cast<*LKMetadataAccessor>(obj));
     return obj;
 }
@@ -31,7 +31,7 @@ struct LKMetadataAccessor {
 }
 
 
-fn get_retainCount_imp(obj: *LKMetadataAccessor): u64 {
+fn get_retainCount_imp(obj: *LKMetadataAccessor) -> u64 {
     let rc = obj.retainCount;
     rc &= static_cast<u64>(~(1 << 60));
     return rc;
@@ -42,7 +42,7 @@ fn get_retainCount_imp(obj: *LKMetadataAccessor): u64 {
 //    return;
 //}
 
-fn retain_imp(obj: *LKMetadataAccessor): void {
+fn retain_imp(obj: *LKMetadataAccessor) -> void {
     if isMarkedForRelease_imp(obj) {
         obj.retainCount &= static_cast<u64>(~(1 << 60));
         //unsetIsMarkedForReleaseBit_imp(obj);
@@ -54,17 +54,13 @@ fn retain_imp(obj: *LKMetadataAccessor): void {
 }
 
 
-fn release_imp(obj: *LKMetadataAccessor): void {
+fn release_imp(obj: *LKMetadataAccessor) -> void {
     if isMarkedForRelease_imp(obj) {
         obj.retainCount &= static_cast<u64>(~(1 << 60));
     }
 
     if obj.retainCount == 1 {
-        printf(b"TODO DEALLOC\n");
-        printf(b"TODO CALL PTR\n");
-        raise(2);
         obj.deallocPtr(reinterpret_cast<*i8>(obj));
-        raise(2);
         return;
     }
 
@@ -74,14 +70,8 @@ fn release_imp(obj: *LKMetadataAccessor): void {
 }
 
 
-fn isMarkedForRelease_imp(obj: *LKMetadataAccessor): bool {
-    let mask = static_cast<u64>(1 << 60);
-    let val = obj.retainCount & mask;
-    if val != 0 {
-        return true;
-    } else {
-        return false;
-    }
+fn isMarkedForRelease_imp(obj: *LKMetadataAccessor) -> bool {
+    return obj.retainCount & static_cast<u64>(1 << 60) != 0;
 }
 
 

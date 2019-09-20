@@ -14,12 +14,15 @@
 #include "Type.h"
 
 namespace yo::mangling {
-    std::string mangleFullyResolvedNameForSignature(std::shared_ptr<ast::FunctionSignature>);
-    std::string mangleCanonicalNameForSignature(std::shared_ptr<ast::FunctionSignature>);
-    std::string mangleCanonicalName(std::string_view type, std::string_view method, ast::FunctionSignature::FunctionKind kind);
+    std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl>);
+    std::string mangleCanonicalName(std::shared_ptr<ast::FunctionDecl>);
+    std::string mangleCanonicalName(std::string_view type, std::string_view method, ast::FunctionKind kind);
     
     // TODO add a yo::irgen::Type equivalent
     //std::string mangleTemplatedComplexType(TypeInfo *TI);
     
     bool isCanonicalInstanceMethodName(std::string_view ident);
+    
+    
+    std::string mangleOperator(ast::BinOp::Operation op);
 }

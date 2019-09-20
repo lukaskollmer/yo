@@ -88,14 +88,13 @@ private:
     std::shared_ptr<ast::TopLevelStmt> parseTopLevelStmt();
     
     std::vector<yo::attributes::Attribute> parseAttributes();
-    std::shared_ptr<ast::FunctionSignature> parseFunctionSignature(std::shared_ptr<attributes::FunctionAttributes>);
     
-    std::shared_ptr<ast::FunctionDecl> parseFunctionDecl(std::shared_ptr<attributes::FunctionAttributes>);
+    std::shared_ptr<ast::FunctionDecl> parseFunctionDecl(attributes::FunctionAttributes);
     std::shared_ptr<ast::ImplBlock> parseImplBlock();
-    std::shared_ptr<ast::StructDecl> parseStructDecl(std::shared_ptr<attributes::StructAttributes>);
+    std::shared_ptr<ast::StructDecl> parseStructDecl(attributes::StructAttributes);
     std::shared_ptr<ast::TypealiasDecl> parseTypealias();
     
-    void parseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> &signature);
+    void parseFunctionParameterList(ast::FunctionSignature& signature, attributes::FunctionAttributes& attributes);
     
     std::vector<std::shared_ptr<ast::VarDecl>> parseStructPropertyDeclList();
     
@@ -121,7 +120,9 @@ private:
     
     
     std::vector<std::shared_ptr<ast::Expr>> parseExpressionList(Token::TokenKind delimiter);
-    std::shared_ptr<ast::Ident> parseIdentifier();
+    
+    std::string parseIdentAsString();
+    std::shared_ptr<ast::Ident> parseIdent();
     
     std::shared_ptr<ast::MatchExpr> parseMatchExpr();
     

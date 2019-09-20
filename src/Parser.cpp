@@ -26,23 +26,23 @@ using TK = Token::TokenKind;
 #pragma mark - Parser Utils
 
 #define assert_current_token(expected) \
-do { if (auto T = currentToken(); T.getKind() != expected) { \
-    auto &S = T.getSourceLocation(); \
-    std::cout << "[token assert] Expected: " << expected << ", got: " << T.getKind() << ". (file: " << S.filepath << ":" << S.line << ":" << S.column << ")\n";  \
+do { if (auto __T = currentToken(); __T.getKind() != (expected)) { \
+    auto &__S = __T.getSourceLocation(); \
+    std::cout << "[token assert] Expected: " << (expected) << ", got: " << __T.getKind() << ". (file: " << __S.filepath << ":" << __S.line << ":" << __S.column << ")\n";  \
     throw; \
 } } while (0)
 
 #define assert_current_token_and_consume(expected) \
-do { if (auto T = currentToken(); T.getKind() != expected) { \
-    auto &S = T.getSourceLocation(); \
-    std::cout << "[token assert] Expected: " << expected << ", got: " << T.getKind() << ". (file: " << S.filepath << ":" << S.line << ":" << S.column << ")\n";  \
+do { if (auto __T = currentToken(); __T.getKind() != (expected)) { \
+    auto &__S = __T.getSourceLocation(); \
+    std::cout << "[token assert] Expected: " << (expected) << ", got: " << __T.getKind() << ". (file: " << __S.filepath << ":" << __S.line << ":" << __S.column << ")\n";  \
     throw; \
 } else { consume(); } } while (0)
 
 #define unhandled_token(T)                                                                                                      \
 {                                                                                                                               \
-    auto &SL = T.getSourceLocation();                                                                                                \
-    std::cout << "Unhandled Token: " << T << " at " << SL.filepath << ":" << SL.line << ":" << SL.column << std::endl; throw;   \
+    auto &__SL = T.getSourceLocation();                                                                                                \
+    std::cout << "Unhandled Token: " << (T) << " at " << __SL.filepath << ":" << __SL.line << ":" << __SL.column << std::endl; throw;   \
 }
 
 
@@ -201,11 +201,11 @@ std::shared_ptr<TopLevelStmt> Parser::parseTopLevelStmt() {
     
     switch (currentToken().getKind()) {
         case TK::Fn: {
-            stmt = parseFunctionDecl(std::make_shared<attributes::FunctionAttributes>(attributeList));
+            stmt = parseFunctionDecl(attributes::FunctionAttributes(attributeList));
             break;
         }
         case TK::Struct: {
-            stmt = parseStructDecl(std::make_shared<attributes::StructAttributes>(attributeList));
+            stmt = parseStructDecl(attributes::StructAttributes(attributeList));
             break;
         }
         case TK::Impl: {
@@ -230,17 +230,17 @@ std::shared_ptr<TopLevelStmt> Parser::parseTopLevelStmt() {
 }
 
 
-std::shared_ptr<StructDecl> Parser::parseStructDecl(std::shared_ptr<attributes::StructAttributes> attributes) {
+std::shared_ptr<StructDecl> Parser::parseStructDecl(attributes::StructAttributes attributes) {
     assert_current_token_and_consume(TK::Struct);
     
     auto decl = std::make_shared<StructDecl>();
-    decl->name = parseIdentifier();
+    decl->name = parseIdentAsString();
     decl->attributes = attributes;
     
     if (currentTokenKind() == TK::LessThanSign) {
         consume();
         while (currentTokenKind() != TK::GreaterSign) {
-            decl->templateArguments.push_back(parseIdentifier()->value);
+            decl->templateArguments.push_back(parseIdentAsString());
             if (currentTokenKind() == TK::Comma) consume();
         }
         assert_current_token_and_consume(TK::GreaterSign);
@@ -256,7 +256,7 @@ std::shared_ptr<StructDecl> Parser::parseStructDecl(std::shared_ptr<attributes::
 std::shared_ptr<ImplBlock> Parser::parseImplBlock() {
     assert_current_token_and_consume(TK::Impl);
     
-    auto impl = std::make_shared<ImplBlock>(parseIdentifier()->value);
+    auto impl = std::make_shared<ImplBlock>(parseIdentAsString());
     assert_current_token_and_consume(TK::OpeningCurlyBraces);
     
     while (currentTokenKind() == TK::Fn || currentTokenKind() == TK::Hashtag) {
@@ -265,7 +265,7 @@ std::shared_ptr<ImplBlock> Parser::parseImplBlock() {
             attributes = parseAttributes();
             LKAssert(currentTokenKind() == TK::Fn);
         }
-        auto functionDecl = parseFunctionDecl(std::make_shared<attributes::FunctionAttributes>(attributes));
+        auto functionDecl = parseFunctionDecl(attributes::FunctionAttributes(attributes));
         impl->methods.push_back(functionDecl);
     }
     
@@ -283,14 +283,14 @@ std::vector<yo::attributes::Attribute> Parser::parseAttributes() {
     std::vector<yo::attributes::Attribute> attributes;
     
     
-    while (auto ident = parseIdentifier()) {
+    while (auto ident = parseIdent()) {
         auto key = ident->value;
         
         switch (currentTokenKind()) {
             case TK::OpeningParens: {
                 consume();
                 std::vector<std::string> members;
-                while (auto Ident = parseIdentifier()) {
+                while (auto Ident = parseIdent()) {
                     members.push_back(ident->value);
                     if (currentTokenKind() == TK::Comma) {
                         consume();
@@ -309,7 +309,7 @@ std::vector<yo::attributes::Attribute> Parser::parseAttributes() {
                 if (auto value = parseStringLiteral()) {
                     LKAssert(value->kind == ast::StringLiteral::StringLiteralKind::NormalString);
                     attributes.push_back(yo::attributes::Attribute(key, value->value));
-                } else if (auto ident = parseIdentifier()) {
+                } else if (auto ident = parseIdent()) {
                     attributes.push_back(yo::attributes::Attribute(key, ident->value));
                 } else {
                     LKFatalError("unable to parse attribute value");
@@ -346,75 +346,86 @@ std::vector<yo::attributes::Attribute> Parser::parseAttributes() {
 
 
 
-std::shared_ptr<FunctionSignature> Parser::parseFunctionSignature(std::shared_ptr<attributes::FunctionAttributes> attributes) {
-    auto sourceLoc = getCurrentSourceLocation();
+std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttributes attributes) {
+    auto functionKind = FunctionKind::GlobalFunction; // initial assumption
     
-    assert_current_token_and_consume(TK::Fn);
+    assert_current_token(TK::Fn);
+    const auto &loc = getCurrentSourceLocation();
+    consume();
     
-    auto signature = std::make_shared<ast::FunctionSignature>();
-    signature->setSourceLocation(sourceLoc);
-    signature->name = parseIdentifier()->value;
-    signature->attributes = attributes;
-    signature->kind = ast::FunctionSignature::FunctionKind::GlobalFunction; // (for functions in impl blocks, this will be changed to the proper value during irgen preflight)
+    FunctionSignature signature;
     
-    if (currentTokenKind() == TK::LessThanSign) { // Template function
-        signature->isTemplateFunction = true;
+    auto name = parseIdentAsString();
+    if (name == "operator") {
+        functionKind = FunctionKind::OperatorOverload;
+        LKFatalError("TODO");
+    }
+    
+    
+    if (currentTokenKind() == TK::LessThanSign) { // template list
         consume();
         while (currentTokenKind() != TK::GreaterSign) {
-            signature->templateArgumentNames.push_back(parseIdentifier()->value);
-            if (currentTokenKind() == TK::Comma) consume();
+            signature.templateArgumentNames.push_back(parseIdentAsString());
+            if (currentTokenKind() == TK::Comma) {
+                consume();
+            } else {
+                assert_current_token_and_consume(TK::GreaterSign);
+                break;
+            }
         }
-        assert_current_token_and_consume(TK::GreaterSign);
+        LKAssert(!signature.templateArgumentNames.empty());
     }
+    
+    
     assert_current_token_and_consume(TK::OpeningParens);
     
-    //S->Parameters = ParseParameterList(true);
-    signature->parameters = {};
-    parseFunctionParameterList(signature);
+    parseFunctionParameterList(signature, attributes);
     assert_current_token_and_consume(TK::ClosingParens);
     
-    if (currentTokenKind() == TK::Colon) {
-        consume();
-        signature->returnType = parseType();
+    if (currentTokenKind() == TK::Minus && peekKind() == TK::GreaterSign) {
+        consume(2);
+        signature.returnType = parseType();
     } else {
-        signature->returnType = ast::TypeDesc::makeNominal("void");
+        signature.returnType = TypeDesc::makeNominal("void");
     }
     
-    return signature;
-}
-
-
-std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(std::shared_ptr<attributes::FunctionAttributes> attributes) {
-    auto decl = std::make_shared<FunctionDecl>();
-    decl->signature = parseFunctionSignature(attributes);
+    auto fnDecl = std::make_shared<FunctionDecl>(functionKind, name, signature, attributes);
+    fnDecl->setSourceLocation(loc);
     
-    if (currentTokenKind() == TK::OpeningCurlyBraces) {
-        decl->body = parseComposite();
-    } else if (currentTokenKind() == TK::Semicolon) {
+    if (currentTokenKind() == TK::Semicolon) {
+        // forward declaration
         consume();
-        decl->body = nullptr;
+        return fnDecl;
     }
     
-    return decl;
+    fnDecl->setBody(parseComposite()->statements);
+    return fnDecl;
 }
+
+
+
+
+
+
+
 
 
 
 std::vector<std::shared_ptr<ast::VarDecl>> Parser::parseStructPropertyDeclList() {
     std::vector<std::shared_ptr<ast::VarDecl>> decls;
     
-    
     while (currentTokenKind() != TK::ClosingCurlyBraces) {
         // TODO
         //if (CurrentTokenKind() == TK::Hashtag) {
         //    auto attributes = ParseAttributes();
         //}
-        auto ident = parseIdentifier();
+        auto loc = getCurrentSourceLocation();
+        auto ident = parseIdentAsString();
         assert_current_token_and_consume(TK::Colon);
         auto type = parseType();
         
         auto decl = std::make_shared<ast::VarDecl>(ident, type);
-        decl->setSourceLocation(ident->getSourceLocation());
+        decl->setSourceLocation(loc);
         decls.push_back(decl);
         
         if (currentTokenKind() == TK::Comma) {
@@ -429,7 +440,8 @@ std::vector<std::shared_ptr<ast::VarDecl>> Parser::parseStructPropertyDeclList()
 
 
 
-void Parser::parseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> &signature) {
+// TODO why is this a separate function? re-inline!
+void Parser::parseFunctionParameterList(FunctionSignature& signature, attributes::FunctionAttributes& attributes) {
     constexpr auto delimiter = TK::ClosingParens;
     
     uint64_t index = 0;
@@ -437,13 +449,13 @@ void Parser::parseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> 
     while (currentTokenKind() != delimiter) {
         LKAssert(pos_lastEntry != position); pos_lastEntry = position;
         
-        auto ident = ast::Ident::emptyIdent();
-        //TypeInfo *type = TypeInfo::Unresolved;
+        auto loc = getCurrentSourceLocation();
+        std::string ident;
         std::shared_ptr<TypeDesc> type;
         
         if (currentTokenKind() == TK::Ident && peekKind() == TK::Colon) {
             // <ident>: <type>
-            ident = parseIdentifier();
+            ident = parseIdentAsString();
             assert_current_token_and_consume(TK::Colon);
             type = parseType();
             if (peekKind(0) == TK::Period && peekKind(1) == TK::Period && peekKind(2) == TK::Period) {
@@ -452,18 +464,18 @@ void Parser::parseFunctionParameterList(std::shared_ptr<ast::FunctionSignature> 
         } else if (currentTokenKind() == TK::Period && peekKind(0) == TK::Period && peekKind(2) == TK::Period) {
             consume(3);
             LKAssert(currentTokenKind() == delimiter);
-            signature->attributes->variadic = true;
+            attributes.variadic = true;
             return;
         } else {
-            ident = std::make_shared<ast::Ident>(std::string("$").append(std::to_string(index)));
+            ident = std::string("$").append(std::to_string(index));
             type = parseType();
         }
         LKAssert(type);
         
         index += 1;
         auto decl = std::make_shared<ast::VarDecl>(ident, type);
-        decl->setSourceLocation(ident->getSourceLocation());
-        signature->parameters.push_back(decl);
+        decl->setSourceLocation(loc);
+        signature.parameters.push_back(decl);
         
         if (currentTokenKind() == TK::Comma) {
             consume();
@@ -510,7 +522,7 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
             return TypeDesc::makePointer(parseType());
         }
         case TK::Ident: {
-            auto name = parseIdentifier()->value;
+            auto name = parseIdentAsString();
             if (currentTokenKind() == TK::Colon) {
                 LKFatalError("TODO implement?");
             } else if (currentTokenKind() == TK::LessThanSign) {
@@ -550,7 +562,7 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
 std::shared_ptr<ast::TypealiasDecl> Parser::parseTypealias() {
     auto sourceLoc = getCurrentSourceLocation();
     assert_current_token_and_consume(TK::Use);
-    auto name = parseIdentifier()->value;
+    auto name = parseIdentAsString();
     assert_current_token_and_consume(TK::EqualsSign);
     auto type = parseType();
     assert_current_token_and_consume(TK::Semicolon);
@@ -671,9 +683,8 @@ std::shared_ptr<VarDecl> Parser::parseVariableDecl() {
     auto sourceLoc = getCurrentSourceLocation();
     assert_current_token_and_consume(TK::Let);
     
-    auto identifier = parseIdentifier();
+    auto ident = parseIdentAsString();
     std::shared_ptr<TypeDesc> type;
-    //auto type = TypeInfo::Unresolved;
     std::shared_ptr<Expr> initialValue;
     
     if (currentTokenKind() == TK::Colon) {
@@ -688,7 +699,7 @@ std::shared_ptr<VarDecl> Parser::parseVariableDecl() {
     
     assert_current_token_and_consume(TK::Semicolon);
     
-    auto decl = std::make_shared<VarDecl>(identifier, type, initialValue);
+    auto decl = std::make_shared<VarDecl>(ident, type, initialValue);
     decl->setSourceLocation(sourceLoc);
     return decl;
 }
@@ -748,7 +759,7 @@ std::shared_ptr<ast::WhileStmt> Parser::parseWhileStmt() {
 std::shared_ptr<ForLoop> Parser::parseForLoop() {
     auto sourceLoc = getCurrentSourceLocation();
     assert_current_token_and_consume(TK::For);
-    auto ident = parseIdentifier();
+    auto ident = parseIdent();
     assert_current_token_and_consume(TK::In);
     auto expr = parseExpression();
     assert_current_token(TK::OpeningCurlyBraces);
@@ -782,8 +793,14 @@ std::vector<std::shared_ptr<Expr>> Parser::parseExpressionList(Token::TokenKind 
 }
 
 
+std::string Parser::parseIdentAsString() {
+    assert_current_token(TK::Ident);
+    auto val = currentToken().getData<std::string>();
+    consume();
+    return val;
+}
 
-std::shared_ptr<Ident> Parser::parseIdentifier() {
+std::shared_ptr<Ident> Parser::parseIdent() {
     if (currentTokenKind() != TK::Ident) return nullptr;
     auto ident = std::make_shared<Ident>(currentToken().getData<std::string>());
     ident->setSourceLocation(getCurrentSourceLocation());
@@ -791,7 +808,8 @@ std::shared_ptr<Ident> Parser::parseIdentifier() {
     return ident;
 }
 
-        
+
+
 std::optional<ast::BinOp::Operation> Parser::parseBinopOperator() {
     auto token = currentTokenKind();
     
@@ -940,7 +958,7 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
     }
     
     if (!expr) {
-        expr = parseIdentifier();
+        expr = parseIdent();
         
         if (currentTokenKind() == TK::Colon && peekKind() == TK::Colon) {
             // a static member reference
@@ -949,7 +967,7 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
             
             auto typeName = std::dynamic_pointer_cast<ast::Ident>(expr)->value;
             consume(2);
-            auto memberName = parseIdentifier()->value;
+            auto memberName = parseIdentAsString();
             expr = std::make_shared<ast::StaticDeclRefExpr>(typeName, memberName);
         }
     }
@@ -997,7 +1015,7 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
 //    parse_member_expr:
         if (currentTokenKind() == TK::Period) { // member expr
             consume();
-            auto memberName = parseIdentifier()->value;
+            auto memberName = parseIdentAsString();
             expr = std::make_shared<ast::MemberExpr>(expr, memberName);
             // TODO goto parse_call_expr if the current token is `<` or `(`?
             // member expressions are probably somewhat often also call targets?
@@ -1137,14 +1155,14 @@ std::shared_ptr<ast::MatchExpr> Parser::parseMatchExpr() {
     assert_current_token_and_consume(TK::Match);
     auto target = parseExpression();
     assert_current_token_and_consume(TK::OpeningCurlyBraces);
-    std::vector<std::shared_ptr<ast::MatchExpr::MatchExprBranch>> branches;
+    std::vector<MatchExpr::MatchExprBranch> branches;
     
     while (true) {
         auto patterns = parseExpressionList(TK::EqualsSign);
         assert_current_token_and_consume(TK::EqualsSign);
         assert_current_token_and_consume(TK::GreaterSign);
         auto expr = parseExpression();
-        branches.push_back(std::make_shared<ast::MatchExpr::MatchExprBranch>(patterns, expr));
+        branches.push_back(MatchExpr::MatchExprBranch(patterns, expr));
         
         switch (currentTokenKind()) {
             case TK::Comma:

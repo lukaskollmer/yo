@@ -26,30 +26,19 @@ NS_START(yo::irgen)
 
 
 
-
-// TODO somehow consolidate ResolvedFunction and NEW_ResolvedFunction into a single type!
-
-struct ResolvedFunction {
-    std::shared_ptr<ast::FunctionDecl> decl;
-    llvm::Function *llvmFunction; // nullptr if Decl is a template function
-    uint8_t argumentOffset;
-    
-    ResolvedFunction(std::shared_ptr<ast::FunctionDecl> decl, llvm::Function *llvmFunction, uint8_t argumentOffset = 0) : decl(decl), llvmFunction(llvmFunction), argumentOffset(argumentOffset) {}
-};
-
-
-struct NEW_ResolvedFunction {
-    // what do we need and why?
-    // - signature      (why? parameters, return type, attributes)
-    // - llvm value     (why? Builder.CreateCall)
-    // - argumentOffset (why? instance method invocations)
-    
-    std::shared_ptr<ast::FunctionSignature> signature;
+struct ResolvedCallable {
+    ast::FunctionSignature signature;
+    std::shared_ptr<ast::FunctionDecl> funcDecl; // only nonnull if the callable is a function decl
     llvm::Value *llvmValue;
     uint8_t argumentOffset;
     
-    NEW_ResolvedFunction(std::shared_ptr<ast::FunctionSignature> signature, llvm::Value *llvmValue, uint8_t argumentOffset) : signature(signature), llvmValue(llvmValue), argumentOffset(argumentOffset) {}
+    ResolvedCallable(ast::FunctionSignature sig, std::shared_ptr<ast::FunctionDecl> funcDecl, llvm::Value *llvmValue, uint8_t argumentOffset)
+    : signature(sig), funcDecl(funcDecl), llvmValue(llvmValue), argumentOffset(argumentOffset) {}
+    
+    ResolvedCallable(std::shared_ptr<ast::FunctionDecl> funcDecl, llvm::Value *llvmValue, uint8_t argumentOffset)
+    : signature(funcDecl->getSignature()), funcDecl(funcDecl), llvmValue(llvmValue), argumentOffset(argumentOffset) {}
 };
+
 
 
 // State of the function currently being generated
@@ -63,8 +52,6 @@ struct FunctionState {
     FunctionState(std::shared_ptr<ast::FunctionDecl> decl, llvm::Function *llvmFunction, llvm::BasicBlock *returnBB, llvm::Value *retvalAlloca)
     : decl(decl), llvmFunction(llvmFunction), returnBB(returnBB), retvalAlloca(retvalAlloca) {}
 };
-
-
 
 
 
@@ -97,9 +84,10 @@ class IRGenerator {
     
     
     /// key: canonical function name
-    std::map<std::string, std::vector<ResolvedFunction>> functions;
+    std::map<std::string, std::vector<ResolvedCallable>> functions;
+    // TODO: what's the point of `resolvedFunctions`?
     // key: fully resolved function name
-    std::map<std::string, std::shared_ptr<ast::FunctionSignature>> resolvedFunctions;
+    std::map<std::string, std::shared_ptr<ast::FunctionDecl>> resolvedFunctions;
     
     
     // The function currently being generated
@@ -156,6 +144,7 @@ private:
     llvm::Value *codegen(std::shared_ptr<ast::ImplBlock>);
     
     
+    llvm::Value *codegen(const std::vector<std::shared_ptr<ast::LocalStmt>>&);
     llvm::Value *codegen(std::shared_ptr<ast::Composite>);
     llvm::Value *codegen(std::shared_ptr<ast::ReturnStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::VarDecl>);
@@ -182,7 +171,7 @@ private:
     llvm::Value *codegen(std::shared_ptr<ast::ExprStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::CallExpr>);
     
-    llvm::Value *codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionSignature> signature, std::shared_ptr<ast::CallExpr>);
+    llvm::Value *codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionDecl>, std::shared_ptr<ast::CallExpr>);
     
     
     // Match Expr
@@ -205,7 +194,7 @@ private:
     
     
     
-    llvm::DISubroutineType *_toDISubroutineType(ast::FunctionSignature *);
+    llvm::DISubroutineType *_toDISubroutineType(const ast::FunctionSignature&);
     
     // Applying trivial number literal casts
     
@@ -226,13 +215,13 @@ private:
     
     
     // Other stuff
-    std::shared_ptr<ast::FunctionSignature> getResolvedFunctionWithName(const std::string &name);
+    std::shared_ptr<ast::FunctionDecl> getResolvedFunctionWithName(const std::string &name);
     
     Type *instantiateTemplatedType(std::shared_ptr<ast::TypeDesc>);
     
     // set omitCodegen to true if you only care about the return type of the call
     // for each callExpr, omitCodegen should be false exactly once!!!
-    NEW_ResolvedFunction resolveCall(std::shared_ptr<ast::CallExpr>, bool omitCodegen);
+    ResolvedCallable resolveCall(std::shared_ptr<ast::CallExpr>, bool omitCodegen);
     std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset);
     
     //TypeInfo *guessType(std::shared_ptr<ast::Expr>);

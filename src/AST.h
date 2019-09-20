@@ -30,7 +30,7 @@ class TopLevelStmt;
 using AST = std::vector<std::shared_ptr<TopLevelStmt>>;
 
 
-std::string description(AST &ast);
+std::string description(const AST& ast);
 
 
 class Expr;
@@ -59,7 +59,7 @@ public:
     
     NodeKind getNodeKind() const { return kind; }
     
-    virtual std::string description();
+    virtual std::string description() const;
     const parser::TokenSourceLocation &getSourceLocation() const {
         return sourceLocation;
     }
@@ -72,7 +72,8 @@ protected:
     Node(NodeKind kind) : kind(kind) {}
     virtual ~Node() = default;
     
-    const NodeKind kind;
+private:
+    NodeKind kind;
     parser::TokenSourceLocation sourceLocation;
 };
 
@@ -100,57 +101,79 @@ protected:
 #pragma mark - Top Level Statements
 
 
+enum class FunctionKind {
+    GlobalFunction,   // A free global function
+    StaticMethod,     // A static type member method
+    InstanceMethod,   // A type instance method
+    OperatorOverload
+};
+
 
 class FunctionSignature : public Node {
 public:
-    enum class FunctionKind {
-        GlobalFunction,   // A free global function
-        StaticMethod,     // A static type member method
-        InstanceMethod    // A type instance method
-    };
-    
-    
-    std::string name;
-    FunctionKind kind;
     std::shared_ptr<TypeDesc> returnType;
     std::vector<std::shared_ptr<VarDecl>> parameters;
-    irgen::StructType *implType;
-    std::shared_ptr<attributes::FunctionAttributes> attributes;
-    
-    
-    bool isTemplateFunction = false;
     std::vector<std::string> templateArgumentNames;
-    
-    explicit FunctionSignature() : Node(Node::NodeKind::FunctionSignature) {
-        attributes = std::make_shared<attributes::FunctionAttributes>();
-        implType = nullptr;
-    }
-    
-    bool isFullSpecialization() {
-        return isTemplateFunction && templateArgumentNames.empty();
-    }
-    
+
+    FunctionSignature() : Node(Node::NodeKind::FunctionSignature) {}
+
+
+    bool isTemplateFunction() const { return !templateArgumentNames.empty(); }
 };
 
-std::ostream& operator<<(std::ostream&, const std::shared_ptr<ast::FunctionSignature>&);
+std::ostream& operator<<(std::ostream&, const ast::FunctionSignature&);
+
+
+
+
+
 
 
 
 class FunctionDecl : public TopLevelStmt {
-public:
-    std::shared_ptr<FunctionSignature> signature;
-    std::shared_ptr<Composite> body;
+    FunctionSignature signature;
+    std::vector<std::shared_ptr<LocalStmt>> funcBody;
+    attributes::FunctionAttributes attributes;
     
-    FunctionDecl() : TopLevelStmt(Node::NodeKind::FunctionDecl) {}
+    FunctionKind funcKind;
+    std::string name;
+    irgen::StructType *implType = nullptr; // Only nonnull if this is a type member function
+
+    
+public:
+    explicit FunctionDecl(FunctionKind kind, std::string name, FunctionSignature sig, attributes::FunctionAttributes attr)
+    : TopLevelStmt(Node::NodeKind::FunctionDecl), signature(sig), attributes(attr), funcKind(kind), name(name) {}
+    
+    FunctionKind getFunctionKind() const { return funcKind; }
+    void setFunctionKind(FunctionKind kind) { funcKind = kind; }
+    
+    const std::string& getName() const { return name; }
+    FunctionSignature& getSignature() { return signature; }
+    const FunctionSignature& getSignature() const { return signature; }
+    irgen::StructType* getImplType() const { return implType; }
+    void setImplType(irgen::StructType *ty) { implType = ty; }
+    
+    attributes::FunctionAttributes& getAttributes() { return attributes; }
+    const attributes::FunctionAttributes& getAttributes() const { return attributes; }
+    
+    const std::vector<std::shared_ptr<LocalStmt>>& getBody() const { return funcBody; }
+    void setBody(std::vector<std::shared_ptr<LocalStmt>> body) { funcBody = body; }
+    
+    
+    bool isOfKind(FunctionKind kind) const { return funcKind == kind; }
 };
+
+
+
+
 
 
 class StructDecl : public TopLevelStmt {
 public:
-    std::shared_ptr<Ident> name;
+    std::string name;
     std::vector<std::shared_ptr<VarDecl>> members;
     std::vector<std::string> templateArguments;
-    std::shared_ptr<attributes::StructAttributes> attributes;
+    attributes::StructAttributes attributes;
     
     StructDecl() : TopLevelStmt(Node::NodeKind::StructDecl) {}
     
@@ -204,11 +227,11 @@ public:
 // TODO rename to VarDecl?
 class VarDecl : public LocalStmt {
 public:
-    std::shared_ptr<Ident> name; // TODO does something like this really warrant a pointer?
+    std::string name;
     std::shared_ptr<TypeDesc> type;
     std::shared_ptr<Expr> initialValue;
     
-    VarDecl(std::shared_ptr<Ident> name, std::shared_ptr<TypeDesc> type, std::shared_ptr<Expr> initialValue = nullptr)
+    VarDecl(std::string name, std::shared_ptr<TypeDesc> type, std::shared_ptr<Expr> initialValue = nullptr)
     : LocalStmt(Node::NodeKind::VarDecl), name(name), type(type), initialValue(initialValue) {}
 };
 
@@ -285,8 +308,6 @@ public:
     const std::string value;
     
     explicit Ident(std::string value) : Expr(Node::NodeKind::Ident), value(value) {}
-    
-    static std::shared_ptr<Ident> emptyIdent();
 };
 
 
@@ -408,14 +429,16 @@ public:
         std::vector<std::shared_ptr<Expr>> patterns;
         std::shared_ptr<Expr> expression;
         
+        MatchExprBranch() : Node(Node::NodeKind::MatchExprBranch) {}
+        
         MatchExprBranch(std::vector<std::shared_ptr<Expr>> patterns, std::shared_ptr<Expr> expression)
         : Node(Node::NodeKind::MatchExprBranch), patterns(patterns), expression(expression) {}
     };
     
     std::shared_ptr<Expr> target;
-    std::vector<std::shared_ptr<MatchExprBranch>> branches;
+    std::vector<MatchExprBranch> branches;
     
-    MatchExpr(std::shared_ptr<Expr> target, std::vector<std::shared_ptr<MatchExprBranch>> branches) : Expr(Node::NodeKind::MatchExpr), target(target), branches(branches) {}
+    MatchExpr(std::shared_ptr<Expr> target, std::vector<MatchExprBranch> branches) : Expr(Node::NodeKind::MatchExpr), target(target), branches(branches) {}
 };
 
 
