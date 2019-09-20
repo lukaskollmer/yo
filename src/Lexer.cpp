@@ -399,8 +399,8 @@ Token& Lexer::handleRawToken(const std::string &tokenSourceText, Token::TokenKin
         exit(EXIT_FAILURE);
     }
     
-    auto column = columnRelativeToCurrentLine();
-    token.setSourceLocation(TokenSourceLocation(filepath, line + 1, column + 1, offset - column));
+    auto column = columnRelativeToCurrentLine() - tokenSourceText.length();
+    token.setSourceLocation(TokenSourceLocation(filepath, line + 1, column + 1, tokenSourceText.length()));
     
     tokens.push_back(token);
     return tokens.back();
