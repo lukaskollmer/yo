@@ -97,17 +97,17 @@ void IRGenerator::emitDebugLocation(const std::shared_ptr<ast::Node> &node) {
         return;
     }
     
-    auto &SL = node->getSourceLocation();
+    const auto& SL = node->getSourceLocation();
     builder.SetCurrentDebugLocation(llvm::DebugLoc::get(SL.line, SL.column, debugInfo.lexicalBlocks.back()));
 }
 
 
 
 
-void IRGenerator::codegen(ast::AST &ast) {
+void IRGenerator::codegen(const ast::AST& ast) {
     preflight(ast);
     
-    for (auto &node : ast) {
+    for (const auto& node : ast) {
         codegen(node);
     }
     
@@ -127,7 +127,7 @@ std::string mangleFullyResolved(const std::shared_ptr<ast::FunctionDecl>& functi
 
 
 
-void IRGenerator::preflight(ast::AST &ast) {
+void IRGenerator::preflight(const ast::AST& ast) {
     // Q: Why collect the different kinds of top level decls first and then process them, instead of simply processing them all in a single for loop?
     // A: What if a function uses a type that is declared at some later point, or in another module? it's important all of these are processed in the correct order
     std::vector<std::shared_ptr<ast::TypealiasDecl>> typealiases;
@@ -136,7 +136,7 @@ void IRGenerator::preflight(ast::AST &ast) {
     std::vector<std::shared_ptr<ast::ImplBlock>> implBlocks;
     
 #define CASE(node, kind, dest) case NK::kind: { dest.push_back(std::static_pointer_cast<ast::kind>(node)); continue; }
-    for (auto &node : ast) {
+    for (const auto& node : ast) {
         switch(node->getNodeKind()) {
             CASE(node, TypealiasDecl, typealiases)
             CASE(node, FunctionDecl, functionDecls)
@@ -147,24 +147,24 @@ void IRGenerator::preflight(ast::AST &ast) {
     }
 #undef CASE
     
-    for (auto &typealiasDecl : typealiases) {
+    for (const auto& typealiasDecl : typealiases) {
         // TODO is this a good idea?
         // TODO prevent circular aliases!
         nominalTypes[typealiasDecl->typename_] = resolveTypeDesc(typealiasDecl->type);
     }
     
-    for (auto &structDecl : structDecls) {
+    for (const auto& structDecl : structDecls) {
         registerStructDecl(structDecl);
     }
     
-    for (auto &functionDecl : functionDecls) {
+    for (const auto& functionDecl : functionDecls) {
         if (functionDecl->getAttributes().extern_) {
             functionDecl->getAttributes().no_mangle = true;
         }
         registerFunction(functionDecl);
     }
     
-    for (auto &implBlock : implBlocks) {
+    for (const auto& implBlock : implBlocks) {
         registerImplBlock(implBlock);
     }
 }
@@ -172,7 +172,7 @@ void IRGenerator::preflight(ast::AST &ast) {
 
 
 void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDecl) {
-    const auto &sig = functionDecl->getSignature();
+    const auto& sig = functionDecl->getSignature();
     
     if (functionDecl->isOfKind(ast::FunctionKind::GlobalFunction) && functionDecl->getName() == "main") {
         functionDecl->getAttributes().no_mangle = true;
@@ -193,15 +193,16 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     
     
     auto returnType = resolveTypeDesc(sig.returnType);
-    std::vector<llvm::Type *> parameterTypes = util::vector::map(sig.parameters,
-                                                                 [this](auto &P) { return resolveTypeDesc(P->type)->getLLVMType(); });
+    std::vector<llvm::Type *> parameterTypes = util::vector::map(sig.parameters, [this](const auto& P) {
+        return resolveTypeDesc(P->type)->getLLVMType();
+    });
     
     
     const std::string canonicalName = mangling::mangleCanonicalName(functionDecl);
     const std::string resolvedName = functionDecl->getAttributes().extern_ ? canonicalName : mangleFullyResolved(functionDecl);
     
     if (auto otherDecl = getResolvedFunctionWithName(resolvedName)) {
-        const auto &otherSig = otherDecl->getSignature();
+        const auto& otherSig = otherDecl->getSignature();
         LKAssert(functionDecl->getAttributes().extern_ && "only extern functions are allowed to have multiple declarations");
         LKAssert(resolveTypeDesc(sig.returnType) == resolveTypeDesc(otherSig.returnType));
         LKAssert(sig.parameters.size() == otherSig.parameters.size());
@@ -235,7 +236,7 @@ void IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl
     
     auto LKMetadataAccessor = llvm::dyn_cast_or_null<StructType>(nominalTypes["LKMetadataAccessor"]);
     
-    const auto &structName = structDecl->name;
+    const auto& structName = structDecl->name;
     // TODO add a check somewhere here to make sure there are no duplicate struct members
     
     uint64_t memberCount = structDecl->members.size();
@@ -246,13 +247,13 @@ void IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl
     //LKAssert(LKMetadataAccessor->isStructTy()); // Should always be true
     
     if (enableARC && structDecl->attributes.arc) {
-        for (auto &member : LKMetadataAccessor->getMembers()) {
+        for (const auto& member : LKMetadataAccessor->getMembers()) {
             structMembers.push_back(member);
         }
     }
     
     
-    for (auto &varDecl : structDecl->members) {
+    for (const auto& varDecl : structDecl->members) {
         // Since the varDecls are pointers, the resolveTypeDecl call below also sets the structDecl's member's types,
         // meaning that we can simply use that as the initializer parameters
         auto type = resolveTypeDesc(varDecl->type);
@@ -279,11 +280,11 @@ void IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl
 void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
     using FK = ast::FunctionKind;
     
-    auto &typename_ = implBlock->typename_;
+    const auto& typename_ = implBlock->typename_;
     auto type = nominalTypes.at(typename_);
     LKAssert(type->isStructTy());
     
-    for (auto &fn : implBlock->methods) {
+    for (auto& fn : implBlock->methods) {
         LKAssert(!fn->getAttributes().no_mangle && "invalid attribute for function in impl block: no_mangle");
         auto kind = FK::StaticMethod;
         if (!fn->getSignature().parameters.empty()) {
@@ -361,8 +362,8 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Expr> expr, CodegenReturn
 
 
 llvm::DIFile *DIFileForNode(llvm::DIBuilder &DIBuilder, const ast::Node& node) {
-    auto &sourceLoc = node.getSourceLocation();
-    auto [directory, filename] = util::string::extractPathAndFilename(sourceLoc.filepath);
+    const auto& sourceLoc = node.getSourceLocation();
+    const auto [directory, filename] = util::string::extractPathAndFilename(sourceLoc.filepath);
     return DIBuilder.createFile(filename, directory);
 }
 
@@ -378,7 +379,7 @@ llvm::DISubroutineType *IRGenerator::_toDISubroutineType(const ast::FunctionSign
     std::vector<llvm::Metadata *> types(signature.parameters.size() + 1);
     
     types.push_back(resolveTypeDesc(signature.returnType)->getLLVMDIType());
-    for (auto &param : signature.parameters) {
+    for (const auto& param : signature.parameters) {
         types.push_back(resolveTypeDesc(param->type)->getLLVMDIType());
     }
     
@@ -442,7 +443,7 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc) {
             return typeDesc->getResolvedType();
         
         case TDK::Nominal: {
-            auto &name = typeDesc->getName();
+            const auto& name = typeDesc->getName();
             if (auto ty = resolvePrimitiveType(name)) {
                 return handleResolvedTy(ty);
             } else {
@@ -461,8 +462,8 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc) {
             return handleResolvedTy(resolveTypeDesc(typeDesc->getPointee())->getPointerTo());
         
         case TDK::Function: {
-            auto &FTI = typeDesc->getFunctionTypeInfo();
-            auto paramTypes = util::vector::map(FTI.parameterTypes, [this](auto &typeDesc) { return resolveTypeDesc(typeDesc); });
+            const auto& FTI = typeDesc->getFunctionTypeInfo();
+            const auto paramTypes = util::vector::map(FTI.parameterTypes, [this](const auto& typeDesc) { return resolveTypeDesc(typeDesc); });
             return handleResolvedTy(FunctionType::create(resolveTypeDesc(FTI.returnType), paramTypes, FTI.callingConvention));
         }
     }
@@ -538,11 +539,10 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     
     std::vector<llvm::AllocaInst *> paramAllocas;
     
-    for (auto &param : sig.parameters) {
-        //auto alloca = builder.CreateAlloca(getLLVMType(param->type));
+    for (const auto& param : sig.parameters) {
         auto type = resolveTypeDesc(param->type);
         auto alloca = builder.CreateAlloca(type->getLLVMType());
-        const auto &name = param->name;
+        const auto& name = param->name;
         alloca->setName(name);
         scope.insert(name, type, ValueBinding(alloca, [=]() {
             return builder.CreateLoad(alloca);
@@ -557,7 +557,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         auto alloca = paramAllocas.at(i);
         builder.CreateStore(&F->arg_begin()[i], alloca);
         
-        auto &param = sig.parameters.at(i);
+        const auto& param = sig.parameters.at(i);
         auto varInfo = debugInfo.builder.createParameterVariable(SP, alloca->getName(), i + 1, unit,
                                                                  param->getSourceLocation().line,
                                                                  resolveTypeDesc(param->type)->getLLVMDIType());
@@ -614,7 +614,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     
     LKAssert(scope.size() == sig.parameters.size() + static_cast<uint8_t>(!returnType->isVoidTy()));
     
-    for (auto &entry : scope.getEntriesSinceMarker(0)) {
+    for (const auto& entry : scope.getEntriesSinceMarker(0)) {
         //std::cout << std::get<0>(Entry) << std::endl;
         // TODO: release
         scope.remove(entry.ident);
@@ -638,7 +638,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StructDecl> structDecl) {
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ImplBlock> implBlock) {
-    for (auto &method : implBlock->methods) {
+    for (const auto& method : implBlock->methods) {
         codegen(method);
     }
     return nullptr;
@@ -715,7 +715,7 @@ llvm::Value *IRGenerator::codegen(const std::vector<std::shared_ptr<ast::LocalSt
     bool didReturn = false;
     
     for (auto it = stmtList.begin(); !didReturn && it != stmtList.end(); it++) {
-        auto &stmt = *it;
+        const auto& stmt = *it;
         if (auto returnStmt = std::dynamic_pointer_cast<ast::ReturnStmt>(stmt)) {
             codegen(returnStmt);
             didReturn = true;
@@ -724,7 +724,7 @@ llvm::Value *IRGenerator::codegen(const std::vector<std::shared_ptr<ast::LocalSt
         }
     }
     
-    for (auto &entry : scope.getEntriesSinceMarker(marker)) {
+    for (const auto& entry : scope.getEntriesSinceMarker(marker)) {
         scope.remove(entry.ident);
     }
     
@@ -1053,7 +1053,7 @@ llvm::Value *IRGenerator::codegen_HandleMatchPatternExpr(MatchExprPatternCodegen
 
 
 bool lastBranchIsWildcard(const std::shared_ptr<ast::MatchExpr> &matchExpr) {
-    const auto &lastBranch = matchExpr->branches.back();
+    const auto& lastBranch = matchExpr->branches.back();
     if (lastBranch.patterns.size() > 1) return false;
     if (auto ident = std::dynamic_pointer_cast<ast::Ident>(lastBranch.patterns[0])) {
         return ident->value == "_";
@@ -1086,14 +1086,14 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MatchExpr> matchExpr) {
     auto lastBranchIsWildcard = ::lastBranchIsWildcard(matchExpr);
     
     for (size_t i = 0; i < matchExpr->branches.size(); i++) {
-        auto &branch = matchExpr->branches[i]; // not const bc we might modify the expression if it's a literal
+        auto& branch = matchExpr->branches[i]; // not const bc we might modify the expression if it's a literal
         auto valueBB = nextValueBB;
         nextValueBB = llvm::BasicBlock::Create(C);
         
         bool isLastBranchBeforeWildcard = lastBranchIsWildcard && i + 2 == matchExpr->branches.size();
         
         for (auto it = branch.patterns.begin(); it != branch.patterns.end(); it++) {
-            auto &patternExpr = *it;
+            const auto& patternExpr = *it;
             if (auto ident = std::dynamic_pointer_cast<ast::Ident>(patternExpr)) {
                 LKAssert(it + 1 == branch.patterns.end() && branch.patterns.size() == 1);
                 LKAssert(ident->value == "_");
@@ -1249,7 +1249,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::BinOp> binop) {
 std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset) {
     // TODO properly take the argument offset into account when handling calls to templated instance methods, or other functions w/ an offset > 0
     
-    const auto &sig = templateFunction->getSignature();
+    const auto& sig = templateFunction->getSignature();
     if (sig.parameters.size() != call->arguments.size() + argumentOffset) {
         return std::nullopt;
     }
@@ -1303,7 +1303,7 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
     
     
     std::map<std::string, std::shared_ptr<ast::TypeDesc>> retvalMap;
-    for (auto &[name, type] : templateArgumentMapping) {
+    for (const auto& [name, type] : templateArgumentMapping) {
         retvalMap[name] = ast::TypeDesc::makeResolved(type);
     }
     return retvalMap;
@@ -1395,12 +1395,12 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     
     
     
-    auto &possibleTargets = functions[targetName];
+    const auto& possibleTargets = functions[targetName];
     LKAssertMsg(!possibleTargets.empty(), util::fmt_cstr("Unable to resolve call to %s", targetName.c_str()));
     
     
     if (possibleTargets.size() == 1) {
-        auto &target = possibleTargets[0];
+        const auto& target = possibleTargets[0];
         if (!target.funcDecl->getSignature().isTemplateFunction()) {
             return ResolvedCallable(target.funcDecl, target.llvmValue, argumentOffset);
         }
@@ -1431,9 +1431,9 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     bool hasPerfectMatch = false;
     
     
-    for (auto &target : possibleTargets) {
-        auto &decl = target.funcDecl;
-        const auto &sig = decl->getSignature();
+    for (const auto& target : possibleTargets) {
+        const auto& decl = target.funcDecl;
+        const auto& sig = decl->getSignature();
         
         if (sig.parameters.size() != callExpr->arguments.size()) {
             continue;
@@ -1471,7 +1471,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     }
     
     if (!hasPerfectMatch) {
-        for (auto &target : templateFunctions) {
+        for (const auto& target : templateFunctions) {
             if (auto templateArgMapping = attemptToResolveTemplateArgumentTypesForCall(target, callExpr, argumentOffset)) {
                 auto argc = target->getSignature().parameters.size();
                 uint32_t score = argc * 10;
@@ -1483,18 +1483,18 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     }
     
     // TODO this seems like a bad idea
-    std::sort(matches.begin(), matches.end(), [](auto &arg0, auto &arg1) { return arg0.score > arg1.score; });
+    std::sort(matches.begin(), matches.end(), [](auto& arg0, auto& arg1) { return arg0.score > arg1.score; });
     
 #if 0
     std::cout << "Matching overloads:\n";
-    for (auto &match : matches) {
+    for (auto& match : matches) {
         std::cout << "- " << match.score << ": " << match.decl->signature << std::endl;
     }
 #endif
     
     if (matches.size() > 1 && matches[0].score == matches[1].score) {
         std::cout << "Error: ambiguous function call. unable to resolve. Potential candidates are:\n";
-        for (auto &match : matches) {
+        for (auto& match : matches) {
             std::cout << "- " << match.score << ": " << match.decl->getSignature() << std::endl;
         }
         throw;
@@ -1521,7 +1521,7 @@ bool callerCalleeSideEffectsCompatible(const std::vector<yo::attributes::SideEff
         return true;
     }
     
-    for (auto &sideEffect : calleeSideEffects) {
+    for (const auto& sideEffect : calleeSideEffects) {
         if (!util::vector::contains(callerSideEffects, sideEffect)) return false;
     }
     
@@ -1674,7 +1674,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::IfStmt> ifStmt) {
     std::vector<llvm::BasicBlock *> branchConditionBlocks(1, nullptr);
     std::vector<llvm::BasicBlock *> branchBodyBlocks;
     
-    for (auto &branch : ifStmt->branches) {
+    for (const auto& branch : ifStmt->branches) {
         branchBodyBlocks.push_back(llvm::BasicBlock::Create(C, "if_body"));
         if (branch->kind != BK::Else) {
             branchConditionBlocks.push_back(llvm::BasicBlock::Create(C, "if_cond"));
@@ -1963,9 +1963,7 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
             auto name = structTy->getName();
             
             auto llvmStructTy = llvm::StructType::create(C, name);
-            //auto llvmStructBody = util::vector::map(structTy->getMembers(), [this](auto &member) -> llvm::Type* { return getLLVMType(member.second); });
-            //llvmStructTy->setBody(llvmStructBody);
-            llvmStructTy->setBody(util::vector::map(structTy->getMembers(), [this](auto &member) -> llvm::Type* { return getLLVMType(member.second); }));
+            llvmStructTy->setBody(util::vector::map(structTy->getMembers(), [this](auto& member) -> llvm::Type* { return getLLVMType(member.second); }));
             return handle_llvm_type(llvmStructTy);
         }
         
@@ -1998,7 +1996,7 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
         return diType;
     };
     
-    auto &DL = module->getDataLayout();
+    auto& DL = module->getDataLayout();
     
     auto byteWidth = DL.getTypeSizeInBits(i8);
     auto pointerWidth = DL.getPointerSizeInBits();
@@ -2252,7 +2250,7 @@ namespace astgen {
 
 
 llvm::Value *IRGenerator::generateStructInitializer(std::shared_ptr<ast::StructDecl> structDecl) {
-    const auto &structName = structDecl->name;
+    const auto& structName = structDecl->name;
     auto structType = llvm::dyn_cast<StructType>(nominalTypes[structName]);
 
     auto F = functions[mangling::mangleCanonicalName(structName, "init", ast::FunctionKind::StaticMethod)][0].funcDecl;
@@ -2291,7 +2289,7 @@ llvm::Value *IRGenerator::generateStructInitializer(std::shared_ptr<ast::StructD
     }
 
     // set properties
-    for (auto &param : F->getSignature().parameters) {
+    for (auto& param : F->getSignature().parameters) {
         fnBody.push_back(std::make_shared<ast::Assignment>(std::make_shared<ast::MemberExpr>(self, param->name), makeIdent(param->name)));
     }
     fnBody.push_back(std::make_shared<ast::ReturnStmt>(self));

@@ -173,7 +173,7 @@ namespace vector {
     
     template <typename T, typename F>
     bool contains_where(const std::vector<T> &vector, F fn) {
-        for (auto &elem : vector) {
+        for (const auto& elem : vector) {
             if (fn(elem)) return true;
         }
         return false;
@@ -181,7 +181,7 @@ namespace vector {
     
     template <typename T, typename F>
     std::optional<T> first_where(const std::vector<T> &vector, F fn) {
-        for (auto &elem : vector) {
+        for (const auto& elem : vector) {
             if (fn(elem)) return elem;
         }
         return std::nullopt;
@@ -197,7 +197,7 @@ namespace vector {
     template <typename T, typename F>
     std::pair<std::vector<T>, std::vector<T>> filter_keeping_all(std::vector<T> &vector, F f) {
         std::vector<T> matched, unmatched;
-        for (auto &element : vector) {
+        for (const auto& element : vector) {
             (f(element) == true ? matched : unmatched).push_back(element);
         }
         return {matched, unmatched};

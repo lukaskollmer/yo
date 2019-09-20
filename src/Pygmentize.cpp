@@ -23,7 +23,7 @@ std::string yo::lex::pygmentize(const std::vector<parser::Token> &tokens) {
     html << "<pre class=\"highlight\">";
     html << "<code>";
     
-    for (auto &token : tokens) {
+    for (const auto& token : tokens) {
         repr_token(html, token);
     }
     

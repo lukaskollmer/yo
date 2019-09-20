@@ -230,7 +230,7 @@ std::string StructType::getName() const {
 // TODO add an option to calculate a member's offset
 std::pair<uint64_t, Type *> StructType::getMember(const std::string &name) const {
     uint64_t index = 0;
-    for (auto &[memName, memType] : members) {
+    for (auto& [memName, memType] : members) {
         if (memName == name) return {index, memType};
         index += 1;
     }

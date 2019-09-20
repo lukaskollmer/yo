@@ -16,7 +16,7 @@ using namespace yo::attributes;
 
 namespace attr_vec_utils {
     std::optional<Attribute> get_with_key(const std::vector<Attribute> &attributes, std::string_view key) {
-        return util::vector::first_where(attributes, [&key](auto &attr) { return attr.getKey() == key; });
+        return util::vector::first_where(attributes, [&key](const auto& attr) { return attr.getKey() == key; });
     }
     
     bool contains_key(const std::vector<Attribute> &attributes, std::string_view key) {
@@ -62,7 +62,7 @@ std::vector<SideEffect> HandleSideEffectsAttribute(const Attribute &attribute) {
         return { SideEffect::Unknown };
     }
     
-    for (auto &value : values) {
+    for (const auto& value : values) {
         if (value == builtin_attributes::function::side_effects::none) {
             containsNone = true;
             sideEffects.push_back(SideEffect::None);
@@ -82,7 +82,7 @@ std::vector<SideEffect> HandleSideEffectsAttribute(const Attribute &attribute) {
 
 void ensure_mutual_exclusivity(const std::vector<std::string_view> &attributeNames, const std::initializer_list<std::string_view> &attributesToCheckFor) {
     std::vector<std::string_view> foundAttributeNames;
-    for (auto &attr_check : attributesToCheckFor) {
+    for (const auto& attr_check : attributesToCheckFor) {
         if (util::vector::contains(attributeNames, attr_check)) {
             foundAttributeNames.push_back(attr_check);
         }
@@ -110,7 +110,7 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
     
     std::vector<std::string_view> handledAttributes;
 
-    for (auto &attribute : attributes) {
+    for (const auto& attribute : attributes) {
         LKAssert(!util::vector::contains(handledAttributes, attribute.getKey()));
         handledAttributes.push_back(attribute.getKey());
         
@@ -184,7 +184,7 @@ StructAttributes::StructAttributes(const std::vector<Attribute> &attributes) : S
     
     std::vector<std::string_view> handledAttributes;
     
-    for (auto &attribute : attributes) {
+    for (const auto& attribute : attributes) {
         LKAssert(!util::vector::contains(handledAttributes, attribute.getKey()));
         handledAttributes.push_back(attribute.key);
         

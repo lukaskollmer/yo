@@ -27,21 +27,21 @@ using TK = Token::TokenKind;
 
 #define assert_current_token(expected) \
 do { if (auto __T = currentToken(); __T.getKind() != (expected)) { \
-    auto &__S = __T.getSourceLocation(); \
+    const auto& __S = __T.getSourceLocation(); \
     std::cout << "[token assert] Expected: " << (expected) << ", got: " << __T.getKind() << ". (file: " << __S.filepath << ":" << __S.line << ":" << __S.column << ")\n";  \
     throw; \
 } } while (0)
 
 #define assert_current_token_and_consume(expected) \
 do { if (auto __T = currentToken(); __T.getKind() != (expected)) { \
-    auto &__S = __T.getSourceLocation(); \
+    const auto& __S = __T.getSourceLocation(); \
     std::cout << "[token assert] Expected: " << (expected) << ", got: " << __T.getKind() << ". (file: " << __S.filepath << ":" << __S.line << ":" << __S.column << ")\n";  \
     throw; \
 } else { consume(); } } while (0)
 
 #define unhandled_token(T)                                                                                                      \
 {                                                                                                                               \
-    auto &__SL = T.getSourceLocation();                                                                                                \
+    const auto& __SL = T.getSourceLocation();                                                                                                \
     std::cout << "Unhandled Token: " << (T) << " at " << __SL.filepath << ":" << __SL.line << ":" << __SL.column << std::endl; throw;   \
 }
 
@@ -64,7 +64,7 @@ class MappedTokenSet {
     
 public:
     MappedTokenSet(std::initializer_list<std::pair<TK, T>> mapping) {
-        for (auto &pair : mapping) {
+        for (auto& pair : mapping) {
             this->mapping.insert(pair);
         }
     }
@@ -350,7 +350,7 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
     auto functionKind = FunctionKind::GlobalFunction; // initial assumption
     
     assert_current_token(TK::Fn);
-    const auto &loc = getCurrentSourceLocation();
+    const auto& loc = getCurrentSourceLocation();
     consume();
     
     FunctionSignature signature;
@@ -491,7 +491,7 @@ void Parser::parseFunctionParameterList(FunctionSignature& signature, attributes
 yo::irgen::CallingConvention extractCallingConventionAttribute(const std::vector<attributes::Attribute> &attributes) {
     using CC = yo::irgen::CallingConvention;
     
-    if (auto attr = util::vector::first_where(attributes, [](auto &attr) { return attr.getKey() == "convention"; })) {
+    if (auto attr = util::vector::first_where(attributes, [](auto& attr) { return attr.getKey() == "convention"; })) {
         auto value = attr.value().getData<std::string>();
         if (value == "C") {
             return CC::C;
@@ -1228,7 +1228,7 @@ std::shared_ptr<NumberLiteral> Parser::parseNumberLiteral() {
 
 
 std::shared_ptr<StringLiteral> Parser::parseStringLiteral() {
-    auto &token = currentToken();
+    const auto& token = currentToken();
     
     if (token.getKind() != TK::StringLiteral && token.getKind() != TK::ByteStringLiteral) {
         return nullptr;

@@ -545,7 +545,7 @@ std::string Node::description() const {
     desc += "\n";
     
     for (auto it = M.begin(); it != M.end(); it++) {
-        auto &[key, value] = *it;
+        const auto& [key, value] = *it;
         util::string::append_with_indentation(desc, key + ": " + value, INDENT_SIZE);
         
         if (it + 1 != M.end()) {

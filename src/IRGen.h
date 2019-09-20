@@ -99,7 +99,7 @@ public:
     
     explicit IRGenerator(const std::string moduleName);
     
-    void codegen(ast::AST &ast);
+    void codegen(const ast::AST& ast);
     
     std::unique_ptr<llvm::Module> getModule() {
         return std::move(module);
@@ -119,7 +119,7 @@ private:
 //    };
     
     
-    void preflight(ast::AST &ast);
+    void preflight(const ast::AST& ast);
     void registerFunction(std::shared_ptr<ast::FunctionDecl> function);
     void registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl);
     void registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock);

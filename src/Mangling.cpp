@@ -238,7 +238,7 @@ std::string mangling::mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> fun
     mangler.appendWithCount(funcDecl->getName());
     mangler.appendEncodedType(funcDecl->getSignature().returnType->getResolvedType());
     
-    for (auto &param : funcDecl->getSignature().parameters) {
+    for (auto& param : funcDecl->getSignature().parameters) {
         mangler.appendEncodedType(param->type->getResolvedType());
     }
     

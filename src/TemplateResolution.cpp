@@ -70,7 +70,7 @@ std::shared_ptr<ast::TypeDesc> TemplateResolver::resolveType(std::shared_ptr<ast
 
 std::shared_ptr<ast::FunctionDecl> TemplateResolver::specialize(std::shared_ptr<ast::FunctionDecl> decl) {
 #if 0
-    for (auto &[name, type] : templateArgumentsMapping) {
+    for (auto& [name, type] : templateArgumentsMapping) {
         std::cout << name << ": " << type->Str() << std::endl;
     }
 #endif
@@ -78,14 +78,14 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::specialize(std::shared_ptr<
     auto signature = decl->getSignature();
     
     // Substitute in signature (params & return type)
-    for (auto &param : signature.parameters) {
+    for (auto& param : signature.parameters) {
         auto loc = param->getSourceLocation();
         param = std::make_shared<ast::VarDecl>(param->name, resolveType(param->type));
         param->setSourceLocation(loc);
     }
     signature.returnType = resolveType(signature.returnType);
     
-    for (auto &[name, type] : templateArgumentMapping) {
+    for (const auto& [name, type] : templateArgumentMapping) {
         if (type) {
             auto it = std::find(signature.templateArgumentNames.begin(),
                                 signature.templateArgumentNames.end(), name);
@@ -156,7 +156,7 @@ std::shared_ptr<ast::Composite> TemplateResolver::specialize(std::shared_ptr<ast
 
 
 std::vector<std::shared_ptr<ast::LocalStmt>> TemplateResolver::specialize(std::vector<std::shared_ptr<ast::LocalStmt>> stmtList) {
-    return util::vector::map(stmtList, [this](auto &stmt) { return specialize(stmt); });
+    return util::vector::map(stmtList, [this](auto& stmt) { return specialize(stmt); });
 }
 
 std::shared_ptr<ast::ReturnStmt> TemplateResolver::specialize(std::shared_ptr<ast::ReturnStmt> returnStmt) {
@@ -205,9 +205,9 @@ std::shared_ptr<ast::ExprStmt> TemplateResolver::specialize(std::shared_ptr<ast:
 
 std::shared_ptr<ast::CallExpr> TemplateResolver::specialize(std::shared_ptr<ast::CallExpr> call) {
     auto instantiatedCall = std::make_shared<ast::CallExpr>(*call);
-    instantiatedCall->arguments = util::vector::map(call->arguments, [this](auto &expr) { return specialize(expr); });
+    instantiatedCall->arguments = util::vector::map(call->arguments, [this](auto& expr) { return specialize(expr); });
     instantiatedCall->explicitTemplateArgumentTypes = util::vector::map(call->explicitTemplateArgumentTypes,
-                                                                        [this](auto &T) { return resolveType(T); });
+                                                                        [this](auto& T) { return resolveType(T); });
     instantiatedCall->setSourceLocation(call->getSourceLocation());
     return instantiatedCall;
 }

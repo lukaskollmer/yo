@@ -27,7 +27,7 @@ std::string TypeDesc::str() const {
             return std::string("*").append(getPointee()->str());
         
         case TypeDesc::Kind::Function: {
-            auto &FTI = getFunctionTypeInfo();
+            const auto& FTI = getFunctionTypeInfo();
             std::string str;
             str.append("#[callingConvention=").append(cc_to_str(FTI.callingConvention)).append("] (");
             for (auto it = FTI.parameterTypes.begin(); it != FTI.parameterTypes.end(); it++) {
