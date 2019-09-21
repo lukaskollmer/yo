@@ -115,7 +115,7 @@ static std::map<std::string, Token::TokenKind> tokenKindMappings = {
 };
 
 
-std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string &filepath, bool preserveFullInput) {
+std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& filepath, bool preserveFullInput) {
     // Reset everything
     tokens = {};
     line = 0;
@@ -309,8 +309,8 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string &fi
                 ident.push_back(c);
                 c = sourceText[++offset];
             } while (isIdentChar(c));
-            handleRawToken(ident);
             offset--;
+            handleRawToken(ident);
             continue;
         }
         
@@ -356,8 +356,8 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string &fi
             // TODO turn this into a nice error message
             LKAssert(length == rawValue.length()); // The string contained illegal characters (eg: 0b110012)
             
-            handleRawToken(rawValue, TK::IntegerLiteral).setData(value);
             offset--; // unavoidable :/
+            handleRawToken(rawValue, TK::IntegerLiteral).setData(value);
             continue;
         }
         LKFatalError("unhandled character: '%c'", sourceText[offset]);
@@ -376,7 +376,7 @@ uint8_t isBoolLiteral(std::string_view str) {
 }
 
 
-Token& Lexer::handleRawToken(const std::string &tokenSourceText, Token::TokenKind tokenKind) {
+Token& Lexer::handleRawToken(const std::string& tokenSourceText, Token::TokenKind tokenKind) {
     Token token;
     
     if (tokenKind != TK::Unknown) {
@@ -399,8 +399,8 @@ Token& Lexer::handleRawToken(const std::string &tokenSourceText, Token::TokenKin
         exit(EXIT_FAILURE);
     }
     
-    auto column = columnRelativeToCurrentLine() - tokenSourceText.length();
-    token.setSourceLocation(TokenSourceLocation(filepath, line + 1, column + 1, tokenSourceText.length()));
+    auto column = offset + 2 - lineStart - tokenSourceText.length();
+    token.setSourceLocation(TokenSourceLocation(filepath, line + 1, column, tokenSourceText.length()));
     
     tokens.push_back(token);
     return tokens.back();
