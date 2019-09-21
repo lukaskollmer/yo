@@ -99,10 +99,10 @@ fn operator < <T> (lhs: T, rhs: R) -> bool {
 
 #[always_inline]
 fn operator <= <T>(lhs: T, rhs: T) -> bool {
-    return lhs < rhs && lhs == rhs;
+    return lhs < rhs || lhs == rhs;
 }
 
 #[always_inline]
 fn operator >= <T>(lhs: T, rhs: T) -> bool {
-    return lhs > rhs && lhs == rhs;
+    return lhs > rhs || lhs == rhs;
 }
