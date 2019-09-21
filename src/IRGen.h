@@ -21,10 +21,7 @@
 #include "util.h"
 
 
-
 NS_START(yo::irgen)
-
-
 
 struct ResolvedCallable {
     ast::FunctionSignature signature;
@@ -223,6 +220,10 @@ private:
     
     bool valueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiteral>, Type *);
     
+    
+    
+    // Errors
+    void emitError(const parser::TokenSourceLocation& loc, std::string message);
     
     
     // Utils

@@ -413,6 +413,7 @@ Type* resolvePrimitiveType(std::string_view name) {
 }
 
 
+
 // Attempts to resolve an AST TypeDesc and returns a unique `yo::Type*` pointer.
 // Also creates the `yo::Type`'s `llvm::Type` and `llvm::DIType` and sets the respective member fields
 Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc) {
@@ -452,7 +453,7 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc) {
                     return handleResolvedTy(entry.value());
                 }
                 
-                LKFatalError("%s", name.c_str());
+                emitError(typeDesc->getSourceLocation(), util::fmt_cstr("Unable to resolve nominal type '%s'", name.c_str()));
             }
             break;
         }
@@ -2349,6 +2350,24 @@ Type *IRGenerator::instantiateTemplatedType(std::shared_ptr<ast::TypeDesc> typeD
 
 
 
+
+
+
+
+#pragma mark - Errors
+
+
+void IRGenerator::emitError(const parser::TokenSourceLocation& loc, std::string message) {
+    std::cout << loc.filepath << ":" << loc.line << ":" << loc.column << ": " << message << std::endl;
+    std::cout << util::fs::read_specific_line(loc.filepath, loc.line - 1) << std::endl;
+    
+    for (auto i = 0; i < loc.column - 1; i++) {
+        std::cout << ' ';
+    }
+    std::cout << "^" << std::endl;
+    
+    LKFatalError("Error");
+}
 
 
 
