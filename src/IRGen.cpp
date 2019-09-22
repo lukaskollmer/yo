@@ -791,7 +791,9 @@ bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
         LKAssert(expectedType->isNumericalTy());
         LKAssert(integerLiteralFitsInType(numberLiteral->value, expectedType));
         
+        auto loc = (*expr)->getSourceLocation();
         *expr = std::make_shared<ast::CastExpr>(*expr, ast::TypeDesc::makeResolved(expectedType), ast::CastExpr::CastKind::StaticCast);
+        (*expr)->setSourceLocation(loc);
         return true;
     }
     
@@ -878,6 +880,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StringLiteral> stringLite
             stringLiteral->kind = SLK::ByteString;
             auto target = std::make_shared<ast::Ident>(mangling::mangleCanonicalName("String", "new", ast::FunctionKind::StaticMethod));
             auto call = std::make_shared<ast::CallExpr>(target, std::vector<std::shared_ptr<ast::Expr>>(1, stringLiteral));
+            call->setSourceLocation(stringLiteral->getSourceLocation());
             return codegen(call);
         }
     }
@@ -1064,6 +1067,9 @@ llvm::Value *IRGenerator::codegen_HandleMatchPatternExpr(MatchExprPatternCodegen
                 auto cmp = std::make_shared<ast::BinOp>(ast::Operator::EQ,
                                                         std::make_shared<ast::RawLLVMValueExpr>(info.targetLLVMValue, TT),
                                                         numberLiteral);
+                cmp->setSourceLocation(numberLiteral->getSourceLocation());
+                return codegen(cmp);
+                
             }
         } else {
             LKFatalError("Incompatible Match types: cannot match %s against %s", TT->str().c_str(), PT->str().c_str());
@@ -1198,6 +1204,7 @@ llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::BinOp> binop) {
     
     auto callExpr = std::make_shared<ast::CallExpr>(makeIdent(mangling::mangleCanonicalName(binop->getOperator())),
                                                     std::vector<std::shared_ptr<ast::Expr>> { binop->getLhs(), binop->getRhs() });
+    callExpr->setSourceLocation(binop->getSourceLocation());
     return codegen(callExpr);
     
 }
@@ -1225,11 +1232,15 @@ bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
     
     if (std::dynamic_pointer_cast<ast::NumberLiteral>(*lhs)) {
         // lhs is literal, cast to type of ths
+        auto loc = (*lhs)->getSourceLocation();
         *lhs = std::make_shared<ast::CastExpr>(*lhs, ast::TypeDesc::makeResolved(rhsTy), ast::CastExpr::CastKind::StaticCast);
+        (*lhs)->setSourceLocation(loc);
         *lhsTy_out = rhsTy;
     } else if (std::dynamic_pointer_cast<ast::NumberLiteral>(*rhs)) {
         // rhs is literal, cast to type of lhs
+        auto loc = (*rhs)->getSourceLocation();
         *rhs = std::make_shared<ast::CastExpr>(*rhs, ast::TypeDesc::makeResolved(lhsTy), ast::CastExpr::CastKind::StaticCast);
+        (*rhs)->setSourceLocation(loc);
         *rhsTy_out = lhsTy;
     } else {
         return false;
@@ -1274,6 +1285,12 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
     
     // TODO this needs a fundamental rewrite to support more than just nominal types and pointers to (pointers to) nominal types!
     // What about a pointer to a function, or a function that takes another functuin, etc etc etc
+    
+    // TODO2: Also, there need to be support for not rejecting trivially convertible literal expressions
+    // Example:
+    // fn add<T>(x: T, y: T) -> T;
+    // With `x, y: i32`, this should be fine for add(x, y), add(x, 1), add(1, x), since the 1 is trivially convertible to the more specific template type i32
+    
     for (size_t i = argumentOffset; i < call->arguments.size(); i++) {
         // We have to keep working w/ the ast::TypeDesc object as long as possible since calling resolveTypeDesc might resolve a typename shadowed by a template w/ some other type declared in the parent scope
         std::string paramTypename;
@@ -1300,7 +1317,12 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
                 }
                 mapping->second = guessedArgumentType;
             } else {
-                LKAssert(mapping->second == guessedArgumentType);
+                //LKAssert(mapping->second == guessedArgumentType);
+                if (mapping->second != guessedArgumentType) {
+                    emitError(call->arguments[i]->getSourceLocation(),
+                              util::fmt_cstr("type mismatch: expected '%s', but expression evaluates to '%s'",
+                                             mapping->second->str().c_str(), guessedArgumentType->str().c_str()));
+                }
             }
         }
     }
@@ -1400,7 +1422,10 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     
     
     const auto& possibleTargets = functions[targetName];
-    LKAssertMsg(!possibleTargets.empty(), util::fmt_cstr("Unable to resolve call to %s", targetName.c_str()));
+    //LKAssertMsg(!possibleTargets.empty(), util::fmt_cstr("Unable to resolve call to %s", targetName.c_str()));
+    if (possibleTargets.empty()) {
+        emitError(callExpr->getSourceLocation(), util::fmt_cstr("unable to resolve call to '%s'", targetName.c_str()));
+    }
     
     
     if (possibleTargets.size() == 1) {
@@ -1645,7 +1670,9 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
         auto castKind = name == "static_cast"
             ? ast::CastExpr::CastKind::StaticCast
             : ast::CastExpr::CastKind::Bitcast;
-        return codegen(std::make_shared<ast::CastExpr>(arg, dstTy, castKind));
+        auto castExpr = std::make_shared<ast::CastExpr>(arg, dstTy, castKind);
+        castExpr->setSourceLocation(funcDecl->getSourceLocation());
+        return codegen(castExpr);
     }
     
     if (name == "sizeof") {
@@ -2314,6 +2341,7 @@ Type* IRGenerator::guessType(std::shared_ptr<ast::Expr> expr) {
             // TODO don't allocate an object for every check!
             auto tempCallExpr = std::make_shared<ast::CallExpr>(makeIdent(mangledCanonicalName),
                                                                 std::vector<std::shared_ptr<ast::Expr>>{ binopExpr->getLhs(), binopExpr->getRhs() });
+            tempCallExpr->setSourceLocation(binopExpr->getSourceLocation());
             return resolveTypeDesc(resolveCall(tempCallExpr, true).signature.returnType);
         }
         
@@ -2366,7 +2394,7 @@ void IRGenerator::emitError(const parser::TokenSourceLocation& loc, std::string 
     }
     std::cout << "^" << std::endl;
     
-    LKFatalError("Error");
+    LKFatalError("");
 }
 
 
