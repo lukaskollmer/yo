@@ -248,14 +248,15 @@ int main(int argc, const char * argv[], const char *const *envp) {
         return EXIT_SUCCESS;
     }
     
+    yo::irgen::IRGenOptions options{
+        yo::cl::opts::arc(),
+        yo::cl::opts::emitDebugMetadata()
+    };
     
-    yo::irgen::IRGenerator codegen("main");
-    codegen.enableARC = yo::cl::opts::arc();
+    yo::irgen::IRGenerator codegen("main", options);
     codegen.codegen(ast);
     
     auto M = codegen.getModule();
-    //llvm::LLVMContext ctx;
-    //auto M = llvm::make_unique<llvm::Module>("name", ctx);
     
     if (yo::cl::opts::emitLLVM()) {
         std::error_code EC;

@@ -63,6 +63,8 @@ static llvm::cl::opt<std::string> StdlibRoot("stdlib-root",
 static llvm::cl::opt<bool> ARC("arc", llvm::cl::desc("[internal] enable arc"),
                                llvm::cl::cat(CLIOptionsCategory));
 
+static llvm::cl::opt<bool> emitDebugMetadata("g", llvm::cl::desc("Emit debug metadata"), llvm::cl::cat(CLIOptionsCategory));
+
 
 NS_END
 
@@ -113,6 +115,10 @@ bool yo::cl::opts::optimize() {
 
 bool yo::cl::opts::arc() {
     return internal::ARC;
+}
+
+bool yo::cl::opts::emitDebugMetadata() {
+    return internal::emitDebugMetadata;
 }
 
 

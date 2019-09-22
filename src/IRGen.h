@@ -23,6 +23,13 @@
 
 NS_START(yo::irgen)
 
+
+struct IRGenOptions {
+    bool enableARC;
+    bool enableDebugMetadata;
+};
+
+
 struct ResolvedCallable {
     ast::FunctionSignature signature;
     std::shared_ptr<ast::FunctionDecl> funcDecl; // only nonnull if the callable is a function decl
@@ -54,7 +61,6 @@ struct FunctionState {
 
 class IRGenerator {
     std::unique_ptr<llvm::Module> module;
-    llvm::Module *M;
     llvm::IRBuilder<> builder;
     
     
@@ -65,9 +71,9 @@ class IRGenerator {
         std::vector<llvm::DIScope *> lexicalBlocks;
     } debugInfo;
     
+    const IRGenOptions options;
     
     irgen::Scope scope;
-    //irgen::TypeCache typeCache;
     
     // Finalized nominal types
     // If the type is a template specialization, the key is the mangled name
@@ -94,7 +100,7 @@ class IRGenerator {
 public:
     static llvm::LLVMContext C;
     
-    explicit IRGenerator(const std::string moduleName);
+    IRGenerator(const std::string& moduleName, IRGenOptions options);
     
     void codegen(const ast::AST& ast);
     
@@ -103,8 +109,6 @@ public:
     }
     
     
-    // Options
-    bool enableARC = false;
     
 private:
     void preflight(const ast::AST& ast);

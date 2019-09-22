@@ -43,11 +43,11 @@ std::shared_ptr<ast::Ident> makeIdent(const std::string& str) {
 
 llvm::LLVMContext IRGenerator::C;
 
-IRGenerator::IRGenerator(const std::string moduleName)
+IRGenerator::IRGenerator(const std::string& moduleName, IRGenOptions options)
     : module(llvm::make_unique<llvm::Module>(moduleName, C)),
-    M(module.get()),
     builder(C),
-    debugInfo{llvm::DIBuilder(*module), nullptr, {}}
+    debugInfo{llvm::DIBuilder(*module), nullptr, {}},
+    options(options)
 {
     i8  = llvm::Type::getInt8Ty(C);
     i16 = llvm::Type::getInt16Ty(C);
@@ -92,11 +92,12 @@ IRGenerator::IRGenerator(const std::string moduleName)
 
 
 void IRGenerator::emitDebugLocation(const std::shared_ptr<ast::Node> &node) {
+    if (!options.enableDebugMetadata) return;
+    
     if (!node) {
         builder.SetCurrentDebugLocation(llvm::DebugLoc());
         return;
     }
-    
     const auto& SL = node->getSourceLocation();
     builder.SetCurrentDebugLocation(llvm::DebugLoc::get(SL.line, SL.column, debugInfo.lexicalBlocks.back()));
 }
@@ -209,10 +210,10 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
         return;
     }
     
-    LKAssertMsg(M->getFunction(resolvedName) == nullptr, util::fmt_cstr("Redefinition of function '%s'", resolvedName.c_str())); // TODO print the signature instead!
+    LKAssertMsg(module->getFunction(resolvedName) == nullptr, util::fmt_cstr("Redefinition of function '%s'", resolvedName.c_str())); // TODO print the signature instead!
     
     auto FT = llvm::FunctionType::get(returnType->getLLVMType(), parameterTypes, functionDecl->getAttributes().variadic);
-    auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, resolvedName, M);
+    auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, resolvedName, *module);
     
     resolvedFunctions[resolvedName] = functionDecl;
     functions[canonicalName].push_back(ResolvedCallable(functionDecl, F, 0));
@@ -246,7 +247,7 @@ void IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl
     structMembers.reserve(memberCount);
     //LKAssert(LKMetadataAccessor->isStructTy()); // Should always be true
     
-    if (enableARC && structDecl->attributes.arc) {
+    if (options.enableARC && structDecl->attributes.arc) {
         for (const auto& member : LKMetadataAccessor->getMembers()) {
             structMembers.push_back(member);
         }
@@ -504,7 +505,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     LKAssert(scope.isEmpty());
     auto resolvedName = mangleFullyResolved(functionDecl);
     
-    auto F = M->getFunction(resolvedName);
+    auto F = module->getFunction(resolvedName);
     if (!F) {
         LKFatalError("Unable to find function '%s'", resolvedName.c_str());
     }
@@ -517,23 +518,23 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     }
     
     
-    auto unit = DIFileForNode(debugInfo.builder, sig);
-    auto SP = debugInfo.builder.createFunction(unit, functionDecl->getName(), resolvedName, unit,
-                                       sig.getSourceLocation().line,
-                                       _toDISubroutineType(sig),
-                                       sig.getSourceLocation().line,
-                                       llvm::DINode::FlagZero,
-                                       llvm::DISubprogram::DISPFlags::SPFlagDefinition);
-    
     auto entryBB = llvm::BasicBlock::Create(C, "entry", F);
     auto returnBB = llvm::BasicBlock::Create(C, "return");
     builder.SetInsertPoint(entryBB);
     
-    emitDebugLocation(nullptr);
-    
-    F->setSubprogram(SP);
-    debugInfo.builder.finalizeSubprogram(SP);
-    debugInfo.lexicalBlocks.push_back(SP);
+    if (options.enableDebugMetadata) {
+        auto unit = DIFileForNode(debugInfo.builder, functionDecl);
+        auto SP = debugInfo.builder.createFunction(unit, functionDecl->getName(), resolvedName, unit,
+                                           sig.getSourceLocation().line,
+                                           _toDISubroutineType(sig),
+                                           sig.getSourceLocation().line,
+                                           llvm::DINode::FlagZero,
+                                           llvm::DISubprogram::DISPFlags::SPFlagDefinition);
+        emitDebugLocation(nullptr);
+        F->setSubprogram(SP);
+        debugInfo.builder.finalizeSubprogram(SP);
+        debugInfo.lexicalBlocks.push_back(SP);
+    }
     
     
     std::vector<llvm::AllocaInst *> paramAllocas;
@@ -557,12 +558,14 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         builder.CreateStore(&F->arg_begin()[i], alloca);
         
         const auto& param = sig.parameters.at(i);
-        auto varInfo = debugInfo.builder.createParameterVariable(SP, alloca->getName(), i + 1, unit,
-                                                                 param->getSourceLocation().line,
-                                                                 resolveTypeDesc(param->type)->getLLVMDIType());
-        debugInfo.builder.insertDeclare(alloca, varInfo, debugInfo.builder.createExpression(),
-                                llvm::DILocation::get(C, param->getSourceLocation().line, param->getSourceLocation().column, SP),
-                                entryBB);
+        if (options.enableDebugMetadata) {
+            auto SP = debugInfo.lexicalBlocks.back();
+            auto varInfo = debugInfo.builder.createParameterVariable(SP, alloca->getName(), i + 1, SP->getFile(),
+                                                                     param->getSourceLocation().line,
+                                                                     resolveTypeDesc(param->type)->getLLVMDIType());
+            debugInfo.builder.insertDeclare(alloca, varInfo, debugInfo.builder.createExpression(),
+                                            llvm::DILocation::get(C, param->getSourceLocation().line, param->getSourceLocation().column, SP), entryBB);
+        }
     }
     
     
@@ -583,14 +586,13 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         
         
         // Create Debug Metadata
-        auto D = debugInfo.builder.createAutoVariable(SP, kRetvalAllocaIdentifier,
-                                              unit,
-                                              sig.getSourceLocation().line,
-                                              returnType->getLLVMDIType());
-        debugInfo.builder.insertDeclare(retvalAlloca, D,
-                                debugInfo.builder.createExpression(),
-                                llvm::DebugLoc::get(sig.getSourceLocation().line, 0, SP),
-                                entryBB);
+        if (options.enableDebugMetadata) {
+            auto SP = debugInfo.lexicalBlocks.back();
+            auto D = debugInfo.builder.createAutoVariable(SP, kRetvalAllocaIdentifier, SP->getFile(),
+                                                          sig.getSourceLocation().line, returnType->getLLVMDIType());
+            debugInfo.builder.insertDeclare(retvalAlloca, D, debugInfo.builder.createExpression(),
+                                            llvm::DebugLoc::get(sig.getSourceLocation().line, 0, SP), entryBB);
+        }
     }
     
     currentFunction = FunctionState(functionDecl, F, returnBB, retvalAlloca);
@@ -620,7 +622,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     }
     
     currentFunction = FunctionState();
-    debugInfo.lexicalBlocks.pop_back(); // TODO maybe add a check that the lexical blocks weren't somehow modified?
+    if (options.enableDebugMetadata) {
+        debugInfo.lexicalBlocks.pop_back(); // TODO maybe add a check that the lexical blocks weren't somehow modified?
+    }
     return F;
 }
 
@@ -667,15 +671,17 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
     alloca->setName(varDecl->name);
     
     // Create Debug Metadata
-    auto D = debugInfo.builder.createAutoVariable(currentFunction.llvmFunction->getSubprogram(),
-                                          varDecl->name,
-                                          debugInfo.lexicalBlocks.back()->getFile(),
-                                          varDecl->getSourceLocation().line,
-                                          type->getLLVMDIType());
-    debugInfo.builder.insertDeclare(alloca, D,
-                            debugInfo.builder.createExpression(),
-                            llvm::DebugLoc::get(varDecl->getSourceLocation().line, 0, currentFunction.llvmFunction->getSubprogram()),
-                            builder.GetInsertBlock());
+    if (options.enableDebugMetadata) {
+        auto D = debugInfo.builder.createAutoVariable(currentFunction.llvmFunction->getSubprogram(),
+                                                      varDecl->name,
+                                                      debugInfo.lexicalBlocks.back()->getFile(),
+                                                      varDecl->getSourceLocation().line,
+                                                      type->getLLVMDIType());
+        debugInfo.builder.insertDeclare(alloca, D,
+                                        debugInfo.builder.createExpression(),
+                                        llvm::DebugLoc::get(varDecl->getSourceLocation().line, 0, currentFunction.llvmFunction->getSubprogram()),
+                                        builder.GetInsertBlock());
+    }
     
     auto binding = ValueBinding(alloca, [=] () {
         return builder.CreateLoad(alloca);
@@ -919,7 +925,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> cast) {
     llvm::Instruction::CastOps op;
     switch (cast->kind) {
         case ast::CastExpr::CastKind::Bitcast: {
-            LKAssert(M->getDataLayout().getTypeSizeInBits(getLLVMType(srcTy)) == M->getDataLayout().getTypeSizeInBits(getLLVMType(destTy)));
+            LKAssert(module->getDataLayout().getTypeSizeInBits(getLLVMType(srcTy)) == module->getDataLayout().getTypeSizeInBits(getLLVMType(destTy)));
             if (srcTy->isPointerTy() && destTy->isNumericalTy()) {
                 op = llvm::Instruction::CastOps::PtrToInt;
             } else if (srcTy->isNumericalTy() && destTy->isPointerTy()) {
@@ -2190,6 +2196,7 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
             auto structTy = llvm::dyn_cast<StructType>(type);
             auto name = structTy->getName();
             
+            LKFatalError("TODO");
             return nullptr; // TODO implement
 
         }
@@ -2451,7 +2458,7 @@ llvm::Value *IRGenerator::generateStructInitializer(std::shared_ptr<ast::StructD
     }
 
     // set runtime metadata
-    if (enableARC && structDecl->attributes.arc) {
+    if (options.enableARC && structDecl->attributes.arc) {
         auto set_retaincount = std::make_shared<ast::Assignment>(std::make_shared<ast::MemberExpr>(self, "retainCount"),
                                                                  astgen::number((uint64_t(1) << 60) | 1));
 

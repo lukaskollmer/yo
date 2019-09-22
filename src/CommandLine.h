@@ -30,6 +30,7 @@ namespace yo::cl::opts {
     bool emitLLVM();
     bool dumpLLVM();
     bool dumpLLVMPreOpt();
+    bool emitDebugMetadata();
     
     // experimental flags
     bool optimize();
