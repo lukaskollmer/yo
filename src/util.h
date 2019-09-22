@@ -276,11 +276,12 @@ namespace string {
 
 
 namespace fs {
-    std::string read_file(const std::string &path);
+std::string read_file(const std::string& path);
+std::string read_specific_line(const std::string& path, uint64_t lineNumber);
 }
 
 namespace fs::path_utils {
-    std::string getFilename(const std::string &path);
+std::string getFilename(const std::string& path);
 }
 
 

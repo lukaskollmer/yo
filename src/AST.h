@@ -477,13 +477,15 @@ public:
 
 
 
+// A BinOp's source location refers to the location of the operator
 class BinOp : public Expr {
     Operator op;
     std::shared_ptr<Expr> lhs;
     std::shared_ptr<Expr> rhs;
     
 public:
-    BinOp(Operator op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs) : Expr(Node::NodeKind::BinOp), op(op), lhs(lhs), rhs(rhs) {}
+    BinOp(Operator op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs)
+    : Expr(Node::NodeKind::BinOp), op(op), lhs(lhs), rhs(rhs) {}
     
     Operator getOperator() const { return op; }
     std::shared_ptr<Expr> getLhs() const { return lhs; }

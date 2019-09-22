@@ -506,8 +506,9 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
     
     switch (currentTokenKind()) {
         case TK::Asterisk: {
+            auto loc = getCurrentSourceLocation();
             consume();
-            return TypeDesc::makePointer(parseType());
+            return TypeDesc::makePointer(parseType(), loc);
         }
         case TK::Ident: {
             auto name = parseIdentAsString();
@@ -518,9 +519,10 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
                 LKFatalError("TODO implement!");
             }
             
-            return TypeDesc::makeNominal(name);
+            return TypeDesc::makeNominal(name, loc);
         }
         case TK::OpeningParens: {
+            auto loc = getCurrentSourceLocation();
             consume();
             std::vector<std::shared_ptr<TypeDesc>> types;
             while (currentTokenKind() != TK::ClosingParens) {
@@ -536,7 +538,7 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
                 consume(2);
                 auto cc = extractCallingConventionAttribute(attributes);
                 auto returnType = parseType();
-                return TypeDesc::makeFunction(cc, returnType, types);
+                return TypeDesc::makeFunction(cc, returnType, types, loc);
             } else {
                 LKFatalError("tuple");
             }
@@ -965,15 +967,17 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
     parse_binop_expr: {
         save_pos(fallback);
         
+        const auto& operatorLoc = getCurrentSourceLocation();
         if (auto op_ = parseOperator()) {
             auto op = op_.value();
             
             if (op == Operator::FnPipe) {
                 if (precedenceGroupConstraint >= PrecedenceGroup::FunctionPipeline) {
+                    restore_pos(fallback);
                     return expr;
                 }
                 
-                consume(2);
+                //consume(2);
                 auto callTarget = parseExpression(PrecedenceGroup::FunctionPipeline);
                 expr = std::make_shared<ast::CallExpr>(callTarget, std::vector<std::shared_ptr<ast::Expr>>{ expr });
                 continue;
@@ -985,6 +989,7 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
             if (precedence >= precedenceGroupConstraint) {
                 auto rhs = parseExpression(precedence);
                 expr = std::make_shared<ast::BinOp>(op, expr, rhs);
+                expr->setSourceLocation(operatorLoc);
             } else {
                 restore_pos(fallback);
                 return expr;

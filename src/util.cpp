@@ -202,7 +202,7 @@ std::pair<std::string, std::string> util::string::extractPathAndFilename(const s
 
 
 
-std::string util::fs::read_file(const std::string &path) {
+std::string util::fs::read_file(const std::string& path) {
     // TODO interpret path == "-" as stdin
     std::ifstream file(path);
     std::ostringstream contents;
@@ -210,6 +210,26 @@ std::string util::fs::read_file(const std::string &path) {
     file.close();
     return contents.str();
 }
+
+
+// zero-based line number
+std::string util::fs::read_specific_line(const std::string& path, uint64_t lineNumber) {
+    lineNumber += 1;
+    uint64_t currentLineNumber = 0;
+    std::ifstream file(path);
+    std::string line;
+    
+    while (currentLineNumber != lineNumber && std::getline(file, line)) {
+        currentLineNumber += 1;
+    };
+    
+    if (currentLineNumber == lineNumber) {
+        return line;
+    } else {
+        LKFatalError("Unable to read %s:%llu", path.c_str(), lineNumber);
+    }
+}
+
 
 
 std::string util::fs::path_utils::getFilename(const std::string &path) {
