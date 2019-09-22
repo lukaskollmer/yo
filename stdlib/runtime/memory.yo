@@ -24,7 +24,7 @@ fn alloc<T>(count: size_t) -> *T {
 // Deallocate some allocated memory.
 // TODO rename to memory::dealloc once namespaces are a thing
 #[always_inline]
-fn yo_free<T>(ptr: *T) {
+fn dealloc<T>(ptr: *T) {
     free(reinterpret_cast<*i8>(ptr));
 }
 
