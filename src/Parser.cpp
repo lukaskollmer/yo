@@ -511,10 +511,40 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
             return TypeDesc::makePointer(parseType(), loc);
         }
         case TK::Ident: {
+            // Issue: we have to be careful here. consider the following code:
+            // `x < static_cast<T>(0)`. until we reach the opening parens, the expression is ambiguous.
+            // Solution to this is never allowing parens in type declarations?
+            // - `x < y<T>()` -> expr
+            // - `x<y>::z()` -> expr
+            
+            save_pos(fallback);
+            
+            auto loc = getCurrentSourceLocation();
             auto name = parseIdentAsString();
             if (currentTokenKind() == TK::Colon) {
                 LKFatalError("TODO implement?");
+            
             } else if (currentTokenKind() == TK::LessThanSign) {
+                consume();
+                std::vector<std::shared_ptr<TypeDesc>> paramTys;
+                while (auto ty = parseType()) {
+                    paramTys.push_back(ty);
+                    if (currentTokenKind() == TK::Comma) {
+                        consume();
+                        continue;
+                    } else if (currentTokenKind() == TK::GreaterSign) {
+                        break;
+                    } else {
+                        unhandled_token(currentToken());
+                    }
+                }
+                assert_current_token_and_consume(TK::GreaterSign);
+                LKAssert(!paramTys.empty());
+                if (currentTokenKind() == TK::OpeningParens) {
+                    // ie `if x < static_cast<T>(0)`.
+                    restore_pos(fallback);
+                    return nullptr;
+                }
                 unhandled_token(currentToken());
                 LKFatalError("TODO implement!");
             }
