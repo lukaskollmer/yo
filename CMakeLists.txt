@@ -7,7 +7,7 @@ set(CMAKE_BUILD_TYPE Debug)
 
 project(yo)
 
-set(YO_VERSION "v0.0.1")
+set(YO_VERSION "0.0.1")
 set(YO_STDLIB_PATH "${CMAKE_BINARY_DIR}/stdlib")
 string(TIMESTAMP YO_BUILD_DATE "%Y-%m-%d_%H%MZ" UTC)
 
