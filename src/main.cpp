@@ -9,21 +9,16 @@
 #include "util.h"
 #include "CommandLine.h"
 #include "Lexer.h"
-#include "Pygmentize.h"
 #include "Parser.h"
 #include "AST.h"
 #include "IRGen.h"
-#include "AST.h"
-#include "Parser.h"
-#include "Mangling.h"
+#include "Pygmentize.h"
 
 #include <fstream>
 #include <sstream>
 #include <unistd.h>
 #include <iostream>
 #include <memory>
-
-
 
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetMachine.h"
@@ -43,10 +38,12 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 
+#include "lld/Common/Driver.h"
 
 
 
-void addOptimizationPasses(llvm::legacy::PassManager &MPM, llvm::legacy::FunctionPassManager &FPM) {
+
+void addOptimizationPasses(llvm::legacy::PassManager& MPM, llvm::legacy::FunctionPassManager& FPM) {
     llvm::PassRegistry &PR = *llvm::PassRegistry::getPassRegistry();
     llvm::initializeCore(PR);
     llvm::initializeIPO(PR);
@@ -72,8 +69,8 @@ void addOptimizationPasses(llvm::legacy::PassManager &MPM, llvm::legacy::Functio
 
 
 
-// Returns EXIT_FAILURE when something went wrong, otherwise EXIT_SUCCESS
-int emitExecutable(std::unique_ptr<llvm::Module> module, const std::string &filename, std::string &executableOutputPath) {
+// returns true on success
+bool emitExecutable(std::unique_ptr<llvm::Module> module, const std::string& filename, std::string& executableOutputPath) {
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmParser();
     llvm::InitializeNativeTargetAsmPrinter();
@@ -92,7 +89,7 @@ int emitExecutable(std::unique_ptr<llvm::Module> module, const std::string &file
     // TargetRegistry or we have a bogus target triple.
     if (!target) {
         llvm::errs() << error;
-        return EXIT_FAILURE;
+        return false;
     }
     
     auto CPU = "generic";
@@ -113,10 +110,7 @@ int emitExecutable(std::unique_ptr<llvm::Module> module, const std::string &file
     LKAssert(!EC);
     cwd.push_back('\0');
     
-    
-    //auto DebugDirPath = LKStringUtils_FormatIntoNewBuffer("%s/build/Debug/", cwd.data());
     std::string debugDirPath(cwd.data());
-    
     EC = llvm::sys::fs::create_directories(debugDirPath);
     
     if (EC) {
@@ -124,20 +118,7 @@ int emitExecutable(std::unique_ptr<llvm::Module> module, const std::string &file
     }
     
     
-    auto objectFilePath = yo::util::fmt_cstr("%s/%s.o",
-                                             debugDirPath.c_str(),
-                                             yo::util::string::excludingFileExtension(filename).c_str());
-    llvm::raw_fd_ostream dest(objectFilePath, EC, llvm::sys::fs::CreationDisposition::CD_OpenAlways);
-    
-    if (EC) {
-        llvm::outs() << "Could not open file: " << EC.message();
-        return EXIT_FAILURE;
-    }
-    
-    
-    // !!!
-    // https://stackoverflow.com/a/36973557/2513803
-    
+    // Create and run passes
     
     llvm::legacy::PassManager PM;
     llvm::legacy::FunctionPassManager FPM(module.get());
@@ -152,54 +133,93 @@ int emitExecutable(std::unique_ptr<llvm::Module> module, const std::string &file
     }
     addOptimizationPasses(PM, FPM);
     
-    
     FPM.doInitialization();
     for (llvm::Function &F : *module) {
         FPM.run(F);
     }
     FPM.doFinalization();
     
-    
     if (yo::cl::opts::dumpLLVM()) {
         std::string banner = !yo::cl::opts::optimize() ? "Final IR:" : "Final IR (Optimized):";
         PM.add(llvm::createPrintModulePass(llvm::outs(), banner, true));
     }
     
+    
+    // Emit object file
+    
+    auto objectFilePath = "a.o";
+    llvm::raw_fd_ostream dest(objectFilePath, EC, llvm::sys::fs::CreationDisposition::CD_OpenAlways);
+    
+    if (EC) {
+        llvm::outs() << "Could not open file: " << EC.message();
+        return false;
+    }
+    
     if (targetMachine->addPassesToEmitFile(PM, dest, nullptr, llvm::TargetMachine::CGFT_ObjectFile)) {
         llvm::errs() << "TargetMachine can't emit a file of this type";
-        return EXIT_FAILURE;
+        return false;
     }
     
     PM.run(*module);
     dest.flush();
+    dest.close();
     
     
     
+    // Link object file into executable
     
-    auto clangPath = llvm::sys::findProgramByName("clang");
-    const auto executablePath = yo::util::fmt_cstr("%s/%s", debugDirPath.c_str(),
-                                                   yo::util::string::excludingFileExtension(filename).c_str());
-    executableOutputPath = executablePath;
+    using LLDLinkFnTy = bool(*)(llvm::ArrayRef<const char *>, bool, llvm::raw_ostream&);
+    LLDLinkFnTy lldLinkFn = nullptr;
     
-    if (EC) {
-        llvm::outs() << "Error creating output directory: " << EC.message();
-        return EXIT_FAILURE;
+    executableOutputPath = "a.out";
+    
+    std::vector<const char*> lld_args = {
+        nullptr,
+        objectFilePath,
+        "-o", executableOutputPath.c_str(),
+        "-lc"
+    };
+    
+    switch (llvm::Triple(targetTriple).getObjectFormat()) {
+        case llvm::Triple::UnknownObjectFormat:
+            LKFatalError("TODO?");
+            break;
+        
+        case llvm::Triple::COFF:
+            LKFatalError("TODO?");
+            break;
+        
+        case llvm::Triple::ELF:
+            LKFatalError("TODO?");
+            break;
+        
+        case llvm::Triple::MachO:
+            lldLinkFn = &lld::mach_o::link;
+            lld_args[0] = "ld64.lld";
+            lld_args.push_back("-sdk_version");
+            lld_args.push_back("10.8");
+            break;
+        
+        case llvm::Triple::Wasm:
+            LKFatalError("TODO?");
+            break;
     }
-    auto cmd = yo::util::fmt_cstr("%s %s -o %s -lc",
-                                  clangPath->c_str(),
-                                  objectFilePath,
-                                  executablePath);
     
-    if (system(cmd) != 0) {
-        return EXIT_FAILURE;
+    LKAssert(lld_args[0] != nullptr);
+    lld_args.push_back(nullptr); // argv usually is null-terminated, lets emulate that
+    
+    // TODO not sure if the return value actually indicates success?
+    if (!lldLinkFn(lld_args, false, llvm::errs())) {
+        LKFatalError("lld failed to link the object file");
+        return false;
     }
     
-    return EXIT_SUCCESS;
+    return true;
 }
 
 
 
-int runExecutable(const std::string &executablePath, const char *const *envp) {
+int runExecutable(const std::string& executablePath, const char *const *envp) {
     auto argc = yo::cl::opts::runArgs().size();
     auto argv = static_cast<char **>(calloc(argc + 2, sizeof(char *))); // +2 bc the first element is the executable path and the array is null terminated
     argv[0] = strdup(executablePath.c_str());
@@ -268,8 +288,8 @@ int main(int argc, const char * argv[], const char *const *envp) {
     
     std::string executablePath;
     
-    if (auto status = emitExecutable(std::move(M), inputFilename, executablePath); status != EXIT_SUCCESS) {
-        return status;
+    if (!emitExecutable(std::move(M), inputFilename, executablePath)) {
+        return EXIT_FAILURE;
     }
     
     if (yo::cl::opts::run()) {

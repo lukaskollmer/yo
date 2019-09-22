@@ -23,60 +23,72 @@ message(STATUS "Using LLVMConfig.cmake in ${LLVM_DIR}")
 
 
 configure_file(
-  "${PROJECT_SOURCE_DIR}/src/Version.h.in"
-  "${PROJECT_SOURCE_DIR}/src/Version.h"
+    "${PROJECT_SOURCE_DIR}/src/Version.h.in"
+    "${PROJECT_SOURCE_DIR}/src/Version.h"
 )
 
 
 add_custom_target(gen_stdlib
-  COMMAND ${PYTHON_EXECUTABLE} tools/stdlib_gen.py "${CMAKE_BINARY_DIR}" "${YO_STDLIB_PATH}"
+    COMMAND ${PYTHON_EXECUTABLE} tools/stdlib_gen.py "${CMAKE_BINARY_DIR}" "${YO_STDLIB_PATH}"
 )
 
 
-
-# TODO split this up into proper subfolders and shit
 add_executable(yo
-  src/main.cpp
+    src/main.cpp
 
-  src/AST.h
-  src/AST.cpp
-  src/Attributes.h
-  src/Attributes.cpp
-  src/CommandLine.h
-  src/CommandLine.cpp
-  src/IRGen.h
-  src/IRGen.cpp
-  src/Lexer.h
-  src/Lexer.cpp
-  src/Mangling.h
-  src/Mangling.cpp
-  src/Parser.h
-  src/Parser.cpp
-  src/Pygmentize.h
-  src/Pygmentize.cpp
-  src/Scope.h
-  src/Scope.cpp
-  src/StdlibResolution.h
-  src/StdlibResolution.cpp
-  src/TemplateResolution.h
-  src/TemplateResolution.cpp
-  src/Token.h
-  src/Token.cpp
-  src/Type.h
-  src/Type.cpp
-  src/TypeDesc.h
-  src/TypeDesc.cpp
+    src/AST.h
+    src/AST.cpp
+    src/Attributes.h
+    src/Attributes.cpp
+    src/CommandLine.h
+    src/CommandLine.cpp
+    src/IRGen.h
+    src/IRGen.cpp
+    src/Lexer.h
+    src/Lexer.cpp
+    src/Mangling.h
+    src/Mangling.cpp
+    src/Parser.h
+    src/Parser.cpp
+    src/Pygmentize.h
+    src/Pygmentize.cpp
+    src/Scope.h
+    src/Scope.cpp
+    src/StdlibResolution.h
+    src/StdlibResolution.cpp
+    src/TemplateResolution.h
+    src/TemplateResolution.cpp
+    src/Token.h
+    src/Token.cpp
+    src/Type.h
+    src/Type.cpp
+    src/TypeDesc.h
+    src/TypeDesc.cpp
 
-  src/util.h
-  src/util.cpp
-  src/util_llvm.h
+    src/util.h
+    src/util.cpp
+    src/util_llvm.h
 )
-
 
 add_dependencies(yo gen_stdlib)
 
 
-llvm_map_components_to_libnames(llvm_libs core support native nativecodegen passes)
 
+
+# link LLVM
+llvm_map_components_to_libnames(llvm_libs core support native nativecodegen passes debuginfodwarf option)
 target_link_libraries(yo ${llvm_libs})
+
+# link lld
+# for some reason, even though the lld libs are in the same folder as all the LLVM stuff linked above,
+# clang can't find them unless linked by absolute path. TODO: fix!
+target_link_libraries(yo
+    "${LLVM_LIBRARY_DIRS}/liblldCommon.a"
+    "${LLVM_LIBRARY_DIRS}/liblldCore.a"
+    "${LLVM_LIBRARY_DIRS}/liblldDriver.a"
+    "${LLVM_LIBRARY_DIRS}/liblldMachO.a"
+    "${LLVM_LIBRARY_DIRS}/liblldReaderWriter.a"
+    "${LLVM_LIBRARY_DIRS}/liblldYAML.a"
+)
+
 target_compile_options(yo PRIVATE "-fvisibility-inlines-hidden")
