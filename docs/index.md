@@ -17,7 +17,7 @@ fn main() -> i32 {
 ## Learn more
 
 - <a class="casual-underlined" href="/spec.html">Language Specification</a>
-- <a class="casual-underlined" href="/docs/index.html">Documentation</a>
+<!-- - <a class="casual-underlined" href="/docs/index.html">Documentation</a> -->
 
 
 ## Usage
@@ -35,7 +35,7 @@ $ cmake . && make
 $ ./yo -help
 OVERVIEW: the yo programming language v0.0.1
 
-USAGE: yo [options] <input file> <run args>...
+USAGE: yo [options] <input file>
 
 OPTIONS:
 
@@ -46,7 +46,10 @@ General Options:
   -dump-llvm          - Dump LLVM IR
   -dump-llvm-pre-opt  - Dump LLVM IR prior to running optimizations
   -emit-llvm          - Emit LLVM IR
+  -g                  - Emit debug metadata
+  -o=<file>           - Write output to <file>
   -print-ast          - Print the Abstract Syntax Tree
+  -pygmentize         - Lex input, then print pygmentized HTML to stdout
   -run                - Run the generated executable after codegen
   -stdlib-root=<path> - Load stdlib modules from <path>, instead of using the bundled ones
 
