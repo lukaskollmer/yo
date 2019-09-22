@@ -16,10 +16,10 @@ using namespace yo;
 
 namespace yo::mangling {
     inline constexpr char kCommonPrefix = '_';
-    inline constexpr char kFunctionAttributeGlobalFunction = 'F';
-    inline constexpr char kFunctionAttributeInstanceMethod = 'I';
-    inline constexpr char kFunctionAttributeStaticMethod   = 'S';
-    inline constexpr char kFunctionAttributeOperatorOverload = 'O';
+    inline constexpr char kPrefixGlobalFunction = 'F';
+    inline constexpr char kPrefixInstanceMethod = 'I';
+    inline constexpr char kPrefixStaticMethod   = 'S';
+    inline constexpr char kPrefixOperatorOverload = 'O';
     
     inline constexpr char kTemplatedComplexTypePrefix = 'T';
 //    inline constexpr char kComplexTypePrefix = 'C';
@@ -221,20 +221,20 @@ std::string mangling::mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> fun
     
     switch (funcDecl->getFunctionKind()) {
         case ast::FunctionKind::GlobalFunction:
-            mangler.append(kFunctionAttributeGlobalFunction);
+            mangler.append(kPrefixGlobalFunction);
             break;
         
         case ast::FunctionKind::OperatorOverload:
-            mangler.append(kFunctionAttributeOperatorOverload);
+            mangler.append(kPrefixOperatorOverload);
             break;
         
         case ast::FunctionKind::InstanceMethod:
-            mangler.append(kFunctionAttributeInstanceMethod);
+            mangler.append(kPrefixInstanceMethod);
             mangler.appendWithCount(funcDecl->getImplType()->getName());
             break;
         
         case ast::FunctionKind::StaticMethod:
-            mangler.append(kFunctionAttributeStaticMethod);
+            mangler.append(kPrefixStaticMethod);
             mangler.appendWithCount(funcDecl->getImplType()->getName());
             break;
     }
@@ -270,6 +270,34 @@ ast::Operator mangling::demangleCanonicalOperatorEncoding(std::string_view sv) {
     uint8_t value;
     std::from_chars(sv.data() + 1, sv.data() + sv.size(), value);
     return static_cast<ast::Operator>(value);
+}
+
+
+
+
+
+#pragma mark - Demangling
+
+
+std::string demangleGlobalFunction(std::string_view name) {
+    LKFatalError("TODO");
+}
+
+
+std::string mangling::demangle(std::string_view name) {
+    // TODO if this is false, attempt to demangle as canonical symbol?
+    LKAssert(name[0] == kCommonPrefix);
+    
+    switch (name[1]) {
+        case kPrefixGlobalFunction:
+            return demangleGlobalFunction(name.substr(2));
+        default:
+            goto fail;
+    }
+    
+fail:
+    std::cout << "Unable to demangle symbol '" << name << "'" << std::endl;
+    LKFatalError("");
 }
 
 

@@ -27,4 +27,7 @@ namespace yo::mangling {
     std::string encodeOperator(ast::Operator);
     std::string mangleCanonicalName(ast::Operator);
     ast::Operator demangleCanonicalOperatorEncoding(std::string_view);
+    
+    
+    std::string demangle(std::string_view);
 }
