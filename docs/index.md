@@ -6,9 +6,9 @@ layout: default
 Yo is a compiled programming language with strong static typing
 
 ```rust
-#[extern] fn puts(*i8): i32;
+#[extern] fn puts(*i8) -> i32;
 
-fn main(): i32 {
+fn main() -> i32 {
     puts(b"Hello World!");
     return 0;
 }
@@ -33,7 +33,7 @@ Build requirements:
 $ git clone https://github.com/lukaskollmer/yo && cd yo
 $ cmake . && make
 $ ./yo -help
-OVERVIEW: the yo programming language v2019-07-22_1909Z
+OVERVIEW: the yo programming language v0.0.1
 
 USAGE: yo [options] <input file> <run args>...
 

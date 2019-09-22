@@ -13,26 +13,17 @@ title: Specification
 
 
 <h2 sectionId="yo.lex">Lexical structure</h2>
-Valid Yo source code is written in Ascii. Some UTF-8 codepoints will probably work in identifiers and string literals, but there's no proper handling for characters outside the Ascii character set.
+Valid Yo source code is written in ASCII. Some UTF-8 codepoints will probably work in identifiers and string literals, but there's no proper handling for characters outside the ASCII character set.
 
 
 <h3 sectionId="yo.lex.comment">Comments</h3>
 There are two kinds of comments:
-- Line Comments, starting with `//` and continuing until the end of the line
+- Line Comments, starting with `//` and continuing until the next line break (`\n`)
 - Comment Blocks, starting with `/*` and continuing until the next `*/`. Comment blocks cannot be nested
 
 
 <h3 sectionId="yo.lex.tokens">Tokens</h3>
-The Yo lexer differentiates between the following kinds of tokens: identifiers, keywords, punctuation and literals.
-
-
-<h3 sectionId="yo.lex.ident">Identifiers</h3>
-An identifier is a sequence of one or more letters or digits. The first element must not be a digit.
-```
-digit  = [0-9]
-letter = [a-zA-Z_]
-ident  = <letter> (<letter>|<digit>)*
-```
+The Yo lexer differentiates between the following kinds of tokens: keywords, identifiers, punctuation and literals.
 
 
 <h3 sectionId="yo.lex.keyword">Keywords</h3>
@@ -41,9 +32,27 @@ Yo reserves the following keywords:
 defer else fn for if impl in let mut match return struct use var while
 ```
 
+<h3 sectionId="yo.lex.ident">Identifiers</h3>
+An identifier is a sequence of one or more letters or digits. The first element must not be a digit.
+```
+digit  = [0-9]
+letter = [a-zA-Z_]
+ident  = <letter> (<letter>|<digit>)*
+```
+A sequence of characters that satisfies the `ident` pattern above and is not a reserved keyword is assumed to be an identifier.
 
-<h3 sectionId="yo.lex.punctuation">Punctuation</h3>
-TODO
+
+<h3 sectionId="yo.lex.operators">Operators and punctuation</h3>
+
+The following character sequences represent <a class="casual-underlined" href="#yo.expr.operators">operators</a> and punctuation:
+```
++    &    &&    ==    |>    (    )
+-    |    ||    !=    =     {    }
+*    ^          <     !     [    ]
+/    <<         <=          .    ;
+%    >>         >           ,    :
+                >=
+```
 
 
 <h3 sectionId="yo.lex.literals">Literals</h3>
@@ -51,14 +60,16 @@ TODO
 <h4 sectionId="yo.lex.literals.int">Integer literals</h4>
 An integer literal is a sequence of digits. Depending on the prefix, the literal is interpreted as base 2, 8, 10 or 16.
 
-- Binary literals are prefixed with `0b` and can only contain the digits `0` and `1`
-- Octal literals are prefixed with a single `0`
-- Decimal literals don't start with a `0` and can only contain the digits 0-9
-- Hexadecimal literals are prefixed with `0x`. Letters a-f are used to represent the values 10-15
+| Prefix | Base        |
+| :----- | :---------- |
+| `0b`   | binary      |
+| `0o`   | octal       |
+| `0x`   | hexadecimal |
+|  none  | decimal     |
 
 ```
 binary_literal   =  0b[01]+       // base 2
-octal_literal    =  0[0-7]+       // base 8
+octal_literal    =  0o[0-7]+      // base 8
 decimal_literal  =  [0-9]+        // base 10
 hex_literal      =  0x[0-9a-f]+   // base 16
 ```
@@ -85,8 +96,7 @@ There are multiple kinds of string literals:
 
 The `b` and `r` prefixes can be combined to create a raw bytestring.
 
-
-| Literal    | Bytes              | Type      |
+| Literal    | Characters         | Type      |
 | :--------- | :----------------- | :-------- |
 | `"a\nb"`   | `a`, `\n`, `b`     | `*String` |
 | `r"a\nb"`  | `a`, `\`, `n`, `b` | `*String` |
@@ -120,7 +130,7 @@ Yo defines the following primitive types:
 - Functions that omit the return type are assumed to return `void`
 
 ```rust
-fn add(x: i64, y: i64): i64 {
+fn add(x: i64, y: i64) -> i64 {
     return x + y;
 }
 ```
@@ -130,13 +140,13 @@ The `extern` annotation can be used to forward-declare a C function's signature.
 
 ```rust
 #[extern]
-fn malloc(i64): *i8;
+fn malloc(i64) -> *i8;
 ```
 
 Extern functions can be declared variadic, by inserting `...` after the last fixed parameter:
 ```rust
 #[extern]
-fn printf(*i8, ...): i64;
+fn printf(*i8, ...) -> i64;
 ```
 
 #### Function pointer types
@@ -172,16 +182,23 @@ struct Person {
 
 impl Person {
     // no `self` parameter -> static method
-    fn me(): Person {
+    fn me() -> *Person {
         return Person::init("Lukas", 20);
     }
 
     // `self` parameter -> instance method
-    fn increaseAge(self: Person) {
+    fn increaseAge(self: *Person) {
         self.age += 1;
     }
 }
 ```
+
+
+
+
+
+
+
 
 
 <h2 sectionId="yo.expr">Expressions</h2>
@@ -206,6 +223,55 @@ The following conversions are built-in:
 fn reinterpret_cast<R, T>(arg: T) -> R;
 ```
 The `reinterpret_cast` intrinsic converts between any two types `T` and `R`, by reinterpreting the value's bit pattern. `T` and `R` are required to have the exact same bit width.
+
+
+<h3 sectionId="yo.expr.operators">Operators</h3>
+
+- Prefix (unary) operators:
+
+    | Operator  | Description |
+    | :-------- | :---------- |
+    | `-`       | negation    |
+    | `~`       | bitwise NOT |
+    | `!`       | logical NOT |
+
+    These prefix operators - if defined for a type `T` - have the signature `(T) -> T`.
+
+- Infix (binary) operators:
+    
+    Infix operators are listed in decreasing order of precedence.
+
+    | Operator | Description           | Signature        | Precedence         |
+    | :------- | :-------------------- | :--------------- | :----------------- |
+    | `<<`     | bitwise shift left    | `(T, T) -> T`    | Bitshift           |
+    | `>>`     | bitwise shift right   | `(T, T) -> T`    | Bitshift           |
+    | `*`      | multiplication        | `(T, T) -> T`    | Multiplication     |
+    | `/`      | division              | `(T, T) -> T`    | Multiplication     |
+    | `%`      | remainder             | `(T, T) -> T`    | Multiplication     |
+    | `&`      | bitwise AND           | `(T, T) -> T`    | Multiplication     |
+    | `+`      | addition              | `(T, T) -> T`    | Addition           |
+    | `-`      | subtraction           | `(T, T) -> T`    | Addition           |
+    | `|`      | bitwise OR            | `(T, T) -> T`    | Addition           |
+    | `^`      | bitwise XOR           | `(T, T) -> T`    | Addition           |
+    | `==`     | equal                 | `(T, T) -> bool` | Comparison         |
+    | `!=`     | not equal             | `(T, T) -> bool` | Comparison         |
+    | `<`      | less than             | `(T, T) -> bool` | Comparison         |
+    | `<=`     | less than or equal    | `(T, T) -> bool` | Comparison         |
+    | `>`      | greater than          | `(T, T) -> bool` | Comparison         |
+    | `>=`     | greater than or equal | `(T, T) -> bool` | Comparison         |
+    | `&&`     | logical AND           | `(T, T) -> bool` | LogicalConjunction |
+    | `||`     | logical OR            | `(T, T) -> bool` | LogicalConjunction |
+    | `|>`     | function pipeline     | n/a              | FunctionPipeline   |
+    | `=`      | assignment            | n/a              | Assignment         |
+
+
+
+<h4 sectionId="yo.expr.operators.overloading">Operator overloading</h4>
+
+Operators can be overloaded:
+```rust
+fn operator + (lhs: bool, rhs: bool) -> void;
+```
 
 
 <h3 sectionId="yo.expr.lambda">Lambdas</h3>
@@ -246,7 +312,7 @@ Attributes can be used to provide the compiler with additional knowledge about a
 
 ```rust
 #[extern]
-fn printf(*i8, ...): i64;
+fn printf(*i8, ...) -> i64;
 
 // All of the following calls are valid:
 printf(b"\n");
@@ -268,11 +334,12 @@ When the compiler encounters an instantiation of a struct template or a call to 
 
 ```rust
 // A function template
-fn add<T>(x: T, y: T): T {
+fn add<T>(x: T, y: T) -> T {
     return x + y;
 }
 ```
 
+Function specializations can be declared simply by overloadding the function for a specific signature.
 
 
 
@@ -280,7 +347,12 @@ fn add<T>(x: T, y: T): T {
 <h2 sectionId="yo.mem">Memory Management</h2>
 Yo currently doesn't have garbage collection / automatic reference counting.
 
-Use the `alloc<T>(size): *T` function to allocate memory on the heap.
+There are two functions of note here:
+- **`fn alloc<T>(count: size_t) -> *T`**  
+    Allocates memory for `count` objects of type `T` and returns a pointer to be first byte of the allocated memory block.  
+    The allocated memory is initialized to zero.
+- **`fn dealloc<T>(ptr: *T) -> void`**  
+    Deallocates a memory block allocated by `alloc`.
 
 
 

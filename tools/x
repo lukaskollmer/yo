@@ -11,7 +11,7 @@ docs_serve () {
     bundle exec jekyll serve
 }
 
-deploy () {
+docs_deploy () {
     docs_build
     aws s3 sync --delete _site/ s3://yo-lang.net
     if [ "${args[1]}" != "-s3-only" ]

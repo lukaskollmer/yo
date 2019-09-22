@@ -8,18 +8,11 @@ Yo is a compiled programming language with strong static typing.
 ## Example
 
 ```rust
-#[extern]
-fn atoi(*i8): i32;
+#[extern] fn puts(*i8) -> i32;
 
-fn fib<T>(n: T): T {
-    return match n {
-        0, 1 => n,
-        _ => fib(n-1) + fib(n-2)
-    };
-}
-
-fn main(argc: i32, argv: **i8): i32 {
-    return argv[1] |> atoi |> fib;
+fn main() -> i32 {
+    puts(b"Hello World!");
+    return 0;
 }
 ```
 
