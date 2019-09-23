@@ -176,6 +176,7 @@ inline bool contains(const std::vector<T> &vector, const T &element) {
     return std::find(vector.begin(), vector.end(), element) != vector.end();
 }
 
+
 template <typename T, typename F>
 bool contains_where(const std::vector<T> &vector, F fn) {
     for (const auto& elem : vector) {
@@ -183,6 +184,7 @@ bool contains_where(const std::vector<T> &vector, F fn) {
     }
     return false;
 }
+
 
 template <typename T, typename F>
 std::optional<T> first_where(const std::vector<T> &vector, F fn) {
@@ -192,12 +194,29 @@ std::optional<T> first_where(const std::vector<T> &vector, F fn) {
     return std::nullopt;
 }
 
+
 template <typename T, typename F>
-std::vector<std::invoke_result_t<F, T&>> map(const std::vector<T> &vector, F Fn) {
-    std::vector<std::invoke_result_t<F, T&>> mapped(vector.size());
-    std::transform(vector.begin(), vector.end(), mapped.begin(), Fn);
+auto map(const std::vector<T>& vec, F&& fn) {
+    std::vector<std::invoke_result_t<F, const T&>> mapped;
+    mapped.reserve(vec.size());
+    for (const auto& elem : vec) {
+        mapped.push_back(fn(elem));
+    }
     return mapped;
 }
+
+
+template <typename T, typename F>
+auto mapi(const std::vector<T>& vec, F&& fn) {
+    std::vector<std::invoke_result_t<F, typename std::iterator_traits<typename std::vector<T>::iterator>::difference_type, const T&>> mapped;
+    mapped.reserve(vec.size());
+    for (auto it = vec.begin(); it != vec.end(); it++) {
+        auto idx = std::distance(vec.begin(), it);
+        mapped[idx] = fn(idx, *it);
+    }
+    return mapped;
+}
+
 
 template <typename T, typename F>
 std::pair<std::vector<T>, std::vector<T>> filter_keeping_all(std::vector<T> &vector, F f) {

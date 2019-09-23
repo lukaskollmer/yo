@@ -9,6 +9,7 @@
 #pragma once
 
 #include "util.h"
+#include "Token.h"
 #include <vector>
 #include <utility>
 
@@ -195,8 +196,10 @@ public:
 private:
     std::string name;
     MembersT members;
+    parser::TokenSourceLocation sourceLoc;
     
-    StructType(std::string name, MembersT members) : Type(Type::TypeID::Struct), name(name), members(members) {}
+    StructType(std::string name, MembersT members, parser::TokenSourceLocation sourceLoc)
+    : Type(Type::TypeID::Struct), name(name), members(members), sourceLoc(sourceLoc) {}
     
 public:
     
@@ -209,10 +212,11 @@ public:
     // Returns {0, nullptr} if the struct does not have a member with this name
     std::pair<uint64_t, Type*> getMember(const std::string &name) const;
     const MembersT& getMembers() const { return members; }
+    const parser::TokenSourceLocation& getSourceLocation() const { return sourceLoc; }
     
     
-    static StructType* create(std::string name, MembersT members) {
-        return new StructType(name, members);
+    static StructType* create(std::string name, MembersT members, parser::TokenSourceLocation sourceLoc) {
+        return new StructType(name, members, sourceLoc);
     }
     
     static bool classof(const Type *type) {

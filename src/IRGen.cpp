@@ -261,7 +261,7 @@ void IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl
         structMembers.push_back({varDecl->name, type});
     }
     
-    auto structTy = StructType::create(structName, structMembers);
+    auto structTy = StructType::create(structName, structMembers, structDecl->getSourceLocation());
     nominalTypes[structName] = structTy;
     
     if (!structDecl->attributes.no_init) {
@@ -360,16 +360,10 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Expr> expr, CodegenReturn
 #undef CASE2
 
 
-llvm::DIFile *DIFileForNode(llvm::DIBuilder &DIBuilder, const ast::Node& node) {
-    const auto& sourceLoc = node.getSourceLocation();
-    const auto [directory, filename] = util::string::extractPathAndFilename(sourceLoc.filepath);
-    return DIBuilder.createFile(filename, directory);
+llvm::DIFile* DIFileForSourceLocation(llvm::DIBuilder& builder, const parser::TokenSourceLocation& loc) {
+    const auto [directory, filename] = util::string::extractPathAndFilename(loc.filepath);
+    return builder.createFile(filename, directory);
 }
-
-llvm::DIFile *DIFileForNode(llvm::DIBuilder &DIBuilder, const std::shared_ptr<ast::Node> &node) {
-    return DIFileForNode(DIBuilder, *node);
-}
-
 
 
 llvm::DISubroutineType *IRGenerator::_toDISubroutineType(const ast::FunctionSignature& signature) {
@@ -380,8 +374,7 @@ llvm::DISubroutineType *IRGenerator::_toDISubroutineType(const ast::FunctionSign
     types.push_back(resolveTypeDesc(signature.returnType)->getLLVMDIType());
     for (const auto& param : signature.parameters) {
         types.push_back(resolveTypeDesc(param->type)->getLLVMDIType());
-    }
-    
+    }    
     return debugInfo.builder.createSubroutineType(debugInfo.builder.getOrCreateTypeArray(types));
 }
 
@@ -523,7 +516,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     builder.SetInsertPoint(entryBB);
     
     if (options.enableDebugMetadata) {
-        auto unit = DIFileForNode(debugInfo.builder, functionDecl);
+        auto unit = DIFileForSourceLocation(debugInfo.builder, functionDecl->getSourceLocation());
         auto SP = debugInfo.builder.createFunction(unit, functionDecl->getName(), resolvedName, unit,
                                            sig.getSourceLocation().line,
                                            _toDISubroutineType(sig),
@@ -2119,10 +2112,10 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
         
         case Type::TypeID::Struct: {
             auto structTy = llvm::dyn_cast<StructType>(type);
-            auto name = structTy->getName();
-            
-            auto llvmStructTy = llvm::StructType::create(C, name);
-            llvmStructTy->setBody(util::vector::map(structTy->getMembers(), [this](auto& member) -> llvm::Type* { return getLLVMType(member.second); }));
+            auto llvmStructTy = llvm::StructType::create(C, structTy->getName());
+            llvmStructTy->setBody(util::vector::map(structTy->getMembers(), [this](const auto& member) -> llvm::Type* {
+                return getLLVMType(member.second);
+            }));
             return handle_llvm_type(llvmStructTy);
         }
         
@@ -2156,6 +2149,7 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
     };
     
     auto& DL = module->getDataLayout();
+    auto& builder = debugInfo.builder;
     
     //auto byteWidth = DL.getTypeSizeInBits(i8);
     auto pointerWidth = DL.getPointerSizeInBits();
@@ -2166,13 +2160,13 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
         
         case Type::TypeID::Pointer: {
             auto pointee = llvm::dyn_cast<PointerType>(type)->getPointee();
-            return handle_di_type(debugInfo.builder.createPointerType(getDIType(pointee), pointerWidth));
+            return handle_di_type(builder.createPointerType(getDIType(pointee), pointerWidth));
         }
         
         case Type::TypeID::Numerical: {
             auto numTy = llvm::dyn_cast<NumericalType>(type);
-            auto ty = debugInfo.builder.createBasicType(numTy->getName(), numTy->getPrimitiveSizeInBits(),
-                                                        numTy->isSigned() ? llvm::dwarf::DW_ATE_signed : llvm::dwarf::DW_ATE_unsigned);
+            auto ty = builder.createBasicType(numTy->getName(), numTy->getPrimitiveSizeInBits(),
+                                              numTy->isSigned() ? llvm::dwarf::DW_ATE_signed : llvm::dwarf::DW_ATE_unsigned);
             return handle_di_type(ty);
         }
         
@@ -2187,57 +2181,33 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
                 paramTypes.push_back(getDIType(paramTy));
             }
             
-            auto diFnTy = debugInfo.builder.createSubroutineType(debugInfo.builder.getOrCreateTypeArray(paramTypes));
-            auto ty = debugInfo.builder.createPointerType(diFnTy, pointerWidth);
+            auto diFnTy = builder.createSubroutineType(builder.getOrCreateTypeArray(paramTypes));
+            auto ty = builder.createPointerType(diFnTy, pointerWidth);
             return handle_di_type(ty);
         }
         
         case Type::TypeID::Struct: {
             auto structTy = llvm::dyn_cast<StructType>(type);
-            auto name = structTy->getName();
+            auto llvmStructTy = llvm::dyn_cast<llvm::StructType>(getLLVMType(structTy));
+            auto llvmStructTyLayout = DL.getStructLayout(llvmStructTy);
+            auto unit = DIFileForSourceLocation(builder, structTy->getSourceLocation());
             
-            LKFatalError("TODO");
-            return nullptr; // TODO implement
-
+            std::vector<llvm::Metadata *> llvmMembers = util::vector::mapi(structTy->getMembers(), [&](auto idx, auto& member) -> llvm::Metadata* {
+                auto llvmMemberTy = getLLVMType(member.second);
+                return  builder.createMemberType(unit, member.first, unit, 0, // TODO struct member line number?
+                                                 DL.getTypeSizeInBits(llvmMemberTy), DL.getPrefTypeAlignment(llvmMemberTy),
+                                                 llvmStructTyLayout->getElementOffsetInBits(idx),
+                                                 llvm::DINode::DIFlags::FlagZero, getDIType(member.second));
+            });
+            
+            auto ty = builder.createStructType(unit, structTy->getName(), unit, structTy->getSourceLocation().line,
+                                               DL.getTypeSizeInBits(llvmStructTy), DL.getPrefTypeAlignment(llvmStructTy),
+                                               llvm::DINode::DIFlags::FlagZero, nullptr, builder.getOrCreateArray(llvmMembers));
+            return handle_di_type(ty);
         }
     }
-//    if (TI->isComplex()) {
-//        auto &name = TI->getName();
-//        auto structDecl = typeCache.getStruct(name);
-//        auto &SL = structDecl->getSourceLocation();
-//
-//        auto declUnit = DIFileForNode(debugInfo.builder, structDecl);
-//
-//        auto &dataLayout = module->getDataLayout();
-//
-//        auto llvmTy = llvm::dyn_cast<llvm::StructType>(getLLVMType(TI));
-//        auto structLayout = dataLayout.getStructLayout(llvmTy);
-//
-//        std::vector<llvm::Metadata *> elements;
-//        for (size_t i = 0; i < structDecl->members.size(); i++) {
-//            auto &member = structDecl->members[i];
-//            auto llvmMemberTy = getLLVMType(member->type);
-//            auto memberTy = debugInfo.builder.createMemberType(debugInfo.compileUnit, member->name->value, declUnit,
-//                                                       member->getSourceLocation().line,
-//                                                       dataLayout.getTypeSizeInBits(llvmMemberTy),
-//                                                       dataLayout.getPrefTypeAlignment(llvmMemberTy),
-//                                                       structLayout->getElementOffsetInBits(i),
-//                                                       llvm::DINode::DIFlags::FlagZero, getDIType(member->type));
-//            elements.push_back(memberTy);
-//        }
-//
-//        auto ty = debugInfo.builder.createStructType(debugInfo.compileUnit, name,
-//                                             DIFileForNode(debugInfo.builder, structDecl), SL.line,
-//                                             dataLayout.getTypeSizeInBits(llvmTy),
-//                                             dataLayout.getPrefTypeAlignment(llvmTy),
-//                                             llvm::DINode::DIFlags::FlagZero, nullptr, debugInfo.builder.getOrCreateArray(elements));
-//        TI->setDIType(ty);
-//        return ty;
-//    }
-//
-//fail:
-//    LKFatalError("TODO: Create DIType for '%s'", TI->str().c_str());
-//    throw;
+    
+    LKFatalError("should never reach here");
 }
 
 
@@ -2332,7 +2302,14 @@ Type* IRGenerator::guessType(std::shared_ptr<ast::Expr> expr) {
             LKAssert(targetTy->isPointerTy());
             auto ptrTy = llvm::dyn_cast<PointerType>(targetTy);
             LKAssert(ptrTy->getPointee()->isStructTy());
-            return llvm::dyn_cast<StructType>(ptrTy->getPointee())->getMember(memberExpr->memberName).second;
+            auto structTy = llvm::dyn_cast<StructType>(ptrTy->getPointee());
+            auto memberTy = structTy->getMember(memberExpr->memberName).second;
+            if (!memberTy) {
+                emitError(memberExpr->getSourceLocation(),
+                          util::fmt_cstr("Struct '%s' does not have a member named '%s'",
+                                         structTy->getName().c_str(), memberExpr->memberName.c_str()));
+            }
+            return memberTy;
         }
         
         case NK::UnaryExpr: {
@@ -2393,13 +2370,17 @@ Type *IRGenerator::instantiateTemplatedType(std::shared_ptr<ast::TypeDesc> typeD
 
 
 void IRGenerator::emitError(const parser::TokenSourceLocation& loc, std::string message) {
-    std::cout << loc.filepath << ":" << loc.line << ":" << loc.column << ": " << message << std::endl;
-    std::cout << util::fs::read_specific_line(loc.filepath, loc.line - 1) << std::endl;
-    
-    for (auto i = 0; i < loc.column - 1; i++) {
-        std::cout << ' ';
+    if (loc.empty()) {
+        std::cout << message << std::endl;
+    } else {
+        std::cout << loc.filepath << ":" << loc.line << ":" << loc.column << ": " << message << std::endl;
+        std::cout << util::fs::read_specific_line(loc.filepath, loc.line - 1) << std::endl;
+        
+        for (auto i = 0; i < loc.column - 1; i++) {
+            std::cout << ' ';
+        }
+        std::cout << "^" << std::endl;
     }
-    std::cout << "^" << std::endl;
     
     LKFatalError("");
 }
