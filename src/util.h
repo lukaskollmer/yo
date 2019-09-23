@@ -118,161 +118,171 @@ inline std::ostream& operator<<(std::ostream &OS, const _LKExitHandler &EH) {
 
 
 namespace typeinfo {
-    // Demangling (forward to __cxa_demangle)
-    std::string demangle(const char *name);
-    
-    
-    template <typename T>
-    using is_vector = std::is_same<T, std::vector<typename T::value_type, typename T::allocator_type>>;
-    
-    // True if `T` is a `std::vector`
-    template <typename T>
-    inline constexpr bool is_vector_v = is_vector<T>::value;
-    
-    // True if `T` is an `std::vector<U>`
-    template <typename T, typename U>
-    inline constexpr bool is_vector_of_v = is_vector_v<T> && std::is_same_v<typename T::value_type, U>;
-    
-    // True if `T` is an `std::vector` of elements convertible to `U`
-    template <typename T, typename U>
-    inline constexpr bool is_vector_of_convertible_v = std::is_same<T, std::vector<typename T::value_type, typename T::allocator_type>>::value && std::is_convertible<typename T::value_type, U>::value;
-    
-    
-    template <typename T>
-    struct is_shared_ptr : std::false_type {};
-    
-    template <typename T>
-    struct is_shared_ptr<std::shared_ptr<T>> : std::true_type {};
-    
-    template <typename T>
-    inline constexpr bool is_shared_ptr_v = is_shared_ptr<T>::value;
-    
 
-    
-    
-    template <typename T>
-    std::string getTypename(const T &arg) {
-        return demangle(typeid(arg).name());
-    }
-    
-    
-    template <typename T>
-    struct TypeInfo {
-        static const std::string name;
-    };
-    
-    template <typename T>
-    const std::string TypeInfo<T>::name = demangle(typeid(T).name());
+// Demangling (forward to __cxa_demangle)
+std::string demangle(const char *name);
+
+
+template <typename T>
+using is_vector = std::is_same<T, std::vector<typename T::value_type, typename T::allocator_type>>;
+
+// True if `T` is a `std::vector`
+template <typename T>
+inline constexpr bool is_vector_v = is_vector<T>::value;
+
+// True if `T` is an `std::vector<U>`
+template <typename T, typename U>
+inline constexpr bool is_vector_of_v = is_vector_v<T> && std::is_same_v<typename T::value_type, U>;
+
+// True if `T` is an `std::vector` of elements convertible to `U`
+template <typename T, typename U>
+inline constexpr bool is_vector_of_convertible_v = std::is_same<T, std::vector<typename T::value_type, typename T::allocator_type>>::value && std::is_convertible<typename T::value_type, U>::value;
+
+
+template <typename T>
+struct is_shared_ptr : std::false_type {};
+
+template <typename T>
+struct is_shared_ptr<std::shared_ptr<T>> : std::true_type {};
+
+template <typename T>
+inline constexpr bool is_shared_ptr_v = is_shared_ptr<T>::value;
+
+
+
+
+template <typename T>
+std::string getTypename(const T &arg) {
+    return demangle(typeid(arg).name());
 }
+
+
+template <typename T>
+struct TypeInfo {
+    static const std::string name;
+};
+
+template <typename T>
+const std::string TypeInfo<T>::name = demangle(typeid(T).name());
+
+} // namespace typeinfo
+
 
 
 namespace vector {
-    template <typename T>
-    inline bool contains(const std::vector<T> &vector, const T &element) {
-        return std::find(vector.begin(), vector.end(), element) != vector.end();
-    }
-    
-    template <typename T, typename F>
-    bool contains_where(const std::vector<T> &vector, F fn) {
-        for (const auto& elem : vector) {
-            if (fn(elem)) return true;
-        }
-        return false;
-    }
-    
-    template <typename T, typename F>
-    std::optional<T> first_where(const std::vector<T> &vector, F fn) {
-        for (const auto& elem : vector) {
-            if (fn(elem)) return elem;
-        }
-        return std::nullopt;
-    }
-    
-    template <typename T, typename F>
-    std::vector<std::invoke_result_t<F, T&>> map(const std::vector<T> &vector, F Fn) {
-        std::vector<std::invoke_result_t<F, T&>> mapped(vector.size());
-        std::transform(vector.begin(), vector.end(), mapped.begin(), Fn);
-        return mapped;
-    }
-    
-    template <typename T, typename F>
-    std::pair<std::vector<T>, std::vector<T>> filter_keeping_all(std::vector<T> &vector, F f) {
-        std::vector<T> matched, unmatched;
-        for (const auto& element : vector) {
-            (f(element) == true ? matched : unmatched).push_back(element);
-        }
-        return {matched, unmatched};
-    }
-    
-    
-    // Different behaviour depending on whether F returns void or U
-    template <template <typename...> class container, typename T, typename U, typename F>
-    U reduce(const container<T> &input, U initialValue, F fn) {
-        U accumulator = initialValue;
-        for (auto it = input.begin(); it != input.end(); it++) {
-            if constexpr(std::is_void_v<std::invoke_result_t<F, U&, const T&, uint64_t>>) {
-                fn(accumulator, *it, it - input.begin());
-            } else {
-                static_assert(std::is_same_v<U, std::invoke_result_t<F, F, const U&, const T&, uint64_t>>, "");
-                accumulator = fn(accumulator, *it, it - input.begin());
-            }
-        }
-        return accumulator;
-    }
 
-
+template <typename T>
+inline bool contains(const std::vector<T> &vector, const T &element) {
+    return std::find(vector.begin(), vector.end(), element) != vector.end();
 }
+
+template <typename T, typename F>
+bool contains_where(const std::vector<T> &vector, F fn) {
+    for (const auto& elem : vector) {
+        if (fn(elem)) return true;
+    }
+    return false;
+}
+
+template <typename T, typename F>
+std::optional<T> first_where(const std::vector<T> &vector, F fn) {
+    for (const auto& elem : vector) {
+        if (fn(elem)) return elem;
+    }
+    return std::nullopt;
+}
+
+template <typename T, typename F>
+std::vector<std::invoke_result_t<F, T&>> map(const std::vector<T> &vector, F Fn) {
+    std::vector<std::invoke_result_t<F, T&>> mapped(vector.size());
+    std::transform(vector.begin(), vector.end(), mapped.begin(), Fn);
+    return mapped;
+}
+
+template <typename T, typename F>
+std::pair<std::vector<T>, std::vector<T>> filter_keeping_all(std::vector<T> &vector, F f) {
+    std::vector<T> matched, unmatched;
+    for (const auto& element : vector) {
+        (f(element) == true ? matched : unmatched).push_back(element);
+    }
+    return {matched, unmatched};
+}
+
+
+// Different behaviour depending on whether F returns void or U
+template <template <typename...> class container, typename T, typename U, typename F>
+U reduce(const container<T> &input, U initialValue, F fn) {
+    U accumulator = initialValue;
+    for (auto it = input.begin(); it != input.end(); it++) {
+        if constexpr(std::is_void_v<std::invoke_result_t<F, U&, const T&, uint64_t>>) {
+            fn(accumulator, *it, it - input.begin());
+        } else {
+            static_assert(std::is_same_v<U, std::invoke_result_t<F, F, const U&, const T&, uint64_t>>, "");
+            accumulator = fn(accumulator, *it, it - input.begin());
+        }
+    }
+    return accumulator;
+}
+
+} // namespace vector
+
+
+
 
 
 namespace map {
-    template <typename K, typename V>
-    inline bool has_key(const std::map<K, V> &map, const K &key) {
-        return map.find(key) != map.end();
-    }
-    
-    template <typename K, typename V>
-    inline std::optional<V> get_opt(const std::map<K, V> &map, const K &key) {
-        if (has_key(map, key)) return map.at(key);
-        else return std::nullopt;
-    }
+
+template <typename K, typename V>
+inline bool has_key(const std::map<K, V> &map, const K &key) {
+    return map.find(key) != map.end();
 }
+
+template <typename K, typename V>
+inline std::optional<V> get_opt(const std::map<K, V> &map, const K &key) {
+    if (has_key(map, key)) return map.at(key);
+    else return std::nullopt;
+}
+
+} // namespace map
 
 
 namespace string {
-    bool contains(const std::string_view string, const std::string_view other);
-    
-    template <typename F>
-    bool allCharsMatch(std::string_view string, F fn) {
-        return std::all_of(string.begin(), string.end(), fn);
-    }
-    
-    // There's a good reason why these two use std::string_view, but i don't remember it
-    bool has_prefix(const std::string_view string, const std::string_view prefix);
-    bool has_suffix(const std::string_view string, const std::string_view suffix);
-    
-    std::string substr_from_index(const std::string &string, LKUInteger index);
-    
-    // Returns a substring from the start of the string to the specified index
-    // If `Index` is negative, it's counted from the end of the string
-    std::string substr_to_index(const std::string &string, LKInteger index);
-    
-    std::string substr_with_range(const std::string &string, Range range);
-    
-    
-    std::string replace_all(const std::string &string, const std::string &pattern, const std::string &replacement);
-    
-    std::vector<std::string> split(const std::string &string, const std::string &delimiter);
-    std::string join(const std::vector<std::string> &strings, const std::string &delimiter);
-    
-    std::string& append_with_indentation(std::string &target, std::string &&other, unsigned indent);
-    
-    
-    // TODO move this into a path_utils namespace or something like that?
-    std::string lastPathCompotent(const std::string &path);
-    std::string excludingLastPathComponent(const std::string &path);
-    std::string excludingFileExtension(const std::string &path);
-    std::pair<std::string, std::string> extractPathAndFilename(const std::string &path);
+
+bool contains(const std::string_view string, const std::string_view other);
+
+template <typename F>
+bool allCharsMatch(std::string_view string, F fn) {
+    return std::all_of(string.begin(), string.end(), fn);
 }
+
+// There's a good reason why these two use std::string_view, but i don't remember it
+bool has_prefix(const std::string_view string, const std::string_view prefix);
+bool has_suffix(const std::string_view string, const std::string_view suffix);
+
+std::string substr_from_index(const std::string &string, LKUInteger index);
+
+// Returns a substring from the start of the string to the specified index
+// If `Index` is negative, it's counted from the end of the string
+std::string substr_to_index(const std::string &string, LKInteger index);
+
+std::string substr_with_range(const std::string &string, Range range);
+
+
+std::string replace_all(const std::string &string, const std::string &pattern, const std::string &replacement);
+
+std::vector<std::string> split(const std::string &string, const std::string &delimiter);
+std::string join(const std::vector<std::string> &strings, const std::string &delimiter);
+
+std::string& append_with_indentation(std::string &target, std::string &&other, unsigned indent);
+
+
+// TODO move this into a path_utils namespace or something like that?
+std::string lastPathCompotent(const std::string &path);
+std::string excludingLastPathComponent(const std::string &path);
+std::string excludingFileExtension(const std::string &path);
+std::pair<std::string, std::string> extractPathAndFilename(const std::string &path);
+
+} // namespace string
 
 
 
