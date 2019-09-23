@@ -74,21 +74,9 @@ add_dependencies(yo gen_stdlib)
 
 
 
-
 # link LLVM
-llvm_map_components_to_libnames(llvm_libs core support native nativecodegen passes debuginfodwarf option)
+llvm_map_components_to_libnames(llvm_libs core support native nativecodegen passes)
 target_link_libraries(yo ${llvm_libs})
 
-# link lld
-# for some reason, even though the lld libs are in the same folder as all the LLVM stuff linked above,
-# clang can't find them unless linked by absolute path. TODO: fix!
-target_link_libraries(yo
-    "${LLVM_LIBRARY_DIRS}/liblldCommon.a"
-    "${LLVM_LIBRARY_DIRS}/liblldCore.a"
-    "${LLVM_LIBRARY_DIRS}/liblldDriver.a"
-    "${LLVM_LIBRARY_DIRS}/liblldMachO.a"
-    "${LLVM_LIBRARY_DIRS}/liblldReaderWriter.a"
-    "${LLVM_LIBRARY_DIRS}/liblldYAML.a"
-)
-
+# compilation options
 target_compile_options(yo PRIVATE "-fvisibility-inlines-hidden")

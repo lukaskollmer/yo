@@ -38,8 +38,6 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 
-#include "lld/Common/Driver.h"
-
 
 
 
@@ -165,54 +163,26 @@ bool emitExecutable(std::unique_ptr<llvm::Module> module, const std::string& fil
     dest.close();
     
     
-    
     // Link object file into executable
-    
-    using LLDLinkFnTy = bool(*)(llvm::ArrayRef<const char *>, bool, llvm::raw_ostream&);
-    LLDLinkFnTy lldLinkFn = nullptr;
     
     executableOutputPath = "a.out";
     
-    std::vector<const char*> lld_args = {
-        nullptr,
+    // TODO use lld if available? would that even matter?
+    const auto linkerName = "ld";
+    auto ld = llvm::sys::findProgramByName(linkerName);
+    if (auto EC = ld.getError()) {
+        LKFatalError("unable to find '%s': %s", linkerName, EC.message().c_str());
+    }
+    
+    std::vector<llvm::StringRef> ld_argv = {
+        ld.get(),
         objectFilePath,
-        "-o", executableOutputPath.c_str(),
-        "-lc"
+        "-lc",
+        "-o", executableOutputPath
     };
     
-    switch (llvm::Triple(targetTriple).getObjectFormat()) {
-        case llvm::Triple::UnknownObjectFormat:
-            LKFatalError("TODO?");
-            break;
-        
-        case llvm::Triple::COFF:
-            LKFatalError("TODO?");
-            break;
-        
-        case llvm::Triple::ELF:
-            LKFatalError("TODO?");
-            break;
-        
-        case llvm::Triple::MachO:
-            lldLinkFn = &lld::mach_o::link;
-            lld_args[0] = "ld64.lld";
-            lld_args.push_back("-sdk_version");
-            lld_args.push_back("10.8");
-            break;
-        
-        case llvm::Triple::Wasm:
-            LKFatalError("TODO?");
-            break;
-    }
-    
-    LKAssert(lld_args[0] != nullptr);
-    lld_args.push_back(nullptr); // argv usually is null-terminated, lets emulate that
-    
-    // TODO not sure if the return value actually indicates success?
-    if (!lldLinkFn(lld_args, false, llvm::errs())) {
-        LKFatalError("lld failed to link the object file");
-        return false;
-    }
+    auto res = llvm::sys::ExecuteAndWait(ld_argv[0], ld_argv);
+    LKAssert(res == 0 && "ld returned non-zero exit code");
     
     return true;
 }
