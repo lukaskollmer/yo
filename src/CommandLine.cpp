@@ -23,48 +23,54 @@ NS_START(yo::cl::internal)
 static llvm::cl::OptionCategory CLIOptionsCategory("General Options");
 
 
-static llvm::cl::opt<std::string> InputFile(llvm::cl::Positional,
-                                            llvm::cl::desc("<input file>"),
-                                            llvm::cl::Required,
-                                            llvm::cl::cat(CLIOptionsCategory));
+static llvm::cl::opt<std::string> inputFile(llvm::cl::Positional, llvm::cl::desc("<input file>"),
+                                            llvm::cl::Required, llvm::cl::cat(CLIOptionsCategory));
 
-static llvm::cl::opt<bool> Run("run", llvm::cl::desc("Run the generated executable after codegen"),
-                                  llvm::cl::cat(CLIOptionsCategory));
 
-static llvm::cl::opt<bool> pygmentize("pygmentize",
-                                      llvm::cl::desc("pygmentize input"),
+static llvm::cl::opt<bool> pygmentize("pygmentize", llvm::cl::desc("Lex input, then print pygmentized HTML to stdout"),
                                       llvm::cl::cat(CLIOptionsCategory));
 
 
-static llvm::cl::opt<bool> PrintAST("print-ast", llvm::cl::desc("Print the Abstract Syntax Tree"),
-                                       llvm::cl::cat(CLIOptionsCategory));
-
-static llvm::cl::opt<bool> EmitLLVM("emit-llvm", llvm::cl::desc("Emit LLVM IR"),
+static llvm::cl::opt<bool> printAST("print-ast", llvm::cl::desc("Print the Abstract Syntax Tree"),
                                     llvm::cl::cat(CLIOptionsCategory));
 
-static llvm::cl::opt<bool> DumpLLVM("dump-llvm", llvm::cl::desc("Dump LLVM IR"),
+
+static llvm::cl::opt<bool> emitLLVM("emit-llvm", llvm::cl::desc("Emit LLVM IR"),
                                     llvm::cl::cat(CLIOptionsCategory));
 
-static llvm::cl::list<std::string> RunArgs(llvm::cl::ConsumeAfter, llvm::cl::desc("<run args>..."),
-                                           llvm::cl::cat(CLIOptionsCategory));
 
-static llvm::cl::opt<bool> Optimize("O", llvm::cl::desc("Enable Optimizations"),
+static llvm::cl::opt<bool> dumpLLVM("dump-llvm", llvm::cl::desc("Dump LLVM IR"),
                                     llvm::cl::cat(CLIOptionsCategory));
 
-static llvm::cl::opt<bool> DumpLLVMPreOpt("dump-llvm-pre-opt",
-                                          llvm::cl::desc("Dump LLVM IR prior to running optimizations"),
+
+static llvm::cl::opt<bool> optimize("O", llvm::cl::desc("Enable Optimizations"),
+                                    llvm::cl::cat(CLIOptionsCategory));
+
+
+static llvm::cl::opt<bool> dumpLLVMPreOpt("dump-llvm-pre-opt", llvm::cl::desc("Dump LLVM IR prior to running optimizations"),
                                           llvm::cl::cat(CLIOptionsCategory));
 
-static llvm::cl::opt<std::string> StdlibRoot("stdlib-root",
-                                             llvm::cl::desc("Load stdlib modules from <path>, instead of using the bundled ones"),
-                                             llvm::cl::value_desc("path"),
-                                             llvm::cl::cat(CLIOptionsCategory));
 
-static llvm::cl::opt<bool> ARC("arc", llvm::cl::desc("[internal] enable arc"),
-                               llvm::cl::cat(CLIOptionsCategory));
+static llvm::cl::opt<std::string> stdlibRoot("stdlib-root", llvm::cl::desc("Load stdlib modules from <path>, instead of using the bundled ones"),
+                                             llvm::cl::value_desc("path"), llvm::cl::cat(CLIOptionsCategory));
+
+
+static llvm::cl::opt<bool> arc("arc", llvm::cl::desc("[internal] enable arc"), llvm::cl::cat(CLIOptionsCategory));
+
 
 static llvm::cl::opt<bool> emitDebugMetadata("g", llvm::cl::desc("Emit debug metadata"), llvm::cl::cat(CLIOptionsCategory));
 
+
+
+static llvm::cl::opt<std::string> outputPath("o", llvm::cl::desc("Write output to <file>"), llvm::cl::value_desc("file"),
+                                             llvm::cl::cat(CLIOptionsCategory));
+
+
+static llvm::cl::opt<bool> run("run", llvm::cl::value_desc("run_val"), llvm::cl::desc("Run the generated executable after codegen"),
+                               llvm::cl::cat(CLIOptionsCategory));
+
+
+static llvm::cl::list<std::string> runArgs(llvm::cl::ConsumeAfter, /*llvm::cl::desc("..."),*/ llvm::cl::cat(CLIOptionsCategory));
 
 NS_END
 
@@ -74,47 +80,47 @@ bool yo::cl::opts::pygmentize() {
 }
 
 bool yo::cl::opts::run() {
-    return internal::Run;
+    return internal::run;
 }
 
 const std::vector<std::string>& yo::cl::opts::runArgs() {
-    return internal::RunArgs;
+    return internal::runArgs;
 }
 
 const std::string& yo::cl::opts::inputFile() {
-    return internal::InputFile;
+    return internal::inputFile;
 }
 
 const std::string& yo::cl::opts::outputFile() {
-    LKFatalError("TODO Implement");
+    return internal::outputPath;
 }
 
 const std::string& yo::cl::opts::stdlibRoot() {
-    return internal::StdlibRoot;
+    return internal::stdlibRoot;
 }
 
 bool yo::cl::opts::printAST() {
-    return internal::PrintAST;
+    return internal::printAST;
 }
 
 bool yo::cl::opts::emitLLVM() {
-    return internal::EmitLLVM;
+    return internal::emitLLVM;
 }
 
 bool yo::cl::opts::dumpLLVM() {
-    return internal::DumpLLVM;
+    return internal::dumpLLVM;
 }
 
 bool yo::cl::opts::dumpLLVMPreOpt() {
-    return internal::DumpLLVMPreOpt;
+    return internal::dumpLLVMPreOpt;
 }
 
 bool yo::cl::opts::optimize() {
-    return internal::Optimize;
+    return internal::optimize;
 }
 
 bool yo::cl::opts::arc() {
-    return internal::ARC;
+    return internal::arc;
 }
 
 bool yo::cl::opts::emitDebugMetadata() {
