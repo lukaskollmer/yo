@@ -3,6 +3,15 @@
 args=("$@")
 
 
+
+confirm() {
+    read -p "Are you sure? "
+    if [ "$REPLY" != "y" ]
+    then
+        exit 1
+    fi
+}
+
 docs_build () {
     bundle exec jekyll build
 }
@@ -12,6 +21,7 @@ docs_serve () {
 }
 
 docs_deploy () {
+    confirm
     docs_build
     aws s3 sync --delete _site/ s3://yo-lang.net
     if [ "${args[1]}" != "-s3-only" ]
