@@ -15,6 +15,7 @@
 #include <csignal>
 #include <map>
 #include <optional>
+#include <memory>
 
 
 #define NS_START(x) namespace x {
