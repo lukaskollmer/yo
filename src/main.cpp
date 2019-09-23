@@ -167,22 +167,24 @@ bool emitExecutable(std::unique_ptr<llvm::Module> module, const std::string& fil
     
     executableOutputPath = "a.out";
     
-    // TODO use lld if available? would that even matter?
-    const auto linkerName = "ld";
-    auto ld = llvm::sys::findProgramByName(linkerName);
-    if (auto EC = ld.getError()) {
-        LKFatalError("unable to find '%s': %s", linkerName, EC.message().c_str());
+    
+    // Using clang/gcc to link since that seems to work more reliable than directly calling ld
+    auto linkerPath = llvm::sys::findProgramByName("clang") ?: llvm::sys::findProgramByName("gcc");
+    if (!linkerPath) {
+        LKFatalError("unable to find clang or gcc");
     }
     
     std::vector<llvm::StringRef> ld_argv = {
-        ld.get(),
+        linkerPath.get(),
         objectFilePath,
         "-lc",
         "-o", executableOutputPath
     };
     
     auto res = llvm::sys::ExecuteAndWait(ld_argv[0], ld_argv);
-    LKAssert(res == 0 && "ld returned non-zero exit code");
+    if (res != 0) {
+        LKFatalError("'%s' returned with non-zero exit code %i", linkerPath->c_str(), res);
+    }
     
     return true;
 }
