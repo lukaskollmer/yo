@@ -416,6 +416,7 @@ public:
 
 
 // <expr>.<ident>
+// A member expression's source location should point to the first token after the target expression
 class MemberExpr : public Expr {
 public:
     std::shared_ptr<Expr> target;

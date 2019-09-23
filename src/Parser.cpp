@@ -976,9 +976,11 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
         
 //    parse_member_expr:
         if (currentTokenKind() == TK::Period) { // member expr
+            const auto& loc = getCurrentSourceLocation();
             consume();
             auto memberName = parseIdentAsString();
             expr = std::make_shared<ast::MemberExpr>(expr, memberName);
+            expr->setSourceLocation(loc);
             // TODO goto parse_call_expr if the current token is `<` or `(`?
             // member expressions are probably somewhat often also call targets?
         }
