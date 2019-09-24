@@ -779,6 +779,9 @@ bool integerLiteralFitsInType(uint64_t value, Type *type) {
 }
 
 
+
+
+
 bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *expr, Type *expectedType, Type **initialTypeOfExpr) {
     auto type = guessType(*expr);
     if (initialTypeOfExpr) *initialTypeOfExpr = type;
@@ -1269,26 +1272,46 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
     }
     
     
-    std::map<std::string, Type *> templateArgumentMapping;
+    // There are two ways a template argument type is resolved here:
+    // 1. It was explicitly specified at the call site. Example: `foo<i32>();`
+    // 2. We deduce it by looking at the arguments that were passed to the function
+    //    In this case, there are two distinctions to be made: function call expressions that are literals are given
+    //    less importance than non-literal expressions. Why is that the case? consider the following example: We're calling a function
+    //    with the signature `(T, T) -> T`. The arguments are `x` (of type i32) and `12` (of type i64) since it is a literal.
+    //    Since implicit conversions are allowed for literals, and 12 fits in an i32, there is no reason to reject this call and the compiler
+    //    needs to resolve `T` as i32, then allowing an implicit conversion to take place later in function call codegen.
+    //    To take scenarios like this into account, non-literal function parameters are given more "weight" than literals, and they can override
+    //    a template argument type deduced from a literal expression.
+    
+    
+    enum class DeductionReason {
+        Expr,       // deduced from argument expr
+        Literal,    // deduced from argument expr that is a literal
+        Explicit    // explicitly set (ie `foo<i32, i64>();`)
+    };
+    
+    struct TemplateArgumentDeductionInfo {
+        Type *type;
+        DeductionReason reason;
+    };
+    
+    
+    std::map<std::string, std::optional<TemplateArgumentDeductionInfo>> templateArgumentMapping;
     
     // Fill the map, taking explicitly passed template argument types into account
     // Template aguments not explicitly passed as part of the call are set to null
     for (size_t i = 0; i < sig.templateArgumentNames.size(); i++) {
         auto name = sig.templateArgumentNames[i];
         if (i < call->explicitTemplateArgumentTypes.size()) {
-            templateArgumentMapping[name] = resolveTypeDesc(call->explicitTemplateArgumentTypes[i]);
+            templateArgumentMapping[name] = { resolveTypeDesc(call->explicitTemplateArgumentTypes[i]), DeductionReason::Explicit };
         } else {
-            templateArgumentMapping[name] = nullptr;
+            templateArgumentMapping[name] = std::nullopt;
         }
     }
     
     // TODO this needs a fundamental rewrite to support more than just nominal types and pointers to (pointers to) nominal types!
     // What about a pointer to a function, or a function that takes another functuin, etc etc etc
     
-    // TODO2: Also, there need to be support for not rejecting trivially convertible literal expressions
-    // Example:
-    // fn add<T>(x: T, y: T) -> T;
-    // With `x, y: i32`, this should be fine for add(x, y), add(x, 1), add(1, x), since the 1 is trivially convertible to the more specific template type i32
     
     for (size_t i = argumentOffset; i < call->arguments.size(); i++) {
         // We have to keep working w/ the ast::TypeDesc object as long as possible since calling resolveTypeDesc might resolve a typename shadowed by a template w/ some other type declared in the parent scope
@@ -1309,18 +1332,21 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
         
         if (auto mapping = templateArgumentMapping.find(paramTypename); mapping != templateArgumentMapping.end()) {
             auto guessedArgumentType = guessType(call->arguments[i]);
-            if (mapping->second == nullptr) {
+            auto isLiteral = call->arguments[i]->getNodeKind() == NK::NumberLiteral;
+            auto reason = isLiteral ? DeductionReason::Literal : DeductionReason::Expr;
+            if (!mapping->second.has_value()) {
                 while (paramIndirectionCount-- > 0) {
                     LKAssert(guessedArgumentType->isPointerTy());
                     guessedArgumentType = llvm::dyn_cast<PointerType>(guessedArgumentType)->getPointee();
                 }
-                mapping->second = guessedArgumentType;
+                mapping->second = { guessedArgumentType, reason };
             } else {
-                //LKAssert(mapping->second == guessedArgumentType);
-                if (mapping->second != guessedArgumentType) {
+                if (mapping->second->reason == DeductionReason::Literal) {
+                    mapping->second = { guessedArgumentType, reason };
+                } else if (!isLiteral && mapping->second->type != guessedArgumentType) {
                     emitError(call->arguments[i]->getSourceLocation(),
                               util::fmt_cstr("type mismatch: expected '%s', but expression evaluates to '%s'",
-                                             mapping->second->str().c_str(), guessedArgumentType->str().c_str()));
+                                             mapping->second->type->str().c_str(), guessedArgumentType->str().c_str()));
                 }
             }
         }
@@ -1328,8 +1354,13 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
     
     
     std::map<std::string, std::shared_ptr<ast::TypeDesc>> retvalMap;
-    for (const auto& [name, type] : templateArgumentMapping) {
-        retvalMap[name] = ast::TypeDesc::makeResolved(type);
+    for (const auto& [name, deductionInfo] : templateArgumentMapping) {
+        if (deductionInfo.has_value()) {
+            retvalMap[name] = ast::TypeDesc::makeResolved(deductionInfo->type);
+        } else {
+            // TODO also print the location of the call! this is pretty useless without proper context
+            emitError(templateFunction->getSourceLocation(), util::fmt_cstr("unable to deduce template argument '%s'", name.c_str()));
+        }
     }
     return retvalMap;
 }
