@@ -337,7 +337,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::LocalStmt> localStmt) {
 }
 
 
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Expr> expr, CodegenReturnValueKind returnValueKind) {
+llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Expr> expr, ValueKind returnValueKind) {
     switch (expr->getNodeKind()) {
     CASE(expr, NumberLiteral)
     CASE(expr, Ident, returnValueKind)
@@ -817,8 +817,8 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
         LKFatalError("type mismatch: cannot assign '%s' to '%s'", T->str().c_str(), destTy->str().c_str());
     }
     
-    auto target = codegen(assignment->target, CodegenReturnValueKind::Address);
-    builder.CreateStore(codegen(expr, CodegenReturnValueKind::Value), target);
+    auto target = codegen(assignment->target, LValue);
+    builder.CreateStore(codegen(expr, RValue), target);
     
     return nullptr;
 }
@@ -890,14 +890,14 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StringLiteral> stringLite
 
 
 // If TakeAddress is true, this returns a pointer to the identifier, instead of the value stored
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Ident> ident, CodegenReturnValueKind returnValueKind) {
+llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Ident> ident, ValueKind returnValueKind) {
     emitDebugLocation(ident);
     
     if (auto binding = scope.getBinding(ident->value)) {
         switch (returnValueKind) {
-            case CodegenReturnValueKind::Value:
+            case RValue:
                 return binding->read();
-            case CodegenReturnValueKind::Address:
+            case LValue:
                 return const_cast<llvm::Value *>(binding->value);
         }
     }
@@ -961,7 +961,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> cast) {
 
 
 
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, CodegenReturnValueKind returnValueKind) {
+llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, ValueKind returnValueKind) {
     emitDebugLocation(memberExpr);
     
     auto targetTy = guessType(memberExpr->target);
@@ -981,9 +981,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, C
     auto V = builder.CreateGEP(codegen(memberExpr->target), offsets);
     
     switch (returnValueKind) {
-        case CodegenReturnValueKind::Address:
+        case LValue:
             return V;
-        case CodegenReturnValueKind::Value:
+        case RValue:
             return builder.CreateLoad(V);
     }
 }
@@ -991,20 +991,20 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, C
 
 
 
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::SubscriptExpr> subscript, CodegenReturnValueKind returnValueKind) {
+llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::SubscriptExpr> subscript, ValueKind returnValueKind) {
     emitDebugLocation(subscript);
     
-    auto target = codegen(subscript->target, CodegenReturnValueKind::Value);
+    auto target = codegen(subscript->target, RValue);
     LKAssert(target->getType()->isPointerTy());
-    auto offset = codegen(subscript->offset, CodegenReturnValueKind::Value);
+    auto offset = codegen(subscript->offset, RValue);
     LKAssert(offset->getType()->isIntegerTy());
     
     auto GEP = builder.CreateGEP(target, codegen(subscript->offset));
     
     switch (returnValueKind) {
-        case CodegenReturnValueKind::Address:
+        case LValue:
             return GEP;
-        case CodegenReturnValueKind::Value:
+        case RValue:
             return builder.CreateLoad(GEP);
     }
 }
@@ -1274,11 +1274,11 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
     // There are two ways a template argument type is resolved here:
     // 1. It was explicitly specified at the call site. Example: `foo<i32>();`
     // 2. We deduce it by looking at the arguments that were passed to the function
-    //    In this case, there are two distinctions to be made: function call expressions that are literals are given
-    //    less importance than non-literal expressions. Why is that the case? consider the following example: We're calling a function
-    //    with the signature `(T, T) -> T`. The arguments are `x` (of type i32) and `12` (of type i64) since it is a literal.
+    //    In this case, there are two distinctions to be made: is the call argument a literal or a non-literal expression?
+    //    Literals are given less importance than non-literal expressions. Why is that the case? consider the following example:
+    //    We're calling a function with the signature `(T, T) -> T`. The arguments are `x` (of type i32) and `12` (of type i64 since it is a literal).
     //    Since implicit conversions are allowed for literals, and 12 fits in an i32, there is no reason to reject this call and the compiler
-    //    needs to resolve `T` as i32, then allowing an implicit conversion to take place later in function call codegen.
+    //    needs to resolve `T` as i32, thus allowing an implicit conversion to take place later in function call codegen.
     //    To take scenarios like this into account, non-literal function parameters are given more "weight" than literals, and they can override
     //    a template argument type deduced from a literal expression.
     

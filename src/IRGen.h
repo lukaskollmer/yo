@@ -24,6 +24,10 @@
 NS_START(yo::irgen)
 
 
+enum ValueKind {
+    LValue, RValue
+};
+
 struct IRGenOptions {
     bool enableARC;
     bool enableDebugMetadata;
@@ -121,16 +125,11 @@ private:
     void emitDebugLocation(const std::shared_ptr<ast::Node> &node);
     
     
-    // lvalue/rvalue
-    enum class CodegenReturnValueKind {
-        Value, Address
-    };
-    
     
     // Codegen
     llvm::Value *codegen(std::shared_ptr<ast::TopLevelStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::LocalStmt>);
-    llvm::Value *codegen(std::shared_ptr<ast::Expr>, CodegenReturnValueKind = CodegenReturnValueKind::Value);
+    llvm::Value *codegen(std::shared_ptr<ast::Expr>, ValueKind = RValue); // TODO should this really default to rvalue?
     
     llvm::Value *codegen(std::shared_ptr<ast::FunctionDecl>);
     llvm::Value *codegen(std::shared_ptr<ast::StructDecl>);
@@ -152,13 +151,13 @@ private:
     llvm::Value *codegen(std::shared_ptr<ast::CastExpr>);
     llvm::Value *codegen(std::shared_ptr<ast::UnaryExpr>);
     
-    llvm::Value *codegen(std::shared_ptr<ast::Ident>, CodegenReturnValueKind);
+    llvm::Value *codegen(std::shared_ptr<ast::Ident>, ValueKind);
     llvm::Value *codegen(std::shared_ptr<ast::RawLLVMValueExpr>);
     
     llvm::Value *codegen(std::shared_ptr<ast::BinOp>);
     
-    llvm::Value *codegen(std::shared_ptr<ast::SubscriptExpr>, CodegenReturnValueKind);
-    llvm::Value *codegen(std::shared_ptr<ast::MemberExpr>, CodegenReturnValueKind);
+    llvm::Value *codegen(std::shared_ptr<ast::SubscriptExpr>, ValueKind);
+    llvm::Value *codegen(std::shared_ptr<ast::MemberExpr>, ValueKind);
     llvm::Value *codegen(std::shared_ptr<ast::ExprStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::CallExpr>);
     
