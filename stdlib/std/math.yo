@@ -1,5 +1,5 @@
 fn abs<T>(x: T) -> T {
-    if x < static_cast<T>(0) {
+    if x < 0 {
         return -x;
     } else {
         return x;
