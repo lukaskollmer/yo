@@ -15,7 +15,7 @@ string(TIMESTAMP YO_BUILD_DATE "%Y-%m-%d_%H%MZ" UTC)
 find_package(LLVM 8 REQUIRED CONFIG)
 find_package(PythonInterp 3.6 REQUIRED)
 
-include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
@@ -80,3 +80,4 @@ target_link_libraries(yo ${llvm_libs})
 
 # compilation options
 target_compile_options(yo PRIVATE "-fvisibility-inlines-hidden")
+# target_compile_options(yo PRIVATE "-Wconversion")
