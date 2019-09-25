@@ -60,10 +60,9 @@ IRGenerator::IRGenerator(const std::string& moduleName, IRGenOptions options)
     Double = llvm::Type::getDoubleTy(C);
     
     debugInfo.compileUnit = debugInfo.builder.createCompileUnit(llvm::dwarf::DW_LANG_C,
-                                                        debugInfo.builder.createFile("main.yo", "."),
-                                                        "yo", false, "", 0);
+                                                                debugInfo.builder.createFile("main.yo", "."),
+                                                                "yo", options.isOptimized, "", 0);
     debugInfo.lexicalBlocks.push_back(debugInfo.compileUnit);
-    
     module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
     
     

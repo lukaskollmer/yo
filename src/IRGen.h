@@ -27,6 +27,7 @@ NS_START(yo::irgen)
 struct IRGenOptions {
     bool enableARC;
     bool enableDebugMetadata;
+    bool isOptimized;
 };
 
 

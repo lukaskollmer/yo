@@ -248,7 +248,7 @@ int main(int argc, const char * argv[], const char *const *envp) {
     yo::irgen::IRGenerator codegen("main", options);
     codegen.codegen(ast);
     
-    auto M = codegen.getModule();
+    std::unique_ptr<llvm::Module> M = codegen.getModule();
     
     if (yo::cl::opts::emitLLVM()) {
         std::error_code EC;
