@@ -505,6 +505,11 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
     auto attributes = parseAttributes();
     
     switch (currentTokenKind()) {
+        case TK::Ampersand: {
+            const auto &loc = getCurrentSourceLocation();
+            consume();
+            return TypeDesc::makeReference(parseType(), loc);
+        }
         case TK::Asterisk: {
             auto loc = getCurrentSourceLocation();
             consume();

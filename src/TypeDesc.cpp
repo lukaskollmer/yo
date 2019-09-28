@@ -26,6 +26,9 @@ std::string TypeDesc::str() const {
         case TypeDesc::Kind::Pointer:
             return std::string("*").append(getPointee()->str());
         
+        case Kind::Reference:
+            return std::string("&").append(getPointee()->str());
+        
         case TypeDesc::Kind::Function: {
             const auto& FTI = getFunctionTypeInfo();
             std::string str;

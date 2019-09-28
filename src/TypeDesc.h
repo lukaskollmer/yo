@@ -40,6 +40,7 @@ public:
         Nominal,
         Pointer,
         Function,
+        Reference,
         
         Resolved // Special case that simply wraps a fully resolved `yo::Type *`
     };
@@ -71,6 +72,10 @@ public:
     
     static std::shared_ptr<TypeDesc> makePointer(std::shared_ptr<TypeDesc> pointee, parser::TokenSourceLocation loc = parser::TokenSourceLocation()) {
         return std::shared_ptr<TypeDesc>(new TypeDesc(Kind::Pointer, pointee, loc));
+    }
+    
+    static std::shared_ptr<TypeDesc> makeReference(std::shared_ptr<TypeDesc> pointee, parser::TokenSourceLocation loc = parser::TokenSourceLocation()) {
+        return std::shared_ptr<TypeDesc>(new TypeDesc(Kind::Reference, pointee, loc));
     }
     
     static std::shared_ptr<TypeDesc> makeFunction(yo::irgen::CallingConvention cc, std::shared_ptr<TypeDesc> returnTy, std::vector<std::shared_ptr<TypeDesc>> parameterTypes, parser::TokenSourceLocation loc = parser::TokenSourceLocation()) {
