@@ -48,7 +48,7 @@ enum class PrecedenceGroup : uint8_t {
 class Parser {
 public:
     Parser() {}
-    ast::AST parse(std::string &filepath);
+    ast::AST parse(const std::string &filepath);
     
     void setCustomStdlibRoot(const std::string &path) {
         useCustomStdlibRoot = true;

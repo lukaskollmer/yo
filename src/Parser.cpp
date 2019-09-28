@@ -103,12 +103,12 @@ static TokenSet binaryOperatorStartTokens = {
 // For example, if we parse an identifier, after returning from `ParseIdentifier`, Position would point to the token after that identifier
 
 
-std::vector<Token> lexFile(std::string &path) {
+std::vector<Token> lexFile(const std::string &path) {
     return Lexer().lex(util::fs::read_file(path), path);
 }
 
 
-AST Parser::parse(std::string &filepath) {
+AST Parser::parse(const std::string &filepath) {
     this->position = 0;
     this->tokens = lexFile(filepath);
     importedFiles.push_back(filepath);
