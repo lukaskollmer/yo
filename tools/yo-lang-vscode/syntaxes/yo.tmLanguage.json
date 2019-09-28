@@ -100,7 +100,7 @@
             }]
         },
         "type": {
-            "match": "(\\**)((void|bool|u8|u16|u32|u64|i8|i16|i32|i64|i64|double)|([a-zA-Z_][a-zA-Z0-9_]*))",
+            "match": "([*&]*)((void|bool|u8|u16|u32|u64|i8|i16|i32|i64|i64|double)|([a-zA-Z_][a-zA-Z0-9_]*))",
             "captures": {
                 "1": { "name": "keyword.operator" },
                 "3": { "name": "storage.type.yo" },
