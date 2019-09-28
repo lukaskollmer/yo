@@ -939,6 +939,8 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
         }
     }
     
+    if (!expr) return nullptr;
+    
     expr->setSourceLocation(sourceLoc);
     
     
@@ -1025,6 +1027,10 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
             
             if (precedence >= precedenceGroupConstraint) {
                 auto rhs = parseExpression(precedence);
+                if (!rhs) {
+                    restore_pos(fallback);
+                    return expr;
+                }
                 expr = std::make_shared<ast::BinOp>(op, expr, rhs);
                 expr->setSourceLocation(operatorLoc);
             } else {
