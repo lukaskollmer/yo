@@ -28,16 +28,16 @@ static NumericalType *_float64Ty;
 
 
 void Type::initPrimitives() {
-    _voidTy = new Type(TypeID::Void);
-    _boolTy = new NumericalType(NumericalType::NumericalTypeID::Bool);
-    _int8Ty = new NumericalType(NumericalType::NumericalTypeID::Int8);
-    _int16Ty = new NumericalType(NumericalType::NumericalTypeID::Int16);
-    _int32Ty = new NumericalType(NumericalType::NumericalTypeID::Int32);
-    _int64Ty = new NumericalType(NumericalType::NumericalTypeID::Int64);
-    _uint8Ty = new NumericalType(NumericalType::NumericalTypeID::UInt8);
-    _uint16Ty = new NumericalType(NumericalType::NumericalTypeID::UInt16);
-    _uint32Ty = new NumericalType(NumericalType::NumericalTypeID::UInt32);
-    _uint64Ty = new NumericalType(NumericalType::NumericalTypeID::UInt64);
+    _voidTy    = new Type(TypeID::Void);
+    _boolTy    = new NumericalType(NumericalType::NumericalTypeID::Bool);
+    _int8Ty    = new NumericalType(NumericalType::NumericalTypeID::Int8);
+    _int16Ty   = new NumericalType(NumericalType::NumericalTypeID::Int16);
+    _int32Ty   = new NumericalType(NumericalType::NumericalTypeID::Int32);
+    _int64Ty   = new NumericalType(NumericalType::NumericalTypeID::Int64);
+    _uint8Ty   = new NumericalType(NumericalType::NumericalTypeID::UInt8);
+    _uint16Ty  = new NumericalType(NumericalType::NumericalTypeID::UInt16);
+    _uint32Ty  = new NumericalType(NumericalType::NumericalTypeID::UInt32);
+    _uint64Ty  = new NumericalType(NumericalType::NumericalTypeID::UInt64);
     _float64Ty = new NumericalType(NumericalType::NumericalTypeID::Float64);
 }
 
@@ -54,29 +54,6 @@ NumericalType* Type::getUInt32Type() { return _uint32Ty; }
 NumericalType* Type::getUInt64Type() { return _uint64Ty; }
 NumericalType* Type::getFloat64Type() { return _float64Ty; }
 
-//
-//#define TYPE_GETTER(type, typeId, name)             \
-//type* Type::name() {                                \
-//    static type* ty = nullptr;                      \
-//    if (ty == nullptr) { ty = new type(typeId); }   \
-//    return ty;                                      \
-//}
-//
-//
-//TYPE_GETTER(Type, Type::TypeID::Void, getVoidType)
-//TYPE_GETTER(NumericalType, NumericalType::NumericalTypeID::Bool, getBoolType)
-//TYPE_GETTER(NumericalType, NumericalType::NumericalTypeID::Int8, getInt8Type)
-//TYPE_GETTER(NumericalType, NumericalType::NumericalTypeID::Int16, getInt16Type)
-//TYPE_GETTER(NumericalType, NumericalType::NumericalTypeID::Int32, getInt32Type)
-//TYPE_GETTER(NumericalType, NumericalType::NumericalTypeID::Int64, getInt64Type)
-//TYPE_GETTER(NumericalType, NumericalType::NumericalTypeID::UInt8, getUInt8Type)
-//TYPE_GETTER(NumericalType, NumericalType::NumericalTypeID::UInt16, getUInt16Type)
-//TYPE_GETTER(NumericalType, NumericalType::NumericalTypeID::UInt32, getUInt32Type)
-//TYPE_GETTER(NumericalType, NumericalType::NumericalTypeID::UInt64, getUInt64Type)
-//TYPE_GETTER(NumericalType, NumericalType::NumericalTypeID::Float64, getFloat64Type)
-//
-//
-//#undef TYPE_GETTER
 
 
 
