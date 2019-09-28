@@ -12,7 +12,8 @@ set(YO_STDLIB_PATH "${CMAKE_BINARY_DIR}/stdlib")
 string(TIMESTAMP YO_BUILD_DATE "%Y-%m-%d_%H%MZ" UTC)
 
 
-find_package(LLVM 8 REQUIRED CONFIG)
+# find_package(LLVM 9 REQUIRED CONFIG)
+find_package(LLVM 8 REQUIRED PATHS /usr/local/opt/llvm@8)
 find_package(PythonInterp 3.6 REQUIRED)
 
 include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
@@ -73,7 +74,8 @@ add_dependencies(yo gen_stdlib)
 
 
 # link LLVM
-llvm_map_components_to_libnames(llvm_libs core support native nativecodegen passes)
+# llvm_map_components_to_libnames(llvm_libs core support native nativecodegen passes)
+llvm_map_components_to_libnames(llvm_libs all)
 target_link_libraries(yo ${llvm_libs})
 
 # compilation options
