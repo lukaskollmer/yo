@@ -74,8 +74,7 @@ add_dependencies(yo gen_stdlib)
 
 
 # link LLVM
-# llvm_map_components_to_libnames(llvm_libs core support native nativecodegen passes)
-llvm_map_components_to_libnames(llvm_libs all)
+llvm_map_components_to_libnames(llvm_libs core support native nativecodegen passes)
 target_link_libraries(yo ${llvm_libs})
 
 # compilation options
