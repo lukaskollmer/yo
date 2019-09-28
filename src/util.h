@@ -228,6 +228,17 @@ std::pair<std::vector<T>, std::vector<T>> filter_keeping_all(std::vector<T> &vec
 }
 
 
+template <typename T, typename F>
+std::vector<T> filter(const std::vector<T> &vector, F &&fn) {
+    std::vector<T> results;
+    results.reserve(vector.size());
+    for (const auto &element : vector) {
+        if (fn(element)) results.push_back(element);
+    }
+    return results;
+}
+
+
 // Different behaviour depending on whether F returns void or U
 template <template <typename...> class container, typename T, typename U, typename F>
 U reduce(const container<T> &input, U initialValue, F fn) {
