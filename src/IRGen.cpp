@@ -174,7 +174,9 @@ void IRGenerator::preflight(const ast::AST& ast) {
 void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDecl) {
     const auto& sig = functionDecl->getSignature();
     
-    if (functionDecl->isOfKind(ast::FunctionKind::GlobalFunction) && functionDecl->getName() == "main") {
+    bool isMain = functionDecl->isOfKind(ast::FunctionKind::GlobalFunction) && functionDecl->getName() == "main";
+    
+    if (isMain) {
         functionDecl->getAttributes().no_mangle = true;
         // TODO run some checks to make sure main fulfills the requirements (correct return & parameter types, no other attributes, etc)
 //        LKAssert(Signature->ReturnType->Equals(TypeInfo::i32));
@@ -202,7 +204,8 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     const std::string resolvedName = functionDecl->getAttributes().extern_ ? canonicalName : mangleFullyResolved(functionDecl);
     
     if (auto otherDecl = getResolvedFunctionWithName(resolvedName)) {
-        const auto& otherSig = otherDecl->getSignature();
+        LKAssert(otherDecl->funcDecl);
+        const auto& otherSig = otherDecl->funcDecl->getSignature();
         LKAssert(functionDecl->getAttributes().extern_ && "only extern functions are allowed to have multiple declarations");
         LKAssert(resolveTypeDesc(sig.returnType) == resolveTypeDesc(otherSig.returnType));
         LKAssert(sig.parameters.size() == otherSig.parameters.size());
@@ -213,18 +216,18 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     
     auto FT = llvm::FunctionType::get(returnType->getLLVMType(), parameterTypes, functionDecl->getAttributes().variadic);
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, resolvedName, *module);
+    F->setDSOLocal(!functionDecl->getAttributes().extern_);
     
-    resolvedFunctions[resolvedName] = functionDecl;
-    functions[canonicalName].push_back(ResolvedCallable(functionDecl, F, 0));
+    ResolvedCallable RC(functionDecl, F, 0); // TODO set the correct argument offset here ?!
+    LKAssert(!util::map::has_key(resolvedFunctions, resolvedName));
+    resolvedFunctions.emplace(resolvedName, RC);
+    functions[canonicalName].push_back(RC);
 }
 
 
 
-std::shared_ptr<ast::FunctionDecl> IRGenerator::getResolvedFunctionWithName(const std::string &name) {
-    if (auto it = resolvedFunctions.find(name); it != resolvedFunctions.end()) {
-        return it->second;
-    }
-    return nullptr;
+std::optional<ResolvedCallable> IRGenerator::getResolvedFunctionWithName(const std::string &name) {
+    return util::map::get_opt(resolvedFunctions, name);
 }
 
 
@@ -453,6 +456,10 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc) {
         case TDK::Pointer:
             return handleResolvedTy(resolveTypeDesc(typeDesc->getPointee())->getPointerTo());
         
+        case TDK::Reference:
+            return handleResolvedTy(resolveTypeDesc(typeDesc->getPointee()));
+            
+        
         case TDK::Function: {
             const auto& FTI = typeDesc->getFunctionTypeInfo();
             const auto paramTypes = util::vector::map(FTI.parameterTypes, [this](const auto& typeDesc) { return resolveTypeDesc(typeDesc); });
@@ -465,6 +472,20 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc) {
 
 
 
+
+bool IRGenerator::equal(const ast::FunctionSignature &lhs, const ast::FunctionSignature &rhs) {
+    if (resolveTypeDesc(lhs.returnType) != resolveTypeDesc(rhs.returnType)) return false;
+    
+    if (lhs.parameters.size() != rhs.parameters.size()) return false;
+    
+    for (size_t i = 0; i < lhs.parameters.size(); i++) {
+        if (resolveTypeDesc(lhs.parameters[i]->type) != resolveTypeDesc(rhs.parameters[i]->type)) return false;
+    }
+    
+    if (lhs.templateArgumentNames != rhs.templateArgumentNames) return false;
+    
+    return true;
+}
 
 
 
@@ -1257,6 +1278,13 @@ bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
 #pragma mark - function calls
 
 
+uint8_t IRGenerator::argumentOffsetForCallingConvention(CallingConvention cc) {
+    switch (cc) {
+        case CallingConvention::C: return 0;
+    }
+}
+
+
 
 // Q: Why does this return `std::shared_ptr<ast::TypeDesc>`, instead of `Type *`?
 // A: Because this map is then passed on to the template specialization instantiator, which simply creates a bunch of AST nodes, and therefore needs TypeDescs
@@ -1366,13 +1394,6 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
 
 
 
-uint8_t argumentOffsetForCallingConvention(CallingConvention cc) {
-    switch (cc) {
-        case CallingConvention::C: return 0;
-    }
-}
-
-
 ast::FunctionSignature makeFunctionSignatureFromFunctionTypeInfo(FunctionType *fnType) {
     ast::FunctionSignature sig;
     sig.returnType = ast::TypeDesc::makeResolved(fnType->getReturnType());
@@ -1440,6 +1461,24 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
 
     auto specializeTemplateFunctionForCall = [this, argumentOffset, omitCodegen] (std::shared_ptr<ast::FunctionDecl> functionDecl, std::map<std::string, std::shared_ptr<ast::TypeDesc>> templateArgumentMapping) -> ResolvedCallable {
         auto specializedDecl = TemplateResolver::specializeWithTemplateMapping(functionDecl, templateArgumentMapping);
+
+        // Avoid generating the same specialization multiple times
+        // In theory, we should never end up here since the call target resolution code should prefer the already-specialized version
+        // over re-instantiating the template. However, the code is not very good and cannot (yet?) do that
+        
+        // We need the function's types fully resolved for the `mangleFullyResolved` call below
+        resolveTypeDesc(specializedDecl->getSignature().returnType);
+        for (auto param : specializedDecl->getSignature().parameters) {
+            resolveTypeDesc(param->type);
+        }
+        
+        auto mangled = mangleFullyResolved(specializedDecl);
+        if (auto decl = getResolvedFunctionWithName(mangled)) {
+            if (this->equal(specializedDecl->getSignature(), decl->funcDecl->getSignature())) {
+                return decl.value();
+            }
+        }
+        
         llvm::Function *llvmFunction = nullptr;
         if (!omitCodegen && !specializedDecl->getAttributes().intrinsic) {
             registerFunction(specializedDecl);
@@ -1451,12 +1490,11 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     
     
     const auto& possibleTargets = functions[targetName];
-    //LKAssertMsg(!possibleTargets.empty(), util::fmt_cstr("Unable to resolve call to %s", targetName.c_str()));
+
     if (possibleTargets.empty()) {
         emitError(callExpr->getSourceLocation(), util::fmt_cstr("unable to resolve call to '%s'", targetName.c_str()));
     }
-    
-    
+        
     if (possibleTargets.size() == 1) {
         const auto& target = possibleTargets[0];
         if (!target.funcDecl->getSignature().isTemplateFunction()) {
@@ -1544,9 +1582,9 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     std::sort(matches.begin(), matches.end(), [](auto& arg0, auto& arg1) { return arg0.score > arg1.score; });
     
 #if 0
-    std::cout << "Matching overloads:\n";
+    std::cout << "Matching overloads for call to '" << targetName << "':\n";
     for (auto& match : matches) {
-        std::cout << "- " << match.score << ": " << match.decl->signature << std::endl;
+        std::cout << "- " << match.score << ": " << match.decl->getSignature() << std::endl;
     }
 #endif
     
@@ -1557,6 +1595,8 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         }
         throw;
     }
+    
+
     
     auto bestMatch = matches.front();
     
@@ -1652,7 +1692,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
         args[0] = codegen(memberExpr->target);
     }
     
-    if (isVariadic && getResolvedFunctionWithName(llvmFunction->getName().str())->getAttributes().extern_) {
+    if (isVariadic && getResolvedFunctionWithName(llvmFunction->getName().str())->funcDecl->getAttributes().extern_) {
         for (auto it = call->arguments.begin() + numFixedArgs; it != call->arguments.end(); it++) {
             args.push_back(codegen(*it));
         }

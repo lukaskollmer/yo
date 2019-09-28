@@ -95,7 +95,7 @@ class IRGenerator {
     std::map<std::string, std::vector<ResolvedCallable>> functions;
     // TODO: what's the point of `resolvedFunctions`?
     // key: fully resolved function name
-    std::map<std::string, std::shared_ptr<ast::FunctionDecl>> resolvedFunctions;
+    std::map<std::string, ResolvedCallable> resolvedFunctions;
     
     
     // The function currently being generated
@@ -184,6 +184,7 @@ private:
     Type* resolveTypeDesc(std::shared_ptr<ast::TypeDesc>);
     llvm::Type *getLLVMType(Type *);
     llvm::DIType *getDIType(Type *);
+    uint8_t argumentOffsetForCallingConvention(CallingConvention cc);
     
     
     
@@ -208,7 +209,7 @@ private:
     
     
     // Other stuff
-    std::shared_ptr<ast::FunctionDecl> getResolvedFunctionWithName(const std::string &name);
+    std::optional<ResolvedCallable> getResolvedFunctionWithName(const std::string &name);
     
     Type *instantiateTemplatedType(std::shared_ptr<ast::TypeDesc>);
     
@@ -224,6 +225,8 @@ private:
     
     bool valueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiteral>, Type *);
     
+    
+    bool equal(const ast::FunctionSignature &lhs, const ast::FunctionSignature &rhs);
     
     
     // Errors
