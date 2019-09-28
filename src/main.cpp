@@ -6,19 +6,19 @@
 //  Copyright © 2019 Lukas Kollmer. All rights reserved.
 //
 
-#include "util.h"
-#include "CommandLine.h"
-#include "Lexer.h"
-#include "Parser.h"
-#include "AST.h"
-#include "IRGen.h"
-#include "Pygmentize.h"
-
 #include <fstream>
 #include <sstream>
 #include <unistd.h>
 #include <iostream>
 #include <memory>
+
+#include "util.h"
+#include "Lexer.h"
+#include "AST.h"
+#include "Parser.h"
+#include "IRGen.h"
+#include "Pygmentize.h"
+#include "Version.h"
 
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetMachine.h"
@@ -27,6 +27,8 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/Program.h"
+#include "llvm/Support/CommandLine.h"
+
 
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
@@ -38,7 +40,120 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 
+#include "llvm/CodeGen/MachineModuleInfo.h"
 
+
+
+
+
+
+#pragma mark - Command Line Options
+
+enum class OutputFileType {
+    Binary,
+    ObjectFile,
+    LLVM,
+    Assembly,
+    None
+};
+
+
+namespace cl {
+static llvm::cl::OptionCategory CLIOptionsCategory("General Options");
+
+static llvm::cl::opt<std::string> inputFile(llvm::cl::Positional, llvm::cl::desc("<input file>"),
+                                            llvm::cl::Required, llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> pygmentize("pygmentize", llvm::cl::desc("Lex input, then print pygmentized HTML to stdout"),
+                                      llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> printAST("print-ast", llvm::cl::desc("Print the Abstract Syntax Tree"),
+                                    llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> dumpLLVM("dump-llvm", llvm::cl::desc("Dump LLVM IR"),
+                                    llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> optimize("O", llvm::cl::desc("Enable Optimizations"),
+                                    llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> dumpLLVMPreOpt("dump-llvm-pre-opt", llvm::cl::desc("Dump LLVM IR prior to running optimizations"),
+                                          llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<std::string> stdlibRoot("stdlib-root", llvm::cl::desc("Load stdlib modules from <path>, instead of using the bundled ones"),
+                                             llvm::cl::value_desc("path"), llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> arc("arc", llvm::cl::desc("[internal] enable arc"), llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> emitDebugMetadata("g", llvm::cl::desc("Emit debug metadata"), llvm::cl::cat(CLIOptionsCategory));
+
+
+static llvm::cl::opt<std::string> outputPath("o", llvm::cl::desc("Write output to <file>"), llvm::cl::value_desc("file"),
+                                             llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> run("run", llvm::cl::desc("Run the generated executable after codegen"),
+                                      llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::list<OutputFileType> emit("emit", llvm::cl::desc("Output format(s)"),
+                                           llvm::cl::values(clEnumValN(OutputFileType::Assembly, "asm", "Assembly"),
+                                                            clEnumValN(OutputFileType::LLVM, "llvm-ir", "LLVM IR"),
+                                                            clEnumValN(OutputFileType::Binary, "bin", "Binary"),
+                                                            clEnumValN(OutputFileType::ObjectFile, "obj", "Object File"),
+                                                            clEnumValN(OutputFileType::None, "none", "None")),
+                                           llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::list<std::string> runArgs("run-args", llvm::cl::desc("Argv to be used when executing the produced binary. Implies -run"),
+                                           llvm::cl::CommaSeparated, llvm::cl::cat(CLIOptionsCategory));
+
+
+
+void version_printer(llvm::raw_ostream &OS) {
+    OS << "yo " << YO_VERSION << "\n"; // << " (" << __DATE__ << ", " << __TIME__ << ")\n";
+    OS << "- LLVM: " << YO_LLVM_VERSION << "\n";
+    OS << "- Compiled with: " << COMPILER << "\n";
+}
+
+
+static int _argc = 0;
+static const char **_argv = nullptr;
+
+
+bool containsRawOption(const std::string &str) {
+    LKAssert(_argv && "cl::init not called");
+    
+    for (int i = 0; i < _argc; i++) {
+        if (str == _argv[i]) return true;
+    }
+    return false;
+}
+
+
+void init(int argc, const char * argv[]) {
+    _argc = argc;
+    _argv = argv;
+    
+    if (containsRawOption("--print-all-options")) {
+        for (int i = 0; i < argc; i++) {
+            printf("[%i] %s\n", i, argv[i]);
+        }
+    }
+        
+        // Command Line Options
+        llvm::cl::SetVersionPrinter(&cl::version_printer);
+        llvm::cl::HideUnrelatedOptions(cl::CLIOptionsCategory);
+        llvm::cl::ParseCommandLineOptions(argc, argv, "the yo programming language v" YO_VERSION "\n");
+        
+        llvm::cl::PrintOptionValues();
+}
+
+} // end namespace cl
+
+
+
+
+
+
+
+#pragma mark - Optimizations
 
 
 void addOptimizationPasses(llvm::legacy::PassManager& MPM, llvm::legacy::FunctionPassManager& FPM) {
@@ -49,7 +164,7 @@ void addOptimizationPasses(llvm::legacy::PassManager& MPM, llvm::legacy::Functio
     llvm::initializeSimpleInlinerPass(PR);
     
     llvm::PassManagerBuilder PMBuilder;
-    PMBuilder.OptLevel = yo::cl::opts::optimize() ? 1 : 0;
+    PMBuilder.OptLevel = cl::optimize ? 1 : 0;
     PMBuilder.SizeLevel = 0;
     
     if (PMBuilder.OptLevel > 1) {
@@ -66,54 +181,67 @@ void addOptimizationPasses(llvm::legacy::PassManager& MPM, llvm::legacy::Functio
 
 
 
+#pragma mark - EmitModule
+
+
+bool shouldEmitType(OutputFileType type) {
+    return yo::util::vector::contains(*&cl::emit, type);
+};
+
+
+
+bool emit(llvm::Module &M, llvm::TargetMachine *TM, llvm::raw_pwrite_stream &OS, llvm::TargetMachine::CodeGenFileType CGFT) {
+    llvm::legacy::PassManager PM;
+    
+    if (TM->addPassesToEmitFile(PM, OS, nullptr, CGFT)) {
+        return false;
+    }
+    
+    PM.run(M);
+    return true;
+}
+
+
+void emitIR(llvm::Module &M, llvm::raw_pwrite_stream &OS) {
+    llvm::legacy::PassManager PM;
+    PM.add(llvm::createPrintModulePass(OS));
+    PM.run(M);
+}
+
+
 
 // returns true on success
-bool emitExecutable(std::unique_ptr<llvm::Module> module, const std::string& filename, std::string& executableOutputPath) {
+bool emitModule(std::unique_ptr<llvm::Module> module, const std::string &filename, std::string &outputPath) {
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmParser();
     llvm::InitializeNativeTargetAsmPrinter();
     
     std::string error;
+    std::error_code EC;
+    
     auto targetTriple = llvm::sys::getDefaultTargetTriple();
+    auto hostCPU = llvm::sys::getHostCPUName();
     
     if (llvm::Triple(targetTriple).isOSDarwin()) {
         module->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
     }
     
     auto target = llvm::TargetRegistry::lookupTarget(targetTriple, error);
-    
-    // Print an error and exit if we couldn't find the requested target.
-    // This generally occurs if we've forgotten to initialise the
-    // TargetRegistry or we have a bogus target triple.
     if (!target) {
         llvm::errs() << error;
         return false;
     }
     
-    auto CPU = "generic";
+    // auto CPU = "generic";
     auto features = "";
     
     llvm::TargetOptions opt;
     auto RM = llvm::Optional<llvm::Reloc::Model>();
-    auto targetMachine = target->createTargetMachine(targetTriple, CPU, features, opt, RM);
+    auto targetMachine = target->createTargetMachine(targetTriple, hostCPU, features, opt, RM);
     
     module->setDataLayout(targetMachine->createDataLayout());
     module->setTargetTriple(targetTriple);
     
-    
-    std::error_code EC;
-    
-    llvm::SmallVector<char, 256> cwd;
-    EC = llvm::sys::fs::current_path(cwd);
-    LKAssert(!EC);
-    cwd.push_back('\0');
-    
-    std::string debugDirPath(cwd.data());
-    EC = llvm::sys::fs::create_directories(debugDirPath);
-    
-    if (EC) {
-        LKFatalError("Unable to create directory: %s", EC.message().c_str());
-    }
     
     
     // Create and run passes
@@ -123,84 +251,112 @@ bool emitExecutable(std::unique_ptr<llvm::Module> module, const std::string& fil
     
     PM.add(llvm::createTargetTransformInfoWrapperPass(targetMachine->getTargetIRAnalysis()));
     FPM.add(llvm::createTargetTransformInfoWrapperPass(targetMachine->getTargetIRAnalysis()));
-    
     PM.add(llvm::createVerifierPass());
-    
-    if (yo::cl::opts::dumpLLVMPreOpt()) {
+
+    if (cl::dumpLLVMPreOpt) {
         PM.add(llvm::createPrintModulePass(llvm::outs(), "Pre-Optimized IR:", true));
     }
     addOptimizationPasses(PM, FPM);
-    
+
     FPM.doInitialization();
     for (llvm::Function &F : *module) {
-        FPM.run(F);
+        if (!F.isDeclaration()) {
+            FPM.run(F);
+        }
     }
     FPM.doFinalization();
-    
-    if (yo::cl::opts::dumpLLVM()) {
-        std::string banner = !yo::cl::opts::optimize() ? "Final IR:" : "Final IR (Optimized):";
+
+    if (cl::dumpLLVM) {
+        std::string banner = !cl::optimize ? "Final IR:" : "Final IR (Optimized):";
         PM.add(llvm::createPrintModulePass(llvm::outs(), banner, true));
     }
-    
-    
-    // Emit object file
-    
-    auto objectFilePath = "a.o";
-    llvm::raw_fd_ostream dest(objectFilePath, EC, llvm::sys::fs::CreationDisposition::CD_OpenAlways);
-    
-    if (EC) {
-        llvm::outs() << "Could not open file: " << EC.message();
-        return false;
-    }
-    
-    if (targetMachine->addPassesToEmitFile(PM, dest, nullptr, llvm::TargetMachine::CGFT_ObjectFile)) {
-        llvm::errs() << "TargetMachine can't emit a file of this type";
-        return false;
-    }
-    
+
     PM.run(*module);
-    dest.flush();
-    dest.close();
+
+    
+    if (cl::emit.size() == 1 && cl::emit[0] == OutputFileType::None) {
+        return true;
+    }
+
+
+    if (shouldEmitType(OutputFileType::LLVM)) {
+        llvm::raw_fd_ostream OS(std::string(filename).append(".ll"), EC);
+        emitIR(*module, OS);
+    }
+
     
     
+    // Emit object file and/or assembly
+    std::string objectFilePath;
+    
+    if (shouldEmitType(OutputFileType::Assembly)) {
+        llvm::raw_fd_ostream OS(std::string(filename).append(".s"), EC);
+        emit(*module, targetMachine, OS, llvm::TargetMachine::CodeGenFileType::CGFT_AssemblyFile);
+    }
+    
+    if (shouldEmitType(OutputFileType::ObjectFile)) {
+        objectFilePath = std::string(filename).append(".o");
+        llvm::raw_fd_ostream OS(objectFilePath, EC);
+        emit(*module, targetMachine, OS, llvm::TargetMachine::CodeGenFileType::CGFT_ObjectFile);
+    }
+    
+    
+
+    
+    if (!shouldEmitType(OutputFileType::Binary)) {
+        return true;
+    }
+
     // Link object file into executable
-    
-    executableOutputPath = "a.out";
-    
-    
+
+
     // Using clang/gcc to link since that seems to work more reliable than directly calling ld
     auto linkerPath = llvm::sys::findProgramByName("clang") ?: llvm::sys::findProgramByName("gcc");
     if (!linkerPath) {
         LKFatalError("unable to find clang or gcc");
     }
-    
+
+    outputPath = "a.out";
+
     std::vector<llvm::StringRef> ld_argv = {
         linkerPath.get(),
         objectFilePath,
         "-lc",
-        "-o", executableOutputPath
+        "-o", outputPath
     };
-    
+
+
     auto res = llvm::sys::ExecuteAndWait(ld_argv[0], ld_argv);
     if (res != 0) {
         LKFatalError("'%s' returned with non-zero exit code %i", linkerPath->c_str(), res);
     }
-    
+
     return true;
 }
 
 
 
+
+
+
+
+
+
+#pragma mark - RunExecutable
+
+
+
+
 int runExecutable(const std::string& executablePath, const char *const *envp) {
-    auto argc = yo::cl::opts::runArgs().size();
+    auto argc = cl::runArgs.size();
     auto argv = static_cast<char **>(calloc(argc + 2, sizeof(char *))); // +2 bc the first element is the executable path and the array is null terminated
     argv[0] = strdup(executablePath.c_str());
-    
+
     for (size_t i = 0; i < argc; i++) {
-        argv[i + 1] = strdup(yo::cl::opts::runArgs()[i].c_str());
+        argv[i + 1] = strdup(cl::runArgs[i].c_str());
     }
     llvm::llvm_shutdown();
-    
+
     auto status = execve(argv[0], (char *const *) argv, (char *const *) envp);
     perror("execve failed");
     return status;
@@ -210,15 +366,21 @@ int runExecutable(const std::string& executablePath, const char *const *envp) {
 
 
 
+
+#pragma mark - Main
+
+
 int main(int argc, const char * argv[], const char *const *envp) {
-    yo::cl::init(argc, argv);
-    LKAssertImplication(yo::cl::opts::runArgs().size() > 0, yo::cl::opts::run());
-    LKAssert((yo::cl::opts::run() && yo::cl::opts::pygmentize()) == false); // TODO implement more sophisticated mutual exclusion checking
+    cl::init(argc, argv);
     
-    std::string inputFile = yo::cl::opts::inputFile();
-    std::string inputFilename = yo::util::fs::path_utils::getFilename(inputFile);
+    if (!cl::runArgs.empty()) {
+        cl::run = true;
+    }
     
-    if (yo::cl::opts::pygmentize()) {
+    const std::string inputFile = cl::inputFile;
+    const std::string inputFilename = yo::util::fs::path_utils::getFilename(inputFile);
+    
+    if (cl::pygmentize) {
         auto tokens = yo::parser::Lexer().lex(yo::util::fs::read_file(inputFile), inputFilename, true);
         std::cout << yo::lex::pygmentize(tokens) << std::endl;
         return EXIT_SUCCESS;
@@ -227,22 +389,20 @@ int main(int argc, const char * argv[], const char *const *envp) {
     
     yo::parser::Parser parser;
     
-    if (!yo::cl::opts::stdlibRoot().empty()) {
-        parser.setCustomStdlibRoot(yo::cl::opts::stdlibRoot());
+    if (!cl::stdlibRoot.empty()) {
+        parser.setCustomStdlibRoot(cl::stdlibRoot);
     }
     
     auto ast = parser.parse(inputFile);
     
-    //filename = yo::util::string::lastPathCompotent(filename);
-    
-    if (yo::cl::opts::printAST()) {
+    if (cl::printAST) {
         std::cout << yo::ast::description(ast) << std::endl;
         return EXIT_SUCCESS;
     }
     
     yo::irgen::IRGenOptions options{
-        yo::cl::opts::arc(),
-        yo::cl::opts::emitDebugMetadata()
+        cl::arc,
+        cl::emitDebugMetadata
     };
     
     yo::irgen::IRGenerator codegen("main", options);
@@ -250,21 +410,23 @@ int main(int argc, const char * argv[], const char *const *envp) {
     
     std::unique_ptr<llvm::Module> M = codegen.getModule();
     
-    if (yo::cl::opts::emitLLVM()) {
-        std::error_code EC;
-        auto outputFile = std::string(inputFilename).append(".ll");
-        llvm::raw_fd_ostream OS(outputFile, EC);
-        M->print(OS, nullptr, true, true);
-        return EXIT_SUCCESS;
+    if (cl::run && !shouldEmitType(OutputFileType::Binary)) {
+        cl::emit.push_back(OutputFileType::Binary);
     }
+    
+    if (shouldEmitType(OutputFileType::Binary) && !shouldEmitType(OutputFileType::ObjectFile)) {
+        cl::emit.push_back(OutputFileType::ObjectFile);
+    }
+    
+    LKAssertImplication(shouldEmitType(OutputFileType::None), cl::emit.size() == 1);
     
     std::string executablePath;
     
-    if (!emitExecutable(std::move(M), inputFilename, executablePath)) {
+    if (!emitModule(std::move(M), inputFilename, executablePath)) {
         return EXIT_FAILURE;
     }
     
-    if (yo::cl::opts::run()) {
+    if (cl::run) {
         // Only returns if execve failed
         runExecutable(executablePath, envp);
         return EXIT_FAILURE;
