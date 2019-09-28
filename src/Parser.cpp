@@ -1202,7 +1202,7 @@ std::shared_ptr<ast::MatchExpr> Parser::parseMatchExpr() {
     std::vector<MatchExpr::MatchExprBranch> branches;
     
     while (true) {
-        auto patterns = parseExpressionList(TK::EqualsSign);
+        auto patterns = parseExpressionList(TK::Minus);
         assert_current_token_and_consume(TK::Minus);
         assert_current_token_and_consume(TK::GreaterSign);
         auto expr = parseExpression();
