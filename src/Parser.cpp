@@ -122,14 +122,6 @@ AST Parser::parse(const std::string &filepath) {
 }
 
 
-#include <sys/stat.h>
-namespace fs {
-    bool file_exists(std::string &path) {
-        struct stat s;
-        return stat(path.c_str(), &s) == 0;
-    }
-}
-
 
 // TODO move the entire module resolution stuff somewhere else !?
 std::string Parser::resolveImportPathRelativeToBaseDirectory(const std::string &moduleName, const std::string &baseDirectory) {
@@ -138,7 +130,7 @@ std::string Parser::resolveImportPathRelativeToBaseDirectory(const std::string &
     }
     
     std::string path = std::string(baseDirectory).append("/").append(moduleName).append(".yo");
-    if (fs::file_exists(path)) return path;
+    if (util::fs::file_exists(path)) return path;
     
     LKFatalError("Unable to resolve import of '%s' relative to '%s'", moduleName.c_str(), baseDirectory.c_str());
 }
@@ -661,6 +653,18 @@ std::shared_ptr<LocalStmt> Parser::parseLocalStmt() {
     }
     
     if (binaryOperatorStartTokens.contains(currentTokenKind())) {
+        if (auto op = parseOperator()) {
+            LKFatalError("");
+            // TODO reimplement to avoid evaluating the assignments (and binops) lhs twice!
+//            assert_current_token_and_consume(TK::EqualsSign);
+//            // TODO this is bad bc we evaluate lhs twice!
+//            auto value = std::make_shared<ast::BinOp>(*op, expr, parseExpression());
+//            stmt = std::make_shared<ast::Assignment>(expr, value);
+        } else {
+            // TODO is there any situation where this would still be valid code?
+            // guess that depends on whether freestanding expression (like `1 + foo();`) should be allowed?
+            unhandled_token(currentToken());
+        }
         LKFatalError("TODO reimplement");
 //        if (auto op = parseBinopOperator()) {
 //            assert_current_token_and_consume(TK::EqualsSign);
@@ -1009,6 +1013,12 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
         const auto& operatorLoc = getCurrentSourceLocation();
         if (auto op_ = parseOperator()) {
             auto op = op_.value();
+            
+            if (op == Operator::Assign) {
+                // TODO this early return only really makes sense if called from parseLocalStmt
+                restore_pos(fallback);
+                return expr;
+            }
             
             if (op == Operator::FnPipe) {
                 if (precedenceGroupConstraint >= PrecedenceGroup::FunctionPipeline) {
