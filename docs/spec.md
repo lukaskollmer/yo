@@ -6,7 +6,7 @@ title: Specification
 
 
 
-> **NOTE:** This is very much still work in progress and does not necessarily describe the language as implemented in the <a class="casual-underlined" href="https://github.com/lukaskollmer/yo">GitHub repo</a>
+> **NOTE:** This is very much still work in progress and does not necessarily describe the language as implemented in the [GitHub repo](https://github.com/lukaskollmer/yo)
 
 
 <div id="toc"></div>
@@ -28,23 +28,25 @@ The Yo lexer differentiates between the following kinds of tokens: keywords, ide
 
 <h3 sectionId="yo.lex.keyword">Keywords</h3>
 Yo reserves the following keywords:
+
 ```
-defer else fn for if impl in let mut match return struct use var while
+defer else fn for if impl in let mut match operator return struct switch unless use var while
 ```
+
 
 <h3 sectionId="yo.lex.ident">Identifiers</h3>
 An identifier is a sequence of one or more letters or digits. The first element must not be a digit.
 ```
 digit  = [0-9]
 letter = [a-zA-Z_]
-ident  = <letter> (<letter>|<digit>)*
+ident  = <letter>(<letter>|<digit>)*
 ```
 A sequence of characters that satisfies the `ident` pattern above and is not a reserved keyword is assumed to be an identifier.
 
 
 <h3 sectionId="yo.lex.operators">Operators and punctuation</h3>
 
-The following character sequences represent <a class="casual-underlined" href="#yo.expr.operators">operators</a> and punctuation:
+The following character sequences represent [operators](#yo.expr.operators) and punctuation:
 ```
 +    &    &&    ==    |>    (    )
 -    |    ||    !=    =     {    }
@@ -125,48 +127,66 @@ Yo defines the following primitive types:
 - Pointers can only point to types with a size > 0. The yo equivalent of C's `void*` is `*i8`
 
 
-<h3 sectionId="yo.types.fn">Functions</h3>
-- Functions are declared using the `fn` keyword, have a return type and can take zero or more parameters
-- Functions that omit the return type are assumed to return `void`
+<h3 sectionId="yo.types.fn">Function types</h3>
 
+A function type represents all functions with the same parameter and result types:
+```rust
+        () -> void  // a function that has no parameters and returns nothing
+(i32, i32) -> i32   // a function that takes two `i32` values and returns an `i32` value
+```
+A function type (ie, a [function](#yo.decl.fn)'s signature) only contains the types of the parameter and return types, it does not contain the names of the individual parameters or any [attributes](#yo.attr.fn) the actual function declaration might have.
+
+
+
+
+
+
+<h2 sectionId="yo.decl.fn">Function declarations</h2>
+
+
+A function is declared using the `fn` keyword. A function declaration consists of:
+- *(optional)* the function's [attributes](#yo.attr.fn)
+- the function's name
+- *(optional)* the function's template parameters
+- the function's parameters
+- *(optional)* the function's return type
+- the function's body
+
+**Example:** A simple function declaration
 ```rust
 fn add(x: i64, y: i64) -> i64 {
     return x + y;
 }
 ```
 
-#### External function declarations
-The `extern` annotation can be used to forward-declare a C function's signature. In forward declarations, the parameter names must be omitted and the function must not contain a body.
+A function's return type can be omitted, in which case it defaults to `void`.
 
-```rust
-#[extern]
-fn malloc(i64) -> *i8;
-```
+<h3 sectionId="yo.decl.fn.temp">Function templates</h3>
 
-Extern functions can be declared variadic, by inserting `...` after the last fixed parameter:
-```rust
-#[extern]
-fn printf(*i8, ...) -> i64;
-```
+In the case of a [function template](#yo.temp.fn) declaration, the template parameter names are listed in angled brackets, immediately prior to the function's parameter list.
 
-#### Function pointer types
-The following syntax denotes a function pointer type:
+**Example:** The add function from above, as a function template
 ```rust
-(A1, A2, ...) -> R
-```
-- `A1, A2, ...`: The function's parameter types
-- `R`: The function's return type
-
-**Example** A struct storing a function pointer
-```rust
-struct Foo {
-    add: (i64, i64) -> i64
+fn add<T>(x: T, y: T) -> T {
+    return x + y;
 }
 ```
 
+<!-- 
+<h3 sectionId="yo.decl.fn.operator">Operator declarations</h3>
+
+To declare a custom [binary operator]() -->
 
 
-<h3 sectionId="yo.types.struct">Structs</h3>
+
+
+
+
+
+
+
+
+<h2 sectionId="yo.decl.struct">Structs</h2>
 Custom types can be defined using the `struct` keyword. All struct types are uniquely identified by their name. A struct type can have properties and a set of member functions (methods) associated with it. Member functions must be declared in a separate `impl` block.
 
 - Instance methods are type member functions that can be called on an instance of the type. They must take `self: typename` as their first parameter
@@ -229,20 +249,20 @@ The `reinterpret_cast` intrinsic converts between any two types `T` and `R`, by 
 
 - Prefix (unary) operators:
 
-    | Operator  | Description |
-    | :-------- | :---------- |
-    | `-`       | negation    |
-    | `~`       | bitwise NOT |
-    | `!`       | logical NOT |
+    | Operator | Description |
+    | :-------:| :---------- |
+    | `-`      | negation    |
+    | `~`      | bitwise NOT |
+    | `!`      | logical NOT |
 
-    These prefix operators - if defined for a type `T` - have the signature `(T) -> T`.
+    These prefix operators – if defined for a type `T` – have the signature `(T) -> T`.
 
 - Infix (binary) operators:
     
     Infix operators are listed in decreasing order of precedence.
 
     | Operator | Description           | Signature        | Precedence         |
-    | :------- | :-------------------- | :--------------- | :----------------- |
+    | :------: | :-------------------- | :--------------- | :----------------- |
     | `<<`     | bitwise shift left    | `(T, T) -> T`    | Bitshift           |
     | `>>`     | bitwise shift right   | `(T, T) -> T`    | Bitshift           |
     | `*`      | multiplication        | `(T, T) -> T`    | Multiplication     |
@@ -268,9 +288,11 @@ The `reinterpret_cast` intrinsic converts between any two types `T` and `R`, by 
 
 <h4 sectionId="yo.expr.operators.overloading">Operator overloading</h4>
 
-Operators can be overloaded:
+Since operators are functions, they can be overloaded:
 ```rust
-fn operator + (lhs: bool, rhs: bool) -> void;
+fn operator + (lhs: *Foo, rhs: *Foo) -> *Foo {
+    // some custom addition logic
+}
 ```
 
 
@@ -323,14 +345,11 @@ printf(b"other string: %s\n", b"text");
 
 
 
-
-
-
-<h2 sectionId="yo.template">Templates</h2>
+<h2 sectionId="yo.temp">Templates</h2>
 Templates provide a way to declare a generic implementation of a struct or function.
 
 Templates don't exist "on their own": No code is generated when you only declare, but never use a template.  
-When the compiler encounters an instantiation of a struct template or a call to a template function, it generates a specialized version for the supplied generic arguments.
+When the compiler encounters an instantiation of a struct template or a call to a function template, it generates a specialized version for the supplied generic arguments.
 
 ```rust
 // A function template
@@ -356,4 +375,10 @@ There are two functions of note here:
 
 
 
-<script src="{{ '/static/spec-sections.js' | relative_url }}">
+<script src="{{ '/static/spec-sections.js' | relative_url }}"></script>
+
+<script>
+document.querySelectorAll('.markdown-body a:not([class])').forEach(n => {
+    n.classList.add('casual-underlined');
+});
+</script>
