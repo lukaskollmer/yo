@@ -35,7 +35,7 @@ struct TokenSourceLocation {
 };
 
 inline std::ostream& operator<<(std::ostream &OS, const TokenSourceLocation &SL) {
-    return OS << SL.filepath << ":" << SL.line << ":" << SL.column << ":" << SL.length;
+    return OS << SL.filepath << ":" << SL.line << ":" << SL.column;
 }
 
 
