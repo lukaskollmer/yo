@@ -15,6 +15,7 @@
 #include <cstdarg>
 #include <fstream>
 #include <sstream>
+#include <sys/stat.h>
 
 
 using namespace yo;
@@ -86,11 +87,11 @@ std::string util::string::substr_with_range(const std::string &string, Range ran
     return string.substr(range.location, range.length);
 }
 
-std::string util::string::substr_from_index(const std::string &string, LKUInteger index) {
+std::string util::string::substr_from_index(const std::string &string, uint64_t index) {
     return string.substr(index, string.length() - index);
 }
 
-std::string util::string::substr_to_index(const std::string &string, LKInteger index) {
+std::string util::string::substr_to_index(const std::string &string, uint64_t index) {
     if (index < 0) {
         return string.substr(0, string.length() + index);
     }
@@ -200,6 +201,10 @@ std::pair<std::string, std::string> util::string::extractPathAndFilename(const s
 }
 
 
+bool util::fs::file_exists(const std::string &path) {
+    struct stat s;
+    return stat(path.c_str(), &s) == 0;
+}
 
 
 std::string util::fs::read_file(const std::string& path) {

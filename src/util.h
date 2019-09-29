@@ -22,23 +22,14 @@
 #define NS_END }
 
 
-NS_START(yo::util)
+extern bool LKCompilerInternalOptionSigabrtOnFatalError();
 
+NS_START(yo::util)
 
 inline void noop() {}
 
-using LKInteger = std::int64_t;
-using LKUInteger = std::uint64_t;
 
 #define LKLog(fmt, ...) printf("[%s] " fmt "\n", __PRETTY_FUNCTION__, ## __VA_ARGS__)
-
-
-//#define LK_PUSH_CLANG_IGNORE(name) \
-//_Pragma(
-//#pragma clang diagnostic push
-//#pragma clang diagnostic ignored "-Wunused-lambda-capture"
-
-#define getter(name) auto &get##name() { return name; }
 
 
 #define STR(x) #x
@@ -46,26 +37,28 @@ using LKUInteger = std::uint64_t;
 #define CONCAT(x, y) CONCAT_IMPL(x, y)
 
 
-#define LKFatalError(fmt, ...) \
-{ printf("Fatal Error: " fmt ". func: %s, file: %s, line: %i\n", ## __VA_ARGS__ , __func__, __FILE__, __LINE__); raise(SIGABRT); exit(1); }
 
+#define LKFatalError(fmt, ...)  \
+do {                            \
+    printf("Fatal Error: " fmt ". func: %s, file: %s, line: %i\n", ## __VA_ARGS__ , __func__, __FILE__, __LINE__);  \
+    if (LKCompilerInternalOptionSigabrtOnFatalError()) raise(SIGABRT);      \
+    exit(1); \
+} while (0)
+
+
+#define LKAssert(e) \
+do { if (__builtin_expect(!(bool)(e), 0)) { LKFatalError("LKAssert failed: %s", #e); } } while (0)
+
+
+#define LKAssertMsg(e, msg_expr)                                            \
+do { if (__builtin_expect(!(bool)(e), 0)) {                                 \
+    auto msg_f = [&]() -> std::string { return std::string(msg_expr); };    \
+    auto msg = msg_f();                                                     \
+    LKFatalError("LKAssert failed: (%s): %s", #e, msg.c_str());             \
+} } while (0)
 
 
 #define LKAssertImplication(x, y) LKAssert(!(x) || (y));
-
-#define LKAssert(e) \
-(__builtin_expect(!(e), 0) ? (void)(printf("LKAssert Failed: (%s) function %s, file %s, line %i\n", #e, __func__, __FILE__, __LINE__) & raise(SIGABRT)) : (void)0)
-
-
-#define LKAssertMsg(e, msg_expr) \
-if (__builtin_expect(!(bool)(e), 0)) {                                                  \
-    auto msg_f = [&]() -> std::string { return std::string(msg_expr); };                \
-    auto msg = msg_f();                                                                 \
-    printf("LKAssert failed: %s, at %s in %s:%i\n",                                 \
-           msg.empty() ? #e : msg.c_str(), __PRETTY_FUNCTION__, __FILE__, __LINE__);    \
-    raise(SIGABRT);                                                                     \
-}
-
 
 
 __attribute__((format(printf, 1, 2)))
@@ -73,31 +66,28 @@ char *fmt_cstr(const char *format, ...);
 
 
 struct Range {
-    long location;
-    long length;
-    
+    int64_t location;
+    int64_t length;
+
     Range() : location(0), length(0) {}
-    
-    Range(long location, long length) : location(location), length(length) {}
+
+    Range(int64_t location, int64_t length) : location(location), length(length) {}
 };
 
 
 
 
-class LKDeferHandle {
+template <typename F>
+class DeferHandle {
+    F fn;
 public:
-    using Imp = std::function<void()>;
-    
-    explicit LKDeferHandle(Imp fn) : fn(fn) {}
-    ~LKDeferHandle() {
+    explicit DeferHandle(F fn) : fn(fn) {}
+    ~DeferHandle() {
         fn();
     }
-    
-private:
-    Imp fn;
 };
 
-#define defer(imp) LKDeferHandle CONCAT(__defer_handle__, __COUNTER__)(imp);
+#define defer(imp) DeferHandle CONCAT(__defer_handle__, __COUNTER__)(imp);
 
 
 
@@ -281,7 +271,7 @@ namespace string {
 bool contains(const std::string_view string, const std::string_view other);
 
 template <typename F>
-bool allCharsMatch(std::string_view string, F fn) {
+bool allCharsMatch(std::string_view string, F &&fn) {
     return std::all_of(string.begin(), string.end(), fn);
 }
 
@@ -289,11 +279,11 @@ bool allCharsMatch(std::string_view string, F fn) {
 bool has_prefix(const std::string_view string, const std::string_view prefix);
 bool has_suffix(const std::string_view string, const std::string_view suffix);
 
-std::string substr_from_index(const std::string &string, LKUInteger index);
+std::string substr_from_index(const std::string &string, uint64_t index);
 
 // Returns a substring from the start of the string to the specified index
 // If `Index` is negative, it's counted from the end of the string
-std::string substr_to_index(const std::string &string, LKInteger index);
+std::string substr_to_index(const std::string &string, uint64_t index);
 
 std::string substr_with_range(const std::string &string, Range range);
 
@@ -317,6 +307,7 @@ std::pair<std::string, std::string> extractPathAndFilename(const std::string &pa
 
 
 namespace fs {
+bool file_exists(const std::string &path);
 std::string read_file(const std::string& path);
 std::string read_specific_line(const std::string& path, uint64_t lineNumber);
 }

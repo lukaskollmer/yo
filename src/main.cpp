@@ -44,7 +44,7 @@
 
 
 
-
+using namespace yo;
 
 
 #pragma mark - Command Line Options
@@ -87,10 +87,10 @@ static llvm::cl::opt<bool> arc("arc", llvm::cl::desc("[internal] enable arc"), l
 static llvm::cl::opt<bool> emitDebugMetadata("g", llvm::cl::desc("Emit debug metadata"), llvm::cl::cat(CLIOptionsCategory));
 
 
-static llvm::cl::opt<std::string> outputPath("o", llvm::cl::desc("Write output to <file>"), llvm::cl::value_desc("file"),
-                                             llvm::cl::cat(CLIOptionsCategory));
+// static llvm::cl::opt<std::string> outputPath("o", llvm::cl::desc("Write output to <file>"), llvm::cl::value_desc("file"),
+//                                              llvm::cl::cat(CLIOptionsCategory));
 
-static llvm::cl::opt<bool> run("run", llvm::cl::desc("Run the generated executable after codegen"),
+static llvm::cl::opt<bool> run("run", llvm::cl::desc("Run the generated executable after codegen. Implies `--emit bin`"),
                                       llvm::cl::cat(CLIOptionsCategory));
 
 static llvm::cl::list<OutputFileType> emit("emit", llvm::cl::desc("Output format(s)"),
@@ -101,8 +101,10 @@ static llvm::cl::list<OutputFileType> emit("emit", llvm::cl::desc("Output format
                                                             clEnumValN(OutputFileType::None, "none", "None")),
                                            llvm::cl::cat(CLIOptionsCategory));
 
-static llvm::cl::list<std::string> runArgs("run-args", llvm::cl::desc("Argv to be used when executing the produced binary. Implies -run"),
+static llvm::cl::list<std::string> runArgs("run-args", llvm::cl::desc("Argv to be used when executing the produced binary. Implies `-run`"),
                                            llvm::cl::CommaSeparated, llvm::cl::cat(CLIOptionsCategory));
+
+static llvm::cl::opt<bool> int_sigabrtOnFatalError("int_sigabrt-on-fatal-error", llvm::cl::Hidden);
 
 
 
@@ -137,17 +139,20 @@ void init(int argc, const char * argv[]) {
         }
     }
         
-        // Command Line Options
-        llvm::cl::SetVersionPrinter(&cl::version_printer);
-        llvm::cl::HideUnrelatedOptions(cl::CLIOptionsCategory);
-        llvm::cl::ParseCommandLineOptions(argc, argv, "the yo programming language v" YO_VERSION "\n");
+    // Command Line Options
+    llvm::cl::SetVersionPrinter(&cl::version_printer);
+    llvm::cl::HideUnrelatedOptions(cl::CLIOptionsCategory);
+    llvm::cl::ParseCommandLineOptions(argc, argv, "the yo programming language v" YO_VERSION "\n");
         
-        llvm::cl::PrintOptionValues();
+    llvm::cl::PrintOptionValues();
 }
 
 } // end namespace cl
 
 
+bool LKCompilerInternalOptionSigabrtOnFatalError() {
+    return cl::int_sigabrtOnFatalError;
+}
 
 
 
@@ -185,7 +190,7 @@ void addOptimizationPasses(llvm::legacy::PassManager& MPM, llvm::legacy::Functio
 
 
 bool shouldEmitType(OutputFileType type) {
-    return yo::util::vector::contains(*&cl::emit, type);
+    return util::vector::contains(*&cl::emit, type);
 };
 
 
@@ -345,6 +350,9 @@ bool emitModule(std::unique_ptr<llvm::Module> module, const std::string &filenam
 #pragma mark - RunExecutable
 
 
+bool canRunExecutable() {
+    return getenv("YO_DISABLE_EXEC") == nullptr;
+}
 
 
 int runExecutable(const std::string& executablePath, const char *const *envp) {
@@ -365,8 +373,6 @@ int runExecutable(const std::string& executablePath, const char *const *envp) {
 
 
 
-
-
 #pragma mark - Main
 
 
@@ -378,16 +384,16 @@ int main(int argc, const char * argv[], const char *const *envp) {
     }
     
     const std::string inputFile = cl::inputFile;
-    const std::string inputFilename = yo::util::fs::path_utils::getFilename(inputFile);
+    const std::string inputFilename = util::fs::path_utils::getFilename(inputFile);
     
     if (cl::pygmentize) {
-        auto tokens = yo::parser::Lexer().lex(yo::util::fs::read_file(inputFile), inputFilename, true);
-        std::cout << yo::lex::pygmentize(tokens) << std::endl;
+        auto tokens = parser::Lexer().lex(util::fs::read_file(inputFile), inputFilename, true);
+        std::cout << lex::pygmentize(tokens) << std::endl;
         return EXIT_SUCCESS;
     }
     
     
-    yo::parser::Parser parser;
+    parser::Parser parser;
     
     if (!cl::stdlibRoot.empty()) {
         parser.setCustomStdlibRoot(cl::stdlibRoot);
@@ -396,16 +402,16 @@ int main(int argc, const char * argv[], const char *const *envp) {
     auto ast = parser.parse(inputFile);
     
     if (cl::printAST) {
-        std::cout << yo::ast::description(ast) << std::endl;
+        std::cout << ast::description(ast) << std::endl;
         return EXIT_SUCCESS;
     }
     
-    yo::irgen::IRGenOptions options{
+    irgen::IRGenOptions options{
         cl::arc,
         cl::emitDebugMetadata
     };
     
-    yo::irgen::IRGenerator codegen("main", options);
+    irgen::IRGenerator codegen("main", options);
     codegen.codegen(ast);
     
     std::unique_ptr<llvm::Module> M = codegen.getModule();
@@ -427,6 +433,8 @@ int main(int argc, const char * argv[], const char *const *envp) {
     }
     
     if (cl::run) {
+        LKAssert(canRunExecutable() && "YO_DISABLE_EXEC environment variable prevents execution");
+        
         // Only returns if execve failed
         runExecutable(executablePath, envp);
         return EXIT_FAILURE;
