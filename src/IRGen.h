@@ -229,6 +229,13 @@ private:
     bool equal(const ast::FunctionSignature &lhs, const ast::FunctionSignature &rhs);
     
     
+    
+    // Globals etc
+    void handleStartupAndShutdownFunctions();
+    
+    
+    
+    
     // Errors
     [[noreturn]]
     void emitError(const parser::TokenSourceLocation& loc, std::string message);

@@ -111,6 +111,7 @@ void IRGenerator::codegen(const ast::AST& ast) {
         codegen(node);
     }
     
+    handleStartupAndShutdownFunctions();
     debugInfo.builder.finalize();
 }
 
@@ -2115,6 +2116,55 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ForLoop> forLoop) {
 
 
 
+
+
+
+
+
+#pragma mark - Globals
+
+
+void IRGenerator::handleStartupAndShutdownFunctions() {
+    std::vector<llvm::Type *> structTys = {
+        i32, llvm::FunctionType::get(Void, false)->getPointerTo(), i8_ptr
+    };
+    auto structTy = llvm::StructType::get(C, structTys);
+    
+    
+    
+    auto imp = [&](llvm::StringRef dest, bool attributes::FunctionAttributes::* attr) {
+        std::vector<ResolvedCallable> functions;
+        
+        for (const auto &[name, callable] : resolvedFunctions) {
+            if (callable.funcDecl && callable.funcDecl->getAttributes().*attr) {
+                functions.push_back(callable);
+            }
+        }
+        
+        auto arrayTy = llvm::ArrayType::get(structTy, functions.size());
+        module->getOrInsertGlobal(dest, arrayTy);
+        
+        std::vector<llvm::Constant *> arrayElements;
+        for (const auto &fn : functions) {
+            std::vector<llvm::Constant *> values = {
+                llvm::ConstantInt::get(i32, 65535), // TODO how should this be ordered?
+                llvm::dyn_cast<llvm::Function>(fn.llvmValue),
+                llvm::ConstantPointerNull::get(llvm::dyn_cast<llvm::PointerType>(i8_ptr))
+            };
+            arrayElements.push_back(llvm::ConstantStruct::get(structTy, values));
+        }
+        
+        auto array = llvm::ConstantArray::get(arrayTy, arrayElements);
+        auto global = module->getGlobalVariable(dest);
+        global->setInitializer(array);
+        global->setLinkage(llvm::GlobalVariable::LinkageTypes::AppendingLinkage);
+        
+    };
+    
+    
+    imp("llvm.global_ctors", &attributes::FunctionAttributes::startup);
+    imp("llvm.global_dtors", &attributes::FunctionAttributes::shutdown);
+}
 
 
 

@@ -42,6 +42,8 @@ ATTRIBUTE(function, arc)
 ATTRIBUTE(function, mangle)
 ATTRIBUTE(function, always_inline)
 ATTRIBUTE(function, side_effects)
+ATTRIBUTE(function, startup)
+ATTRIBUTE(function, shutdown)
 ATTRIBUTE_custom_mapping(function, extern_, extern)
 ATTRIBUTE_custom_mapping(function, inline_, inline)
 
@@ -103,6 +105,7 @@ void ensure_mutual_exclusivity(const std::vector<std::string_view> &attributeNam
 
 
 
+// TODO the comparisons below surely can be implemented in a better way?
 
 
 FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes) : FunctionAttributes() {    
@@ -137,6 +140,12 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
             
         } else if (attribute.key == builtin_attributes::function::always_inline::_yo_attr_key) {
             always_inline = std::get<bool>(attribute.data);
+        
+        } else if (attribute.key == builtin_attributes::function::startup::_yo_attr_key) {
+            startup = std::get<bool>(attribute.data);
+        
+        } else if (attribute.key == builtin_attributes::function::shutdown::_yo_attr_key) {
+            shutdown = std::get<bool>(attribute.data);
             
         } else {
             LKFatalError("unknown function attribute: '%s'", attribute.key.c_str());

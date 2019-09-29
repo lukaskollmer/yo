@@ -53,6 +53,8 @@ namespace yo::attributes {
         bool extern_ = false;
         bool inline_ = false;
         bool always_inline = false;
+        bool startup = false;
+        bool shutdown = false;
         std::string mangledName = "";
         std::vector<SideEffect> side_effects = { SideEffect::Unknown };
         
