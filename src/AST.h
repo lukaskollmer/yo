@@ -148,10 +148,10 @@ public:
     std::shared_ptr<TypeDesc> returnType;
     std::vector<std::shared_ptr<VarDecl>> parameters;
     std::vector<std::string> templateArgumentNames;
+    bool isVariadic = false;
 
     FunctionSignature() : Node(Node::NodeKind::FunctionSignature) {}
-
-
+    
     bool isTemplateFunction() const { return !templateArgumentNames.empty(); }
 };
 

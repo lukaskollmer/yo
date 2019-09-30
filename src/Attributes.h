@@ -46,7 +46,6 @@ namespace yo::attributes {
     };
     
     struct FunctionAttributes {
-        bool variadic = false;
         bool no_mangle = false;
         bool intrinsic = false;
         bool arc = false;

@@ -359,7 +359,7 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
     
     assert_current_token_and_consume(TK::OpeningParens);
     
-    parseFunctionParameterList(signature, attributes);
+    parseFunctionParameterList(signature);
     assert_current_token_and_consume(TK::ClosingParens);
     
     if (currentTokenKind() == TK::Minus && peekKind() == TK::GreaterSign) {
@@ -421,7 +421,7 @@ std::vector<std::shared_ptr<ast::VarDecl>> Parser::parseStructPropertyDeclList()
 
 
 // TODO why is this a separate function? re-inline!
-void Parser::parseFunctionParameterList(FunctionSignature& signature, attributes::FunctionAttributes& attributes) {
+void Parser::parseFunctionParameterList(FunctionSignature& signature) {
     constexpr auto delimiter = TK::ClosingParens;
     
     uint64_t index = 0;
@@ -444,7 +444,7 @@ void Parser::parseFunctionParameterList(FunctionSignature& signature, attributes
         } else if (currentTokenKind() == TK::Period && peekKind(0) == TK::Period && peekKind(2) == TK::Period) {
             consume(3);
             LKAssert(currentTokenKind() == delimiter);
-            attributes.variadic = true;
+            signature.isVariadic = true;
             return;
         } else {
             ident = std::string("$").append(std::to_string(index));

@@ -96,7 +96,7 @@ private:
     std::shared_ptr<ast::StructDecl> parseStructDecl(attributes::StructAttributes);
     std::shared_ptr<ast::TypealiasDecl> parseTypealias();
     
-    void parseFunctionParameterList(ast::FunctionSignature& signature, attributes::FunctionAttributes& attributes);
+    void parseFunctionParameterList(ast::FunctionSignature&);
     
     std::vector<std::shared_ptr<ast::VarDecl>> parseStructPropertyDeclList();
     

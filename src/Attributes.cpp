@@ -171,8 +171,7 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
 
 
 bool FunctionAttributes::operator==(const FunctionAttributes &other) const {
-    return variadic     == other.variadic
-        && no_mangle    == other.no_mangle
+    return no_mangle    == other.no_mangle
         && intrinsic    == other.intrinsic
         && arc          == other.arc
         && extern_      == other.extern_

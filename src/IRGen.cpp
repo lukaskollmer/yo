@@ -215,7 +215,7 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     
     LKAssertMsg(module->getFunction(resolvedName) == nullptr, util::fmt_cstr("Redefinition of function '%s'", resolvedName.c_str())); // TODO print the signature instead!
     
-    auto FT = llvm::FunctionType::get(returnType->getLLVMType(), parameterTypes, functionDecl->getAttributes().variadic);
+    auto FT = llvm::FunctionType::get(returnType->getLLVMType(), parameterTypes, functionDecl->getSignature().isVariadic);
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, resolvedName, *module);
     F->setDSOLocal(!functionDecl->getAttributes().extern_);
     
