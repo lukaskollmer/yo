@@ -341,8 +341,14 @@ bool emitModule(std::unique_ptr<llvm::Module> module, const std::string &filenam
 #pragma mark - RunExecutable
 
 
-bool canRunExecutable() {
-    return getenv("YO_DISABLE_EXEC") == nullptr;
+// Returns std::nullopt if the compiler can run an executable,
+// otherwise a string explaining why it is not possible
+std::optional<std::string> canRunExecutable() {
+    if (getenv("YO_DISABLE_EXEC") != nullptr) {
+        return "YO_DISABLE_EXEC environment variable prevents execution";
+    }
+    
+    return std::nullopt;
 }
 
 
@@ -424,7 +430,9 @@ int main(int argc, const char * argv[], const char *const *envp) {
     }
     
     if (cl::run) {
-        LKAssert(canRunExecutable() && "YO_DISABLE_EXEC environment variable prevents execution");
+        if (auto reason = canRunExecutable()) {
+            LKFatalError("Unable to run executable: %s", reason->c_str());
+        }
         
         // Only returns if execve failed
         runExecutable(executablePath, envp);
