@@ -29,6 +29,18 @@ NS_START(yo::util)
 inline void noop() {}
 
 
+// basically, the idea is to trigger the debugger if we're running inside lldb, and just exit otherwise
+// this requires the `--int_sigabrt-on-fatal-error` flag to be set
+[[noreturn]]
+inline void exitOrAbort() {
+    if (LKCompilerInternalOptionSigabrtOnFatalError()) {
+        raise(SIGABRT);
+    }
+    
+    exit(1);
+}
+
+
 #define LKLog(fmt, ...) printf("[%s] " fmt "\n", __PRETTY_FUNCTION__, ## __VA_ARGS__)
 
 
@@ -62,7 +74,9 @@ do { if (__builtin_expect(!(bool)(e), 0)) {                                 \
 
 
 __attribute__((format(printf, 1, 2)))
-char *fmt_cstr(const char *format, ...);
+char* fmt_cstr(const char *fmt, ...);
+
+char* fmt_cstr(const char *fmt, va_list);
 
 
 struct Range {

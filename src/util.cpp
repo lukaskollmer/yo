@@ -20,7 +20,25 @@
 
 using namespace yo;
 
-char *util::fmt_cstr(const char *format, ...) {
+char* util::fmt_cstr(const char *fmt, va_list va_args) {
+    if (!fmt) LKFatalError("invalid arguments");
+    
+    va_list args;
+    va_copy(args, va_args);
+    
+    auto char_count = vsnprintf(nullptr, 0, fmt, args);
+    auto str = reinterpret_cast<char *>(calloc(char_count, sizeof(char)));
+    va_end(args);
+    
+    va_copy(args, va_args);
+    vsprintf(str, fmt, args);
+    va_end(args);
+    
+    return str;
+}
+
+
+char* util::fmt_cstr(const char *format, ...) {
     if (format && strlen(format) > 0) {
         va_list args;
         va_start(args, format);
