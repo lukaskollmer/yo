@@ -41,6 +41,8 @@ add_executable(yo
     src/AST.cpp
     src/Attributes.h
     src/Attributes.cpp
+    src/Diagnostics.h
+    src/Diagnostics.cpp
     src/IRGen.h
     src/IRGen.cpp
     src/Lexer.h
