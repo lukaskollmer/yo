@@ -273,7 +273,8 @@ using Mirror = std::vector<AttributeDescription>;
 Mirror Reflect(const FunctionSignature* signature) {
     return {
         { "parameters", signature->parameters },
-        { "returnType", signature->returnType }
+        { "returnType", signature->returnType },
+        { "isVariadic", signature->isVariadic }
     };
 }
 
