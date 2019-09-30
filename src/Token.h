@@ -63,19 +63,20 @@ public:
         ClosingCurlyBraces,
         OpeningSquareBrackets,
         ClosingSquareBrackets,
+        OpeningAngledBracket,
+        ClosingAngledBracket,
         Period, Hashtag, Tilde,
         Comma, Colon, Semicolon, EqualsSign,
         ExclamationMark, QuestionMark,
         
         Asterisk, Plus, Minus, ForwardSlash, PercentageSign,
-        Ampersand, Pipe, Circumflex, LessThanSign, GreaterSign,
+        Ampersand, Pipe, Circumflex,
         
         // Keywords
         Use,
         Fn, Struct, Impl,
         Let, Return,
-        If, Else, While, For, In, Match,
-        As
+        If, Else, While, For, In, Match
     };
     
 private:

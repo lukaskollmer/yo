@@ -8,14 +8,16 @@
 
 #include "Parser.h"
 
+#include "Mangling.h"
+#include "StdlibResolution.h"
+#include "Diagnostics.h"
+
 #include <string>
 #include <vector>
 #include <map>
 #include <array>
 #include <fstream>
 #include <sstream>
-#include "Mangling.h"
-#include "StdlibResolution.h"
 
 using namespace yo;
 using namespace yo::ast;
@@ -23,27 +25,9 @@ using namespace yo::parser;
 
 using TK = Token::TokenKind;
 
-#pragma mark - Parser Utils
 
-#define assert_current_token(expected) \
-do { if (auto __T = currentToken(); __T.getKind() != (expected)) { \
-    const auto& __S = __T.getSourceLocation(); \
-    std::cout << "[token assert] Expected: " << (expected) << ", got: " << __T.getKind() << ". (file: " << __S.filepath << ":" << __S.line << ":" << __S.column << ")\n";  \
-    throw; \
-} } while (0)
 
-#define assert_current_token_and_consume(expected) \
-do { if (auto __T = currentToken(); __T.getKind() != (expected)) { \
-    const auto& __S = __T.getSourceLocation(); \
-    std::cout << "[token assert] Expected: " << (expected) << ", got: " << __T.getKind() << ". (file: " << __S.filepath << ":" << __S.line << ":" << __S.column << ")\n";  \
-    throw; \
-} else { consume(); } } while (0)
-
-#define unhandled_token(T)                                                                                                      \
-{                                                                                                                               \
-    const auto& __SL = T.getSourceLocation();                                                                                                \
-    std::cout << "Unhandled Token: " << (T) << " at " << __SL.filepath << ":" << __SL.line << ":" << __SL.column << std::endl; throw;   \
-}
+#pragma mark - Token Collections
 
 
 class TokenSet {
@@ -52,7 +36,7 @@ class TokenSet {
 public:
     TokenSet(std::initializer_list<TK> tokens) : tokens(tokens) {}
     
-    bool contains(TK token) {
+    bool contains(TK token) const {
         return util::vector::contains(tokens, token);
     }
 };
@@ -69,23 +53,21 @@ public:
         }
     }
     
-    bool contains(TK token) {
+    bool contains(TK token) const {
         return mapping.find(token) != mapping.end();
     }
     
-    T &operator [](TK token) {
+    const T& operator [](TK token) const {
         return mapping.at(token);
     }
 };
 
 
 
-#pragma mark - Token Collections
-
 // The initial tokens of all binary operators (binops, comparisons, etc)
-static TokenSet binaryOperatorStartTokens = {
+static const TokenSet binaryOperatorStartTokens = {
     TK::Plus, TK::Minus, TK::Asterisk, TK::ForwardSlash, TK::PercentageSign,
-    TK::Ampersand, TK::Pipe, TK::Circumflex, TK::LessThanSign, TK::GreaterSign,
+    TK::Ampersand, TK::Pipe, TK::Circumflex, TK::OpeningAngledBracket, TK::ClosingAngledBracket,
     TK::EqualsSign, TK::ExclamationMark
 };
 
@@ -123,6 +105,23 @@ AST Parser::parse(const std::string &filepath) {
 
 
 
+void Parser::unhandledToken(const Token &token) {
+    std::ostringstream OS;
+    OS << "Unhandled token: '" << token.getKind() << "'.";
+    diagnostics::failWithError(token.getSourceLocation(), OS.str());
+}
+
+void Parser::assertTk(Token::TokenKind expected) {
+    if (currentTokenKind() != expected) {
+        std::ostringstream OS;
+        OS << "Invalid token in source code. Expected: '" << expected << "'.";
+        diagnostics::failWithError(getCurrentSourceLocation(), OS.str());
+    }
+}
+
+
+
+
 // TODO move the entire module resolution stuff somewhere else !?
 std::string Parser::resolveImportPathRelativeToBaseDirectory(const std::string &moduleName, const std::string &baseDirectory) {
     if (moduleName[0] == '/') { // absolute path
@@ -139,10 +138,11 @@ std::string Parser::resolveImportPathRelativeToBaseDirectory(const std::string &
 
 void Parser::resolveImport() {
     auto baseDirectory = util::string::excludingLastPathComponent(currentToken().getSourceLocation().filepath);
-    assert_current_token_and_consume(TK::Use);
+//    assertTkAndConsume(TK::Use);
+    assertTkAndConsume(TK::Use);
     
     auto moduleName = parseStringLiteral()->value;
-    assert_current_token_and_consume(TK::Semicolon);
+    assertTkAndConsume(TK::Semicolon);
     
     std::vector<Token> newTokens;
     
@@ -199,7 +199,7 @@ std::shared_ptr<TopLevelStmt> Parser::parseTopLevelStmt() {
                 break;
             }
         }
-        default: unhandled_token(currentToken());
+        default: unhandledToken(currentToken());
     }
     
     stmt->setSourceLocation(startLocation);
@@ -209,45 +209,45 @@ std::shared_ptr<TopLevelStmt> Parser::parseTopLevelStmt() {
 
 
 std::shared_ptr<StructDecl> Parser::parseStructDecl(attributes::StructAttributes attributes) {
-    assert_current_token_and_consume(TK::Struct);
+    assertTkAndConsume(TK::Struct);
     
     auto decl = std::make_shared<StructDecl>();
     decl->name = parseIdentAsString();
     decl->attributes = attributes;
     
-    if (currentTokenKind() == TK::LessThanSign) {
+    if (currentTokenKind() == TK::OpeningAngledBracket) {
         consume();
-        while (currentTokenKind() != TK::GreaterSign) {
+        while (currentTokenKind() != TK::ClosingAngledBracket) {
             decl->templateArguments.push_back(parseIdentAsString());
             if (currentTokenKind() == TK::Comma) consume();
         }
-        assert_current_token_and_consume(TK::GreaterSign);
+        assertTkAndConsume(TK::ClosingAngledBracket);
     }
-    assert_current_token_and_consume(TK::OpeningCurlyBraces);
+    assertTkAndConsume(TK::OpeningCurlyBraces);
     
     decl->members = parseStructPropertyDeclList();
-    assert_current_token_and_consume(TK::ClosingCurlyBraces);
+    assertTkAndConsume(TK::ClosingCurlyBraces);
     return decl;
 }
 
 
 std::shared_ptr<ImplBlock> Parser::parseImplBlock() {
-    assert_current_token_and_consume(TK::Impl);
+    assertTkAndConsume(TK::Impl);
     
     auto impl = std::make_shared<ImplBlock>(parseIdentAsString());
-    assert_current_token_and_consume(TK::OpeningCurlyBraces);
+    assertTkAndConsume(TK::OpeningCurlyBraces);
     
     while (currentTokenKind() == TK::Fn || currentTokenKind() == TK::Hashtag) {
         std::vector<attributes::Attribute> attributes;
         if (currentTokenKind() == TK::Hashtag) {
             attributes = parseAttributes();
-            LKAssert(currentTokenKind() == TK::Fn);
+            assertTk(TK::Fn);
         }
         auto functionDecl = parseFunctionDecl(attributes::FunctionAttributes(attributes));
         impl->methods.push_back(functionDecl);
     }
     
-    assert_current_token_and_consume(TK::ClosingCurlyBraces);
+    assertTkAndConsume(TK::ClosingCurlyBraces);
     return impl;
 }
 
@@ -256,7 +256,7 @@ std::vector<yo::attributes::Attribute> Parser::parseAttributes() {
     // TODO save attribute source locations!
     if (currentTokenKind() != TK::Hashtag) return {};
     consume();
-    assert_current_token_and_consume(TK::OpeningSquareBrackets);
+    assertTkAndConsume(TK::OpeningSquareBrackets);
     
     std::vector<yo::attributes::Attribute> attributes;
     
@@ -275,17 +275,19 @@ std::vector<yo::attributes::Attribute> Parser::parseAttributes() {
                     } else if (currentTokenKind() == TK::ClosingParens) {
                         break;
                     } else {
-                        unhandled_token(currentToken());
+                        unhandledToken(currentToken());
                     }
                 }
-                assert_current_token_and_consume(TK::ClosingParens);
+                assertTkAndConsume(TK::ClosingParens);
                 attributes.push_back(yo::attributes::Attribute(key, members));
                 break;
             }
             case TK::EqualsSign: {
                 consume();
                 if (auto value = parseStringLiteral()) {
-                    LKAssert(value->kind == ast::StringLiteral::StringLiteralKind::NormalString);
+                    if (value->kind != StringLiteral::StringLiteralKind::NormalString) {
+                        diagnostics::failWithError(value->getSourceLocation(), "Attribute string value must be a regular string");
+                    }
                     attributes.push_back(yo::attributes::Attribute(key, value->value));
                 } else if (auto ident = parseIdent()) {
                     attributes.push_back(yo::attributes::Attribute(key, ident->value));
@@ -301,12 +303,12 @@ std::vector<yo::attributes::Attribute> Parser::parseAttributes() {
                 break;
                 
             default:
-                unhandled_token(currentToken());
+                unhandledToken(currentToken());
         }
 
         if (currentTokenKind() == TK::Comma) {
             consume();
-            assert_current_token(TK::Ident); // Comma must be followed by another attribute
+            assertTk(TK::Ident); // Comma must be followed by another attribute
             continue;
         } else if (currentTokenKind() == TK::ClosingSquareBrackets) {
             consume();
@@ -327,7 +329,7 @@ std::vector<yo::attributes::Attribute> Parser::parseAttributes() {
 std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttributes attributes) {
     auto functionKind = FunctionKind::GlobalFunction; // initial assumption
     
-    assert_current_token(TK::Fn);
+    assertTk(TK::Fn);
     const auto& loc = getCurrentSourceLocation();
     consume();
     
@@ -336,33 +338,38 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
     auto name = parseIdentAsString();
     if (name == "operator") {
         auto op = parseOperator();
-        LKAssert(op.has_value());
+        if (!op.has_value()) {
+            diagnostics::failWithError(loc, "Unable to parse operator");
+        }
+        
         functionKind = FunctionKind::OperatorOverload;
         name = mangling::encodeOperator(op.value());
     }
     
     
-    if (currentTokenKind() == TK::LessThanSign) { // template list
+    if (currentTokenKind() == TK::OpeningAngledBracket) { // template list
         consume();
-        while (currentTokenKind() != TK::GreaterSign) {
+        while (currentTokenKind() != TK::ClosingAngledBracket) {
             signature.templateArgumentNames.push_back(parseIdentAsString());
             if (currentTokenKind() == TK::Comma) {
                 consume();
             } else {
-                assert_current_token_and_consume(TK::GreaterSign);
+                assertTkAndConsume(TK::ClosingAngledBracket);
                 break;
             }
         }
-        LKAssert(!signature.templateArgumentNames.empty());
+        if (signature.templateArgumentNames.empty()) {
+            diagnostics::failWithError(loc, "Function template parameter list cannot be empty");
+        }
     }
     
     
-    assert_current_token_and_consume(TK::OpeningParens);
+    assertTkAndConsume(TK::OpeningParens);
     
     parseFunctionParameterList(signature);
-    assert_current_token_and_consume(TK::ClosingParens);
+    assertTkAndConsume(TK::ClosingParens);
     
-    if (currentTokenKind() == TK::Minus && peekKind() == TK::GreaterSign) {
+    if (currentTokenKind() == TK::Minus && peekKind() == TK::ClosingAngledBracket) {
         consume(2);
         signature.returnType = parseType();
     } else {
@@ -401,7 +408,7 @@ std::vector<std::shared_ptr<ast::VarDecl>> Parser::parseStructPropertyDeclList()
         //}
         auto loc = getCurrentSourceLocation();
         auto ident = parseIdentAsString();
-        assert_current_token_and_consume(TK::Colon);
+        assertTkAndConsume(TK::Colon);
         auto type = parseType();
         
         auto decl = std::make_shared<ast::VarDecl>(ident, type);
@@ -409,8 +416,10 @@ std::vector<std::shared_ptr<ast::VarDecl>> Parser::parseStructPropertyDeclList()
         decls.push_back(decl);
         
         if (currentTokenKind() == TK::Comma) {
+            if (peekKind() != TK::Ident) {
+                diagnostics::failWithError(getCurrentSourceLocation(), "Expected property declaration");
+            }
             consume();
-            LKAssert(currentTokenKind() != TK::ClosingCurlyBraces);
         }
     }
     
@@ -420,46 +429,50 @@ std::vector<std::shared_ptr<ast::VarDecl>> Parser::parseStructPropertyDeclList()
 
 
 
+// The tokens a function parameter can start with
+static const TokenSet functionParameterInitialTokens = {
+    TK::Ident, TK::Asterisk, TK::Hashtag
+};
+
+
 // TODO why is this a separate function? re-inline!
 void Parser::parseFunctionParameterList(FunctionSignature& signature) {
     constexpr auto delimiter = TK::ClosingParens;
     
-    uint64_t index = 0;
     uint64_t pos_lastEntry = UINT64_MAX;
-    while (currentTokenKind() != delimiter) {
-        LKAssert(pos_lastEntry != position); pos_lastEntry = position;
+    for (uint64_t index = 0; currentTokenKind() != delimiter; index++) {
+        LKAssert(pos_lastEntry != position); pos_lastEntry = position; // TODO do we ever end up here?
         
-        auto loc = getCurrentSourceLocation();
+        const auto loc = getCurrentSourceLocation();
         std::string ident;
         std::shared_ptr<TypeDesc> type;
         
-        if (currentTokenKind() == TK::Ident && peekKind() == TK::Colon) {
+        if (currentTokenKind() == TK::Ident && peekKind(1) == TK::Colon && peekKind(2) != TK::Colon) {
             // <ident>: <type>
             ident = parseIdentAsString();
-            assert_current_token_and_consume(TK::Colon);
+            assertTkAndConsume(TK::Colon);
             type = parseType();
-            if (peekKind(0) == TK::Period && peekKind(1) == TK::Period && peekKind(2) == TK::Period) {
-                throw; // TODO implement!
-            }
-        } else if (currentTokenKind() == TK::Period && peekKind(0) == TK::Period && peekKind(2) == TK::Period) {
-            consume(3);
-            LKAssert(currentTokenKind() == delimiter);
-            signature.isVariadic = true;
-            return;
         } else {
             ident = std::string("$").append(std::to_string(index));
             type = parseType();
         }
-        LKAssert(type);
         
-        index += 1;
+        if (currentTokenKind() == TK::Period && peekKind() == TK::Period && peekKind(2) == TK::Period) {
+            signature.isVariadic = true;
+            consume(3);
+        }
+        
+        if (!type) diagnostics::failWithError(loc, "Unable to parse type");
+        
         auto decl = std::make_shared<ast::VarDecl>(ident, type);
         decl->setSourceLocation(loc);
         signature.parameters.push_back(decl);
         
         if (currentTokenKind() == TK::Comma) {
+            if (!functionParameterInitialTokens.contains(peekKind())) {
+                diagnostics::failWithError(getCurrentSourceLocation(), "Expected parameter declaration");
+            }
             consume();
-            LKAssert(currentTokenKind() != TK::ClosingParens);
         }
     }
 }
@@ -521,7 +534,7 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
             if (currentTokenKind() == TK::Colon) {
                 LKFatalError("TODO implement?");
             
-            } else if (currentTokenKind() == TK::LessThanSign) {
+            } else if (currentTokenKind() == TK::OpeningAngledBracket) {
                 consume();
                 std::vector<std::shared_ptr<TypeDesc>> paramTys;
                 while (auto ty = parseType()) {
@@ -529,20 +542,20 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
                     if (currentTokenKind() == TK::Comma) {
                         consume();
                         continue;
-                    } else if (currentTokenKind() == TK::GreaterSign) {
+                    } else if (currentTokenKind() == TK::ClosingAngledBracket) {
                         break;
                     } else {
-                        unhandled_token(currentToken());
+                        unhandledToken(currentToken());
                     }
                 }
-                assert_current_token_and_consume(TK::GreaterSign);
+                assertTkAndConsume(TK::ClosingAngledBracket);
                 LKAssert(!paramTys.empty());
                 if (currentTokenKind() == TK::OpeningParens) {
                     // ie `if x < static_cast<T>(0)`.
                     restore_pos(fallback);
                     return nullptr;
                 }
-                unhandled_token(currentToken());
+                unhandledToken(currentToken());
                 LKFatalError("TODO implement!");
             }
             
@@ -558,9 +571,9 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
                     consume();
                 }
             }
-            assert_current_token_and_consume(TK::ClosingParens);
+            assertTkAndConsume(TK::ClosingParens);
             
-            if (currentTokenKind() == TK::Minus && peekKind() == TK::GreaterSign) {
+            if (currentTokenKind() == TK::Minus && peekKind() == TK::ClosingAngledBracket) {
                 // Function type
                 consume(2);
                 auto cc = extractCallingConventionAttribute(attributes);
@@ -578,11 +591,11 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
 
 std::shared_ptr<ast::TypealiasDecl> Parser::parseTypealias() {
     auto sourceLoc = getCurrentSourceLocation();
-    assert_current_token_and_consume(TK::Use);
+    assertTkAndConsume(TK::Use);
     auto name = parseIdentAsString();
-    assert_current_token_and_consume(TK::EqualsSign);
+    assertTkAndConsume(TK::EqualsSign);
     auto type = parseType();
-    assert_current_token_and_consume(TK::Semicolon);
+    assertTkAndConsume(TK::Semicolon);
     auto decl = std::make_shared<ast::TypealiasDecl>(name, type);
     decl->setSourceLocation(sourceLoc);
     return decl;
@@ -596,7 +609,7 @@ std::shared_ptr<ast::TypealiasDecl> Parser::parseTypealias() {
 
 std::shared_ptr<Composite> Parser::parseComposite() {
     auto sourceLoc = getCurrentSourceLocation();
-    assert_current_token_and_consume(TK::OpeningCurlyBraces);
+    assertTkAndConsume(TK::OpeningCurlyBraces);
     
     auto stmt = std::make_shared<Composite>();
     stmt->setSourceLocation(sourceLoc);
@@ -604,7 +617,7 @@ std::shared_ptr<Composite> Parser::parseComposite() {
         stmt->statements.push_back(parseLocalStmt());
     }
     
-    assert_current_token_and_consume(TK::ClosingCurlyBraces);
+    assertTkAndConsume(TK::ClosingCurlyBraces);
     return stmt;
 }
 
@@ -646,7 +659,7 @@ std::shared_ptr<LocalStmt> Parser::parseLocalStmt() {
     if (currentTokenKind() == TK::EqualsSign) { // Assignment
         consume();
         auto value = parseExpression();
-        assert_current_token_and_consume(TK::Semicolon);
+        assertTkAndConsume(TK::Semicolon);
         auto assignment = std::make_shared<ast::Assignment>(expr, value);
         assignment->setSourceLocation(sourceLoc);
         return assignment;
@@ -656,22 +669,22 @@ std::shared_ptr<LocalStmt> Parser::parseLocalStmt() {
         if (auto op = parseOperator()) {
             LKFatalError("");
             // TODO reimplement to avoid evaluating the assignments (and binops) lhs twice!
-//            assert_current_token_and_consume(TK::EqualsSign);
+//            assertTkAndConsume(TK::EqualsSign);
 //            // TODO this is bad bc we evaluate lhs twice!
 //            auto value = std::make_shared<ast::BinOp>(*op, expr, parseExpression());
 //            stmt = std::make_shared<ast::Assignment>(expr, value);
         } else {
             // TODO is there any situation where this would still be valid code?
             // guess that depends on whether freestanding expression (like `1 + foo();`) should be allowed?
-            unhandled_token(currentToken());
+            unhandledToken(currentToken());
         }
         LKFatalError("TODO reimplement");
 //        if (auto op = parseBinopOperator()) {
-//            assert_current_token_and_consume(TK::EqualsSign);
+//            assertTkAndConsume(TK::EqualsSign);
 //
 //            auto value = std::make_shared<BinOp>(*op, expr, parseExpression());
 //            stmt = std::make_shared<Assignment>(expr, value);
-//            assert_current_token_and_consume(TK::Semicolon);
+//            assertTkAndConsume(TK::Semicolon);
 //            stmt->setSourceLocation(sourceLoc);
 //            return stmt;
 //        }
@@ -686,14 +699,14 @@ std::shared_ptr<LocalStmt> Parser::parseLocalStmt() {
         }
     }
     
-    unhandled_token(currentToken())
+    unhandledToken(currentToken());
 }
 
 
 
 std::shared_ptr<ReturnStmt> Parser::parseReturnStmt() {
     auto sourceLoc = getCurrentSourceLocation();
-    assert_current_token_and_consume(TK::Return);
+    assertTkAndConsume(TK::Return);
     
     if (currentTokenKind() == TK::Semicolon) {
         consume();
@@ -701,7 +714,7 @@ std::shared_ptr<ReturnStmt> Parser::parseReturnStmt() {
     }
     
     auto expr = parseExpression();
-    assert_current_token_and_consume(TK::Semicolon);
+    assertTkAndConsume(TK::Semicolon);
     auto retStmt = std::make_shared<ReturnStmt>(expr);
     retStmt->setSourceLocation(sourceLoc);
     return retStmt;
@@ -711,7 +724,7 @@ std::shared_ptr<ReturnStmt> Parser::parseReturnStmt() {
 
 std::shared_ptr<VarDecl> Parser::parseVariableDecl() {
     auto sourceLoc = getCurrentSourceLocation();
-    assert_current_token_and_consume(TK::Let);
+    assertTkAndConsume(TK::Let);
     
     auto ident = parseIdentAsString();
     std::shared_ptr<TypeDesc> type;
@@ -727,7 +740,7 @@ std::shared_ptr<VarDecl> Parser::parseVariableDecl() {
         initialValue = parseExpression();
     }
     
-    assert_current_token_and_consume(TK::Semicolon);
+    assertTkAndConsume(TK::Semicolon);
     
     auto decl = std::make_shared<VarDecl>(ident, type, initialValue);
     decl->setSourceLocation(sourceLoc);
@@ -740,12 +753,12 @@ std::shared_ptr<IfStmt> Parser::parseIfStmt() {
     using Kind = ast::IfStmt::Branch::BranchKind;
     
     auto sourceLoc = getCurrentSourceLocation();
-    assert_current_token_and_consume(TK::If);
+    assertTkAndConsume(TK::If);
     
     std::vector<std::shared_ptr<IfStmt::Branch>> branches;
     
     auto mainExpr = parseExpression();
-    assert_current_token(TK::OpeningCurlyBraces);
+    assertTk(TK::OpeningCurlyBraces);
     
     branches.push_back(std::make_shared<IfStmt::Branch>(Kind::If,
                                                         mainExpr,
@@ -754,7 +767,7 @@ std::shared_ptr<IfStmt> Parser::parseIfStmt() {
     while (currentTokenKind() == TK::Else && peekKind() == TK::If) {
         consume(2);
         auto expr = parseExpression();
-        assert_current_token(TK::OpeningCurlyBraces);
+        assertTk(TK::OpeningCurlyBraces);
         auto body = parseComposite();
         branches.push_back(std::make_shared<IfStmt::Branch>(Kind::ElseIf, expr, body));
     }
@@ -774,10 +787,10 @@ std::shared_ptr<IfStmt> Parser::parseIfStmt() {
 
 std::shared_ptr<ast::WhileStmt> Parser::parseWhileStmt() {
     auto sourceLoc = getCurrentSourceLocation();
-    assert_current_token_and_consume(TK::While);
+    assertTkAndConsume(TK::While);
     
     auto condition = parseExpression();
-    assert_current_token(TK::OpeningCurlyBraces);
+    assertTk(TK::OpeningCurlyBraces);
     
     auto stmt = std::make_shared<ast::WhileStmt>(condition, parseComposite());
     stmt->setSourceLocation(sourceLoc);
@@ -788,11 +801,11 @@ std::shared_ptr<ast::WhileStmt> Parser::parseWhileStmt() {
 
 std::shared_ptr<ForLoop> Parser::parseForLoop() {
     auto sourceLoc = getCurrentSourceLocation();
-    assert_current_token_and_consume(TK::For);
+    assertTkAndConsume(TK::For);
     auto ident = parseIdent();
-    assert_current_token_and_consume(TK::In);
+    assertTkAndConsume(TK::In);
     auto expr = parseExpression();
-    assert_current_token(TK::OpeningCurlyBraces);
+    assertTk(TK::OpeningCurlyBraces);
     auto body = parseComposite();
     auto stmt = std::make_shared<ForLoop>(ident, expr, body);
     stmt->setSourceLocation(sourceLoc);
@@ -814,17 +827,21 @@ std::vector<std::shared_ptr<Expr>> Parser::parseExpressionList(Token::TokenKind 
     
     do {
         expressions.push_back(parseExpression());
-        LKAssert(currentTokenKind() == TK::Comma || currentTokenKind() == delimiter);
+        //LKAssert(currentTokenKind() == TK::Comma || currentTokenKind() == delimiter);
+        if (currentTokenKind() != TK::Comma && currentTokenKind() != delimiter) {
+            //diagnostics::failWithError(getCurrentSourceLocation(), "")
+            unhandledToken(currentToken()); // TODO should be unexpected
+        }
         if (currentTokenKind() == TK::Comma) consume();
     } while (currentTokenKind() != delimiter);
     
-    assert_current_token(delimiter);
+    assertTk(delimiter);
     return expressions;
 }
 
 
 std::string Parser::parseIdentAsString() {
-    assert_current_token(TK::Ident);
+    assertTk(TK::Ident);
     auto val = currentToken().getData<std::string>();
     consume();
     return val;
@@ -891,7 +908,7 @@ PrecedenceGroup getOperatorPrecedenceGroup(Operator op) {
 
 
 // Tokens that, if they appear on their own, mark the end of an expression
-static TokenSet expressionDelimitingTokens = {
+static const TokenSet expressionDelimitingTokens = {
     TK::ClosingParens, TK::Semicolon, TK::Comma, TK::OpeningCurlyBraces, TK::ClosingSquareBrackets, TK::EqualsSign, TK::ClosingCurlyBraces
 };
 
@@ -908,7 +925,7 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
     if (currentTokenKind() == TK::OpeningParens) {
         consume();
         expr = parseExpression();
-        assert_current_token_and_consume(TK::ClosingParens);
+        assertTkAndConsume(TK::ClosingParens);
     
     }
     
@@ -953,7 +970,7 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
     while (true) {
         LKAssert(expr);
         if (_last_entry_expr_ptr == expr.get()) {
-            unhandled_token(currentToken());
+            unhandledToken(currentToken());
         }
         _last_entry_expr_ptr = expr.get();
         
@@ -974,11 +991,11 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
         // The long term plan is splitting this up in a bunch of functions and having ParseExpression call them from the while loop, depending on which kind of expression seems most likely based on the current token
         
 //    parse_call_expr:
-        if (currentTokenKind() == TK::LessThanSign || currentTokenKind() == TK::OpeningParens) {
+        if (currentTokenKind() == TK::OpeningAngledBracket || currentTokenKind() == TK::OpeningParens) {
             if (auto callExpr = parseCallExpr(expr)) {
                 expr = callExpr;
                 continue; // TODO is the consume actually required/good?
-            } else if (currentTokenKind() == TK::LessThanSign) {
+            } else if (currentTokenKind() == TK::OpeningAngledBracket) {
                 goto parse_binop_expr; // use this as a hint that this is probably a binop expression?
             }
         }
@@ -1002,7 +1019,7 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
         if (currentTokenKind() == TK::OpeningSquareBrackets) {
             consume();
             auto offsetExpr = parseExpression();
-            assert_current_token_and_consume(TK::ClosingSquareBrackets);
+            assertTkAndConsume(TK::ClosingSquareBrackets);
             expr = std::make_shared<ast::SubscriptExpr>(expr, offsetExpr);
         }
         
@@ -1094,8 +1111,8 @@ std::optional<ast::Operator> Parser::parseOperator() {
             }
         }
         
-        case TK::LessThanSign: {
-            if (peekKind() == TK::LessThanSign && peekKind(2) != TK::Ident) {
+        case TK::OpeningAngledBracket: {
+            if (peekKind() == TK::OpeningAngledBracket && peekKind(2) != TK::Ident) {
                 consume(2);
                 return Operator::Shl;
             } else if (peekKind() == TK::EqualsSign) {
@@ -1107,8 +1124,8 @@ std::optional<ast::Operator> Parser::parseOperator() {
             }
         }
         
-        case TK::GreaterSign: {
-            if (peekKind() == TK::GreaterSign) {
+        case TK::ClosingAngledBracket: {
+            if (peekKind() == TK::ClosingAngledBracket) {
                 consume(2);
                 return Operator::Shr;
             } else if (peekKind() == TK::EqualsSign) {
@@ -1145,7 +1162,7 @@ std::optional<ast::Operator> Parser::parseOperator() {
         }
         
         case TK::Pipe: {
-            if (peekKind() == TK::GreaterSign) {
+            if (peekKind() == TK::ClosingAngledBracket) {
                 consume(2);
                 return Operator::FnPipe;
             } else if (peekKind() == TK::Pipe) {
@@ -1167,10 +1184,10 @@ std::optional<ast::Operator> Parser::parseOperator() {
 std::shared_ptr<ast::CallExpr> Parser::parseCallExpr(std::shared_ptr<ast::Expr> target) {
     std::vector<std::shared_ptr<TypeDesc>> explicitTemplateArgumentTypes;
     
-    if (currentTokenKind() == TK::LessThanSign) {
+    if (currentTokenKind() == TK::OpeningAngledBracket) {
         save_pos(pos_of_less_than_sign);
         consume();
-        while (currentTokenKind() != TK::GreaterSign) { // TODO this might become a problem if there is an `<>` operator?
+        while (currentTokenKind() != TK::ClosingAngledBracket) { // TODO this might become a problem if there is an `<>` operator?
             auto type = parseType();
             if (!type) {
                 restore_pos(pos_of_less_than_sign);
@@ -1180,7 +1197,7 @@ std::shared_ptr<ast::CallExpr> Parser::parseCallExpr(std::shared_ptr<ast::Expr> 
             
             if (currentTokenKind() == TK::Comma) {
                 consume(); continue;
-            } else if (currentTokenKind() == TK::GreaterSign) {
+            } else if (currentTokenKind() == TK::ClosingAngledBracket) {
                 break;
             } else {
                 // If we end up here, the less than sign is probably part of a comparison or bit shift
@@ -1188,13 +1205,13 @@ std::shared_ptr<ast::CallExpr> Parser::parseCallExpr(std::shared_ptr<ast::Expr> 
                 return nullptr;
             }
         }
-        assert_current_token_and_consume(TK::GreaterSign);
+        assertTkAndConsume(TK::ClosingAngledBracket);
         LKAssert(!explicitTemplateArgumentTypes.empty()); // TODO allow empty explicit template lists?
     }
-    assert_current_token_and_consume(TK::OpeningParens);
+    assertTkAndConsume(TK::OpeningParens);
     
     auto callArguments = parseExpressionList(TK::ClosingParens);
-    assert_current_token_and_consume(TK::ClosingParens);
+    assertTkAndConsume(TK::ClosingParens);
     auto callExpr = std::make_shared<ast::CallExpr>(target, callArguments, explicitTemplateArgumentTypes);
     callExpr->setSourceLocation(target->getSourceLocation());
     return callExpr;
@@ -1204,23 +1221,23 @@ std::shared_ptr<ast::CallExpr> Parser::parseCallExpr(std::shared_ptr<ast::Expr> 
 
 
 
-static TokenSet memberAccessSeparatingTokens = {
-    TK::LessThanSign, TK::OpeningParens, TK::OpeningSquareBrackets, TK::Period, TK::Colon
+static const TokenSet memberAccessSeparatingTokens = {
+    TK::OpeningAngledBracket, TK::OpeningParens, TK::OpeningSquareBrackets, TK::Period, TK::Colon
 };
 
 
 
 
 std::shared_ptr<ast::MatchExpr> Parser::parseMatchExpr() {
-    assert_current_token_and_consume(TK::Match);
+    assertTkAndConsume(TK::Match);
     auto target = parseExpression();
-    assert_current_token_and_consume(TK::OpeningCurlyBraces);
+    assertTkAndConsume(TK::OpeningCurlyBraces);
     std::vector<MatchExpr::MatchExprBranch> branches;
     
     while (true) {
         auto patterns = parseExpressionList(TK::Minus);
-        assert_current_token_and_consume(TK::Minus);
-        assert_current_token_and_consume(TK::GreaterSign);
+        assertTkAndConsume(TK::Minus);
+        assertTkAndConsume(TK::ClosingAngledBracket);
         auto expr = parseExpression();
         branches.push_back(MatchExpr::MatchExprBranch(patterns, expr));
         
@@ -1231,11 +1248,11 @@ std::shared_ptr<ast::MatchExpr> Parser::parseMatchExpr() {
             case TK::ClosingCurlyBraces:
                 goto ret;
             default:
-                unhandled_token(currentToken());
+                unhandledToken(currentToken());
         }
     }
 ret:
-    assert_current_token_and_consume(TK::ClosingCurlyBraces);
+    assertTkAndConsume(TK::ClosingCurlyBraces);
     return std::make_shared<ast::MatchExpr>(target, branches);
 }
 
@@ -1304,7 +1321,7 @@ std::shared_ptr<StringLiteral> Parser::parseStringLiteral() {
 }
 
 
-static MappedTokenSet<ast::UnaryExpr::Operation> unaryOperators = {
+static const MappedTokenSet<ast::UnaryExpr::Operation> unaryOperators = {
     { TK::Minus, UnaryExpr::Operation::Negate },
     { TK::Tilde, UnaryExpr::Operation::BitwiseNot },
     { TK::ExclamationMark, UnaryExpr::Operation::LogicalNegation}

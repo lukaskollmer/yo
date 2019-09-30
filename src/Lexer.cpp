@@ -95,8 +95,8 @@ static std::map<std::string, Token::TokenKind> tokenKindMappings = {
     { "|" , TK::Pipe },
     { "^" , TK::Circumflex },
     
-    { "<" , TK::LessThanSign },
-    { ">" , TK::GreaterSign },
+    { "<" , TK::OpeningAngledBracket },
+    { ">" , TK::ClosingAngledBracket },
     
     // Keywords
     { "fn",     TK::Fn     },
@@ -104,7 +104,6 @@ static std::map<std::string, Token::TokenKind> tokenKindMappings = {
     { "let",    TK::Let    },
     { "if",     TK::If     },
     { "else",   TK::Else   },
-    { "as",     TK::As     },
     { "struct", TK::Struct },
     { "impl",   TK::Impl   },
     { "use",    TK::Use    },

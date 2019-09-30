@@ -86,6 +86,17 @@ private:
     }
     
     
+    // Error messages
+    
+    void unhandledToken(const Token &);
+    void assertTk(Token::TokenKind expected);
+    void assertTkAndConsume(Token::TokenKind expected) {
+        assertTk(expected);
+        consume();
+    }
+    
+    
+    // Parsing
     
     std::shared_ptr<ast::TopLevelStmt> parseTopLevelStmt();
     
