@@ -6,12 +6,6 @@
 //  Copyright © 2019 Lukas Kollmer. All rights reserved.
 //
 
-#include <fstream>
-#include <sstream>
-#include <unistd.h>
-#include <iostream>
-#include <memory>
-
 #include "util.h"
 #include "Lexer.h"
 #include "AST.h"
@@ -20,31 +14,30 @@
 #include "Pygmentize.h"
 #include "Version.h"
 
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetMachine.h"
-
+#include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/CommandLine.h"
 
-
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Verifier.h"
-#include "llvm/IR/IRPrintingPasses.h"
-
-#include "llvm/Analysis/TargetTransformInfo.h"
-
-#include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm/Transforms/IPO/AlwaysInliner.h"
-
-#include "llvm/CodeGen/MachineModuleInfo.h"
-
+#include <fstream>
+#include <sstream>
+#include <unistd.h>
+#include <iostream>
+#include <memory>
 
 
 using namespace yo;
+
 
 
 #pragma mark - Command Line Options
@@ -82,8 +75,6 @@ static llvm::cl::opt<bool> dumpLLVMPreOpt("dump-llvm-pre-opt", llvm::cl::desc("D
 static llvm::cl::opt<std::string> stdlibRoot("stdlib-root", llvm::cl::desc("Load stdlib modules from <path>, instead of using the bundled ones"),
                                              llvm::cl::value_desc("path"), llvm::cl::cat(CLIOptionsCategory));
 
-static llvm::cl::opt<bool> arc("arc", llvm::cl::desc("[internal] enable arc"), llvm::cl::cat(CLIOptionsCategory));
-
 static llvm::cl::opt<bool> emitDebugMetadata("g", llvm::cl::desc("Emit debug metadata"), llvm::cl::cat(CLIOptionsCategory));
 
 
@@ -104,8 +95,9 @@ static llvm::cl::list<OutputFileType> emit("emit", llvm::cl::desc("Output format
 static llvm::cl::list<std::string> runArgs("run-args", llvm::cl::desc("Argv to be used when executing the produced binary. Implies `-run`"),
                                            llvm::cl::CommaSeparated, llvm::cl::cat(CLIOptionsCategory));
 
+// Internal / experimental flags
 static llvm::cl::opt<bool> int_sigabrtOnFatalError("int_sigabrt-on-fatal-error", llvm::cl::Hidden);
-
+static llvm::cl::opt<bool> farc("farc", llvm::cl::desc("[Experimental] enable ARC"), llvm::cl::cat(CLIOptionsCategory), llvm::cl::Hidden);
 
 
 void version_printer(llvm::raw_ostream &OS) {
@@ -138,12 +130,11 @@ void init(int argc, const char * argv[]) {
             printf("[%i] %s\n", i, argv[i]);
         }
     }
-        
-    // Command Line Options
+    
     llvm::cl::SetVersionPrinter(&cl::version_printer);
     llvm::cl::HideUnrelatedOptions(cl::CLIOptionsCategory);
-    llvm::cl::ParseCommandLineOptions(argc, argv, "the yo programming language v" YO_VERSION "\n");
-        
+    llvm::cl::ParseCommandLineOptions(argc, argv, "The Yo Programming Language v" YO_VERSION "\n");
+    
     llvm::cl::PrintOptionValues();
 }
 
@@ -406,12 +397,12 @@ int main(int argc, const char * argv[], const char *const *envp) {
         return EXIT_SUCCESS;
     }
     
-    irgen::IRGenOptions options{
-        cl::arc,
-        cl::emitDebugMetadata
-    };
+    irgen::IRGenOptions options;
+    options.enableARC = cl::farc;
+    options.enableDebugMetadata = cl::emitDebugMetadata;
+    options.isOptimized = cl::optimize;
     
-    irgen::IRGenerator codegen("main", options);
+    irgen::IRGenerator codegen(inputFile, options);
     codegen.codegen(ast);
     
     std::unique_ptr<llvm::Module> M = codegen.getModule();
