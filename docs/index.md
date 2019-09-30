@@ -40,7 +40,7 @@ Build requirements:
 ### Command Line Options
 
 ```bash
-OVERVIEW: the yo programming language v0.0.1
+OVERVIEW: The Yo Programming Language v0.0.1
 
 USAGE: yo [options] <input file>
 
@@ -49,7 +49,6 @@ OPTIONS:
 General Options:
 
   -O                  - Enable Optimizations
-  -arc                - [internal] enable arc
   -dump-llvm          - Dump LLVM IR
   -dump-llvm-pre-opt  - Dump LLVM IR prior to running optimizations
   -emit               - Output format(s)
@@ -59,11 +58,10 @@ General Options:
     =obj              -   Object File
     =none             -   None
   -g                  - Emit debug metadata
-  -o=<file>           - Write output to <file>
   -print-ast          - Print the Abstract Syntax Tree
   -pygmentize         - Lex input, then print pygmentized HTML to stdout
-  -run                - Run the generated executable after codegen
-  -run-args=<string>  - Argv to be used when executing the produced binary. Implies -run
+  -run                - Run the generated executable after codegen. Implies `--emit bin`
+  -run-args=<string>  - Argv to be used when executing the produced binary. Implies `-run`
   -stdlib-root=<path> - Load stdlib modules from <path>, instead of using the bundled ones
 
 Generic Options:

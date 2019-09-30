@@ -6,7 +6,7 @@ title: Specification
 
 
 
-> **NOTE:** This is very much still work in progress and does not necessarily describe the language as implemented in the [GitHub repo](https://github.com/lukaskollmer/yo)
+> **Note:** This is very much still work in progress and does not necessarily describe the language as implemented in the [GitHub repo](https://github.com/lukaskollmer/yo)
 
 
 <div id="toc"></div>
@@ -152,7 +152,7 @@ A function is declared using the `fn` keyword. A function declaration consists o
 - *(optional)* the function's return type
 - the function's body
 
-**Example:** A simple function declaration
+**Example** A simple function declaration
 ```rust
 fn add(x: i64, y: i64) -> i64 {
     return x + y;
@@ -165,7 +165,7 @@ A function's return type can be omitted, in which case it defaults to `void`.
 
 In the case of a [function template](#yo.temp.fn) declaration, the template parameter names are listed in angled brackets, immediately prior to the function's parameter list.
 
-**Example:** The add function from above, as a function template
+**Example** The add function from above, as a function template
 ```rust
 fn add<T>(x: T, y: T) -> T {
     return x + y;
@@ -193,7 +193,7 @@ Custom types can be defined using the `struct` keyword. All struct types are uni
 - Static methods are type member functions that can be called on the type itself
 - The compiler auto-generates an initializer for every type (`type_name::init(type_properties)`).
 
-**Example:** Declaring a struct with properties and member functions  
+**Example** Declaring a struct with properties and member functions  
 ```rust
 struct Person {
     name: String,
@@ -306,17 +306,43 @@ A lambda expression constructs an anynomous function
 <h2 sectionId="yo.attr">Attributes</h2>
 Attributes can be used to provide the compiler with additional knowledge about a declaration.
 
+<h3 sectionId="yo.attr.types">Attribute Types</h3>
+
+For attributes of type `bool`, the value is determined simply by the presence of the attribute (not specifying a bool attribute is equivalent to explicitly setting it to `false`). For attributes of type `String`, the value must always be specified.
+
+<!-- TODO <h3 sectionId="yo.attr.syntax">Attribute Syntax</h3> -->
+
 <h3 sectionId="yo.attr.fn">Function Attributes</h3>
 
-| Name    |      |
-| :------ | :--- |
-| `extern` | C linkage |
-| `intrinsic` | (internal) declares a compile-time intrinsic |
-| `no_mangle` | Don't mangle the function's name |
-| `mangle={string}` | Override a function's mangled name |
-| `side_effects(...)` | Specify a function's side effects |
+| Name            | Type     | Description                                              |
+| :-------------- | :------- | :------------------------------------------------------- |
+| `extern`        | `bool`   | C linkage                                                |
+| `inline`        | `bool`   | Function may be inlined                                  |
+| `always_inline` | `bool`   | Function should always be inlined                        |
+| `intrinsic`     | `bool`   | (internal) declares a compile-time intrinsic             |
+| `no_mangle`     | `bool`   | Don't mangle the function's name                         |
+| `mangle`        | `string` | Override a function's mangled name                       |
+| `startup`       | `bool`   | Causes the function to be called before `main` is called |
+| `shutdown`      | `bool`   | Causes the function to be called after `main` returns    |
 
+<!-- | `side_effects(...)` | Specify a function's side effects | -->
 <!-- | `arc` | (wip!) enable arc on a per-function basis | -->
+
+**Note**
+- the `no_mangle`, `mangle={string}` and `extern` attributes are mutually exclusive
+- the `no_mangle` attribute can only be applied to global function declarations
+
+
+**Example**
+```rust
+// Forward-declaring a function with external C linkage.
+#[extern]
+fn strcmp(*i8, *i8) -> i32;
+
+// A function with an explicitly set mangled name
+#[mangle="bar"]
+fn foo() -> void { ... }
+```
 
 <h3 sectionId="yo.attr.struct">Struct Attributes</h3>
 
@@ -326,11 +352,7 @@ Attributes can be used to provide the compiler with additional knowledge about a
 
 <!-- | `arc` | (wip!) enable arc on a per-struct basis | -->
 
-**Note:**
-- the `no_mangle`, `mangle={string}` and `extern` attributes are mutually exclusive
-- the `no_mangle` attribute can only be applied to global function declarations
-
-**Example:** forward-declaring a variadic C function
+**** forward-declaring a variadic C function
 
 ```rust
 #[extern]
