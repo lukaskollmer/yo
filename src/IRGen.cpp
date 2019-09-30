@@ -8,13 +8,14 @@
 
 #include "IRGen.h"
 
-#include <optional>
-#include <limits>
-
 #include "Mangling.h"
 #include "util_llvm.h"
 #include "TemplateResolution.h"
 #include "Attributes.h"
+#include "Diagnostics.h"
+
+#include <optional>
+#include <limits>
 
 using namespace yo;
 using namespace yo::irgen;
@@ -453,7 +454,7 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc) {
                     return handleResolvedTy(entry.value());
                 }
                 
-                emitError(typeDesc->getSourceLocation(), util::fmt_cstr("Unable to resolve nominal type '%s'", name.c_str()));
+                diagnostics::failWithError(typeDesc->getSourceLocation(), "Unable to resolve nominal type '%s'", name.c_str());
             }
             break;
         }
@@ -1226,7 +1227,9 @@ bool isValidBinopOperator(ast::Operator op) {
 
 
 llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::BinOp> binop) {
-    LKAssert(isValidBinopOperator(binop->getOperator()));
+    if (!isValidBinopOperator(binop->getOperator())) {
+        diagnostics::failWithError(binop->getSourceLocation(), "Not a valid binary operator");
+    }
     
     auto callExpr = std::make_shared<ast::CallExpr>(makeIdent(mangling::mangleCanonicalName(binop->getOperator())),
                                                     std::vector<std::shared_ptr<ast::Expr>> { binop->getLhs(), binop->getRhs() });
@@ -1375,9 +1378,9 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
                 if (mapping->second->reason == DeductionReason::Literal) {
                     mapping->second = { guessedArgumentType, reason };
                 } else if (!isLiteral && mapping->second->type != guessedArgumentType) {
-                    emitError(call->arguments[i]->getSourceLocation(),
-                              util::fmt_cstr("type mismatch: expected '%s', but expression evaluates to '%s'",
-                                             mapping->second->type->str().c_str(), guessedArgumentType->str().c_str()));
+                    diagnostics::failWithError(call->arguments[i]->getSourceLocation(),
+                                               "type mismatch: expected '%s', but expression evaluates to '%s'",
+                                               mapping->second->type->str().c_str(), guessedArgumentType->str().c_str());
                 }
             }
         }
@@ -1390,7 +1393,7 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
             retvalMap[name] = ast::TypeDesc::makeResolved(deductionInfo->type);
         } else {
             // TODO also print the location of the call! this is pretty useless without proper context
-            emitError(templateFunction->getSourceLocation(), util::fmt_cstr("unable to deduce template argument '%s'", name.c_str()));
+            diagnostics::failWithError(templateFunction->getSourceLocation(), "unable to deduce template argument '%s'", name.c_str());
         }
     }
     return retvalMap;
@@ -1496,7 +1499,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     const auto& possibleTargets = functions[targetName];
 
     if (possibleTargets.empty()) {
-        emitError(callExpr->getSourceLocation(), util::fmt_cstr("unable to resolve call to '%s'", targetName.c_str()));
+        diagnostics::failWithError(callExpr->getSourceLocation(), "unable to resolve call to '%s'", targetName.c_str());
     }
         
     if (possibleTargets.size() == 1) {
@@ -2428,9 +2431,8 @@ Type* IRGenerator::guessType(std::shared_ptr<ast::Expr> expr) {
             auto structTy = llvm::dyn_cast<StructType>(ptrTy->getPointee());
             auto memberTy = structTy->getMember(memberExpr->memberName).second;
             if (!memberTy) {
-                emitError(memberExpr->getSourceLocation(),
-                          util::fmt_cstr("Struct '%s' does not have a member named '%s'",
-                                         structTy->getName().c_str(), memberExpr->memberName.c_str()));
+                diagnostics::failWithError(memberExpr->getSourceLocation(), "Struct '%s' does not have a member named '%s'",
+                                           structTy->getName().c_str(), memberExpr->memberName.c_str());
             }
             return memberTy;
         }
@@ -2483,30 +2485,6 @@ Type *IRGenerator::instantiateTemplatedType(std::shared_ptr<ast::TypeDesc> typeD
 }
 
 
-
-
-
-
-
-
-#pragma mark - Errors
-
-
-void IRGenerator::emitError(const parser::TokenSourceLocation& loc, std::string message) {
-    if (loc.empty()) {
-        std::cout << message << std::endl;
-    } else {
-        std::cout << loc.filepath << ":" << loc.line << ":" << loc.column << ": " << message << std::endl;
-        std::cout << util::fs::read_specific_line(loc.filepath, loc.line - 1) << std::endl;
-        
-        for (auto i = 0; i < loc.column - 1; i++) {
-            std::cout << ' ';
-        }
-        std::cout << "^" << std::endl;
-    }
-    
-    LKFatalError("");
-}
 
 
 

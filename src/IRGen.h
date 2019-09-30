@@ -238,10 +238,6 @@ private:
     
     
     
-    // Errors
-    [[noreturn]]
-    void emitError(const parser::TokenSourceLocation& loc, std::string message);
-    
     
     // Utils
     
