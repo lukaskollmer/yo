@@ -105,7 +105,7 @@ class IRGenerator {
 public:
     static llvm::LLVMContext C;
     
-    IRGenerator(const std::string& moduleName, IRGenOptions options);
+    IRGenerator(const std::string& translationUnitPath, IRGenOptions options);
     
     void codegen(const ast::AST& ast);
     
@@ -212,6 +212,8 @@ private:
     std::optional<ResolvedCallable> getResolvedFunctionWithName(const std::string &name);
     
     Type *instantiateTemplatedType(std::shared_ptr<ast::TypeDesc>);
+    
+    llvm::Value *NEW_synthesizeStructInitializer(std::shared_ptr<ast::StructDecl>);
     
     
     // set omitCodegen to true if you only care about the return type of the call

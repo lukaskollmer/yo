@@ -43,8 +43,8 @@ std::shared_ptr<ast::Ident> makeIdent(const std::string& str) {
 
 llvm::LLVMContext IRGenerator::C;
 
-IRGenerator::IRGenerator(const std::string& moduleName, IRGenOptions options)
-    : module(llvm::make_unique<llvm::Module>(moduleName, C)),
+IRGenerator::IRGenerator(const std::string& translationUnitPath, IRGenOptions options)
+    : module(llvm::make_unique<llvm::Module>(util::fs::path_utils::getFilename(translationUnitPath), C)),
     builder(C),
     debugInfo{llvm::DIBuilder(*module), nullptr, {}},
     options(options)
@@ -59,8 +59,11 @@ IRGenerator::IRGenerator(const std::string& moduleName, IRGenOptions options)
     i1 = llvm::Type::getInt1Ty(C);
     Double = llvm::Type::getDoubleTy(C);
     
+    const auto [path, filename] = util::string::extractPathAndFilename(translationUnitPath);
+    module->setSourceFileName(filename);
+    
     debugInfo.compileUnit = debugInfo.builder.createCompileUnit(llvm::dwarf::DW_LANG_C,
-                                                                debugInfo.builder.createFile("main.yo", "."),
+                                                                debugInfo.builder.createFile(filename, path),
                                                                 "yo", options.isOptimized, "", 0);
     debugInfo.lexicalBlocks.push_back(debugInfo.compileUnit);
     module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
