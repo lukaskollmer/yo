@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Specification
+title: Reference
 ---
 
 
@@ -352,7 +352,7 @@ fn foo() -> void { ... }
 
 <!-- | `arc` | (wip!) enable arc on a per-struct basis | -->
 
-**** forward-declaring a variadic C function
+<!-- **** forward-declaring a variadic C function
 
 ```rust
 #[extern]
@@ -362,7 +362,7 @@ fn printf(*i8, ...) -> i64;
 printf(b"\n");
 printf(b"a: %i\n", 2);
 printf(b"other string: %s\n", b"text");
-```
+``` -->
 
 
 
