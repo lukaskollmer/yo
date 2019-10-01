@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# pwd should be the yo/tools/godbolt directory
+
+DST_PATH="$1"
+
+# copy configuration & language files
+cp -R examples/yo         ${DST_PATH}/examples/
+cp    etc/config/*        ${DST_PATH}/etc/config/
+cp    lib/compilers/yo.js ${DST_PATH}/lib/compilers/
+
+# add language to list
+git -C ${DST_PATH} apply `pwd`/languages.js.patch

@@ -1,0 +1,14 @@
+use ":runtime/core";
+
+#[extern]
+fn printf(*i8...) -> i64;
+
+fn main(argc: i32, argv: **i8) -> i32 {
+    let i: i32 = 0;
+    while i < argc {
+        printf(b"[%i] %s\n", i, argv[i]);
+        i = i + 1;
+    }
+
+    return 0;
+}

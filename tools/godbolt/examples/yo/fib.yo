@@ -1,0 +1,16 @@
+use ":runtime/intrinsics";
+
+#[extern]
+fn atoi(*i8) -> i32;
+
+
+fn fib<T>(n: T) -> T {
+    return match n {
+        0, 1 -> n,
+        _    -> fib(n-1) + fib(n-2)
+    };
+}
+
+fn main(argc: i32, argv: **i8) -> i32 {
+    return argv[1] |> atoi |> fib;
+}
