@@ -18,9 +18,10 @@ pre, code {
 }
 
 
-.markdown-body code::before, .markdown-body code::after {
-    letter-spacing: -0.2em;
-    content: "\00a0";
+
+.markdown-body code {
+    padding-left: 5px;
+    padding-right: 5px;
 }
 
 .markdown-body pre {
