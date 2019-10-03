@@ -6,10 +6,20 @@ title: Reference
 
 
 
-> **Note:** This is very much still work in progress and does not necessarily describe the language as implemented in the [GitHub repo](https://github.com/lukaskollmer/yo)
+> **Note** This is very much still work in progress and does not necessarily describe the language as implemented in the [GitHub repo](https://github.com/lukaskollmer/yo)
 
 
 <div id="toc"></div>
+
+
+
+
+
+
+<!--
+YO.LEX
+-->
+
 
 
 <h2 sectionId="yo.lex">Lexical structure</h2>
@@ -108,6 +118,17 @@ The `b` and `r` prefixes can be combined to create a raw bytestring.
 
 
 
+
+
+
+
+
+<!--
+YO.TYPES
+-->
+
+
+
 <h2 sectionId="yo.types">Types</h2>
 
 <h3 sectionId="yo.types.primitive">Primitive types</h3>
@@ -132,7 +153,7 @@ Yo defines the following primitive types:
 A function type represents all functions with the same parameter and result types:
 ```rust
         () -> void  // a function that has no parameters and returns nothing
-(i32, i32) -> i32   // a function that takes two `i32` values and returns an `i32` value
+(i32, i32) -> i64   // a function that takes two `i32` values and returns an `i64` value
 ```
 A function type (ie, a [function](#yo.decl.fn)'s signature) only contains the types of the parameter and return types, it does not contain the names of the individual parameters or any [attributes](#yo.attr.fn) the actual function declaration might have.
 
@@ -141,8 +162,15 @@ A function type (ie, a [function](#yo.decl.fn)'s signature) only contains the ty
 
 
 
-<h2 sectionId="yo.decl.fn">Function declarations</h2>
 
+<!--
+YO.DECL
+-->
+
+
+<!-- yo.decl.fn -->
+
+<h2 sectionId="yo.decl.fn">Function declarations</h2>
 
 A function is declared using the `fn` keyword. A function declaration consists of:
 - *(optional)* the function's [attributes](#yo.attr.fn)
@@ -152,46 +180,60 @@ A function is declared using the `fn` keyword. A function declaration consists o
 - *(optional)* the function's return type
 - the function's body
 
-**Example** A simple function declaration
+A function's return type may be omitted, in which case it defaults to `void`.
+
+**Example**
 ```rust
+// A simple function declaration
 fn add(x: i64, y: i64) -> i64 {
     return x + y;
 }
 ```
 
-A function's return type can be omitted, in which case it defaults to `void`.
-
 <h3 sectionId="yo.decl.fn.temp">Function templates</h3>
 
 In the case of a [function template](#yo.temp.fn) declaration, the template parameter names are listed in angled brackets, immediately prior to the function's parameter list.
 
-**Example** The add function from above, as a function template
+**Example**
 ```rust
+// The identity function
+fn id<T>(arg: T) -> T {
+    return arg;
+}
+
+// The add function from above, as a function template
 fn add<T>(x: T, y: T) -> T {
     return x + y;
 }
 ```
 
-<!-- 
+
 <h3 sectionId="yo.decl.fn.operator">Operator declarations</h3>
 
-To declare a custom [binary operator]() -->
+Some [binary operators](yo.expr.operators) can be specialized for a specific overload.
+Operator overloads are declared as functions with the name `operator`, followed by the operator being overloaded.
+
+```rust
+fn operator + (x: Foo, y: Foo) -> Foo {
+    // some custom addition logic
+}
+```
 
 
 
 
 
-
-
-
-
+<!-- yo.decl.struct -->
 
 <h2 sectionId="yo.decl.struct">Structs</h2>
-Custom types can be defined using the `struct` keyword. All struct types are uniquely identified by their name. A struct type can have properties and a set of member functions (methods) associated with it. Member functions must be declared in a separate `impl` block.
 
-- Instance methods are type member functions that can be called on an instance of the type. They must take `self: typename` as their first parameter
-- Static methods are type member functions that can be called on the type itself
-- The compiler auto-generates an initializer for every type (`type_name::init(type_properties)`).
+Custom types can be defined using the `struct` keyword. All struct types are uniquely identified by their name. A struct type can have properties and a set of member functions (methods) associated with it. Member functions are declared in one or multiple `impl` blocks.
+
+- Instance methods are type member functions that can be called on an instance of the type. They must take `self` as their first parameter
+- Static methods are type member functions that can be called on the type itself, using the `::` syntax
+- Unless the `no_init` [attribute](#yo.attr.struct) is present, the compiler will synthesize an initializer for a struct type.
+
+> **Note** For the time being, structs are always allocated on the heap
 
 **Example** Declaring a struct with properties and member functions  
 ```rust
@@ -218,6 +260,9 @@ impl Person {
 
 
 
+<!--
+YO.EXPR
+-->
 
 
 
@@ -225,25 +270,43 @@ impl Person {
 
 Every expression evaluates to a value of a specific type, which must be known at compile time.
 
+
+<!-- yo.expr.cast -->
+
 <h3 sectionId="yo.expr.cast">Type conversions</h3>
 
-- **`static_cast`**
+All type conversions are required to be explicit: Attempting to pass an `i64` to a function that expects an `u64` will result in a compilation error.  
+The only exception to this rule is numeric literals: Even though numeric literals by default evaluate to values of type `i64`, you may use a literal in an expression that is expected to be of a different numeric type, and the compiler will implicitly cast the literal.
+
+<h4 sectionId="yo.expr.cast.static">static_cast</h4>
 ```rust
 #[intrinsic]
 fn static_cast<R, T>(arg: T) -> R;
 ```
-The `static_cast` intrinsic converts an expression of type `T` to a related type `R` if there is a known conversion from `T` to `R`.
-The following conversions are built-in:
-  - i8 > u8
-  - f64 > int
+The `static_cast` intrinsic converts an expression of type `T` to a related type `R`, if there is a known conversion from `T` to `R`. It will fail at compile-time if there is no known conversion.
 
-- **`reinterpret_cast`**
+<h4 sectionId="yo.expr.cast.reinterpret">reinterpret_cast</h4>
 ```rust
 #[intrinsic]
 fn reinterpret_cast<R, T>(arg: T) -> R;
 ```
-The `reinterpret_cast` intrinsic converts between any two types `T` and `R`, by reinterpreting the value's bit pattern. `T` and `R` are required to have the exact same bit width.
+The `reinterpret_cast` intrinsic converts between any two types `T` and `R`, by reinterpreting the value's bit pattern. `T` and `R` are required to have the exact same bit width, otherwise it will fail at compile-time.
 
+
+**Example**  
+```rust
+fn foo() -> i32 {
+    let x = 0; // x has the deduced type i64
+    return x;  // this will fail since the function is expected to return an i64
+}
+
+fn bar() -> i32 {
+    return 0; // this will work fine since the compiler is allowed to insert an implicit static_cast<i32>
+}
+```
+
+
+<!-- yo.expr.operators -->
 
 <h3 sectionId="yo.expr.operators">Operators</h3>
 
@@ -284,17 +347,10 @@ The `reinterpret_cast` intrinsic converts between any two types `T` and `R`, by 
     | `|>`     | function pipeline     | n/a              | FunctionPipeline   |
     | `=`      | assignment            | n/a              | Assignment         |
 
+> **Note** Since most binary operators above are implemented as functions, they can be overloaded (see [yo.decl.fn.operator](yo.decl.fn.operator))
 
 
-<h4 sectionId="yo.expr.operators.overloading">Operator overloading</h4>
-
-Since operators are functions, they can be overloaded:
-```rust
-fn operator + (lhs: *Foo, rhs: *Foo) -> *Foo {
-    // some custom addition logic
-}
-```
-
+<!-- yo.expr.lambda -->
 
 <h3 sectionId="yo.expr.lambda">Lambdas</h3>
 A lambda expression constructs an anynomous function
@@ -303,12 +359,38 @@ A lambda expression constructs an anynomous function
 
 
 
+
+<!--
+YO.ATTR
+-->
+
+
+
 <h2 sectionId="yo.attr">Attributes</h2>
 Attributes can be used to provide the compiler with additional knowledge about a declaration.
 
+An attribute list is declared using the `#[<attr>, <attr>, ...]` syntax.
+A declaration that can have attributes can be preceded by one or multiple attribute lists.
+Splitting multiple attributes up into multiple separate attribute lists is semantically equivalent to putting them all in a single list.
+
+**Note** Specifying the same attribute multiple times with different values is considered undefined behaviour.
+
 <h3 sectionId="yo.attr.types">Attribute Types</h3>
 
-For attributes of type `bool`, the value is determined simply by the presence of the attribute (not specifying a bool attribute is equivalent to explicitly setting it to `false`). For attributes of type `String`, the value must always be specified.
+- `bool` The default attribute type. The value is determined simply by the presence of the attribute, unless explicitly stated.  
+    Of the attribute lists below, `A` and `B` are equivalent, as are `C` and `D`:
+    ```rust
+    A  #[attr_name]
+    B  #[attr_name=true]
+
+    C  #[]
+    D  #[attr_name=false]
+    ```
+
+- `string` In this case, the value must always be explicitly specified  
+    ```rust
+    #[attr_name="attr_value"]
+    ```
 
 <!-- TODO <h3 sectionId="yo.attr.syntax">Attribute Syntax</h3> -->
 
@@ -346,24 +428,19 @@ fn foo() -> void { ... }
 
 <h3 sectionId="yo.attr.struct">Struct Attributes</h3>
 
-| Name    |      |
-| :------ | :--- |
-| `no_init` | The compiler should not generate a default initializer for the type |
+| Name      | Type   | Description                                                         |
+| :-------- | :----- | :------------------------------------------------------------------ |
+| `no_init` | `bool` | The compiler should not generate a default initializer for the type |
 
-<!-- | `arc` | (wip!) enable arc on a per-struct basis | -->
 
-<!-- **** forward-declaring a variadic C function
 
-```rust
-#[extern]
-fn printf(*i8, ...) -> i64;
 
-// All of the following calls are valid:
-printf(b"\n");
-printf(b"a: %i\n", 2);
-printf(b"other string: %s\n", b"text");
-``` -->
 
+
+
+<!--
+YO.TEMP
+-->
 
 
 
@@ -385,10 +462,20 @@ Function specializations can be declared simply by overloadding the function for
 
 
 
+
+
+<!--
+YO.MEM
+-->
+
+
+
 <h2 sectionId="yo.mem">Memory Management</h2>
 Yo currently doesn't have garbage collection / automatic reference counting.
 
-There are two functions of note here:
+The [`:runtime/memory`](https://github.com/lukaskollmer/yo/blob/master/stdlib/runtime/memory.yo) module declares some functions and intrinsics related to memory management:
+- **`fn sizeof<T>() -> size_t`**  
+    Returns the size of the template parameter type `T`, in bytes.
 - **`fn alloc<T>(count: size_t) -> *T`**  
     Allocates memory for `count` objects of type `T` and returns a pointer to be first byte of the allocated memory block.  
     The allocated memory is initialized to zero.
