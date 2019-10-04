@@ -123,7 +123,7 @@ void Parser::assertTk(Token::TokenKind expected) {
 
 
 // TODO move the entire module resolution stuff somewhere else !?
-std::string Parser::resolveImportPathRelativeToBaseDirectory(const std::string &moduleName, const std::string &baseDirectory) {
+std::string Parser::resolveImportPathRelativeToBaseDirectory(const TokenSourceLocation &loc, const std::string &moduleName, const std::string &baseDirectory) {
     if (moduleName[0] == '/') { // absolute path
         return moduleName;
     }
@@ -131,16 +131,16 @@ std::string Parser::resolveImportPathRelativeToBaseDirectory(const std::string &
     std::string path = std::string(baseDirectory).append("/").append(moduleName).append(".yo");
     if (util::fs::file_exists(path)) return path;
     
-    LKFatalError("Unable to resolve import of '%s' relative to '%s'", moduleName.c_str(), baseDirectory.c_str());
+    diagnostics::failWithError(loc, "Unable to resolve import of '%s' relative to '%s'", moduleName.c_str(), baseDirectory.c_str());
 }
 
 
 
 void Parser::resolveImport() {
     auto baseDirectory = util::string::excludingLastPathComponent(currentToken().getSourceLocation().filepath);
-//    assertTkAndConsume(TK::Use);
     assertTkAndConsume(TK::Use);
     
+    auto importLoc = getCurrentSourceLocation();
     auto moduleName = parseStringLiteral()->value;
     assertTkAndConsume(TK::Semicolon);
     
@@ -158,7 +158,7 @@ void Parser::resolveImport() {
             moduleName.erase(moduleName.begin());
             baseDirectory = customStdlibRoot;
         }
-        auto path = resolveImportPathRelativeToBaseDirectory(moduleName, baseDirectory);
+        auto path = resolveImportPathRelativeToBaseDirectory(importLoc, moduleName, baseDirectory);
         if (util::vector::contains(importedFiles, path)) return;
         importedFiles.push_back(path);
         newTokens = lexFile(path);
@@ -829,7 +829,6 @@ std::vector<std::shared_ptr<Expr>> Parser::parseExpressionList(Token::TokenKind 
     
     do {
         expressions.push_back(parseExpression());
-        //LKAssert(currentTokenKind() == TK::Comma || currentTokenKind() == delimiter);
         if (currentTokenKind() != TK::Comma && currentTokenKind() != delimiter) {
             //diagnostics::failWithError(getCurrentSourceLocation(), "")
             unhandledToken(currentToken()); // TODO should be unexpected

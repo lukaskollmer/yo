@@ -65,7 +65,7 @@ private:
     std::string customStdlibRoot;
     
     void resolveImport();
-    std::string resolveImportPathRelativeToBaseDirectory(const std::string &moduleName, const std::string &baseDirectory);
+    std::string resolveImportPathRelativeToBaseDirectory(const TokenSourceLocation&, const std::string &moduleName, const std::string &baseDirectory);
     
     const Token& currentToken() { return tokens[position]; }
     const Token& nextToken() { return tokens[++position]; }
