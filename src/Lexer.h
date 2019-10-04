@@ -8,13 +8,13 @@
 
 #pragma once
 
+#include "util.h"
+#include "Token.h"
+
 #include <string>
 #include <vector>
 #include <memory>
 
-#include "Token.h"
-
-#include "util.h"
 
 NS_START(yo::parser)
 
@@ -35,6 +35,7 @@ private:
         return offset - lineStart;
     }
     
+    TokenSourceLocation currentSourceLocation(int64_t offsetBy, uint64_t length);
     Token& handleRawToken(const std::string& tokenSourceText, Token::TokenKind tokenKind = Token::TokenKind::Unknown);
 };
 

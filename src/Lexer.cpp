@@ -6,12 +6,13 @@
 //  Copyright © 2019 Lukas Kollmer. All rights reserved.
 //
 
+#include "Lexer.h"
+#include "util.h"
+#include "Diagnostics.h"
+
 #include <iostream>
 #include <sstream>
 #include <map>
-
-#include "Lexer.h"
-#include "util.h"
 
 
 using namespace yo;
@@ -196,6 +197,7 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& fi
             auto x = sourceText[++offset];
             // Offset at this point is now the character after the backslash
             if (x == 'x' || isOctalDigitChar(x)) { // Hex or octal value
+                // TODO why does this allow octal values? what are the rules here?
                 auto isHex = x == 'x';
                 std::string rawValue;
                 
@@ -352,14 +354,18 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& fi
                 throw;
             }
             
-            // TODO turn this into a nice error message
-            LKAssert(length == rawValue.length()); // The string contained illegal characters (eg: 0b110012)
-            
             offset--; // unavoidable :/
+            
+            if (length != rawValue.length()) {
+                auto loc = currentSourceLocation(length, rawValue.length());
+                diagnostics::failWithError(loc, "Invalid character in number literal");
+            }
+            
             handleRawToken(rawValue, TK::IntegerLiteral).setData(value);
             continue;
         }
-        LKFatalError("unhandled character: '%c'", sourceText[offset]);
+        auto loc = currentSourceLocation(0, 1);
+        diagnostics::failWithError(loc, "Unexpected character in source text");
     }
     
     handleRawToken("", TK::EOF_);
@@ -373,6 +379,15 @@ uint8_t isBoolLiteral(std::string_view str) {
     else if (str == "true") return 2;
     else return 0;
 }
+
+
+
+TokenSourceLocation Lexer::currentSourceLocation(int64_t offsetBy, uint64_t length) {
+    int64_t column = static_cast<int64_t>(offset + 2 - lineStart - length) + offsetBy;
+    LKAssert(column > 0);
+    return TokenSourceLocation(filepath, line + 1, column, length);
+}
+
 
 
 Token& Lexer::handleRawToken(const std::string& tokenSourceText, Token::TokenKind tokenKind) {
@@ -394,12 +409,12 @@ Token& Lexer::handleRawToken(const std::string& tokenSourceText, Token::TokenKin
         }
     }
     else {
-        LKLog("didn't initialize token for '%s'", tokenSourceText.c_str());
-        exit(EXIT_FAILURE);
+        LKFatalError("didn't initialize token for '%s'", tokenSourceText.c_str());
     }
     
-    auto column = offset + 2 - lineStart - tokenSourceText.length();
-    token.setSourceLocation(TokenSourceLocation(filepath, line + 1, column, tokenSourceText.length()));
+    //auto column = offset + 2 - lineStart - tokenSourceText.length();
+    //token.setSourceLocation(TokenSourceLocation(filepath, line + 1, column, tokenSourceText.length()));
+    token.setSourceLocation(currentSourceLocation(0, tokenSourceText.length()));
     
     tokens.push_back(token);
     return tokens.back();
