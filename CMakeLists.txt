@@ -16,7 +16,6 @@ string(TIMESTAMP YO_BUILD_DATE "%Y-%m-%d_%H%MZ" UTC)
 find_package(LLVM 8 REQUIRED PATHS /usr/local/opt/llvm@8)
 find_package(PythonInterp 3.6 REQUIRED)
 
-include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
@@ -74,10 +73,11 @@ add_executable(yo
 add_dependencies(yo gen_stdlib)
 
 
-
-# link LLVM
+# LLVM
 llvm_map_components_to_libnames(llvm_libs core support native nativecodegen passes)
+target_include_directories(yo PRIVATE SYSTEM ${LLVM_INCLUDE_DIRS})
 target_link_libraries(yo ${llvm_libs})
+
 
 # compilation options
 target_compile_options(yo PRIVATE "-fvisibility-inlines-hidden")
