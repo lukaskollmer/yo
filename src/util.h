@@ -16,6 +16,8 @@
 #include <map>
 #include <optional>
 #include <memory>
+#include <sstream>
+#include <type_traits>
 
 
 #define NS_START(x) namespace x {
@@ -333,6 +335,74 @@ std::string read_specific_line(const std::string& path, uint64_t lineNumber);
 namespace fs::path_utils {
 std::string getFilename(const std::string& path);
 }
+
+
+
+
+
+
+
+
+
+#pragma mark - fmt
+
+namespace fmt {
+
+
+
+// TODO somehow allow overloading this to get custom formatting for custom types?
+template <typename T, typename T2 = void>
+static void value_formatter(std::ostream &OS, std::string_view flags, const T &arg) {
+    OS << arg;
+}
+
+//template <>
+//void value_formatter<bool>(std::ostream &OS, std::string_view flags, const bool &arg) {
+//    OS << (arg ? "true" : "false");
+//}
+
+
+template <typename T, typename... Ts>
+void format_imp(std::ostream &OS, std::string_view format, T &&arg, Ts&&... args) {
+    auto pos = format.find_first_of('{');
+    if (pos == std::string_view::npos) {
+        OS << format;
+        return;
+    }
+    
+    OS << format.substr(0, pos);
+    if (format[pos + 1] == '}') {
+        //formatter<T>::format(OS, "", arg);
+        value_formatter<T>(OS, "", arg);
+        format.remove_prefix(pos + 2);
+    } else {
+        auto end_pos = format.find_first_of('}', pos);
+        LKAssert(end_pos != std::string_view::npos);
+        std::string_view flags = format.substr(pos + 1, end_pos - pos);
+        
+        //formatter<T>::format(OS, flags, arg);
+        value_formatter<T>(OS, flags, arg);
+        format.remove_prefix(end_pos + 1);
+    }
+
+    if constexpr(sizeof...(args) == 0) {
+        OS << format;
+        LKAssert(format.find('{') == format.npos);
+    } else {
+        LKAssert(format.find('{') != format.npos);
+        format_imp(OS, format, std::forward<Ts>(args)...);
+    }
+}
+
+
+template <typename... Ts>
+std::string format(std::string_view format, Ts&&...args) {
+    std::ostringstream OS;
+    format_imp(OS, format, std::forward<Ts>(args)...);
+    return OS.str();
+}
+
+} // namespace fmt
 
 
 

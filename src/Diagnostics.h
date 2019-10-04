@@ -24,11 +24,4 @@ void failWithError(std::string_view);
 [[noreturn]]
 void failWithError(const parser::TokenSourceLocation&, std::string_view);
 
-
-[[noreturn]] __attribute__((format(printf, 1, 2)))
-void failWithError(const char *fmt, ...);
-
-[[noreturn]] __attribute__((format(printf, 2, 3)))
-void failWithError(const parser::TokenSourceLocation&, const char *fmt, ...);
-
 NS_END

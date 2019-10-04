@@ -44,6 +44,7 @@ std::string TypeDesc::str() const {
         }
         
         case Kind::Resolved:
-            return std::string("resolved(").append(getResolvedType()->str()).append(")");
+            //return std::string("resolved(").append(getResolvedType()->str()).append(")");
+            return getResolvedType()->str();
     }
 }

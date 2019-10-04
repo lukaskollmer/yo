@@ -17,6 +17,7 @@
 #include <optional>
 #include <limits>
 
+
 using namespace yo;
 using namespace yo::irgen;
 using namespace yo::util::llvm_utils;
@@ -32,6 +33,10 @@ static const std::string kRetvalAllocaIdentifier = "%retval";
 throw; }
 
 
+
+// TODO:
+// - get rid of `guessType` and instead have all functions return a `pair<llvm::Value*, yo::irgen::Type*>` ?
+// - rewrite ast::FunctionSignature to only contain the types of the parameters, not the actual identifiers
 
 
 std::shared_ptr<ast::Ident> makeIdent(const std::string& str) {
@@ -185,12 +190,15 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     
     if (isMain) {
         functionDecl->getAttributes().no_mangle = true;
-        // TODO run some checks to make sure main fulfills the requirements (correct return & parameter types, no other attributes, etc)
-//        LKAssert(Signature->ReturnType->Equals(TypeInfo::i32));
-//        LKAssert(Signature->parameters.size() == 0 || Signature->parameters.size() == 2);
-//        if (Signature->parameters.size() == 2) {
-//            LKAssert(Signature->parameters[0]->type->Equals(TypeInfo::))
-//        }
+        
+        ast::FunctionSignature expectedSig;
+        expectedSig.returnType = ast::TypeDesc::makeResolved(Type::getInt32Type());
+        expectedSig.paramTypes = { expectedSig.returnType, ast::TypeDesc::makeResolved(Type::getInt8Type()->getPointerTo()->getPointerTo()) };
+        
+        if (!equal(sig, expectedSig)) {
+            auto msg = util::fmt::format("Invalid fignature for function 'main'. Expected '{}', but got '{}'", expectedSig, sig);
+            diagnostics::failWithError(functionDecl->getSourceLocation(), msg);
+        }
     }
     
     
@@ -466,7 +474,7 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc) {
                     return handleResolvedTy(entry.value());
                 }
                 
-                diagnostics::failWithError(typeDesc->getSourceLocation(), "Unable to resolve nominal type '%s'", name.c_str());
+                diagnostics::failWithError(typeDesc->getSourceLocation(), util::fmt::format("Unable to resolve nominal type '{}'", name));
             }
             break;
         }
@@ -577,6 +585,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         scope.insert(name, type, ValueBinding(alloca, [=]() {
             return builder.CreateLoad(alloca);
         }, [=](llvm::Value *V) {
+            // TODO turn this into an assignment-side error
             LKFatalError("Function arguments are read-only (%s in %s)", name.c_str(), resolvedName.c_str());
         }));
         paramAllocas.push_back(alloca);
@@ -770,6 +779,7 @@ llvm::Value *IRGenerator::codegen(const std::vector<std::shared_ptr<ast::LocalSt
 
 
 
+
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ReturnStmt> returnStmt) {
     emitDebugLocation(returnStmt);
     
@@ -779,7 +789,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ReturnStmt> returnStmt) {
     if (auto expr = returnStmt->expression) {
         Type *T;
         if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, returnType, &T)) {
-            LKFatalError("Error: Can't return value of type '%s' from function '%s' returning '%s'", T->str().c_str(), FName.c_str(), returnType->str().c_str());
+            auto msg = util::fmt::format("expression evaluates to type '{}', which is incompatible with the expected return type '{}'",
+                                         T, returnType->str());
+            diagnostics::failWithError(expr->getSourceLocation(), msg);
         }
         
         codegen(std::make_shared<ast::Assignment>(std::make_shared<ast::Ident>(kRetvalAllocaIdentifier), expr));
@@ -837,9 +849,10 @@ bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
         return true;
     }
     
-    std::cout << "input: " << type->str() << ", expected: " << expectedType->str() << std::endl;
-    std::cout << (*expr)->getSourceLocation() << std::endl;
-    throw;
+    //diagnostics::failWithError((*expr)->getSourceLocation(),
+    //                           "cannot implicitly convert '%s' to expected type '%s'",
+    //                           type->str().c_str(), expectedType->str().c_str());
+    return false;
 }
 
 
@@ -941,8 +954,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Ident> ident, ValueKind r
         }
     }
     
-    std::cout << "Unable to find identifier " << ident->value << std::endl;
-    throw;
+    diagnostics::failWithError(ident->getSourceLocation(), util::fmt::format("use of undeclared identifier '{}'", ident->value));
 }
 
 
@@ -987,7 +999,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> cast) {
                 }
                 break;
             }
-            throw;
+            
+            auto msg = util::fmt::format("unable to resolve static_cast. No known conversion from '{}' to '{}'", srcTy, destTy);
+            diagnostics::failWithError(cast->getSourceLocation(), msg);
         }
     }
     
@@ -1112,10 +1126,11 @@ llvm::Value *IRGenerator::codegen_HandleMatchPatternExpr(MatchExprPatternCodegen
                 
             }
         } else {
-            LKFatalError("Incompatible Match types: cannot match %s against %s", TT->str().c_str(), PT->str().c_str());
+            diagnostics::failWithError(PE->getSourceLocation(), util::fmt::format( "Cannot match value of type '{}' against '{}'", TT, PT));
         }
     }
-    throw;
+    
+    diagnostics::failWithError(PE->getSourceLocation(), "Not a valid pattern expression");
 }
 
 
@@ -1181,6 +1196,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MatchExpr> matchExpr) {
         
         Type *_initialTy = nullptr;
         if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&branch.expression, resultType, &_initialTy)) {
+            //diagnostics::failWithError(branch.expression->getSourceLocation(),
+            //                           "Invalud match branch pattern value: Type '%s' not compatible with expected type '%s'",
+            //                           _initialTy->str().c_str(), resultType->str().c_str());
             LKFatalError("Invalid match branch result value: Type %s not compatible with expected type %s",
                          _initialTy->str().c_str(), resultType->str().c_str());
         }
@@ -1391,9 +1409,9 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
                 if (mapping->second->reason == DeductionReason::Literal) {
                     mapping->second = { guessedArgumentType, reason };
                 } else if (!isLiteral && mapping->second->type != guessedArgumentType) {
-                    diagnostics::failWithError(call->arguments[i]->getSourceLocation(),
-                                               "type mismatch: expected '%s', but expression evaluates to '%s'",
-                                               mapping->second->type->str().c_str(), guessedArgumentType->str().c_str());
+                    auto msg = util::fmt::format("type mismatch: expected '{}', but expression has type '{}'",
+                                                 mapping->second->type, guessedArgumentType);
+                    diagnostics::failWithError(call->arguments[i]->getSourceLocation(), msg);
                 }
             }
         }
@@ -1406,7 +1424,7 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
             retvalMap[name] = ast::TypeDesc::makeResolved(deductionInfo->type);
         } else {
             // TODO also print the location of the call! this is pretty useless without proper context
-            diagnostics::failWithError(templateFunction->getSourceLocation(), "unable to deduce template argument '%s'", name.c_str());
+            diagnostics::failWithError(templateFunction->getSourceLocation(), util::fmt::format("unable to deduce template argument '{}", name));
         }
     }
     return retvalMap;
@@ -1473,7 +1491,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             argumentOffset = kInstanceMethodCallArgumentOffset;
         }
     } else {
-        throw;
+        diagnostics::failWithError(callExpr->getSourceLocation(), "Unable to resolve call target");
     }
     
     
@@ -1512,7 +1530,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     const auto& possibleTargets = functions[targetName];
 
     if (possibleTargets.empty()) {
-        diagnostics::failWithError(callExpr->getSourceLocation(), "unable to resolve call to '%s'", targetName.c_str());
+        diagnostics::failWithError(callExpr->getSourceLocation(), util::fmt::format("unable to resolve call to '{}'", targetName));
     }
         
     if (possibleTargets.size() == 1) {
@@ -1613,7 +1631,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         for (auto& match : matches) {
             std::cout << "- " << match.score << ": " << match.decl->getSignature() << std::endl;
         }
-        throw;
+        util::exitOrAbort();
     }
     
 
@@ -1717,7 +1735,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
             args.push_back(codegen(*it));
         }
     } else if (isVariadic) {
-        throw; // TODO implement
+        LKFatalError("TODO: implement");
     }
     
     return builder.CreateCall(llvmFunction, args);
@@ -2413,8 +2431,13 @@ Type* IRGenerator::guessType(std::shared_ptr<ast::Expr> expr) {
             }
         }
         
-        case NK::Ident:
-            return scope.getType(std::static_pointer_cast<ast::Ident>(expr)->value);
+        case NK::Ident: {
+            auto identExpr = static_cast<ast::Ident *>(expr.get());
+            if (!scope.contains(identExpr->value)) {
+                diagnostics::failWithError(identExpr->getSourceLocation(), util::fmt::format("Unable to resolve identifier '{}'", identExpr->value));
+            }
+            return scope.getType(identExpr->value);
+        }
         
         case NK::CastExpr:
             return resolveTypeDesc(static_cast<ast::CastExpr *>(expr.get())->destType);
@@ -2444,8 +2467,8 @@ Type* IRGenerator::guessType(std::shared_ptr<ast::Expr> expr) {
             auto structTy = llvm::dyn_cast<StructType>(ptrTy->getPointee());
             auto memberTy = structTy->getMember(memberExpr->memberName).second;
             if (!memberTy) {
-                diagnostics::failWithError(memberExpr->getSourceLocation(), "Struct '%s' does not have a member named '%s'",
-                                           structTy->getName().c_str(), memberExpr->memberName.c_str());
+                auto msg = util::fmt::format("type '{}' does not have a member named '{}'", structTy->getName(), memberExpr->memberName);
+                diagnostics::failWithError(memberExpr->getSourceLocation(), msg);
             }
             return memberTy;
         }
@@ -2533,6 +2556,7 @@ namespace astgen {
 
 
 llvm::Value *IRGenerator::generateStructInitializer(std::shared_ptr<ast::StructDecl> structDecl) {
+    // TODO: set all source locations for nodes created in here to the struct declaration?
     const auto& structName = structDecl->name;
     auto structType = llvm::dyn_cast<StructType>(nominalTypes[structName]);
 

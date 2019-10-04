@@ -227,9 +227,7 @@ private:
     
     bool valueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiteral>, Type *);
     
-    
     bool equal(const ast::FunctionSignature &lhs, const ast::FunctionSignature &rhs);
-    
     
     
     // Globals etc
@@ -241,6 +239,9 @@ private:
     
     // Utils
     
+    
+    // TODO this seems like a bad idea?
+    // Assuming this is only ever used for registering synthesized functions, what about just having a `queueSynthFunction` function that registers the llvm::Function, and then puts the FuncDecl in a queue which is handled after regular codegen finished?
     template <typename F>
     std::invoke_result_t<F> withCleanSlate(F fn) {
         auto prevScope = scope;

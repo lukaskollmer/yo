@@ -100,6 +100,9 @@ public:
     }
 };
 
+inline std::ostream& operator<<(std::ostream &OS, Type *ty) {
+    return OS << ty->str();
+}
 
 
 class NumericalType : public Type {
