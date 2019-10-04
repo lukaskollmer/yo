@@ -446,12 +446,14 @@ public:
     enum class CastKind {
         StaticCast, Bitcast
     };
-    std::shared_ptr<Expr> expression;
+    std::shared_ptr<Expr> expr;
     std::shared_ptr<TypeDesc> destType;
     CastKind kind;
     
-    CastExpr(std::shared_ptr<Expr> expression, std::shared_ptr<TypeDesc> destType, CastKind kind)
-    : Expr(Node::NodeKind::CastExpr), expression(expression), destType(destType), kind(kind) {}
+    CastExpr(std::shared_ptr<Expr> expr, std::shared_ptr<TypeDesc> destType, CastKind kind)
+    : Expr(Node::NodeKind::CastExpr), expr(expr), destType(destType), kind(kind) {
+        setSourceLocation(expr->getSourceLocation());
+    }
 };
 
 

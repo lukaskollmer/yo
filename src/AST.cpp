@@ -344,7 +344,7 @@ Mirror Reflect(const Assignment *assignment) {
 Mirror Reflect(const CastExpr *cast) {
     return {
         { "type", cast->destType },
-        { "expr", cast->expression }
+        { "expr", cast->expr }
     };
 }
 

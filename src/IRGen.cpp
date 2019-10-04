@@ -936,11 +936,11 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Ident> ident, ValueKind r
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> cast) {
     emitDebugLocation(cast);
     
-    auto srcTy = guessType(cast->expression);
+    auto srcTy = guessType(cast->expr);
     auto destTy = resolveTypeDesc(cast->destType);
     
     if (srcTy == destTy) {
-        return codegen(cast->expression);
+        return codegen(cast->expr);
     }
     
     llvm::Instruction::CastOps op;
@@ -978,7 +978,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> cast) {
         }
     }
     
-    return builder.CreateCast(op, codegen(cast->expression), destTy->getLLVMType());
+    return builder.CreateCast(op, codegen(cast->expr), destTy->getLLVMType());
 }
 
 
