@@ -30,9 +30,11 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::specializeWithTemplateMappi
 std::shared_ptr<ast::TypeDesc> TemplateResolver::resolveType(std::shared_ptr<ast::TypeDesc> typeDesc) {
     if (!typeDesc) return nullptr;
     
+    const auto &loc = typeDesc->getSourceLocation();
+    
     switch (typeDesc->getKind()) {
         case ast::TypeDesc::Kind::Pointer:
-            return ast::TypeDesc::makePointer(resolveType(typeDesc->getPointee()));
+            return ast::TypeDesc::makePointer(resolveType(typeDesc->getPointee()), loc);
         
         case ast::TypeDesc::Kind::Nominal: {
             if (auto ty = util::map::get_opt(templateArgumentMapping, typeDesc->getName())) {
@@ -78,10 +80,9 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::specialize(std::shared_ptr<
     auto signature = decl->getSignature();
     
     // Substitute in signature (params & return type)
-    for (auto& param : signature.parameters) {
-        auto loc = param->getSourceLocation();
-        param = std::make_shared<ast::VarDecl>(param->name, resolveType(param->type));
-        param->setSourceLocation(loc);
+    for (auto &paramTy: signature.paramTypes) {
+        // TODO util::vec::map?
+        paramTy = resolveType(paramTy);
     }
     signature.returnType = resolveType(signature.returnType);
     
@@ -96,7 +97,11 @@ std::shared_ptr<ast::FunctionDecl> TemplateResolver::specialize(std::shared_ptr<
     }
     
     
-    auto specializedFuncDecl = std::make_shared<ast::FunctionDecl>(decl->getFunctionKind(), decl->getName(), signature, decl->getAttributes());
+    auto specializedFuncDecl = std::make_shared<ast::FunctionDecl>(decl->getFunctionKind(),
+                                                                   decl->getName(),
+                                                                   signature,
+                                                                   decl->getParamNames(),
+                                                                   decl->getAttributes());
     specializedFuncDecl->setSourceLocation(decl->getSourceLocation());
     
     if (decl->getAttributes().intrinsic) {

@@ -109,10 +109,8 @@ public:
         return std::get<FunctionTypeInfo>(data);
     }
     
-    
     yo::irgen::Type* getResolvedType() const { return resolvedType; }
     void setResolvedType(yo::irgen::Type *type) { resolvedType = type; }
-    
     
     const parser::TokenSourceLocation& getSourceLocation() const { return srcLoc; }
     

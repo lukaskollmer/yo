@@ -177,6 +177,8 @@ void IRGenerator::preflight(const ast::AST& ast) {
 
 
 void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDecl) {
+    LKAssert(functionDecl->getParamNames().size() == functionDecl->getSignature().paramTypes.size());
+    
     const auto& sig = functionDecl->getSignature();
     
     bool isMain = functionDecl->isOfKind(ast::FunctionKind::GlobalFunction) && functionDecl->getName() == "main";
@@ -200,8 +202,8 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     
     
     auto returnType = resolveTypeDesc(sig.returnType);
-    std::vector<llvm::Type *> parameterTypes = util::vector::map(sig.parameters, [this](const auto& P) {
-        return resolveTypeDesc(P->type)->getLLVMType();
+    std::vector<llvm::Type *> parameterTypes = util::vector::map(sig.paramTypes, [this](const auto &paramType) {
+        return resolveTypeDesc(paramType)->getLLVMType();
     });
     
     
@@ -211,9 +213,12 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     if (auto otherDecl = getResolvedFunctionWithName(resolvedName)) {
         LKAssert(otherDecl->funcDecl);
         const auto& otherSig = otherDecl->funcDecl->getSignature();
-        LKAssert(functionDecl->getAttributes().extern_ && "only extern functions are allowed to have multiple declarations");
-        LKAssert(resolveTypeDesc(sig.returnType) == resolveTypeDesc(otherSig.returnType));
-        LKAssert(sig.parameters.size() == otherSig.parameters.size());
+        if (!equal(sig, otherSig)) {
+            LKFatalError("multiple forward decls w/ incompatible signatures");
+        }
+        //LKAssert(functionDecl->getAttributes().extern_ && "only extern functions are allowed to have multiple declarations");
+        //LKAssert(resolveTypeDesc(sig.returnType) == resolveTypeDesc(otherSig.returnType));
+        //LKAssert(sig.paramTypes.size() == otherSig.paramTypes.size());
         return;
     }
     
@@ -273,10 +278,16 @@ void IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl
     
     if (!structDecl->attributes.no_init) {
         ast::FunctionSignature signature;
+        std::vector<std::shared_ptr<ast::Ident>> paramNames;
         signature.returnType = ast::TypeDesc::makeResolved(structTy->getPointerTo());
-        signature.parameters = structDecl->members;
+        for (const auto &member : structDecl->members) {
+            signature.paramTypes.push_back(member->type);
+            paramNames.push_back(makeIdent(member->name));
+        }
         
-        auto initFnDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::StaticMethod, "init", signature, attributes::FunctionAttributes());
+        auto initFnDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::StaticMethod,
+                                                              "init", signature, paramNames,
+                                                              attributes::FunctionAttributes());
         initFnDecl->setImplType(structTy);
         
         registerFunction(initFnDecl);
@@ -295,12 +306,13 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
     for (auto& fn : implBlock->methods) {
         LKAssert(!fn->getAttributes().no_mangle && "invalid attribute for function in impl block: no_mangle");
         auto kind = FK::StaticMethod;
-        if (!fn->getSignature().parameters.empty()) {
-            auto first = fn->getSignature().parameters[0];
-            if (first->name == "self" && resolveTypeDesc(first->type) == type->getPointerTo()) {
-                // TODO allow omitting the type of a self parameter, and set it here implicitly?
-                kind = FK::InstanceMethod;
-            }
+        if (!fn->getSignature().paramTypes.empty()) {
+            // TODO allow omitting the type of a self parameter, and set it here implicitly?
+            bool isInstanceMethod =
+                fn->getParamNames().front()->value == "self"
+                && resolveTypeDesc(fn->getSignature().paramTypes.front()) == type->getPointerTo();
+            
+            if (isInstanceMethod) kind = FK::InstanceMethod;
         }
         fn->setFunctionKind(kind);
         fn->setImplType(llvm::dyn_cast<StructType>(type));
@@ -376,11 +388,11 @@ llvm::DIFile* DIFileForSourceLocation(llvm::DIBuilder& builder, const parser::To
 llvm::DISubroutineType *IRGenerator::_toDISubroutineType(const ast::FunctionSignature& signature) {
     // Looking at [godbolt]( https://godbolt.org/z/EKfzqi ), it seems like the first element should be the function's return type?
     
-    std::vector<llvm::Metadata *> types(signature.parameters.size() + 1);
+    std::vector<llvm::Metadata *> types(signature.paramTypes.size() + 1);
     
     types.push_back(resolveTypeDesc(signature.returnType)->getLLVMDIType());
-    for (const auto& param : signature.parameters) {
-        types.push_back(resolveTypeDesc(param->type)->getLLVMDIType());
+    for (const auto& paramTy : signature.paramTypes) {
+        types.push_back(resolveTypeDesc(paramTy)->getLLVMDIType());
     }    
     return debugInfo.builder.createSubroutineType(debugInfo.builder.getOrCreateTypeArray(types));
 }
@@ -481,10 +493,10 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc) {
 bool IRGenerator::equal(const ast::FunctionSignature &lhs, const ast::FunctionSignature &rhs) {
     if (resolveTypeDesc(lhs.returnType) != resolveTypeDesc(rhs.returnType)) return false;
     
-    if (lhs.parameters.size() != rhs.parameters.size()) return false;
+    if (lhs.paramTypes.size() != rhs.paramTypes.size()) return false;
     
-    for (size_t i = 0; i < lhs.parameters.size(); i++) {
-        if (resolveTypeDesc(lhs.parameters[i]->type) != resolveTypeDesc(rhs.parameters[i]->type)) return false;
+    for (size_t i = 0; i < lhs.paramTypes.size(); i++) {
+        if (resolveTypeDesc(lhs.paramTypes[i]) != resolveTypeDesc(rhs.paramTypes[i])) return false;
     }
     
     if (lhs.templateArgumentNames != rhs.templateArgumentNames) return false;
@@ -557,10 +569,10 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     
     std::vector<llvm::AllocaInst *> paramAllocas;
     
-    for (const auto& param : sig.parameters) {
-        auto type = resolveTypeDesc(param->type);
+    for (size_t i = 0; i < sig.paramTypes.size(); i++) {
+        auto type = resolveTypeDesc(sig.paramTypes[i]);
         auto alloca = builder.CreateAlloca(type->getLLVMType());
-        const auto& name = param->name;
+        const auto &name = functionDecl->getParamNames()[i]->value;
         alloca->setName(name);
         scope.insert(name, type, ValueBinding(alloca, [=]() {
             return builder.CreateLoad(alloca);
@@ -571,18 +583,19 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     }
     
     
-    for (size_t i = 0; i < sig.parameters.size(); i++) {
+    for (size_t i = 0; i < sig.paramTypes.size(); i++) {
         auto alloca = paramAllocas.at(i);
         builder.CreateStore(&F->arg_begin()[i], alloca);
         
-        const auto& param = sig.parameters.at(i);
+        const auto &paramTy = sig.paramTypes.at(i);
+        const auto &paramNameDecl = functionDecl->getParamNames().at(i);
         if (options.enableDebugMetadata) {
             auto SP = debugInfo.lexicalBlocks.back();
             auto varInfo = debugInfo.builder.createParameterVariable(SP, alloca->getName(), i + 1, SP->getFile(),
-                                                                     param->getSourceLocation().line,
-                                                                     resolveTypeDesc(param->type)->getLLVMDIType());
+                                                                     paramNameDecl->getSourceLocation().line,
+                                                                     resolveTypeDesc(paramTy)->getLLVMDIType());
             debugInfo.builder.insertDeclare(alloca, varInfo, debugInfo.builder.createExpression(),
-                                            llvm::DILocation::get(C, param->getSourceLocation().line, param->getSourceLocation().column, SP), entryBB);
+                                            llvm::DILocation::get(C, paramNameDecl->getSourceLocation().line, paramNameDecl->getSourceLocation().column, SP), entryBB);
         }
     }
     
@@ -631,7 +644,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         builder.CreateRet(builder.CreateLoad(retvalAlloca));
     }
     
-    LKAssert(scope.size() == sig.parameters.size() + static_cast<uint8_t>(!returnType->isVoidTy()));
+    LKAssert(scope.size() == sig.paramTypes.size() + static_cast<uint8_t>(!returnType->isVoidTy()));
     
     for (const auto& entry : scope.getEntriesSinceMarker(0)) {
         //std::cout << std::get<0>(Entry) << std::endl;
@@ -1301,7 +1314,7 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
     // TODO properly take the argument offset into account when handling calls to templated instance methods, or other functions w/ an offset > 0
     
     const auto& sig = templateFunction->getSignature();
-    if (sig.parameters.size() != call->arguments.size() + argumentOffset) {
+    if (sig.paramTypes.size() != call->arguments.size() + argumentOffset) {
         return std::nullopt;
     }
     
@@ -1350,7 +1363,7 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
     for (size_t i = argumentOffset; i < call->arguments.size(); i++) {
         // We have to keep working w/ the ast::TypeDesc object as long as possible since calling resolveTypeDesc might resolve a typename shadowed by a template w/ some other type declared in the parent scope
         std::string paramTypename;
-        auto paramType = sig.parameters[i]->type;
+        auto paramType = sig.paramTypes[i];
         uint64_t paramIndirectionCount = 0;
         
         if (paramType->isPointer()) {
@@ -1404,8 +1417,8 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
 ast::FunctionSignature makeFunctionSignatureFromFunctionTypeInfo(FunctionType *fnType) {
     ast::FunctionSignature sig;
     sig.returnType = ast::TypeDesc::makeResolved(fnType->getReturnType());
-    sig.parameters = util::vector::map(fnType->getParameterTypes(), [](Type *ty) {
-        return std::make_shared<ast::VarDecl>("", ast::TypeDesc::makeResolved(ty));
+    sig.paramTypes = util::vector::map(fnType->getParameterTypes(), [](Type *ty) {
+        return ast::TypeDesc::makeResolved(ty);
     });
     return sig;
 }
@@ -1475,8 +1488,8 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         
         // We need the function's types fully resolved for the `mangleFullyResolved` call below
         resolveTypeDesc(specializedDecl->getSignature().returnType);
-        for (auto param : specializedDecl->getSignature().parameters) {
-            resolveTypeDesc(param->type);
+        for (auto &paramTy : specializedDecl->getSignature().paramTypes) {
+            resolveTypeDesc(paramTy);
         }
         
         auto mangled = mangleFullyResolved(specializedDecl);
@@ -1538,7 +1551,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         const auto& decl = target.funcDecl;
         const auto& sig = decl->getSignature();
         
-        if (sig.parameters.size() != callExpr->arguments.size()) {
+        if (sig.paramTypes.size() != callExpr->arguments.size()) {
             continue;
         }
         
@@ -1552,7 +1565,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         for (size_t i = 0; i < callExpr->arguments.size(); i++) {
             auto arg = callExpr->arguments[i];
             auto argTy = guessType(arg);
-            auto expectedTy = resolveTypeDesc(sig.parameters[i]->type);
+            auto expectedTy = resolveTypeDesc(sig.paramTypes[i]);
             
             if (argTy == expectedTy) {
                 score += 10;
@@ -1576,7 +1589,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     if (!hasPerfectMatch) {
         for (const auto& target : templateFunctions) {
             if (auto templateArgMapping = attemptToResolveTemplateArgumentTypesForCall(target, callExpr, argumentOffset)) {
-                auto argc = target->getSignature().parameters.size();
+                auto argc = target->getSignature().paramTypes.size();
                 uint32_t score = argc * 10;
                 matches.push_back({score, target, nullptr, templateArgMapping.value()});
             } else {
@@ -1654,8 +1667,8 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
     }
     
     
-    for (size_t i = resolvedTarget.argumentOffset; i < resolvedTarget.signature.parameters.size(); i++) {
-        auto expectedType = resolveTypeDesc(resolvedTarget.signature.parameters[i]->type);
+    for (size_t i = resolvedTarget.argumentOffset; i < resolvedTarget.signature.paramTypes.size(); i++) {
+        auto expectedType = resolveTypeDesc(resolvedTarget.signature.paramTypes[i]);
         auto expr = call->arguments[i - resolvedTarget.argumentOffset];
         Type *T;
         if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, expectedType, &T)) {
@@ -1683,7 +1696,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
     auto numFixedArgs = llvmFunctionTy->getNumParams() - resolvedTarget.argumentOffset;
     
     for (size_t i = resolvedTarget.argumentOffset; i < llvmFunctionTy->getNumParams(); i++) {
-        auto expectedType = resolveTypeDesc(resolvedTarget.signature.parameters[i]->type);
+        auto expectedType = resolveTypeDesc(resolvedTarget.signature.paramTypes[i]);
         auto expr = call->arguments[i - resolvedTarget.argumentOffset];
         Type *T;
         if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, expectedType, &T)) {
@@ -2559,8 +2572,10 @@ llvm::Value *IRGenerator::generateStructInitializer(std::shared_ptr<ast::StructD
     }
 
     // set properties
-    for (auto& param : F->getSignature().parameters) {
-        fnBody.push_back(std::make_shared<ast::Assignment>(std::make_shared<ast::MemberExpr>(self, param->name), makeIdent(param->name)));
+    for (size_t i = 0; i < F->getSignature().paramTypes.size(); i++) {
+        const auto &name = F->getParamNames()[i]->value;
+        auto memberExpr = std::make_shared<ast::MemberExpr>(self, name);
+        fnBody.push_back(std::make_shared<ast::Assignment>(memberExpr, makeIdent(name)));
     }
     fnBody.push_back(std::make_shared<ast::ReturnStmt>(self));
     

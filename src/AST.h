@@ -146,7 +146,7 @@ enum class FunctionKind {
 class FunctionSignature : public Node {
 public:
     std::shared_ptr<TypeDesc> returnType;
-    std::vector<std::shared_ptr<VarDecl>> parameters;
+    std::vector<std::shared_ptr<TypeDesc>> paramTypes;
     std::vector<std::string> templateArgumentNames;
     bool isVariadic = false;
 
@@ -166,6 +166,7 @@ std::ostream& operator<<(std::ostream&, const ast::FunctionSignature&);
 
 class FunctionDecl : public TopLevelStmt {
     FunctionSignature signature;
+    std::vector<std::shared_ptr<ast::Ident>> paramNames;
     std::vector<std::shared_ptr<LocalStmt>> funcBody;
     attributes::FunctionAttributes attributes;
     
@@ -175,8 +176,8 @@ class FunctionDecl : public TopLevelStmt {
 
     
 public:
-    explicit FunctionDecl(FunctionKind kind, std::string name, FunctionSignature sig, attributes::FunctionAttributes attr)
-    : TopLevelStmt(Node::NodeKind::FunctionDecl), signature(sig), attributes(attr), funcKind(kind), name(name) {}
+    FunctionDecl(FunctionKind kind, std::string name, FunctionSignature sig, std::vector<std::shared_ptr<ast::Ident>> paramNames, attributes::FunctionAttributes attr)
+    : TopLevelStmt(Node::NodeKind::FunctionDecl), signature(sig), paramNames(paramNames), attributes(attr), funcKind(kind), name(name) {}
     
     FunctionKind getFunctionKind() const { return funcKind; }
     void setFunctionKind(FunctionKind kind) { funcKind = kind; }
@@ -186,6 +187,8 @@ public:
     const FunctionSignature& getSignature() const { return signature; }
     irgen::StructType* getImplType() const { return implType; }
     void setImplType(irgen::StructType *ty) { implType = ty; }
+    
+    const std::vector<std::shared_ptr<Ident>>& getParamNames() const { return paramNames; }
     
     attributes::FunctionAttributes& getAttributes() { return attributes; }
     const attributes::FunctionAttributes& getAttributes() const { return attributes; }

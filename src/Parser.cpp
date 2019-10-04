@@ -366,7 +366,9 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
     
     assertTkAndConsume(TK::OpeningParens);
     
-    parseFunctionParameterList(signature);
+    std::vector<std::shared_ptr<Ident>> paramNames;
+    
+    parseFunctionParameterList(signature, paramNames);
     assertTkAndConsume(TK::ClosingParens);
     
     if (currentTokenKind() == TK::Minus && peekKind() == TK::ClosingAngledBracket) {
@@ -376,7 +378,7 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
         signature.returnType = TypeDesc::makeNominal("void");
     }
     
-    auto fnDecl = std::make_shared<FunctionDecl>(functionKind, name, signature, attributes);
+    auto fnDecl = std::make_shared<FunctionDecl>(functionKind, name, signature, paramNames, attributes);
     fnDecl->setSourceLocation(loc);
     
     if (currentTokenKind() == TK::Semicolon) {
@@ -436,24 +438,25 @@ static const TokenSet functionParameterInitialTokens = {
 
 
 // TODO why is this a separate function? re-inline!
-void Parser::parseFunctionParameterList(FunctionSignature& signature) {
+void Parser::parseFunctionParameterList(FunctionSignature &signature, std::vector<std::shared_ptr<ast::Ident>> &paramNames) {
     constexpr auto delimiter = TK::ClosingParens;
     
     uint64_t pos_lastEntry = UINT64_MAX;
     for (uint64_t index = 0; currentTokenKind() != delimiter; index++) {
         LKAssert(pos_lastEntry != position); pos_lastEntry = position; // TODO do we ever end up here?
         
-        const auto loc = getCurrentSourceLocation();
-        std::string ident;
+        std::shared_ptr<Ident> ident;
         std::shared_ptr<TypeDesc> type;
         
         if (currentTokenKind() == TK::Ident && peekKind(1) == TK::Colon && peekKind(2) != TK::Colon) {
             // <ident>: <type>
-            ident = parseIdentAsString();
+            //ident = parseIdentAsString();
+            ident = parseIdent();
             assertTkAndConsume(TK::Colon);
             type = parseType();
         } else {
-            ident = std::string("$").append(std::to_string(index));
+            ident = std::make_shared<Ident>(std::string("$").append(std::to_string(index)));
+            ident->setSourceLocation(getCurrentSourceLocation());
             type = parseType();
         }
         
@@ -462,11 +465,10 @@ void Parser::parseFunctionParameterList(FunctionSignature& signature) {
             consume(3);
         }
         
-        if (!type) diagnostics::failWithError(loc, "Unable to parse type");
+        if (!type) diagnostics::failWithError(ident->getSourceLocation(), "Unable to parse type");
         
-        auto decl = std::make_shared<ast::VarDecl>(ident, type);
-        decl->setSourceLocation(loc);
-        signature.parameters.push_back(decl);
+        paramNames.push_back(ident);
+        signature.paramTypes.push_back(type);
         
         if (currentTokenKind() == TK::Comma) {
             if (!functionParameterInitialTokens.contains(peekKind())) {
@@ -1280,15 +1282,20 @@ std::shared_ptr<NumberLiteral> Parser::parseNumberLiteral() {
             value = currentToken().getData<uint64_t>();
             type = NumberLiteral::NumberType::Integer;
             break;
-        case TK::DoubleLiteral: throw;
+        
+        case TK::DoubleLiteral:
+            LKFatalError("TODO: implement");
+        
         case TK::CharLiteral:
             value = currentToken().getData<char>();
             type = NumberLiteral::NumberType::Character;
             break;
+        
         case TK::BoolLiteral:
             value = currentToken().getData<bool>();
             type = NumberLiteral::NumberType::Boolean;
             break;
+        
         default:
             restore_pos(prev_pos);
             return nullptr;

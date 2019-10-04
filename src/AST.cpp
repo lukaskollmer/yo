@@ -40,9 +40,9 @@ std::ostream& ast::operator<<(std::ostream &OS, const ast::FunctionSignature& si
     }
     OS << "(";
 
-    for (auto it = signature.parameters.begin(); it != signature.parameters.end(); it++) {
-        OS << (*it)->type->str();
-        if (it + 1 != signature.parameters.end()) {
+    for (auto it = signature.paramTypes.begin(); it != signature.paramTypes.end(); it++) {
+        OS << (*it)->str();
+        if (it + 1 != signature.paramTypes.end()) {
             OS << ", ";
         }
     }
@@ -270,7 +270,7 @@ using Mirror = std::vector<AttributeDescription>;
 
 Mirror Reflect(const FunctionSignature* signature) {
     return {
-        { "parameters", signature->parameters },
+        { "paramTypes", signature->paramTypes },
         { "returnType", signature->returnType },
         { "isVariadic", signature->isVariadic }
     };
