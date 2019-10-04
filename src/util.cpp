@@ -169,8 +169,8 @@ std::string util::string::join(const std::vector<std::string> &strings, const st
 }
 
 
-std::string& util::string::append_with_indentation(std::string &target, std::string &&other, unsigned int indentCount) {
-    std::string indent(indentCount, ' ');
+std::string& util::string::append_with_indentation(std::string &target, const std::string &other, unsigned int indentCount) {
+    const std::string indent(indentCount, ' ');
     
     std::vector<std::string> indented;
     for (auto line : split(other, "\n")) {
@@ -179,6 +179,21 @@ std::string& util::string::append_with_indentation(std::string &target, std::str
     
     target += join(indented, "\n");
     return target;
+}
+
+
+std::ostream& util::string::append_with_indentation(std::ostream &OS, const std::string &other, unsigned int indentCount) {
+    const std::string indent(indentCount, ' ');
+    
+    auto lines = split(other, "\n");
+    for (auto it = lines.begin(); it != lines.end(); it++) {
+        OS << indent << *it;
+        if (it + 1 != lines.end()) {
+            OS << '\n';
+        }
+    }
+    
+    return OS;
 }
 
 

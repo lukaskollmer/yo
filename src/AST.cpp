@@ -144,54 +144,49 @@ std::string operatorToString(ast::Operator op) {
 inline constexpr unsigned INDENT_SIZE = 2;
 
 
-// TODO somehow consolidate the two functions below. they're pretty much identical
 
 
-template <typename T>
-std::string ast_description(const std::vector<T>& nodes) {
-    std::string desc;
-    desc += "std::vector<";
-    desc += util::typeinfo::TypeInfo<T>::name;
-    desc += "> [\n";
+template <typename T, typename U>
+std::string ast_vec_desc(const std::vector<T> &vec, std::string(U::*desc_fn_ptr)() const) {
+    std::ostringstream OS;
+    std::string it_desc;
     
-    for (auto it = nodes.begin(); it != nodes.end(); it++) {
-        util::string::append_with_indentation(desc, it->description(), INDENT_SIZE);
-        if (it + 1 != nodes.end()) {
-            desc += ",";
+    OS << "std::vector<" << util::typeinfo::TypeInfo<T>::name << "> [\n";
+    
+    for (auto it = vec.begin(); it != vec.end(); it++) {
+        if constexpr(util::typeinfo::is_nullable_v<T>) {
+            if (!*it) {
+                OS << "<nullptr>";
+                goto fin;
+            }
         }
-        desc += "\n";
+        
+        if constexpr(util::typeinfo::is_shared_ptr_v<T>) {
+            it_desc = ((*it).get()->*desc_fn_ptr)();
+        } else if constexpr(std::is_pointer_v<T>) {
+            it_desc = ((*it)->*desc_fn_ptr)();
+        } else {
+            it_desc = ((*it).*desc_fn_ptr)();
+        }
+        util::string::append_with_indentation(OS, it_desc, INDENT_SIZE);
+        
+    fin:
+        if (it + 1 != vec.end()) {
+            OS << ",";
+        }
+        OS << "\n";
     }
-    desc += "]";
     
-    return desc;
+    OS << "]";
+    return OS.str();
 }
 
 
-template <typename T>
-std::string ast_description(std::vector<std::shared_ptr<T>> nodes) {
-    std::string desc;
-    desc += "std::vector<";
-    desc += util::typeinfo::TypeInfo<T>::name;
-    desc += "> [\n";
 
-    for (auto it = nodes.begin(); it != nodes.end(); it++) {
-        util::string::append_with_indentation(desc,
-                                              *it ? (*it)->description() : "<nullptr>",
-                                              INDENT_SIZE);
-
-        if (it + 1 != nodes.end()) {
-            desc += ",";
-        }
-        desc += "\n";
-    }
-    desc += "]";
-
-    return desc;
-}
 
 
 std::string ast::description(const AST& ast) {
-    return ast_description(ast);
+    return ast_vec_desc(ast, &Node::description);
 }
 
 
@@ -242,10 +237,13 @@ std::string to_string(T arg) {
         return arg.description();
         
     } else if constexpr(util::typeinfo::is_vector_of_convertible_v<T, std::shared_ptr<Node>>) {
-        return ast_description(arg);
+        return ast_vec_desc(arg, &Node::description);
+    
+    } else if constexpr(util::typeinfo::is_vector_of_convertible_v<T, std::shared_ptr<TypeDesc>>) {
+        return ast_vec_desc(arg, &TypeDesc::str);
         
     } else if constexpr(util::typeinfo::is_vector_v<T> && std::is_base_of_v<Node, typename T::value_type>) {
-        return ast_description(arg);
+        return ast_vec_desc(arg, &Node::description);
     
     } else {
         // this will always fail, but if it does, we get a nice compile-time error message which includes the typename of T

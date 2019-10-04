@@ -153,6 +153,9 @@ template <typename T>
 inline constexpr bool is_shared_ptr_v = is_shared_ptr<T>::value;
 
 
+template <typename T>
+inline constexpr bool is_nullable_v = std::is_pointer_v<T> || is_shared_ptr_v<T>;
+
 
 
 template <typename T>
@@ -307,7 +310,8 @@ std::string replace_all(const std::string &string, const std::string &pattern, c
 std::vector<std::string> split(const std::string &string, const std::string &delimiter);
 std::string join(const std::vector<std::string> &strings, const std::string &delimiter);
 
-std::string& append_with_indentation(std::string &target, std::string &&other, unsigned indent);
+std::ostream& append_with_indentation(std::ostream &OS, const std::string &other, unsigned indent);
+std::string& append_with_indentation(std::string &target, const std::string &other, unsigned indent);
 
 
 // TODO move this into a path_utils namespace or something like that?
