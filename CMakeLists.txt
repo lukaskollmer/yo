@@ -56,8 +56,8 @@ add_executable(yo
     src/Scope.cpp
     src/StdlibResolution.h
     src/StdlibResolution.cpp
-    src/TemplateResolution.h
-    src/TemplateResolution.cpp
+    src/TemplateSpecialization.h
+    src/TemplateSpecialization.cpp
     src/Token.h
     src/Token.cpp
     src/Type.h

@@ -8,16 +8,16 @@
 
 #pragma once
 
+#include "util.h"
+#include "Token.h"
+#include "Lexer.h"
+#include "AST.h"
+#include "Attributes.h"
+
 #include <memory>
 #include <vector>
 #include <initializer_list>
 #include <optional>
-
-#include "Token.h"
-#include "util.h"
-#include "Lexer.h"
-#include "AST.h"
-#include "Attributes.h"
 
 
 NS_START(yo::parser)
@@ -51,7 +51,6 @@ public:
     ast::AST parse(const std::string &filepath);
     
     void setCustomStdlibRoot(const std::string &path) {
-        useCustomStdlibRoot = true;
         customStdlibRoot = path;
     }
     
@@ -59,16 +58,12 @@ private:
     std::vector<Token> tokens;
     uint64_t position;
     std::vector<std::string> importedFiles;
-    
-    // TODO replace these two w/ a single std::optional?
-    bool useCustomStdlibRoot = false;
-    std::string customStdlibRoot;
+    std::optional<std::string> customStdlibRoot;
     
     void resolveImport();
     std::string resolveImportPathRelativeToBaseDirectory(const TokenSourceLocation&, const std::string &moduleName, const std::string &baseDirectory);
     
     const Token& currentToken() { return tokens[position]; }
-    const Token& nextToken() { return tokens[++position]; }
     
     Token::TokenKind currentTokenKind() {
         return currentToken().getKind();
@@ -88,6 +83,7 @@ private:
     
     // Error messages
     
+    [[noreturn]]
     void unhandledToken(const Token &);
     void assertTk(Token::TokenKind expected);
     void assertTkAndConsume(Token::TokenKind expected) {

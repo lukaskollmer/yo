@@ -1,5 +1,5 @@
 //
-//  TemplateResolution.h
+//  TemplateSpecialization.h
 //  yo
 //
 //  Created by Lukas Kollmer on 2019-04-20.
@@ -20,7 +20,7 @@
 
 NS_START(yo::irgen)
 
-class TemplateResolver {
+class TemplateSpecializer {
 public:
     using TemplateTypeMapping = std::map<std::string, std::shared_ptr<ast::TypeDesc>>;
     
@@ -30,7 +30,7 @@ private:
     const TemplateTypeMapping templateArgumentMapping;
     //const IRGenerator &irgen;
     
-    explicit TemplateResolver(/*const IRGenerator &irgen,*/ TemplateTypeMapping templateArgumentMapping) : /*irgen(irgen),*/ templateArgumentMapping(templateArgumentMapping) {}
+    explicit TemplateSpecializer(/*const IRGenerator &irgen,*/ TemplateTypeMapping templateArgumentMapping) : /*irgen(irgen),*/ templateArgumentMapping(templateArgumentMapping) {}
     
     //TypeInfo *resolveType(TypeInfo *TI);
     std::shared_ptr<ast::TypeDesc> resolveType(std::shared_ptr<ast::TypeDesc>);

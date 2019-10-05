@@ -10,7 +10,7 @@
 
 #include "Mangling.h"
 #include "util_llvm.h"
-#include "TemplateResolution.h"
+#include "TemplateSpecialization.h"
 #include "Attributes.h"
 #include "Diagnostics.h"
 
@@ -600,6 +600,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         const auto &paramNameDecl = functionDecl->getParamNames().at(i);
         if (options.enableDebugMetadata) {
             auto SP = debugInfo.lexicalBlocks.back();
+//            if (functionDecl->getAttributes().always_inline && )
             auto varInfo = debugInfo.builder.createParameterVariable(SP, alloca->getName(), i + 1, SP->getFile(),
                                                                      paramNameDecl->getSourceLocation().line,
                                                                      resolveTypeDesc(paramTy)->getLLVMDIType());
@@ -637,7 +638,31 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     
     currentFunction = FunctionState(functionDecl, F, returnBB, retvalAlloca);
     
+    
+//    {
+//        auto ty = llvm::dyn_cast<StructType>(nominalTypes["Foo"]);
+//
+//        auto alloca = builder.CreateAlloca(getLLVMType(ty));
+//        alloca->setName("f");
+//
+//
+//        scope.insert("f", ty, ValueBinding(alloca, [=]() {
+//            return builder.CreateLoad(alloca);
+//        }, [=](llvm::Value *val) {
+//            LKFatalError("write");
+//        }));
+//
+//
+//        llvm::Value *fVal = codegen(makeIdent("f"), LValue);
+//        llvm::outs() << fVal << "\n";
+//        llvm::outs() << fVal->getType() << "\n";
+//
+//    }
+    
     codegen(functionDecl->getBody());
+    
+//    scope.remove("f");
+    
     
     // TODO this is a bad idea!
     if (F->getReturnType()->isVoidTy() && !std::dynamic_pointer_cast<ast::ReturnStmt>(functionDecl->getBody().back())) {
@@ -675,8 +700,35 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StructDecl> structDecl) {
     if (!structDecl->attributes.no_init) {
         generateStructInitializer(structDecl);
     }
+    
+    NEW_synthesizeStructInitializer(structDecl);
+    
     return nullptr;
 }
+
+
+
+
+llvm::Value *IRGenerator::NEW_synthesizeStructInitializer(std::shared_ptr<ast::StructDecl> structDecl) {
+    LKFatalError("TODO: implement!");
+//    auto structTy = llvm::dyn_cast<StructType>(resolveTypeDesc(ast::TypeDesc::makeNominal(structDecl->name)));
+//
+//    std::string name = structTy->getName();
+//
+//    std::vector<llvm::Type *> params = { i32 };
+//
+//    auto llvmFnTy = llvm::FunctionType::get(structTy->getLLVMType(), params, false);
+//    auto llvmFn = llvm::Function::Create(llvmFnTy, llvm::Function::LinkageTypes::ExternalLinkage, name, *module);
+//
+//    // resolvedFunctions[name] =
+//    ast::FunctionSignature sig;
+//    functions[name] = ResolvedCallable(, <#std::shared_ptr<ast::FunctionDecl> funcDecl#>, <#llvm::Value *llvmValue#>, <#uint8_t argumentOffset#>)
+//
+//
+//
+//    LKFatalError("TODO");
+}
+
 
 
 
@@ -1498,7 +1550,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     
 
     auto specializeTemplateFunctionForCall = [this, argumentOffset, omitCodegen] (std::shared_ptr<ast::FunctionDecl> functionDecl, std::map<std::string, std::shared_ptr<ast::TypeDesc>> templateArgumentMapping) -> ResolvedCallable {
-        auto specializedDecl = TemplateResolver::specializeWithTemplateMapping(functionDecl, templateArgumentMapping);
+        auto specializedDecl = TemplateSpecializer::specializeWithTemplateMapping(functionDecl, templateArgumentMapping);
 
         // Avoid generating the same specialization multiple times
         // In theory, we should never end up here since the call target resolution code should prefer the already-specialized version

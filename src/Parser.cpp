@@ -149,14 +149,14 @@ void Parser::resolveImport() {
     auto isStdlibImport = moduleName[0] == ':';
     if (isStdlibImport && util::vector::contains(importedFiles, moduleName)) {
         return;
-    } else if (isStdlibImport && !useCustomStdlibRoot) {
+    } else if (isStdlibImport && !customStdlibRoot.has_value()) {
         importedFiles.push_back(moduleName);
         newTokens = Lexer().lex(stdlib_resolution::getContentsOfModuleWithName(moduleName), moduleName);
     } else {
         if (isStdlibImport) {
             importedFiles.push_back(moduleName);
             moduleName.erase(moduleName.begin());
-            baseDirectory = customStdlibRoot;
+            baseDirectory = customStdlibRoot.value();
         }
         auto path = resolveImportPathRelativeToBaseDirectory(importLoc, moduleName, baseDirectory);
         if (util::vector::contains(importedFiles, path)) return;
@@ -164,9 +164,7 @@ void Parser::resolveImport() {
         newTokens = lexFile(path);
     }
     
-    tokens.insert(tokens.begin() + position,
-                  newTokens.begin(),
-                  newTokens.end() - 1); // exclude EOF_
+    tokens.insert(tokens.begin() + position, newTokens.begin(), newTokens.end() - 1); // exclude EOF_
 }
 
 
@@ -450,7 +448,6 @@ void Parser::parseFunctionParameterList(FunctionSignature &signature, std::vecto
         
         if (currentTokenKind() == TK::Ident && peekKind(1) == TK::Colon && peekKind(2) != TK::Colon) {
             // <ident>: <type>
-            //ident = parseIdentAsString();
             ident = parseIdent();
             assertTkAndConsume(TK::Colon);
             type = parseType();
