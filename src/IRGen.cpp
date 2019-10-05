@@ -2165,7 +2165,8 @@ void IRGenerator::handleStartupAndShutdownFunctions() {
     std::vector<llvm::Type *> structTys = {
         i32, llvm::FunctionType::get(Void, false)->getPointerTo(), i8_ptr
     };
-    auto structTy = llvm::StructType::get(C, structTys);
+    //auto structTy = llvm::StructType::get(C, structTys);
+    auto structTy = llvm::StructType::create(C, structTys);
     
     
     
