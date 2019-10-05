@@ -737,6 +737,11 @@ std::shared_ptr<VarDecl> Parser::parseVariableDecl() {
     if (currentTokenKind() == TK::EqualsSign) {
         consume();
         initialValue = parseExpression();
+        if (!initialValue) {
+            diagnostics::failWithError(getCurrentSourceLocation(), "expected expression");
+        }
+    } else {
+        diagnostics::failWithError(getCurrentSourceLocation(), "expected initial value");
     }
     
     assertTkAndConsume(TK::Semicolon);
