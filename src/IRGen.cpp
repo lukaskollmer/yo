@@ -191,13 +191,18 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     if (isMain) {
         functionDecl->getAttributes().no_mangle = true;
         
-        ast::FunctionSignature expectedSig;
-        expectedSig.returnType = ast::TypeDesc::makeResolved(Type::getInt32Type());
-        expectedSig.paramTypes = { expectedSig.returnType, ast::TypeDesc::makeResolved(Type::getInt8Type()->getPointerTo()->getPointerTo()) };
-        
-        if (!equal(sig, expectedSig)) {
-            auto msg = util::fmt::format("Invalid fignature for function 'main'. Expected '{}', but got '{}'", expectedSig, sig);
-            diagnostics::failWithError(functionDecl->getSourceLocation(), msg);
+        // Check signature
+        if (sig.paramTypes.empty() && resolveTypeDesc(sig.returnType) != Type::getInt32Type()) {
+            diagnostics::failWithError(functionDecl->getSourceLocation(), "Invalid signature: 'main' must return 'i32'");
+        } else if (!sig.paramTypes.empty()) {
+            ast::FunctionSignature expectedSig;
+            expectedSig.returnType = ast::TypeDesc::makeResolved(Type::getInt32Type());
+            expectedSig.paramTypes = {
+                expectedSig.returnType, ast::TypeDesc::makeResolved(Type::getInt8Type()->getPointerTo()->getPointerTo())
+            };
+            if (!equal(sig, expectedSig)) {
+                diagnostics::failWithError(functionDecl->getSourceLocation(), util::fmt::format("Invalid signature for function 'main'. Expected {}, got {}", expectedSig, sig));
+            }
         }
     }
     
