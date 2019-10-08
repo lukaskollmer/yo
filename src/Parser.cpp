@@ -741,7 +741,9 @@ std::shared_ptr<VarDecl> Parser::parseVariableDecl() {
             diagnostics::failWithError(getCurrentSourceLocation(), "expected expression");
         }
     } else {
-        diagnostics::failWithError(getCurrentSourceLocation(), "expected initial value");
+        initialValue = nullptr;
+        // TOOD should this be a parse-time error?
+        //diagnostics::failWithError(getCurrentSourceLocation(), "expected initial value");
     }
     
     assertTkAndConsume(TK::Semicolon);

@@ -98,6 +98,8 @@ static llvm::cl::list<std::string> runArgs("run-args", llvm::cl::desc("Argv to b
 // Internal / experimental flags
 static llvm::cl::opt<bool> int_sigabrtOnFatalError("int_sigabrt-on-fatal-error", llvm::cl::Hidden);
 static llvm::cl::opt<bool> farc("farc", llvm::cl::desc("[Experimental] enable ARC"), llvm::cl::cat(CLIOptionsCategory), llvm::cl::Hidden);
+static llvm::cl::opt<bool> fzeroInitialize("fzero-initialize", llvm::cl::desc("allow uninitialized variables and zero-initialize them"),
+                                              llvm::cl::cat(CLIOptionsCategory));
 
 
 void version_printer(llvm::raw_ostream &OS) {
@@ -407,6 +409,7 @@ int main(int argc, const char * argv[], const char *const *envp) {
     options.enableARC = cl::farc;
     options.enableDebugMetadata = cl::emitDebugMetadata;
     options.isOptimized = cl::optimize;
+    options.zeroInitialize = cl::fzeroInitialize;
     
     irgen::IRGenerator codegen(inputFile, options);
     codegen.codegen(ast);

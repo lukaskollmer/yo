@@ -32,6 +32,7 @@ struct IRGenOptions {
     bool enableARC;
     bool enableDebugMetadata;
     bool isOptimized;
+    bool zeroInitialize;
 };
 
 

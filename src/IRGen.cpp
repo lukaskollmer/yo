@@ -788,6 +788,22 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
         // Q: Why create and handle an assignment to set the initial value, instead of just calling Binding.Write?
         // A: The Assignment codegen also includes the trivial type transformations, whish we'd otherwise have to implement again in here
         codegen(std::make_shared<ast::Assignment>(makeIdent(varDecl->name), varDecl->initialValue));
+    } else {
+        if (!options.zeroInitialize) {
+            diagnostics::failWithError(varDecl->getSourceLocation(), "no initial value specified");
+        } else {
+            // zero initialize
+            if (!(type->isPointerTy() || type->isNumericalTy())) {
+                // TODO:
+                // 1) should function types be considered pointers? (probably, right?)
+                // 2) there are other types that can also be zero-initialized? (basically everything!)
+                // -> this is a stupid requirement
+                diagnostics::failWithError(varDecl->getSourceLocation(), "only pointer or numerical types can be zero-initialized");
+            } else {
+                auto null = llvm::Constant::getNullValue(type->getLLVMType());
+                builder.CreateStore(null, alloca);
+            }
+        }
     }
     
     return alloca;
