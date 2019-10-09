@@ -1845,61 +1845,108 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
 
 
 
+
 #pragma mark - Intrinsics
 
-static const std::map<std::string_view, ast::Operator> intrinsicsArithmeticOperationMapping = {
-    { "__add", ast::Operator::Add },
-    { "__sub", ast::Operator::Sub },
-    { "__mul", ast::Operator::Mul },
-    { "__div", ast::Operator::Div },
-    { "__mod", ast::Operator::Mod },
-    { "__and", ast::Operator::And },
-    { "__or",  ast::Operator::Or  },
-    { "__xor", ast::Operator::Xor },
-    { "__shl", ast::Operator::Shl },
-    { "__shr", ast::Operator::Shr },
+
+enum class Intrinsic : uint8_t {
+    Unknown,
+    
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    And,
+    Or,
+    Xor,
+    Shl,
+    Shr,
+    
+    EQ,
+    LT,
+    GT,
+    
+    StaticCast,
+    ReinterpretCast,
+    Sizeof,
+    Trap
 };
 
-static const std::map<std::string_view, ast::Operator> intrinsicsComparisonOperationMapping = {
-    { "__eq", ast::Operator::EQ },
-    { "__lt", ast::Operator::LT },
-    { "__gt", ast::Operator::GT }
+static const std::map<std::string_view, Intrinsic> intrinsics = {
+    { "__add", Intrinsic::Add },
+    { "__sub", Intrinsic::Sub },
+    { "__mul", Intrinsic::Mul },
+    { "__div", Intrinsic::Div },
+    { "__mod", Intrinsic::Mod },
+    { "__and", Intrinsic::And },
+    { "__or",  Intrinsic::Or  },
+    { "__xor", Intrinsic::Xor },
+    { "__shl", Intrinsic::Shl },
+    { "__shr", Intrinsic::Shr },
+    
+    { "__eq", Intrinsic::EQ },
+    { "__LT", Intrinsic::LT },
+    { "__GT", Intrinsic::GT },
+    
+    { "static_cast", Intrinsic::StaticCast },
+    { "reinterpret_cast", Intrinsic::ReinterpretCast },
+    { "sizeof", Intrinsic::Sizeof },
+    { "__trap", Intrinsic::Trap },
+};
+
+
+static const std::map<Intrinsic, ast::Operator> intrinsicsArithmeticOperationMapping = {
+#define MAPPING(name) { Intrinsic::name, ast::Operator::name },
+    MAPPING(Add) MAPPING(Sub) MAPPING(Mul) MAPPING(Div) MAPPING(Mod)
+    MAPPING(And) MAPPING(Or) MAPPING(Xor)
+    MAPPING(Shl) MAPPING(Shr)
+#undef MAPPING
+};
+
+static const std::map<Intrinsic, ast::Operator> intrinsicsComparisonOperationMapping = {
+#define MAPPING(name) { Intrinsic::name, ast::Operator::name },
+    MAPPING(EQ) MAPPING(LT) MAPPING(GT)
+#undef MAPPING
 };
 
 
 llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionDecl> funcDecl, std::shared_ptr<ast::CallExpr> call) {
-    // TODO come up w/ something better than just a bunch of string comparisons!
-    
     auto name = mangling::mangleCanonicalName(funcDecl);
+    auto intrinsic = intrinsics.at(name);
     
-    if (name == "static_cast" || name == "reinterpret_cast") {
-        // TODO somehow use the SrcTy, if explicitly given?
-        auto dstTy = call->explicitTemplateArgumentTypes[0];
-        auto arg = call->arguments[0];
-        auto castKind = name == "static_cast"
-            ? ast::CastExpr::CastKind::StaticCast
-            : ast::CastExpr::CastKind::Bitcast;
-        auto castExpr = std::make_shared<ast::CastExpr>(arg, dstTy, castKind);
-        castExpr->setSourceLocation(funcDecl->getSourceLocation());
-        return codegen(castExpr);
+    switch (intrinsic) {
+        case Intrinsic::StaticCast:
+        case Intrinsic::ReinterpretCast: {
+            auto dstTy = call->explicitTemplateArgumentTypes[0];
+            auto arg = call->arguments[0];
+            auto castKind = intrinsic == Intrinsic::StaticCast
+                ? ast::CastExpr::CastKind::StaticCast
+                : ast::CastExpr::CastKind::Bitcast;
+            auto castExpr = std::make_shared<ast::CastExpr>(arg, dstTy, castKind);
+            castExpr->setSourceLocation(funcDecl->getSourceLocation());
+            return codegen(castExpr);
+        }
+        
+        case Intrinsic::Sizeof: {
+            auto ty = resolveTypeDesc(call->explicitTemplateArgumentTypes[0])->getLLVMType();
+            return llvm::ConstantInt::get(i64, module->getDataLayout().getTypeAllocSize(ty));
+        }
+        
+        case Intrinsic::Trap:
+            return builder.CreateIntrinsic(llvm::Intrinsic::ID::trap, {}, {});
+        
+        default: break;
     }
     
-    if (name == "sizeof") {
-        auto ty = resolveTypeDesc(call->explicitTemplateArgumentTypes[0])->getLLVMType();
-        return llvm::ConstantInt::get(i64, module->getDataLayout().getTypeAllocSize(ty));
-    }
-    
-    if (name == "__trap") {
-        return builder.CreateIntrinsic(llvm::Intrinsic::ID::trap, {}, {});
-    }
     
     
-    if (auto op = util::map::get_opt(intrinsicsArithmeticOperationMapping, std::string_view(name))) {
+    if (auto op = util::map::get_opt(intrinsicsArithmeticOperationMapping, intrinsic)) {
         LKAssert(call->arguments.size() == 2);
         return codegen_HandleArithmeticIntrinsic(op.value(), call->arguments[0], call->arguments[1]);
     }
     
-    if (auto op = util::map::get_opt(intrinsicsComparisonOperationMapping, std::string_view(name))) {
+    if (auto op = util::map::get_opt(intrinsicsComparisonOperationMapping, intrinsic)) {
         LKAssert(call->arguments.size() == 2);
         return codegen_HandleComparisonIntrinsic(op.value(), call->arguments[0], call->arguments[1]);
     }
