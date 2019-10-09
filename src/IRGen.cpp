@@ -1801,8 +1801,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
         return codegen_HandleIntrinsic(resolvedTarget.funcDecl, call);
     }
     
-    std::cout << resolvedSig << std::endl;
-    
     llvm::Value *llvmFunction = resolvedTarget.llvmValue;
     LKAssert(llvmFunction->getType()->isPointerTy() && llvmFunction->getType()->getContainedType(0)->isFunctionTy());
     auto llvmFunctionTy = llvm::dyn_cast<llvm::FunctionType>(llvmFunction->getType()->getContainedType(0));
