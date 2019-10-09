@@ -1639,11 +1639,12 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     for (const auto &target : possibleTargets) {
         const auto &decl = target.funcDecl;
         const auto &sig = decl->getSignature();
+        const bool isVariadicWithCLinkage = sig.isVariadic && target.funcDecl->getAttributes().extern_;
         
-        if (!sig.isVariadic && sig.paramTypes.size() != callExpr->arguments.size() - argumentOffset) {
+        if (!sig.isVariadic && callExpr->arguments.size() != sig.paramTypes.size() - argumentOffset) {
 //            util::fmt::print("rejecting target '{}: {}' because of argument count mismatch", targetName, target.signature);
             continue;
-        } else if (sig.isVariadic && (callExpr->arguments.size() < sig.paramTypes.size() - argumentOffset - 1)) { // TODO is 1 _really_ the right magic number here?
+        } else if (sig.isVariadic && (callExpr->arguments.size() < sig.paramTypes.size() - argumentOffset - !isVariadicWithCLinkage)) {
 //            util::fmt::print("rejecting target '{}: {}' because of variadic argument count mismatch", targetName, target.signature);
             continue;
         }
@@ -1658,7 +1659,6 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         // for example, printf(*i8...) cannot be called w/ zero arguments, since that would also leave out the format string
         
         uint32_t score = 0;
-        const bool isVariadicWithCLinkage = sig.isVariadic && target.funcDecl->getAttributes().extern_;
         size_t lastTypecheckedArgument = isVariadicWithCLinkage ? sig.paramTypes.size() : callExpr->arguments.size();
         
         for (size_t i = argumentOffset; i < lastTypecheckedArgument; i++) {
