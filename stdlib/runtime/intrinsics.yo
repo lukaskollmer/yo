@@ -1,3 +1,5 @@
+#[intrinsic] fn __trap();
+
 #[intrinsic] fn __add<T>(T, T) -> T;
 #[intrinsic] fn __sub<T>(T, T) -> T;
 #[intrinsic] fn __mul<T>(T, T) -> T;

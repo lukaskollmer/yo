@@ -1841,6 +1841,8 @@ static const std::map<std::string_view, ast::Operator> intrinsicsComparisonOpera
 
 
 llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionDecl> funcDecl, std::shared_ptr<ast::CallExpr> call) {
+    // TODO come up w/ something better than just a bunch of string comparisons!
+    
     auto name = mangling::mangleCanonicalName(funcDecl);
     
     if (name == "static_cast" || name == "reinterpret_cast") {
@@ -1859,6 +1861,11 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
         auto ty = resolveTypeDesc(call->explicitTemplateArgumentTypes[0])->getLLVMType();
         return llvm::ConstantInt::get(i64, module->getDataLayout().getTypeAllocSize(ty));
     }
+    
+    if (name == "__trap") {
+        return builder.CreateIntrinsic(llvm::Intrinsic::ID::trap, {}, {});
+    }
+    
     
     if (auto op = util::map::get_opt(intrinsicsArithmeticOperationMapping, std::string_view(name))) {
         LKAssert(call->arguments.size() == 2);
