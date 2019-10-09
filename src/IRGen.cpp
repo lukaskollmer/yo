@@ -1641,10 +1641,10 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         const auto &sig = decl->getSignature();
         
         if (!sig.isVariadic && sig.paramTypes.size() != callExpr->arguments.size() - argumentOffset) {
-            util::fmt::print("rejecting target '{}: {}' because of argument count mismatch", targetName, target.signature);
+//            util::fmt::print("rejecting target '{}: {}' because of argument count mismatch", targetName, target.signature);
             continue;
         } else if (sig.isVariadic && (callExpr->arguments.size() < sig.paramTypes.size() - argumentOffset - 1)) { // TODO is 1 _really_ the right magic number here?
-            util::fmt::print("rejecting target '{}: {}' because of variadic argument count mismatch", targetName, target.signature);
+//            util::fmt::print("rejecting target '{}: {}' because of variadic argument count mismatch", targetName, target.signature);
             continue;
         }
         
@@ -1768,7 +1768,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
     emitDebugLocation(call);
     
     auto resolvedTarget = resolveCall(call, false);
-    const auto &resolvedSig = resolvedTarget.signature;
     
     // TODO:
     // - run argument type checks for intrinsics as well
