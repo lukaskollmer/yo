@@ -58,11 +58,6 @@ NumericalType* Type::getFloat64Type() { return _float64Ty; }
 
 
 
-bool Type::isNominalType() const {
-    return typeId == TypeID::Void || typeId == TypeID::Numerical;
-}
-
-
 
 std::string Type::str() const {
     return getName();

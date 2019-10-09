@@ -66,7 +66,6 @@ public:
     void setLLVMDIType(llvm::DIType *ty) { llvmDIType = ty; }
     
     
-    bool isNominalType() const;
     virtual std::string getName() const;
     virtual std::string str() const;
     
