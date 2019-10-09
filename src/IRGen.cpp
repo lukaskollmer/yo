@@ -706,7 +706,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StructDecl> structDecl) {
         generateStructInitializer(structDecl);
     }
     
-    NEW_synthesizeStructInitializer(structDecl);
+    //NEW_synthesizeStructInitializer(structDecl);
     
     return nullptr;
 }
