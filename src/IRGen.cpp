@@ -13,6 +13,7 @@
 #include "TemplateSpecialization.h"
 #include "Attributes.h"
 #include "Diagnostics.h"
+#include "CommandLine.h"
 
 #include <optional>
 #include <limits>
@@ -49,11 +50,11 @@ std::shared_ptr<ast::Ident> makeIdent(const std::string& str) {
 
 llvm::LLVMContext IRGenerator::C;
 
-IRGenerator::IRGenerator(const std::string& translationUnitPath, IRGenOptions options)
+IRGenerator::IRGenerator(const std::string& translationUnitPath)
     : module(llvm::make_unique<llvm::Module>(util::fs::path_utils::getFilename(translationUnitPath), C)),
     builder(C),
     debugInfo{llvm::DIBuilder(*module), nullptr, {}},
-    options(options)
+    CLIOptions(cl::get_options())
 {
     i8  = llvm::Type::getInt8Ty(C);
     i16 = llvm::Type::getInt16Ty(C);
@@ -70,7 +71,7 @@ IRGenerator::IRGenerator(const std::string& translationUnitPath, IRGenOptions op
     
     debugInfo.compileUnit = debugInfo.builder.createCompileUnit(llvm::dwarf::DW_LANG_C,
                                                                 debugInfo.builder.createFile(filename, path),
-                                                                "yo", options.isOptimized, "", 0);
+                                                                "yo", CLIOptions.optimize, "", 0);
     debugInfo.lexicalBlocks.push_back(debugInfo.compileUnit);
     module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
     
@@ -100,7 +101,7 @@ IRGenerator::IRGenerator(const std::string& translationUnitPath, IRGenOptions op
 
 
 void IRGenerator::emitDebugLocation(const std::shared_ptr<ast::Node> &node) {
-    if (!options.enableDebugMetadata) return;
+    if (!CLIOptions.emitDebugMetadata) return;
     
     if (!node) {
         builder.SetCurrentDebugLocation(llvm::DebugLoc());
@@ -272,7 +273,7 @@ void IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl
     structMembers.reserve(memberCount);
     //LKAssert(LKMetadataAccessor->isStructTy()); // Should always be true
     
-    if (options.enableARC && structDecl->attributes.arc) {
+    if (CLIOptions.farc && structDecl->attributes.arc) {
         for (const auto& member : LKMetadataAccessor->getMembers()) {
             structMembers.push_back(member);
         }
@@ -565,7 +566,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     auto returnBB = llvm::BasicBlock::Create(C, "return");
     builder.SetInsertPoint(entryBB);
     
-    if (options.enableDebugMetadata) {
+    if (CLIOptions.emitDebugMetadata) {
         auto unit = DIFileForSourceLocation(debugInfo.builder, functionDecl->getSourceLocation());
         auto SP = debugInfo.builder.createFunction(unit, functionDecl->getName(), resolvedName, unit,
                                            sig.getSourceLocation().line,
@@ -603,7 +604,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         
         const auto &paramTy = sig.paramTypes.at(i);
         const auto &paramNameDecl = functionDecl->getParamNames().at(i);
-        if (options.enableDebugMetadata) {
+        if (CLIOptions.emitDebugMetadata) {
             auto SP = debugInfo.lexicalBlocks.back();
 //            if (functionDecl->getAttributes().always_inline && )
             auto varInfo = debugInfo.builder.createParameterVariable(SP, alloca->getName(), i + 1, SP->getFile(),
@@ -632,7 +633,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         
         
         // Create Debug Metadata
-        if (options.enableDebugMetadata) {
+        if (CLIOptions.emitDebugMetadata) {
             auto SP = debugInfo.lexicalBlocks.back();
             auto D = debugInfo.builder.createAutoVariable(SP, kRetvalAllocaIdentifier, SP->getFile(),
                                                           sig.getSourceLocation().line, returnType->getLLVMDIType());
@@ -692,7 +693,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     }
     
     currentFunction = FunctionState();
-    if (options.enableDebugMetadata) {
+    if (CLIOptions.emitDebugMetadata) {
         debugInfo.lexicalBlocks.pop_back(); // TODO maybe add a check that the lexical blocks weren't somehow modified?
     }
     return F;
@@ -768,7 +769,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
     alloca->setName(varDecl->name);
     
     // Create Debug Metadata
-    if (options.enableDebugMetadata) {
+    if (CLIOptions.emitDebugMetadata) {
         auto D = debugInfo.builder.createAutoVariable(currentFunction.llvmFunction->getSubprogram(),
                                                       varDecl->name,
                                                       debugInfo.lexicalBlocks.back()->getFile(),
@@ -794,7 +795,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
         // A: The Assignment codegen also includes the trivial type transformations, whish we'd otherwise have to implement again in here
         codegen(std::make_shared<ast::Assignment>(makeIdent(varDecl->name), varDecl->initialValue));
     } else {
-        if (!options.zeroInitialize) {
+        if (!CLIOptions.fzeroInitialize) {
             diagnostics::failWithError(varDecl->getSourceLocation(), "no initial value specified");
         } else {
             // zero initialize
@@ -1681,7 +1682,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
                 // TODO why this check? both integers and floats should support implicit literal conversion
                 LKAssert(numberLiteral->type == ast::NumberLiteral::NumberType::Integer);
                 if (valueIsTriviallyConvertibleTo(numberLiteral, expectedType)) {
-                    score += 5; // TODO this seems like a bad implementation?
+                    score += 5; // TODO this can hardly be a good idea?
                 }
             }
         }
@@ -2730,7 +2731,7 @@ llvm::Value *IRGenerator::generateStructInitializer(std::shared_ptr<ast::StructD
     }
 
     // set runtime metadata
-    if (options.enableARC && structDecl->attributes.arc) {
+    if (CLIOptions.farc && structDecl->attributes.arc) {
         auto set_retaincount = std::make_shared<ast::Assignment>(std::make_shared<ast::MemberExpr>(self, "retainCount"),
                                                                  astgen::number((uint64_t(1) << 60) | 1));
 

@@ -19,6 +19,7 @@
 #include "Type.h"
 #include "Scope.h"
 #include "util.h"
+#include "CommandLine.h"
 
 
 NS_START(yo::irgen)
@@ -26,13 +27,6 @@ NS_START(yo::irgen)
 
 enum ValueKind {
     LValue, RValue
-};
-
-struct IRGenOptions {
-    bool enableARC;
-    bool enableDebugMetadata;
-    bool isOptimized;
-    bool zeroInitialize;
 };
 
 
@@ -77,7 +71,7 @@ class IRGenerator {
         std::vector<llvm::DIScope *> lexicalBlocks;
     } debugInfo;
     
-    const IRGenOptions options;
+    const cl::Options &CLIOptions;
     
     irgen::Scope scope;
     
@@ -106,7 +100,7 @@ class IRGenerator {
 public:
     static llvm::LLVMContext C;
     
-    IRGenerator(const std::string& translationUnitPath, IRGenOptions options);
+    explicit IRGenerator(const std::string& translationUnitPath);
     
     void codegen(const ast::AST& ast);
     
