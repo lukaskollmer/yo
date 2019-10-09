@@ -1516,6 +1516,17 @@ ast::FunctionSignature makeFunctionSignatureFromFunctionTypeInfo(FunctionType *f
 
 
 
+// TODO use this in resolveCall below. would allow uniform type checking for all kinds of callables (most notable locals, which aren't relly typeckecked at all in resolveCall)
+//// NOTE: This function returning true *does not* mean that the callable is the perfect (or even right, in some instances) target
+//// for the function call. All this function does is run some checks to see if the provided arguments are compatible with the callable's
+//// signature, and return true if that is the case
+//bool callableIsSuitableForFunctionCall(const ResolvedCallable &callable, std::shared_ptr<ast::CallExpr> call) {
+//    LKFatalError("implement");
+//}
+
+
+
+// This function will only return if the call can be resolved
 ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExpr, bool omitCodegen) {
     std::string targetName;
     uint8_t argumentOffset = 0;
@@ -1523,6 +1534,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     if (auto ident = std::dynamic_pointer_cast<ast::Ident>(callExpr->target)) {
         targetName = ident->value;
         
+        // this is in here because at this point targetName is just an identifier
         if (scope.contains(targetName)) {
             auto ty = scope.getType(targetName);
             LKAssert(ty->isFunctionTy() && "cannot call a non-function variable");
@@ -1600,27 +1612,13 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     
     
     
-    const auto& possibleTargets = functions[targetName];
-
+    // find a matching target
+    
+    const auto &possibleTargets = functions[targetName];
+    
     if (possibleTargets.empty()) {
         diagnostics::failWithError(callExpr->getSourceLocation(), util::fmt::format("unable to resolve call to '{}'", targetName));
     }
-        
-    if (possibleTargets.size() == 1) {
-        const auto& target = possibleTargets[0];
-        if (!target.funcDecl->getSignature().isTemplateFunction()) {
-            return ResolvedCallable(target.funcDecl, target.llvmValue, argumentOffset);
-        }
-        
-        // is a template functions
-        
-        auto templateArgumentMapping = attemptToResolveTemplateArgumentTypesForCall(target.funcDecl, callExpr, argumentOffset);
-        LKAssert(templateArgumentMapping.has_value());
-        return specializeTemplateFunctionForCall(target.funcDecl, templateArgumentMapping.value());
-    }
-    
-    
-    // more than one potential target
     
     
     struct FunctionResolutionMatchInfo {
@@ -1638,11 +1636,15 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     bool hasPerfectMatch = false;
     
     
-    for (const auto& target : possibleTargets) {
-        const auto& decl = target.funcDecl;
-        const auto& sig = decl->getSignature();
+    for (const auto &target : possibleTargets) {
+        const auto &decl = target.funcDecl;
+        const auto &sig = decl->getSignature();
         
-        if (sig.paramTypes.size() != callExpr->arguments.size()) {
+        if (!sig.isVariadic && sig.paramTypes.size() != callExpr->arguments.size() - argumentOffset) {
+            util::fmt::print("rejecting target '{}: {}' because of argument count mismatch", targetName, target.signature);
+            continue;
+        } else if (sig.isVariadic && (callExpr->arguments.size() < sig.paramTypes.size() - argumentOffset - 1)) { // TODO is 1 _really_ the right magic number here?
+            util::fmt::print("rejecting target '{}: {}' because of variadic argument count mismatch", targetName, target.signature);
             continue;
         }
         
@@ -1651,22 +1653,39 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             continue;
         }
         
-        uint32_t score = 0;
+        // extern variadic functions are treated as having C linkage and therefore allowed any variadic arguments
+        // another important distinction is that for functions w/ C linkage, the variadic parameter cannot be omitted.
+        // for example, printf(*i8...) cannot be called w/ zero arguments, since that would also leave out the format string
         
-        for (size_t i = 0; i < callExpr->arguments.size(); i++) {
+        uint32_t score = 0;
+        const bool isVariadicWithCLinkage = sig.isVariadic && target.funcDecl->getAttributes().extern_;
+        size_t lastTypecheckedArgument = isVariadicWithCLinkage ? sig.paramTypes.size() : callExpr->arguments.size();
+        
+        for (size_t i = argumentOffset; i < lastTypecheckedArgument; i++) {
             auto arg = callExpr->arguments[i];
             auto argTy = guessType(arg);
-            auto expectedTy = resolveTypeDesc(sig.paramTypes[i]);
+            Type *expectedType = nullptr;
             
-            if (argTy == expectedTy) {
+            if (i < sig.paramTypes.size()) {
+                expectedType = resolveTypeDesc(sig.paramTypes[i]);
+            } else {
+                LKFatalError("is this non-C-linkage varargs?");
+            }
+            
+            LKAssert(expectedType);
+            
+            if (argTy == expectedType) {
                 score += 10;
-            } else if (auto numberLiteral = std::dynamic_pointer_cast<ast::NumberLiteral>(arg)) {
+            } else if (arg->getNodeKind() == ast::Node::NodeKind::NumberLiteral) {
+                auto numberLiteral = std::static_pointer_cast<ast::NumberLiteral>(arg);
+                // TODO why this check? both integers and floats should support implicit literal conversion
                 LKAssert(numberLiteral->type == ast::NumberLiteral::NumberType::Integer);
-                if (valueIsTriviallyConvertibleTo(numberLiteral, expectedTy)) {
-                    score += 5;
+                if (valueIsTriviallyConvertibleTo(numberLiteral, expectedType)) {
+                    score += 5; // TODO this seems like a bad implementation?
                 }
             }
         }
+        
         
         matches.push_back({score, decl, target.llvmValue, {}});
         
@@ -1707,6 +1726,11 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         util::exitOrAbort();
     }
     
+    
+    if (matches.empty()) {
+        // TOOD list all considered targets and explain why they were rejected
+        diagnostics::failWithError(callExpr->getSourceLocation(), "Unable to resolve call");
+    }
 
     
     auto bestMatch = matches.front();
@@ -1714,7 +1738,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     if (bestMatch.decl->getSignature().isTemplateFunction() && !bestMatch.llvmValue) {
         return specializeTemplateFunctionForCall(bestMatch.decl, bestMatch.templateArgumentMapping);
     }
-    return ResolvedCallable(bestMatch.decl->getSignature(), nullptr, bestMatch.llvmValue, argumentOffset);
+    return ResolvedCallable(bestMatch.decl, bestMatch.llvmValue, argumentOffset);
 }
 
 
@@ -1744,6 +1768,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
     emitDebugLocation(call);
     
     auto resolvedTarget = resolveCall(call, false);
+    const auto &resolvedSig = resolvedTarget.signature;
     
     // TODO:
     // - run argument type checks for intrinsics as well
@@ -1751,6 +1776,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
     
     
     if (auto calledFuncDecl = resolvedTarget.funcDecl) {
+        // TODO properly implement side effects!
         if (!callerCalleeSideEffectsCompatible(currentFunction.decl->getAttributes().side_effects, calledFuncDecl->getAttributes().side_effects)) {
             auto targetName = mangling::mangleCanonicalName(calledFuncDecl);
             LKFatalError("cannot call '%s' because side effects", targetName.c_str());
@@ -1763,18 +1789,19 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
         auto expr = call->arguments[i - resolvedTarget.argumentOffset];
         Type *T;
         if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, expectedType, &T)) {
-            LKFatalError("Type mismatch in call. Arg #%zu: expected '%s', got '%s'",
-                         i, expectedType->str().c_str(), T->str().c_str());
+            diagnostics::failWithError(expr->getSourceLocation(),
+                                       util::fmt::format("Incompatible type for argument #{}. Expected '{}', got '{}'", i, expectedType, T));
         }
         // TODO is modifying the arguments in-place necessarily a good idea?
         call->arguments[i - resolvedTarget.argumentOffset] = expr;
     }
     
+    
     if (resolvedTarget.funcDecl && resolvedTarget.funcDecl->getAttributes().intrinsic) {
         return codegen_HandleIntrinsic(resolvedTarget.funcDecl, call);
     }
     
-    
+    std::cout << resolvedSig << std::endl;
     
     llvm::Value *llvmFunction = resolvedTarget.llvmValue;
     LKAssert(llvmFunction->getType()->isPointerTy() && llvmFunction->getType()->getContainedType(0)->isFunctionTy());
@@ -1800,6 +1827,8 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
         // TODO this is a pretty bad assumption to make.
         // what if in the future there are more situations other than member function calls that require special argument offsets
         // maybe a better idea: get rid of the argumentOffset thing, introduce more granular calling conventions (yo.globalFunction, yo.staticmember, yo.instancemember, yo.lambda, etc) and make implicit argument insertion dependent on that!
+        
+        // TODO make sure this doesn't codegen the target twice!
         args[0] = codegen(memberExpr->target);
     }
     
@@ -1883,8 +1912,7 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
         return codegen_HandleLogOpIntrinsic(op, call->arguments[0], call->arguments[1]);
     }
     
-    std::cout << "Unhandled call to intrinsic: " << name << std::endl;
-    LKFatalError("");
+    diagnostics::failWithError(call->getSourceLocation(), util::fmt::format("Unhandled call to intrinsic '{}'", name));
 }
 
 
