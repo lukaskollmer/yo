@@ -44,6 +44,8 @@ std::ostream& ast::operator<<(std::ostream &OS, const ast::FunctionSignature& si
         OS << (*it)->str();
         if (it + 1 != signature.paramTypes.end()) {
             OS << ", ";
+        } else if (signature.isVariadic) {
+            OS << "...";
         }
     }
     OS << ") -> " << signature.returnType->str();
