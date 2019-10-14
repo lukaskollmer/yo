@@ -63,7 +63,7 @@
         },
         {
             "comment": "Function call",
-            "match": "\\b(([a-zA-Z_][a-zA-Z0-9_]*)::)?([a-zA-Z_][a-zA-Z0-9_]*)(<([a-zA-Z_][a-zA-Z0-9_]*)>)?\\(",
+            "match": "\\b(([a-zA-Z_][a-zA-Z0-9_]*)::)?([a-zA-Z_][a-zA-Z0-9_]*)(<([a-zA-Z_][a-zA-Z0-9_]*)(,\\s*([a-zA-Z_][a-zA-Z0-9_]*))*>)?\\(",
             "captures": {
                 "2": {
                     "name":"entity.name.type.yo"
@@ -76,7 +76,8 @@
                     }]
                 },
                 "4": { "name": "keyword.operator.yo"},
-                "5": { "patterns": [{ "include": "#type" }] }
+                "5": { "patterns": [{ "include": "#type" }] },
+                "7": { "patterns": [{ "include": "#type" }] }
             }
         },
         {
