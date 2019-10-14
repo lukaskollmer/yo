@@ -73,15 +73,21 @@ std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specialize(std::shared_p
     }
     signature.returnType = resolveType(signature.returnType);
     
-    for (const auto& [name, type] : templateArgumentMapping) {
-        if (type) {
-            auto it = std::find(signature.templateArgumentNames.begin(),
-                                signature.templateArgumentNames.end(), name);
-            signature.templateArgumentNames.erase(it);
-        } else {
-            LKFatalError("Unresolved argument type in template function: %s (%s)", name.c_str(), mangling::mangleCanonicalName(decl).c_str());
-        }
+//    for (const auto& [name, type] : templateArgumentMapping) {
+//        if (type) {
+//            auto it = std::find(signature.templateArgumentNames.begin(),
+//                                signature.templateArgumentNames.end(), name);
+//            signature.templateArgumentNames.erase(it);
+//        } else {
+//            LKFatalError("Unresolved argument type in template function: %s (%s)", name.c_str(), mangling::mangleCanonicalName(decl).c_str());
+//        }
+//    }
+    
+    // TODO instead of replacig this here, simply add the mapping to the FuncDecl and insert implicit typealiases during function codegen!
+    for (const auto &templateArgTypename : signature.templateArgumentNames) {
+        LKAssert(util::map::has_key(templateArgumentMapping, templateArgTypename));
     }
+    signature.templateArgumentNames = {};
     
     
     auto specializedFuncDecl = std::make_shared<ast::FunctionDecl>(decl->getFunctionKind(),

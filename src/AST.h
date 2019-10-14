@@ -16,10 +16,12 @@
 #include <memory>
 #include <iostream>
 #include <variant>
+#include <string>
+#include <vector>
+#include <map>
 
-namespace llvm {
-    class Value;
-}
+namespace llvm { class Value; }
+namespace yo::irgen { class Type; }
 
 NS_START(yo::ast)
 
@@ -153,10 +155,13 @@ public:
     FunctionSignature() : Node(Node::NodeKind::FunctionSignature) {}
     
     bool isTemplateFunction() const { return !templateArgumentNames.empty(); }
+    std::vector<std::string> distinctTemplateArgumentNames() const;
+    uint64_t numberOfDistinctTemplateArgumentNames() const {
+        return distinctTemplateArgumentNames().size();
+    }
 };
 
 std::ostream& operator<<(std::ostream&, const ast::FunctionSignature&);
-
 
 
 
@@ -172,7 +177,10 @@ class FunctionDecl : public TopLevelStmt {
     
     FunctionKind funcKind;
     std::string name;
+    
+    // context
     irgen::StructType *implType = nullptr; // Only nonnull if this is a type member function
+    std::vector<yo::irgen::Type *> resolvedTemplateArgTypes;
 
     
 public:
@@ -187,6 +195,8 @@ public:
     const FunctionSignature& getSignature() const { return signature; }
     irgen::StructType* getImplType() const { return implType; }
     void setImplType(irgen::StructType *ty) { implType = ty; }
+    const auto& getResolvedTemplateArgTypes() const { return resolvedTemplateArgTypes; }
+    void setResolvedTemplateArgTypes(std::vector<yo::irgen::Type *> tys) { resolvedTemplateArgTypes = tys; }
     
     const std::vector<std::shared_ptr<Ident>>& getParamNames() const { return paramNames; }
     

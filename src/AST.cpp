@@ -14,6 +14,7 @@
 #include <sstream>
 #include <strstream>
 #include <map>
+#include <algorithm>
 
 
 // TODO
@@ -23,6 +24,14 @@
 using namespace yo;
 using namespace yo::ast;
 
+
+
+std::vector<std::string> FunctionSignature::distinctTemplateArgumentNames() const {
+    std::vector<std::string> names = templateArgumentNames;
+    auto last = std::unique(names.begin(), names.end());
+    names.erase(last, names.end());
+    return names;
+}
 
 
 #pragma mark - AST Printing

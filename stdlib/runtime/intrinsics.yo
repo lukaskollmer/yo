@@ -1,4 +1,5 @@
 #[intrinsic] fn __trap();
+#[intrinsic] fn __typename<T>() -> *i8;
 
 #[intrinsic] fn __add<T>(T, T) -> T;
 #[intrinsic] fn __sub<T>(T, T) -> T;

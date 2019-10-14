@@ -77,7 +77,7 @@ class IRGenerator {
     
     // Finalized nominal types
     // If the type is a template specialization, the key is the mangled name
-    std::map<std::string, Type *> nominalTypes;
+    NamedScope<Type *> nominalTypes;
     
     llvm::Type *i8, *i16, *i32, *i64;
     llvm::Type *i8_ptr;

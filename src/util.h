@@ -93,6 +93,11 @@ struct Range {
 
 
 
+template <typename T>
+T abs(T value) {
+    return value >= 0 ? value : -value;
+}
+
 
 template <typename F>
 class DeferHandle {

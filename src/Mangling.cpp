@@ -21,7 +21,7 @@ namespace yo::mangling {
     inline constexpr char kPrefixStaticMethod   = 'S';
     inline constexpr char kPrefixOperatorOverload = 'O';
     
-    inline constexpr char kTemplatedComplexTypePrefix = 'T';
+    inline constexpr char kTemplatedTypePrefix = 'T';
 //    inline constexpr char kComplexTypePrefix = 'C';
     
     
@@ -168,43 +168,7 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(yo::irgen::Type 
         case TypeID::Struct: {
             return appendWithCount(static_cast<irgen::StructType *>(ty)->getName());
         }
-            
     }
-//    switch (TI->getKind()) {
-//        case TypeInfo::Kind::Primitive: {
-//#define HANDLE(t, s) if (TI->equals(TypeInfo::t)) { return append(s); }
-//            HANDLE(i8,  "c") HANDLE(u8,  "C")
-//            HANDLE(i16, "s") HANDLE(u16, "S")
-//            HANDLE(i32, "i") HANDLE(u32, "I")
-//            HANDLE(i64, "q") HANDLE(u64, "Q")
-//            HANDLE(Void, "v")
-//            HANDLE(Bool, "b")
-//            LKFatalError("unhandled type: %s", TI->str().c_str());
-//#undef HANDLE
-//        }
-//
-//        case TypeInfo::Kind::Pointer:
-//            return append("P").appendEncodedType(TI->getPointee());
-//
-//        case TypeInfo::Kind::Complex:
-//            return appendWithCount(TI->getName());
-//            //return append("{").append(TI->getName()).append("}");
-//
-//        case TypeInfo::Kind::Function:
-//            throw;
-//
-//        case TypeInfo::Kind::Typealias:
-//            return appendEncodedType(TI->getPointee());
-//
-//        case TypeInfo::Kind::Unresolved:
-//            LKFatalError("should never reach here: %s", TI->str().c_str());
-//
-//        case TypeInfo::Kind::ComplexTemplated: {
-//            throw;
-//        }
-//    }
-//
-//    LKFatalError("[EncodeType] Unhandled type: %s", TI->str().c_str());
 }
 
 
@@ -244,6 +208,13 @@ std::string mangling::mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> fun
     
     for (auto &paramType : funcDecl->getSignature().paramTypes) {
         mangler.appendEncodedType(paramType->getResolvedType());
+    }
+    
+    if (!funcDecl->getResolvedTemplateArgTypes().empty()) {
+        mangler.append(kTemplatedTypePrefix);
+        for (auto &ty : funcDecl->getResolvedTemplateArgTypes()) {
+            mangler.appendEncodedType(ty);
+        }
     }
     
     return mangler.str();

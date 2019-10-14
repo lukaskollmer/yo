@@ -8,13 +8,15 @@
 
 #pragma once
 
+#include "util.h"
+#include "Type.h"
+#include "llvm/IR/Value.h"
+
 #include <tuple>
 #include <vector>
 #include <functional>
-#include "llvm/IR/Value.h"
-#include "Type.h"
-
-#include "util.h"
+#include <utility>
+#include <optional>
 
 
 NS_START(yo::irgen)
@@ -63,8 +65,55 @@ public:
     
     Marker getMarker();
     std::vector<Entry> getEntriesSinceMarker(Marker M);
-
-
 };
+
+
+
+
+
+
+
+template <typename T>
+class NamedScope {
+    using Entry = std::pair<std::string, T>;
+    std::vector<Entry> entries;
+    
+public:
+    using Marker = uint64_t;
+    
+    void insert(const std::string &ident, const T entry) {
+        entries.emplace_back(std::make_pair(ident, entry));
+    }
+    
+    bool contains(const std::string &ident) const {
+        return util::vector::contains_where(entries, [&ident](const auto &entry) {
+            return std::get<0>(entry) == ident;
+        });
+    }
+    
+    std::optional<T> get(const std::string &ident) const {
+        for (auto it = entries.rbegin(); it != entries.rend(); it++) {
+            if (it->first == ident) {
+                return it->second;
+            }
+        }
+        return std::nullopt;
+    }
+    
+    Marker getMarker() const {
+        return entries.size();
+    }
+    
+    std::vector<Entry> getEntriesSinceMarker(Marker M) const {
+        if (M >= entries.size()) return {};
+        return std::vector<Entry>(entries.begin() + M, entries.end());
+    }
+    
+    
+    void removeAllSinceMarker(Marker M) {
+        entries.erase(entries.begin() + M, entries.end());
+    }
+};
+
 
 NS_END
