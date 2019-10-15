@@ -55,7 +55,6 @@ add_executable(yo
     src/Pygmentize.h
     src/Pygmentize.cpp
     src/Scope.h
-    src/Scope.cpp
     src/StdlibResolution.h
     src/StdlibResolution.cpp
     src/TemplateSpecialization.h

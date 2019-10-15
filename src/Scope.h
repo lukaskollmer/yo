@@ -19,59 +19,7 @@
 #include <optional>
 
 
-NS_START(yo::irgen)
-
-struct ValueBinding {
-    using ReadImp  = std::function<llvm::Value*(void)>;
-    using WriteImp = std::function<void(llvm::Value*)>;
-    
-    const llvm::Value *value;
-    const ReadImp  read;
-    const WriteImp write;
-    
-    ValueBinding(llvm::Value *value, ReadImp read, WriteImp write) : value(value), read(read), write(write) {}
-};
-
-
-
-class Scope {
-    struct Entry {
-        std::string ident;
-        Type *type;
-        std::shared_ptr<ValueBinding> binding;
-    };
-    
-    std::vector<Entry> entries;
-    
-public:
-    using Marker = uint64_t;
-    
-    void insert(const std::string &identifier, Type *type, ValueBinding binding);
-    
-    // All of these return null if the scope doesn't contain the identifier
-    bool contains(const std::string &name);
-    ValueBinding *getBinding(const std::string &identifier);
-    Type *getType(const std::string &identifier);
-    
-    Entry remove(const std::string &identifier);
-    Entry *_getEntry(const std::string &odentifier, std::vector<Entry>::const_iterator *pos = nullptr);
-    
-    uint64_t size() { return entries.size(); }
-    bool isEmpty() { return entries.empty(); }
-    
-    std::vector<Entry> getAllEntries() {
-        return entries;
-    }
-    
-    Marker getMarker();
-    std::vector<Entry> getEntriesSinceMarker(Marker M);
-};
-
-
-
-
-
-
+namespace yo {
 
 template <typename T>
 class NamedScope {
@@ -80,6 +28,9 @@ class NamedScope {
     
 public:
     using Marker = uint64_t;
+    
+    bool isEmpty() const { return entries.empty(); }
+    uint64_t size() const { return entries.size(); }
     
     void insert(const std::string &ident, const T entry) {
         entries.emplace_back(std::make_pair(ident, entry));
@@ -109,6 +60,17 @@ public:
         return std::vector<Entry>(entries.begin() + M, entries.end());
     }
     
+    void remove(const std::string &ident) {
+        auto it = std::find_if(entries.rbegin(), entries.rend(), [ident] (const auto &entry) -> bool {
+            return entry.first == ident;
+        });
+        
+        if (it == entries.rend()) {
+            LKFatalError("Cannot delete nonexistent entry with ident '%s'", ident.c_str());
+        } else {
+            entries.erase((it + 1).base());
+        }
+    }
     
     void removeAllSinceMarker(Marker M) {
         entries.erase(entries.begin() + M, entries.end());
@@ -116,4 +78,4 @@ public:
 };
 
 
-NS_END
+} // end namespace yo

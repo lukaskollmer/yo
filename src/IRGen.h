@@ -30,6 +30,28 @@ enum ValueKind {
 };
 
 
+struct ValueBinding {
+    enum Flags : uint8_t {
+        CanRead  = 1 << 0,
+        CanWrite = 1 << 1
+    };
+    
+    using ReadImp  = std::function<llvm::Value*(void)>;
+    using WriteImp = std::function<void(llvm::Value*)>;
+    
+    Type *type;
+    llvm::Value *value;
+    ReadImp read;
+    WriteImp write;
+    uint8_t flags;
+    
+    bool hasFlag(Flags F) const { return flags & F; }
+    
+    ValueBinding(Type *type, llvm::Value *value, ReadImp read, WriteImp write, uint8_t F)
+    : type(type), value(value), read(read), write(write), flags(F) {}
+};
+
+
 struct ResolvedCallable {
     ast::FunctionSignature signature;
     std::shared_ptr<ast::FunctionDecl> funcDecl; // only nonnull if the callable is a function decl
@@ -73,7 +95,7 @@ class IRGenerator {
     
     const cl::Options &CLIOptions;
     
-    irgen::Scope scope;
+    NamedScope<ValueBinding> localScope;
     
     // Finalized nominal types
     // If the type is a template specialization, the key is the mangled name
@@ -238,16 +260,16 @@ private:
     // TODO this seems like a bad idea?
     // Assuming this is only ever used for registering synthesized functions, what about just having a `queueSynthFunction` function that registers the llvm::Function, and then puts the FuncDecl in a queue which is handled after regular codegen finished?
     template <typename F>
-    std::invoke_result_t<F> withCleanSlate(F fn) {
-        auto prevScope = scope;
+    std::invoke_result_t<F> withCleanSlate(F &&fn) {
+        auto prevLocalScope = localScope;
         auto prevCurrentFunction = currentFunction;
         auto prevInsertBlock = builder.GetInsertBlock();
         
-        scope = irgen::Scope();
+        localScope = {};
         
         auto retval = fn();
         
-        scope = prevScope;
+        localScope = prevLocalScope;
         currentFunction = prevCurrentFunction;
         builder.SetInsertPoint(prevInsertBlock);
         

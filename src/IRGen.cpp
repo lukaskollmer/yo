@@ -37,7 +37,6 @@ throw; }
 
 // TODO:
 // - get rid of `guessType` and instead have all functions return a `pair<llvm::Value*, yo::irgen::Type*>` ?
-// - rewrite ast::FunctionSignature to only contain the types of the parameters, not the actual identifiers
 
 
 std::shared_ptr<ast::Ident> makeIdent(const std::string& str) {
@@ -534,18 +533,6 @@ bool IRGenerator::equal(const ast::FunctionSignature &lhs, const ast::FunctionSi
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 #pragma mark - Top Level Statements
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDecl) {
@@ -556,7 +543,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         return nullptr;
     }
     
-    LKAssert(scope.isEmpty());
+    LKAssert(localScope.isEmpty());
     auto resolvedName = mangleFullyResolved(functionDecl);
     
     auto F = module->getFunction(resolvedName);
@@ -598,12 +585,17 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         auto alloca = builder.CreateAlloca(type->getLLVMType());
         const auto &name = functionDecl->getParamNames()[i]->value;
         alloca->setName(name);
-        scope.insert(name, type, ValueBinding(alloca, [=]() {
-            return builder.CreateLoad(alloca);
-        }, [=](llvm::Value *V) {
-            // TODO turn this into an assignment-side error
-            LKFatalError("Function arguments are read-only (%s in %s)", name.c_str(), resolvedName.c_str());
-        }));
+        
+        localScope.insert(name, ValueBinding{
+            type, alloca, [=]() -> llvm::Value* {
+                return builder.CreateLoad(alloca);
+            }, [=](llvm::Value *V) {
+                // TODO turn this into an assignment-side error
+                LKFatalError("Function arguments are read-only (%s in %s)", name.c_str(), resolvedName.c_str());
+            },
+            ValueBinding::Flags::CanRead
+        });
+        
         paramAllocas.push_back(alloca);
     }
     
@@ -633,13 +625,16 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     
     if (!returnType->isVoidTy()) {
         retvalAlloca = builder.CreateAlloca(F->getFunctionType()->getReturnType());
-        auto retvalBinding = ValueBinding(retvalAlloca, []() {
-            LKFatalError("retval is write-only");
-            return nullptr;
-        }, [this, retvalAlloca](llvm::Value *V) {
-            builder.CreateStore(V, retvalAlloca);
+        
+        localScope.insert(kRetvalAllocaIdentifier, ValueBinding{
+            returnType, retvalAlloca, []() -> llvm::Value* {
+                LKFatalError("retval is write-only");
+                //return nullptr;
+            }, [this, retvalAlloca](llvm::Value *V) {
+                builder.CreateStore(V, retvalAlloca);
+            },
+            ValueBinding::Flags::CanWrite
         });
-        scope.insert(kRetvalAllocaIdentifier, returnType, retvalBinding);
         
         
         // Create Debug Metadata
@@ -694,12 +689,10 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         builder.CreateRet(builder.CreateLoad(retvalAlloca));
     }
     
-    LKAssert(scope.size() == sig.paramTypes.size() + static_cast<uint8_t>(!returnType->isVoidTy()));
+    LKAssert(localScope.size() == sig.paramTypes.size() + static_cast<uint8_t>(!returnType->isVoidTy()));
     
-    for (const auto& entry : scope.getEntriesSinceMarker(0)) {
-        //std::cout << std::get<0>(Entry) << std::endl;
-        // TODO: release
-        scope.remove(entry.ident);
+    for (const auto &entry : localScope.getEntriesSinceMarker(0)) {
+        localScope.remove(entry.first);
     }
     
     currentFunction = FunctionState();
@@ -791,14 +784,15 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
                                         builder.GetInsertBlock());
     }
     
-    auto binding = ValueBinding(alloca, [=] () {
-        return builder.CreateLoad(alloca);
-    }, [=] (llvm::Value *V) {
-        LKAssert(V->getType() == alloca->getType()->getPointerElementType());
-        builder.CreateStore(V, alloca);
-    });
-    
-    scope.insert(varDecl->name, type, binding);
+    localScope.insert(varDecl->name, ValueBinding(
+        type, alloca, [=]() -> llvm::Value* {
+            return builder.CreateLoad(alloca);
+        }, [=](llvm::Value *V) {
+            LKAssert(V->getType() == alloca->getType()->getPointerElementType());
+            builder.CreateStore(V, alloca);
+        },
+        ValueBinding::Flags::CanRead | ValueBinding::Flags::CanWrite
+    ));
     
     if (auto expr = varDecl->initialValue) {
         // Q: Why create and handle an assignment to set the initial value, instead of just calling Binding.Write?
@@ -840,11 +834,11 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Composite> composite) {
 
 
 llvm::Value *IRGenerator::codegen(const std::vector<std::shared_ptr<ast::LocalStmt>>& stmtList) {
-    auto marker = scope.getMarker();
+    auto marker = localScope.getMarker();
     bool didReturn = false;
     
     for (auto it = stmtList.begin(); !didReturn && it != stmtList.end(); it++) {
-        const auto& stmt = *it;
+        const auto &stmt = *it;
         if (auto returnStmt = std::dynamic_pointer_cast<ast::ReturnStmt>(stmt)) {
             codegen(returnStmt);
             didReturn = true;
@@ -853,8 +847,8 @@ llvm::Value *IRGenerator::codegen(const std::vector<std::shared_ptr<ast::LocalSt
         }
     }
     
-    for (const auto& entry : scope.getEntriesSinceMarker(marker)) {
-        scope.remove(entry.ident);
+    for (const auto &entry : localScope.getEntriesSinceMarker(marker)) {
+        localScope.remove(entry.first);
     }
     
     return nullptr;
@@ -933,9 +927,6 @@ bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
         return true;
     }
     
-    //diagnostics::failWithError((*expr)->getSourceLocation(),
-    //                           "cannot implicitly convert '%s' to expected type '%s'",
-    //                           type->str().c_str(), expectedType->str().c_str());
     return false;
 }
 
@@ -1027,16 +1018,18 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StringLiteral> stringLite
 
 
 
-// If TakeAddress is true, this returns a pointer to the identifier, instead of the value stored
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Ident> ident, ValueKind returnValueKind) {
     emitDebugLocation(ident);
     
-    if (auto binding = scope.getBinding(ident->value)) {
+    if (auto binding = localScope.get(ident->value)) {
         switch (returnValueKind) {
-            case RValue:
-                return binding->read();
             case LValue:
                 return const_cast<llvm::Value *>(binding->value);
+            case RValue:
+                if (!binding->hasFlag(ValueBinding::Flags::CanRead)) {
+                    diagnostics::failWithError(ident->getSourceLocation(), util::fmt::format("Value binding for ident '{}' in local scope does not allow reading", ident->value));
+                }
+                return binding->read();
         }
     }
     
@@ -1521,7 +1514,7 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
 
 
 
-ast::FunctionSignature makeFunctionSignatureFromFunctionTypeInfo(FunctionType *fnType) {
+ast::FunctionSignature makeFunctionSignatureFromFunctionTypeInfo(const FunctionType *fnType) {
     ast::FunctionSignature sig;
     sig.returnType = ast::TypeDesc::makeResolved(fnType->getReturnType());
     sig.paramTypes = util::vector::map(fnType->getParameterTypes(), [](Type *ty) {
@@ -1555,9 +1548,9 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     if (auto ident = std::dynamic_pointer_cast<ast::Ident>(callExpr->target)) {
         targetName = ident->value;
         
-        // this is in here because at this point targetName is just an identifier
-        if (scope.contains(targetName)) {
-            auto ty = scope.getType(targetName);
+        // this is in here because at this point targetName is still just an identifier
+        if (auto valueBinding = localScope.get(targetName)) {
+            auto ty = valueBinding->type;
             LKAssert(ty->isFunctionTy() && "cannot call a non-function variable");
             auto fnTy = llvm::dyn_cast<FunctionType>(ty);
             return ResolvedCallable(makeFunctionSignatureFromFunctionTypeInfo(fnTy), nullptr,
@@ -2649,10 +2642,11 @@ Type* IRGenerator::guessType(std::shared_ptr<ast::Expr> expr) {
         
         case NK::Ident: {
             auto identExpr = static_cast<ast::Ident *>(expr.get());
-            if (!scope.contains(identExpr->value)) {
+            if (auto VB = localScope.get(identExpr->value)) {
+                return VB->type;
+            } else {
                 diagnostics::failWithError(identExpr->getSourceLocation(), util::fmt::format("Unable to resolve identifier '{}'", identExpr->value));
             }
-            return scope.getType(identExpr->value);
         }
         
         case NK::CastExpr:
