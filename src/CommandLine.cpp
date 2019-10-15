@@ -45,6 +45,7 @@ CLI_OPT(std::string, stdlibRoot, "stdlib-root", "Load stdlib modules from <path>
 static llvm::cl::list<OutputFileType> emit("emit", llvm::cl::desc("Output format(s)"),
                                            llvm::cl::values(clEnumValN(OutputFileType::Assembly, "asm", "Assembly"),
                                                             clEnumValN(OutputFileType::LLVM_IR, "llvm-ir", "LLVM IR"),
+                                                            clEnumValN(OutputFileType::LLVM_BC, "llvm-bc", "LLVM Bitcode"),
                                                             clEnumValN(OutputFileType::Binary, "bin", "Binary"),
                                                             clEnumValN(OutputFileType::ObjectFile, "obj", "Object File"),
                                                             clEnumValN(OutputFileType::None, "none", "None")),

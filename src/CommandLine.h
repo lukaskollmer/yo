@@ -19,6 +19,7 @@ enum class OutputFileType {
     Binary,
     ObjectFile,
     LLVM_IR,
+    LLVM_BC,
     Assembly,
     None
 };

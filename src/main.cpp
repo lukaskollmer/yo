@@ -16,6 +16,7 @@
 #include "CommandLine.h"
 
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/IRPrintingPasses.h"
@@ -46,11 +47,9 @@ using namespace yo;
 #pragma mark - Optimizations
 
 
-void addOptimizationPasses(llvm::legacy::PassManager& MPM, llvm::legacy::FunctionPassManager& FPM) {
-    llvm::PassRegistry &PR = *llvm::PassRegistry::getPassRegistry();
-    llvm::initializeCore(PR);
+void addOptimizationPasses(llvm::PassRegistry &PR, llvm::legacy::PassManager &MPM, llvm::legacy::FunctionPassManager &FPM) {
     llvm::initializeIPO(PR);
-    //llvm::initializeRegToMemPass(<#PassRegistry &#>)
+    llvm::initializeRegToMemPass(PR);
     llvm::initializeSimpleInlinerPass(PR);
     
     llvm::PassManagerBuilder PMBuilder;
@@ -62,7 +61,7 @@ void addOptimizationPasses(llvm::legacy::PassManager& MPM, llvm::legacy::Functio
     } else {
         PMBuilder.Inliner = llvm::createAlwaysInlinerLegacyPass();
     }
-
+    
     PMBuilder.populateFunctionPassManager(FPM);
     PMBuilder.populateModulePassManager(MPM);
 }
@@ -106,6 +105,9 @@ bool emitModule(std::unique_ptr<llvm::Module> module, const std::string &filenam
     llvm::InitializeNativeTargetAsmParser();
     llvm::InitializeNativeTargetAsmPrinter();
     
+    llvm::PassRegistry &PR = *llvm::PassRegistry::getPassRegistry();
+    llvm::initializeCore(PR);
+    
     std::string error;
     std::error_code EC;
     
@@ -146,7 +148,7 @@ bool emitModule(std::unique_ptr<llvm::Module> module, const std::string &filenam
     if (cl::get_options().dumpLLVMPreOpt) {
         PM.add(llvm::createPrintModulePass(llvm::outs(), "Pre-Optimized IR:", true));
     }
-    addOptimizationPasses(PM, FPM);
+    addOptimizationPasses(PR, PM, FPM);
 
     FPM.doInitialization();
     for (llvm::Function &F : *module) {
@@ -170,7 +172,7 @@ bool emitModule(std::unique_ptr<llvm::Module> module, const std::string &filenam
 
 
     if (shouldEmitType(OutputFileType::LLVM_IR)) {
-        llvm::raw_fd_ostream OS(std::string(filename).append(".ll"), EC);
+        llvm::raw_fd_ostream OS(util::fmt::format("{}.ll", filename), EC);
         emitIR(*module, OS);
     }
 
@@ -180,17 +182,20 @@ bool emitModule(std::unique_ptr<llvm::Module> module, const std::string &filenam
     std::string objectFilePath;
     
     if (shouldEmitType(OutputFileType::Assembly)) {
-        llvm::raw_fd_ostream OS(std::string(filename).append(".s"), EC);
+        llvm::raw_fd_ostream OS(util::fmt::format("{}.s", filename), EC);
         emit(*module, targetMachine, OS, llvm::TargetMachine::CodeGenFileType::CGFT_AssemblyFile);
     }
     
     if (shouldEmitType(OutputFileType::ObjectFile)) {
-        objectFilePath = std::string(filename).append(".o");
+        objectFilePath = util::fmt::format("{}.o", filename);
         llvm::raw_fd_ostream OS(objectFilePath, EC);
         emit(*module, targetMachine, OS, llvm::TargetMachine::CodeGenFileType::CGFT_ObjectFile);
     }
     
-    
+    if (shouldEmitType(OutputFileType::LLVM_BC)) {
+        llvm::raw_fd_ostream OS(util::fmt::format("{}.bc", filename), EC);
+        llvm::WriteBitcodeToFile(*module, OS);
+    }
 
     
     if (!shouldEmitType(OutputFileType::Binary)) {
