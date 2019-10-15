@@ -33,7 +33,7 @@ std::string TypeDesc::str() const {
         case TypeDesc::Kind::Function: {
             const auto &FTI = getFunctionTypeInfo();
             std::ostringstream OS;
-            OS << "#[callingConvention=");
+            OS << "#[callingConvention=";
             OS << cc_to_str(FTI.callingConvention);
             OS << "] (";
             for (auto it = FTI.parameterTypes.begin(); it != FTI.parameterTypes.end(); it++) {
