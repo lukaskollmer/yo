@@ -405,8 +405,14 @@ template <typename... Ts>
 std::string format(std::string_view format, Ts &&...args) {
     // TODO would be cool it this somehow worked
     //static_assert((format.find('{') != std::string_view::npos) == (sizeof...(args) > 0), "invalid format arguments");
+    
     std::ostringstream OS;
-    format_imp(OS, format, std::forward<Ts>(args)...);
+    if constexpr(sizeof...(args) == 0) {
+        LKAssert(format.find('{') == format.npos);
+        OS << format;
+    } else {
+        format_imp(OS, format, std::forward<Ts>(args)...);
+    }
     return OS.str();
 }
 
@@ -414,7 +420,12 @@ std::string format(std::string_view format, Ts &&...args) {
 template <typename... Ts>
 void print(std::string_view format, Ts &&...args) {
     std::ostream &OS = std::cout;
-    format_imp(OS, format, std::forward<Ts>(args)...);
+    if constexpr(sizeof...(args) == 0) {
+        LKAssert(format.find('{') == format.npos);
+        OS << format;
+    } else {
+        format_imp(OS, format, std::forward<Ts>(args)...);
+    }
     OS << std::endl;
 }
 
