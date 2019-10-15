@@ -35,21 +35,22 @@ std::shared_ptr<ast::TypeDesc> TemplateSpecializer::resolveType(std::shared_ptr<
     
     switch (typeDesc->getKind()) {
         case TDK::Resolved:
-            return typeDesc;
+            return ast::TypeDesc::makeResolved(typeDesc->getResolvedType(), loc);
         
         case TDK::Pointer:
             return ast::TypeDesc::makePointer(resolveType(typeDesc->getPointee()), loc);
         
         case TDK::Nominal: {
             if (auto ty = util::map::get_opt(templateArgumentMapping, typeDesc->getName())) {
-                return ty.value();
+                return std::make_shared<ast::TypeDesc>(**ty);
             }
-            return typeDesc;
+            return std::make_shared<ast::TypeDesc>(*typeDesc);
         }
         
-        case TDK::Function:
-            LKFatalError("TODO");
+        case TDK::Decltype:
+            return ast::TypeDesc::makeDecltype(specialize(typeDesc->getDecltypeExpr()), loc);
         
+        case TDK::Function:
         case TDK::Reference:
             LKFatalError("TODO");
         
@@ -67,10 +68,16 @@ std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specialize(std::shared_p
     auto signature = decl->getSignature();
     
     // Substitute in signature (params & return type)
-    for (auto &paramTy: signature.paramTypes) {
-        // TODO util::vec::map?
-        paramTy = resolveType(paramTy);
-    }
+//    for (auto &paramTy: signature.paramTypes) {
+//        // TODO util::vec::map?
+//        paramTy = resolveType(paramTy);
+//    }
+    
+    signature.paramTypes = util::vector::map(decl->getSignature().paramTypes, [&](auto paramTy) {
+        auto resolved = resolveType(paramTy);
+        //util::fmt::print("{} -> {}", reinterpret_cast<uintptr_t>(paramTy.get()), reinterpret_cast<uintptr_t>(resolved.get()));
+        return resolved;
+    });
     signature.returnType = resolveType(signature.returnType);
     
 //    for (const auto& [name, type] : templateArgumentMapping) {

@@ -505,10 +505,18 @@ yo::irgen::CallingConvention extractCallingConventionAttribute(const std::vector
 // - A structural type (TODO!?)
 std::shared_ptr<TypeDesc> Parser::parseType() {
     // TODO add source location to type statements?
-    
+    auto SL = getCurrentSourceLocation();
     auto attributes = parseAttributes();
     
     switch (currentTokenKind()) {
+        case TK::Decltype: {
+            consume();
+            assertTkAndConsume(TK::OpeningParens);
+            auto expr = parseExpression();
+            assertTkAndConsume(TK::ClosingParens);
+            return TypeDesc::makeDecltype(expr, SL);
+        }
+            
         case TK::Ampersand: {
             const auto &loc = getCurrentSourceLocation();
             consume();
@@ -585,6 +593,8 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
         default: return nullptr;
     }
 }
+
+
 
 
 

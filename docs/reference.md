@@ -40,7 +40,7 @@ The Yo lexer differentiates between the following kinds of tokens: keywords, ide
 Yo reserves the following keywords:
 
 ```
-defer else fn for if impl in let mut match operator return struct switch unless use var while
+decltype defer else fn for if impl in let mut match operator return struct switch unless use var while
 ```
 
 
@@ -51,7 +51,9 @@ digit  = [0-9]
 letter = [a-zA-Z_]
 ident  = <letter>(<letter>|<digit>)*
 ```
-A sequence of characters that satisfies the `ident` pattern above and is not a reserved keyword is assumed to be an identifier.
+
+- A sequence of characters that satisfies the `ident` pattern above and is not a reserved keyword is assumed to be an identifier
+- All identifiers with two leading underscores are reserved and should be considered internal
 
 
 <h3 sectionId="yo.lex.operators">Operators and punctuation</h3>

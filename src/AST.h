@@ -95,6 +95,7 @@ public:
     
     NodeKind getNodeKind() const { return kind; }
     
+    // TODO add a `str` function that prints the node, as it would look as source code
     virtual std::string description() const;
     const parser::TokenSourceLocation &getSourceLocation() const {
         return sourceLocation;
@@ -471,7 +472,6 @@ public:
 
 
 
-
 class MatchExpr : public Expr {
 public:
     class MatchExprBranch : public Node {
@@ -510,8 +510,6 @@ public:
 
 
 
-
-
 class UnaryExpr : public Expr {
 public:
     enum class Operation : uint8_t {
@@ -525,5 +523,6 @@ public:
     
     UnaryExpr(Operation op, std::shared_ptr<ast::Expr> expr) : Expr(Node::NodeKind::UnaryExpr), op(op), expr(expr) {}
 };
+
 
 NS_END

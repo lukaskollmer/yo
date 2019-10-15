@@ -7,6 +7,7 @@
 //
 
 #include "TypeDesc.h"
+#include "AST.h"
 
 using namespace yo::ast;
 
@@ -30,21 +31,26 @@ std::string TypeDesc::str() const {
             return std::string("&").append(getPointee()->str());
         
         case TypeDesc::Kind::Function: {
-            const auto& FTI = getFunctionTypeInfo();
-            std::string str;
-            str.append("#[callingConvention=").append(cc_to_str(FTI.callingConvention)).append("] (");
+            const auto &FTI = getFunctionTypeInfo();
+            std::ostringstream OS;
+            OS << "#[callingConvention=");
+            OS << cc_to_str(FTI.callingConvention);
+            OS << "] (";
             for (auto it = FTI.parameterTypes.begin(); it != FTI.parameterTypes.end(); it++) {
-                str.append((*it)->str());
+                OS << (*it)->str();
                 if (it + 1 != FTI.parameterTypes.end()) {
-                    str.append(", ");
+                    OS << ", ";
                 }
             }
-            str.append(") -> ").append(FTI.returnType->str());
-            return str;
+            OS << ") -> " << FTI.returnType->str();
+            return OS.str();
         }
         
         case Kind::Resolved:
             //return std::string("resolved(").append(getResolvedType()->str()).append(")");
             return getResolvedType()->str();
+        
+        case Kind::Decltype:
+            return util::fmt::format("decltype({})", getDecltypeExpr()->description());
     }
 }

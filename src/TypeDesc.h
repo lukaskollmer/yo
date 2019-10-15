@@ -9,19 +9,19 @@
 #pragma once
 
 #include "util.h"
+#include "Type.h"
+#include "Token.h"
+//#include "AST.h"
 
 #include <string>
 #include <variant>
 #include <memory>
-#include "Type.h"
-#include "Token.h"
 
 
 
 NS_START(yo::ast)
 
-
-
+class Expr;
 class TypeDesc;
 
 struct FunctionTypeInfo {
@@ -41,6 +41,7 @@ public:
         Pointer,
         Function,
         Reference,
+        Decltype,
         
         Resolved // Special case that simply wraps a fully resolved `yo::Type *`
     };
@@ -50,7 +51,8 @@ private:
     std::variant<
         std::string,
         std::shared_ptr<TypeDesc>,
-        FunctionTypeInfo
+        FunctionTypeInfo,
+        std::shared_ptr<Expr>
     > data;
     yo::irgen::Type *resolvedType = nullptr;
     parser::TokenSourceLocation srcLoc;
@@ -88,6 +90,10 @@ public:
         return typeDesc;
     }
     
+    static std::shared_ptr<TypeDesc> makeDecltype(std::shared_ptr<ast::Expr> expr, parser::TokenSourceLocation loc = parser::TokenSourceLocation()) {
+        return std::shared_ptr<TypeDesc>(new TypeDesc(Kind::Decltype, expr, loc));
+    }
+    
     std::string str() const;
     
     Kind getKind() const { return kind; }
@@ -113,6 +119,10 @@ public:
     void setResolvedType(yo::irgen::Type *type) { resolvedType = type; }
     
     const parser::TokenSourceLocation& getSourceLocation() const { return srcLoc; }
+    
+    std::shared_ptr<Expr> getDecltypeExpr() const {
+        return std::get<std::shared_ptr<Expr>>(data);
+    }
     
 };
 

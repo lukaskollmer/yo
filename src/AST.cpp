@@ -36,7 +36,7 @@ std::vector<std::string> FunctionSignature::distinctTemplateArgumentNames() cons
 
 #pragma mark - AST Printing
 
-std::ostream& ast::operator<<(std::ostream &OS, const ast::FunctionSignature& signature) {
+std::ostream& ast::operator<<(std::ostream &OS, const ast::FunctionSignature &signature) {
     if (signature.isTemplateFunction()) {
         OS << "<";
         for (auto it = signature.templateArgumentNames.begin(); it != signature.templateArgumentNames.end(); it++) {
@@ -464,10 +464,9 @@ Mirror Reflect(const ast::BinOp *binop) {
     return {
         { "op", binop->getOperator() },
         { "lhs", binop->getLhs() },
-        { "rhs", binop->getRhs() },
+        { "rhs", binop->getRhs() }
     };
 }
-
 
 
 

@@ -63,6 +63,7 @@ std::string TokenKindToString(Token::TokenKind kind) {
         CASE(Whitespace)
         CASE(LineComment)
         CASE(BlockComment)
+        CASE(Decltype)
     }
 #undef CASE
 }

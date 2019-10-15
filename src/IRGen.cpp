@@ -325,6 +325,7 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
         auto kind = FK::StaticMethod;
         if (!fn->getSignature().paramTypes.empty()) {
             // TODO allow omitting the type of a self parameter, and set it here implicitly?
+            // TODO don't call resolveTypeDesc on templated methods
             bool isInstanceMethod =
                 fn->getParamNames().front()->value == "self"
                 && resolveTypeDesc(fn->getSignature().paramTypes.front()) == type->getPointerTo();
@@ -446,7 +447,7 @@ Type* resolvePrimitiveType(std::string_view name) {
 
 // Attempts to resolve an AST TypeDesc and returns a unique `yo::Type*` pointer.
 // Also creates the `yo::Type`'s `llvm::Type` and `llvm::DIType` and sets the respective member fields
-Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc) {
+Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool setInternalResolvedType) {
     // HUGE FUCKING PROBLEM: typedescs should be resolved in the context which they were declared, not the one in which they might be used
     // (this isn't that big an issue rn, but might become in the future)
     
@@ -454,14 +455,13 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc) {
     
     if (!typeDesc) LKFatalError("NULL TYPE DESC");
     
-    auto handleResolvedTy = [this, typeDesc](Type *ty) {
-        typeDesc->setResolvedType(ty);
+    auto handleResolvedTy = [this, typeDesc, setInternalResolvedType](Type *ty) {
+        if (setInternalResolvedType) typeDesc->setResolvedType(ty);
         ty->setLLVMType(getLLVMType(ty));
         ty->setLLVMDIType(getDIType(ty));
         return ty;
     };
     
-    //if (auto T = typeDesc->getResolvedType()) return T;
     if (auto ty = typeDesc->getResolvedType()) {
         return handleResolvedTy(ty);
     }
@@ -499,6 +499,9 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc) {
             const auto paramTypes = util::vector::map(FTI.parameterTypes, [this](const auto& typeDesc) { return resolveTypeDesc(typeDesc); });
             return handleResolvedTy(FunctionType::create(resolveTypeDesc(FTI.returnType), paramTypes, FTI.callingConvention));
         }
+        
+        case TDK::Decltype:
+            return handleResolvedTy(guessType(typeDesc->getDecltypeExpr()));
     }
     
     LKFatalError("unhandled type desc: %s", typeDesc->str().c_str());
@@ -508,12 +511,12 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc) {
 
 
 bool IRGenerator::equal(const ast::FunctionSignature &lhs, const ast::FunctionSignature &rhs) {
-    if (resolveTypeDesc(lhs.returnType) != resolveTypeDesc(rhs.returnType)) return false;
+    if (resolveTypeDesc(lhs.returnType, false) != resolveTypeDesc(rhs.returnType, false)) return false;
     
     if (lhs.paramTypes.size() != rhs.paramTypes.size()) return false;
     
     for (size_t i = 0; i < lhs.paramTypes.size(); i++) {
-        if (resolveTypeDesc(lhs.paramTypes[i]) != resolveTypeDesc(rhs.paramTypes[i])) return false;
+        if (resolveTypeDesc(lhs.paramTypes[i], false) != resolveTypeDesc(rhs.paramTypes[i], false)) return false;
     }
     
     if (lhs.templateArgumentNames != rhs.templateArgumentNames) return false;
@@ -1605,7 +1608,11 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         }
         specializedDecl->setResolvedTemplateArgTypes(templateArgTypes);
         
-
+        if (functionDecl->getName() == "static_cast") {
+            LKAssert(!functionDecl->getSignature().paramTypes[0]->isResolved());
+        }
+        
+        
         // Avoid generating the same specialization multiple times
         // In theory, we should never end up here since the call target resolution code should prefer the already-specialized version
         // over re-instantiating the template. However, the code is not very good and cannot (yet?) do that
@@ -1693,7 +1700,8 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             }
         } else if (sig.templateArgumentNames.empty() != decl->getResolvedTemplateArgTypes().empty()) {
             // Discard already instantiated template functions. Not necessarily necessary,
-            // but also not a huge issue since it'll just resolve to the already instantiated version again
+            // but also not a huge issue since it'll just resolve to the already instantiated version
+            //util::fmt::print("discarding {} bc already instantiated", decl->getName());
             goto discard_potential_match;
         }
         
@@ -1704,18 +1712,24 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             Type *expectedType = nullptr;
 
             if (i < sig.paramTypes.size()) {
-                expectedType = resolveTypeDesc(sig.paramTypes[i]);
+                expectedType = resolveTypeDesc(sig.paramTypes[i], false);
             } else {
                 LKFatalError("is this non-C-linkage varargs?");
             }
 
             LKAssert(expectedType);
 
-            if (argTy != expectedType && arg->getNodeKind() == ast::Node::NodeKind::NumberLiteral) {
-                auto numberLiteral = std::static_pointer_cast<ast::NumberLiteral>(arg);
-                if (valueIsTriviallyConvertibleTo(numberLiteral, expectedType)) {
-                    score += 1;
+            if (argTy != expectedType) {
+                if (arg->getNodeKind() == ast::Node::NodeKind::NumberLiteral) {
+                    auto numberLiteral = std::static_pointer_cast<ast::NumberLiteral>(arg);
+                    if (valueIsTriviallyConvertibleTo(numberLiteral, expectedType)) {
+                        score += 1;
+                    } else {
+                        //util::fmt::print("discarding '{}' bc argument #{} not trivially convertible", targetName, i);
+                        goto discard_potential_match;
+                    }
                 } else {
+                    //util::fmt::print("discarding '{}' bc argument #{}: {} not of expected type {}", targetName, i, argTy, expectedType);
                     goto discard_potential_match;
                 }
             }
@@ -1730,7 +1744,11 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     std::sort(matches.begin(), matches.end(), [](auto &arg0, auto &arg1) { return arg0.score < arg1.score; });
     
 #if 0
-    util::fmt::print("Matching overloads for call to '{}':", targetName);
+    std::ostringstream OS;
+    for (auto expr : callExpr->arguments) {
+        OS << guessType(expr) << ", ";
+    }
+    util::fmt::print("Matching overloads for call to '{}'({}):", targetName, OS.str());
     for (auto& match : matches) {
         util::fmt::print("- {}: {}", match.score, match.decl->getSignature());
     }

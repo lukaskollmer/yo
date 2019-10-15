@@ -100,18 +100,19 @@ static std::map<std::string, Token::TokenKind> tokenKindMappings = {
     { ">" , TK::ClosingAngledBracket },
     
     // Keywords
-    { "fn",     TK::Fn     },
-    { "return", TK::Return },
-    { "let",    TK::Let    },
-    { "if",     TK::If     },
-    { "else",   TK::Else   },
-    { "struct", TK::Struct },
-    { "impl",   TK::Impl   },
-    { "use",    TK::Use    },
-    { "while",  TK::While  },
-    { "for",    TK::For    },
-    { "in",     TK::In     },
-    { "match",  TK::Match  },
+    { "fn",       TK::Fn       },
+    { "return",   TK::Return   },
+    { "let",      TK::Let      },
+    { "if",       TK::If       },
+    { "else",     TK::Else     },
+    { "struct",   TK::Struct   },
+    { "impl",     TK::Impl     },
+    { "use",      TK::Use      },
+    { "while",    TK::While    },
+    { "for",      TK::For      },
+    { "in",       TK::In       },
+    { "match",    TK::Match    },
+    { "decltype", TK::Decltype },
 };
 
 

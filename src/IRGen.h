@@ -176,7 +176,7 @@ private:
     
     
     // Types
-    Type* resolveTypeDesc(std::shared_ptr<ast::TypeDesc>);
+    Type* resolveTypeDesc(std::shared_ptr<ast::TypeDesc>, bool setInternalResolvedType = true);
     llvm::Type *getLLVMType(Type *);
     llvm::DIType *getDIType(Type *);
     uint8_t argumentOffsetForCallingConvention(CallingConvention cc);

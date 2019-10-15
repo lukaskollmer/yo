@@ -76,7 +76,8 @@ public:
         Use,
         Fn, Struct, Impl,
         Let, Return,
-        If, Else, While, For, In, Match
+        If, Else, While, For, In, Match,
+        Decltype
     };
     
 private:
