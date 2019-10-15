@@ -1910,7 +1910,8 @@ enum class Intrinsic : uint8_t {
     StaticCast,
     ReinterpretCast,
     Sizeof,
-    Trap, Typename
+    Trap, Typename,
+    IsSame, IsPointer
 };
 
 static const std::map<std::string_view, Intrinsic> intrinsics = {
@@ -1934,6 +1935,8 @@ static const std::map<std::string_view, Intrinsic> intrinsics = {
     { "sizeof", Intrinsic::Sizeof },
     { "__trap", Intrinsic::Trap },
     { "__typename", Intrinsic::Typename },
+    { "__is_same", Intrinsic::IsSame },
+    { "__is_pointer", Intrinsic::IsPointer },
 };
 
 
@@ -1982,6 +1985,15 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
             auto ty = resolveTypeDesc(call->explicitTemplateArgumentTypes[0]);
             return builder.CreateGlobalStringPtr(ty->getName()); // TODO is getName the right choice here?
         }
+        
+        case Intrinsic::IsSame: {
+            auto ty1 = resolveTypeDesc(call->explicitTemplateArgumentTypes[0]);
+            auto ty2 = resolveTypeDesc(call->explicitTemplateArgumentTypes[1]);
+            return llvm::ConstantInt::get(i1, ty1 == ty2);
+        }
+        
+        case Intrinsic::IsPointer:
+            return llvm::ConstantInt::get(i1, resolveTypeDesc(call->explicitTemplateArgumentTypes[0])->isPointerTy());
         
         default: break;
     }
