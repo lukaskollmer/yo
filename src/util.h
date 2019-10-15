@@ -19,6 +19,7 @@
 #include <sstream>
 #include <iostream>
 #include <type_traits>
+#include <iomanip>
 
 
 #define NS_START(x) namespace x {
@@ -357,7 +358,7 @@ namespace fmt {
 
 
 // TODO somehow allow overloading this to get custom formatting for custom types?
-template <typename T, typename T2 = void>
+template <typename T, typename = void>
 static void value_formatter(std::ostream &OS, std::string_view flags, const T &arg) {
     OS << arg;
 }
@@ -366,6 +367,16 @@ static void value_formatter(std::ostream &OS, std::string_view flags, const T &a
 //void value_formatter<bool>(std::ostream &OS, std::string_view flags, const bool &arg) {
 //    OS << (arg ? "true" : "false");
 //}
+
+// TODO thid does not work!
+template <typename T, typename std::enable_if_t<std::is_pointer_v<T>>>
+void value_formatter(std::ostream &OS, std::string_view flags, const T &arg) {
+    if (flags == "p") {
+        OS << reinterpret_cast<void *>(arg);
+    } else {
+        OS << arg;
+    }
+}
 
 
 template <typename T, typename... Ts>
