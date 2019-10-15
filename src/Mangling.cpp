@@ -106,7 +106,7 @@ std::string mangling::mangleCanonicalName(std::shared_ptr<ast::FunctionDecl> fun
         return funcDecl->getAttributes().mangledName;
     }
     std::string typeName;
-    if (funcDecl->isOfKind(ast::FunctionKind::StaticMethod) || funcDecl->isOfKind(ast::FunctionKind::InstanceMethod)) {
+    if (funcDecl->isOfFunctionKind(ast::FunctionKind::StaticMethod) || funcDecl->isOfFunctionKind(ast::FunctionKind::InstanceMethod)) {
         typeName = funcDecl->getImplType()->getName();
     }
     return mangleCanonicalName(typeName, funcDecl->getName(), funcDecl->getFunctionKind());

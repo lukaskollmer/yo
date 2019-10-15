@@ -492,7 +492,7 @@ yo::irgen::CallingConvention extractCallingConventionAttribute(const std::vector
         }
     }
     
-    return CC::C; // TODO change default calling convention / get it from somewhere to that it's the same everywhere?
+    return CC::C; // TODO change default calling convention / get it from somewhere so that it's the same everywhere?
 }
 
 
@@ -675,36 +675,35 @@ std::shared_ptr<LocalStmt> Parser::parseLocalStmt() {
     }
     
     if (binaryOperatorStartTokens.contains(currentTokenKind())) {
+        auto SL_binop = getCurrentSourceLocation();
         if (auto op = parseOperator()) {
-            LKFatalError("");
-            // TODO reimplement to avoid evaluating the assignments (and binops) lhs twice!
-//            assertTkAndConsume(TK::EqualsSign);
-//            // TODO this is bad bc we evaluate lhs twice!
-//            auto value = std::make_shared<ast::BinOp>(*op, expr, parseExpression());
-//            stmt = std::make_shared<ast::Assignment>(expr, value);
+            if (currentTokenKind() == TK::EqualsSign) {
+                auto SL_ass = getCurrentSourceLocation();
+                consume();
+                // TODO make sure this does not evaluate lhs twice!!!!!
+                auto rhs = parseExpression();
+                auto binop = std::make_shared<BinOp>(*op, expr, rhs);
+                binop->setSourceLocation(SL_binop);
+                binop->setIsInPlaceBinop(true);
+                stmt = std::make_shared<Assignment>(expr, binop);
+                stmt->setSourceLocation(SL_ass);
+            } else {
+                unhandledToken(currentToken());
+            }
         } else {
             // TODO is there any situation where this would still be valid code?
-            // guess that depends on whether freestanding expression (like `1 + foo();`) should be allowed?
             unhandledToken(currentToken());
         }
-        LKFatalError("TODO reimplement");
-//        if (auto op = parseBinopOperator()) {
-//            assertTkAndConsume(TK::EqualsSign);
-//
-//            auto value = std::make_shared<BinOp>(*op, expr, parseExpression());
-//            stmt = std::make_shared<Assignment>(expr, value);
-//            assertTkAndConsume(TK::Semicolon);
-//            stmt->setSourceLocation(sourceLoc);
-//            return stmt;
-//        }
     }
     
     if (currentTokenKind() == TK::Semicolon) {
         consume();
-        if (expr) {
+        if (expr && !stmt) {
             auto exprStmt = std::make_shared<ast::ExprStmt>(expr);
             exprStmt->setSourceLocation(sourceLoc);
             return exprStmt;
+        } else if (stmt) {
+            return stmt;
         }
     }
     

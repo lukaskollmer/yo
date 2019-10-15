@@ -186,7 +186,7 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     
     const auto& sig = functionDecl->getSignature();
     
-    bool isMain = functionDecl->isOfKind(ast::FunctionKind::GlobalFunction) && functionDecl->getName() == "main";
+    bool isMain = functionDecl->isOfFunctionKind(ast::FunctionKind::GlobalFunction) && functionDecl->getName() == "main";
     
     if (isMain) {
         functionDecl->getAttributes().no_mangle = true;
@@ -629,7 +629,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         localScope.insert(kRetvalAllocaIdentifier, ValueBinding{
             returnType, retvalAlloca, []() -> llvm::Value* {
                 LKFatalError("retval is write-only");
-                //return nullptr;
             }, [this, retvalAlloca](llvm::Value *V) {
                 builder.CreateStore(V, retvalAlloca);
             },
@@ -931,22 +930,45 @@ bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
 }
 
 
+// TODO should assignments return something?
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
-    emitDebugLocation(assignment);
-    // TODO should assignments return something?
     // TODO rewrite this so that it doesn't rely on GuessType for function calls!
+    // TODO why is relying on guessType for function calls an issue?
     
+    llvm::Value *llvmTargetLValue = nullptr;
     auto expr = assignment->value;
-    auto destTy = guessType(assignment->target);
+    const auto destTy = guessType(assignment->target);
     
-    Type *T;
-    if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, destTy, &T)) {
-        LKFatalError("type mismatch: cannot assign '%s' to '%s'", T->str().c_str(), destTy->str().c_str());
+    
+    if (expr->isOfKind(NK::BinOp) && static_cast<ast::BinOp *>(expr.get())->isInPlaceBinop()) {
+        // <lhs> <op>= <rhs>
+        // The issue here is that we have to make sure not to evaluate lhs twice
+        auto binop = std::static_pointer_cast<ast::BinOp>(expr);
+        LKAssert(assignment->target == binop->getLhs());
+        
+        auto lhsLValue = codegen(binop->getLhs(), LValue);
+        auto lhsRValue = builder.CreateLoad(lhsLValue);
+        llvmTargetLValue = lhsLValue;
+        
+        auto newLhs = std::make_shared<ast::RawLLVMValueExpr>(lhsRValue, destTy);
+        newLhs->setSourceLocation(assignment->target->getSourceLocation());
+        
+        auto newBinop = std::make_shared<ast::BinOp>(binop->getOperator(), newLhs, binop->getRhs());
+        newBinop->setSourceLocation(binop->getSourceLocation());
+        expr = newBinop;
+        
+    } else {
+        llvmTargetLValue = codegen(assignment->target, LValue);
+        
+        // The binop branch already handled implicit conversions so we don't need that twice
+        Type *T;
+        if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, destTy, &T)) {
+            LKFatalError("type mismatch: cannot assign '%s' to '%s'", T->str().c_str(), destTy->str().c_str());
+        }
     }
     
-    auto target = codegen(assignment->target, LValue);
-    builder.CreateStore(codegen(expr, RValue), target);
-    
+    emitDebugLocation(assignment);
+    builder.CreateStore(codegen(expr, RValue), llvmTargetLValue);
     return nullptr;
 }
 

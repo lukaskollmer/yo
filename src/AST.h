@@ -94,6 +94,7 @@ public:
     };
     
     NodeKind getNodeKind() const { return kind; }
+    bool isOfKind(NodeKind NK) const { return kind == NK; }
     
     // TODO add a `str` function that prints the node, as it would look as source code
     virtual std::string description() const;
@@ -208,7 +209,7 @@ public:
     void setBody(std::vector<std::shared_ptr<LocalStmt>> body) { funcBody = body; }
     
     
-    bool isOfKind(FunctionKind kind) const { return funcKind == kind; }
+    bool isOfFunctionKind(FunctionKind kind) const { return funcKind == kind; }
 };
 
 
@@ -498,6 +499,7 @@ class BinOp : public Expr {
     Operator op;
     std::shared_ptr<Expr> lhs;
     std::shared_ptr<Expr> rhs;
+    bool _isInPlaceBinop = false;
     
 public:
     BinOp(Operator op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs)
@@ -506,6 +508,8 @@ public:
     Operator getOperator() const { return op; }
     std::shared_ptr<Expr> getLhs() const { return lhs; }
     std::shared_ptr<Expr> getRhs() const { return rhs; }
+    bool isInPlaceBinop() const { return _isInPlaceBinop; }
+    void setIsInPlaceBinop(bool val) { _isInPlaceBinop = val; }
 };
 
 
