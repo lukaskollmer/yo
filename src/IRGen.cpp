@@ -209,6 +209,10 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     
     
     if (sig.isTemplateFunction() || functionDecl->getAttributes().intrinsic) {
+        if (sig.isTemplateFunction() && sig.templateArgumentNames.size() != sig.distinctTemplateArgumentNames().size()) {
+            diagnostics::failWithError(functionDecl->getSourceLocation(), "Template argument types must be distinct");
+        }
+        
         auto canonicalName = mangling::mangleCanonicalName(functionDecl);
         functions[canonicalName].push_back(ResolvedCallable(sig, functionDecl, nullptr, 0));
         return;
@@ -869,8 +873,8 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ReturnStmt> returnStmt) {
     if (auto expr = returnStmt->expression) {
         Type *T;
         if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, returnType, &T)) {
-            auto msg = util::fmt::format("expression evaluates to type '{}', which is incompatible with the expected return type '{}'",
-                                         T, returnType->str());
+            auto msg = util::fmt::format("expression evaluates to type '{}', which is incompatible with the expected return type '{p}'",
+                                         T, returnType);
             diagnostics::failWithError(expr->getSourceLocation(), msg);
         }
         
@@ -1688,7 +1692,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             
             if (auto mapping = attemptToResolveTemplateArgumentTypesForCall(decl, callExpr, argumentOffset)) {
                 templateArgTypeMapping = *mapping;
-                score += util::abs(sig.numberOfDistinctTemplateArgumentNames() - sig.templateArgumentNames.size()); // TODO is this a good idea?
+                //score += util::abs(sig.numberOfDistinctTemplateArgumentNames() - sig.templateArgumentNames.size()); // TODO is this a good idea?
             } else {
                 //util::fmt::print("[resolveCall, targetName='{}'] skipped bc unable to resolve: {}", targetName, target.signature);
                 goto discard_potential_match;
