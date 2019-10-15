@@ -1041,7 +1041,7 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
     parse_binop_expr: {
         save_pos(fallback);
         
-        const auto& operatorLoc = getCurrentSourceLocation();
+        const auto operatorLoc = getCurrentSourceLocation();
         if (auto op_ = parseOperator()) {
             auto op = op_.value();
             
@@ -1060,6 +1060,7 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
                 //consume(2);
                 auto callTarget = parseExpression(PrecedenceGroup::FunctionPipeline);
                 expr = std::make_shared<ast::CallExpr>(callTarget, std::vector<std::shared_ptr<ast::Expr>>{ expr });
+                expr->setSourceLocation(operatorLoc);
                 continue;
             }
             
