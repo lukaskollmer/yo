@@ -128,7 +128,7 @@ std::string Parser::resolveImportPathRelativeToBaseDirectory(const TokenSourceLo
         return moduleName;
     }
     
-    std::string path = std::string(baseDirectory).append("/").append(moduleName).append(".yo");
+    auto path = util::fmt::format("{}/{}.yo", baseDirectory, moduleName);
     if (util::fs::file_exists(path)) return path;
     
     diagnostics::failWithError(loc, util::fmt::format("Unable to resolve import of '{}' relative to '{}'", moduleName, baseDirectory));

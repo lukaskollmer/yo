@@ -38,32 +38,32 @@ bool yo::mangling::isCanonicalInstanceMethodName(std::string_view ident) {
 
 
 class ManglingStringBuilder {
-    std::string Buffer;
+    std::ostringstream OS;
   
 public:
     ManglingStringBuilder() {}
-    explicit ManglingStringBuilder(char initial) : Buffer(std::string(1, initial)) {}
-    explicit ManglingStringBuilder(std::string_view initial) : Buffer(initial) {}
+    
+    explicit ManglingStringBuilder(char initial) { OS << initial; }
+    explicit ManglingStringBuilder(std::string_view initial) { OS << initial; }
     
     ManglingStringBuilder& appendWithCount(std::string_view str) {
-        Buffer.append(std::to_string(str.length()));
-        Buffer.append(str);
+        OS << str.length() << str;
         return *this;
     }
     
     ManglingStringBuilder& append(std::string_view str) {
-        Buffer.append(str);
+        OS << str;
         return *this;
     }
     
     ManglingStringBuilder& append(char c) {
-        Buffer.push_back(c);
+        OS << c;
         return *this;
     }
     
     ManglingStringBuilder& appendEncodedType(yo::irgen::Type *ty);
     
-    std::string& str() { return Buffer; }
+    std::string str() const { return OS.str(); }
 };
 
 
