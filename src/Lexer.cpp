@@ -350,14 +350,9 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& fi
                 // 1.x
                 // 1.7.x
                 if (nextChar == '.') {
-                    if (isFloat) {
-                        // parsing a float and there's a second period
+                    if (isFloat || base != 10) {
+                        // parsing a float or something that cannot become a float and there's a second period
                         break;
-                    }
-                    // the literal just became a float
-                    if (base != 10) {
-                        auto loc = currentSourceLocation(0, 0);
-                        diagnostics::failWithError(loc, "f64 literal must be base 10");
                     }
                     isFloat = true;
                 } else {
