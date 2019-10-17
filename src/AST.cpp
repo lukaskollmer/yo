@@ -403,19 +403,20 @@ Mirror Reflect(const MatchExpr::MatchExprBranch *branch) {
 }
 
 Mirror Reflect(const ast::CallExpr *callExpr) {
-    std::string explicitTemplateArgumentTypes = "[ ";
+    std::ostringstream OS;
+    OS << "[ ";
     for (auto it = callExpr->explicitTemplateArgumentTypes.begin(); it != callExpr->explicitTemplateArgumentTypes.end(); it++) {
-        explicitTemplateArgumentTypes.append((*it)->str());
+        OS << (*it)->str();
         if (it + 1 != callExpr->explicitTemplateArgumentTypes.end()) {
-            explicitTemplateArgumentTypes.append(", ");
+            OS << ", ";
         }
     }
-    explicitTemplateArgumentTypes.append(" ]");
+    OS << " ]";
     
     return {
         { "target", callExpr->target },
         { "arguments", callExpr->arguments },
-        { "explicitTemplateArgumentTypes", explicitTemplateArgumentTypes }
+        { "explicitTemplateArgumentTypes", OS.str() }
     };
 }
 
