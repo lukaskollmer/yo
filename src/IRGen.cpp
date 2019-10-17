@@ -896,19 +896,19 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ReturnStmt> returnStmt) {
 }
 
 
-template <typename T>
-bool value_fits_in_type(uint64_t value) {
-    auto Min = std::numeric_limits<T>::min();
-    auto Max = std::numeric_limits<T>::max();
-    return static_cast<T>(value) >= Min && static_cast<T>(value) <= Max;
+template <typename Dst, typename Src>
+bool value_fits_in_type(Src value) {
+    // TODO this seems way too easy?
+    return static_cast<Src>(static_cast<Dst>(value)) == value;
 }
 
 
-bool integerLiteralFitsInType(uint64_t value, Type *type) {
+bool integerLiteralFitsInIntegralType(uint64_t value, Type *type) {
 #define HANDLE(size_expr, signed_t, unsigned_t) if (size == (size_expr)) { return isSigned ? value_fits_in_type<signed_t>(value) : value_fits_in_type<unsigned_t>(value); }
     
     LKAssert(type->isNumericalTy());
     auto *numTy = llvm::dyn_cast<NumericalType>(type);
+    LKAssert(numTy->isIntegerTy());
     auto size = numTy->getSize();
     bool isSigned = numTy->isSigned();
     
@@ -923,18 +923,15 @@ bool integerLiteralFitsInType(uint64_t value, Type *type) {
 
 
 
-
-
 bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *expr, Type *expectedType, Type **initialTypeOfExpr) {
     auto type = guessType(*expr);
     if (initialTypeOfExpr) *initialTypeOfExpr = type;
     
     if (type == expectedType) return true;
     
-    // at this point, both are integers
+    // at this point, both are numeric? TODO how do we know this?
     if (auto numberLiteral = std::dynamic_pointer_cast<ast::NumberLiteral>(*expr)) {
-        LKAssert(expectedType->isNumericalTy());
-        LKAssert(integerLiteralFitsInType(numberLiteral->value, expectedType));
+        if (!valueIsTriviallyConvertible(numberLiteral, expectedType)) return false;
         
         auto loc = (*expr)->getSourceLocation();
         *expr = std::make_shared<ast::CastExpr>(*expr, ast::TypeDesc::makeResolved(expectedType), ast::CastExpr::CastKind::StaticCast);
@@ -1019,14 +1016,16 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::NumberLiteral> numberLite
             return llvm::ConstantInt::get(i1, numberLiteral->value);
         }
         case NT::Character: {
-            LKAssert(integerLiteralFitsInType(numberLiteral->value, Type::getInt8Type()));
+            LKAssert(integerLiteralFitsInIntegralType(numberLiteral->value, Type::getInt8Type()));
             return llvm::ConstantInt::get(i8, numberLiteral->value);
         }
         case NT::Integer: {
             return llvm::ConstantInt::get(llvm::Type::getInt64Ty(C), numberLiteral->value);
         }
         case NT::Double: {
-            LKFatalError("TODO: implement");
+            uint64_t bitPattern = numberLiteral->value;
+            double value = *reinterpret_cast<double *>(&bitPattern);
+            return llvm::ConstantFP::get(llvm::Type::getDoubleTy(C), value);
         }
     }
 }
@@ -1075,54 +1074,78 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Ident> ident, ValueKind r
 }
 
 
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> cast) {
-    emitDebugLocation(cast);
+llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> castExpr) {
+    using LLVMCastOp = llvm::Instruction::CastOps;
     
-    auto srcTy = guessType(cast->expr);
-    auto destTy = resolveTypeDesc(cast->destType);
+    LLVMCastOp op = static_cast<LLVMCastOp>(-1); // TODO is -1 a good invalid value?
+    const auto srcTy = guessType(castExpr->expr);
+    const auto dstTy = resolveTypeDesc(castExpr->destType);
+    const auto &DL = module->getDataLayout();
     
-    if (srcTy == destTy) {
-        return codegen(cast->expr);
+    if (srcTy == dstTy) {
+        return codegen(castExpr->expr);
     }
     
-    llvm::Instruction::CastOps op;
-    switch (cast->kind) {
+    switch (castExpr->kind) {
         case ast::CastExpr::CastKind::Bitcast: {
-            LKAssert(module->getDataLayout().getTypeSizeInBits(getLLVMType(srcTy)) == module->getDataLayout().getTypeSizeInBits(getLLVMType(destTy)));
-            if (srcTy->isPointerTy() && destTy->isNumericalTy()) {
-                op = llvm::Instruction::CastOps::PtrToInt;
-            } else if (srcTy->isNumericalTy() && destTy->isPointerTy()) {
-                op = llvm::Instruction::CastOps::IntToPtr;
+            LKAssert(DL.getTypeSizeInBits(getLLVMType(srcTy)) == DL.getTypeSizeInBits(getLLVMType(dstTy)));
+            if (srcTy->isPointerTy() && dstTy->isNumericalTy()) {
+                op = LLVMCastOp::PtrToInt;
+            } else if (srcTy->isNumericalTy() && dstTy->isPointerTy()) { // TODO restrict this to `i/u64 -> ptr`?
+                op = LLVMCastOp::IntToPtr;
             } else {
-                op = llvm::Instruction::CastOps::BitCast;
+                op = LLVMCastOp::BitCast;
             }
             break;
         }
         case ast::CastExpr::CastKind::StaticCast: {
-            if (srcTy->isNumericalTy() && destTy->isNumericalTy()) {
-                auto srcIntWidth  = srcTy->getLLVMType()->getIntegerBitWidth();
-                auto destIntWidth = destTy->getLLVMType()->getIntegerBitWidth();
+            if (srcTy->isNumericalTy() && dstTy->isNumericalTy()) {
+                let srcTyNT = static_cast<NumericalType *>(srcTy);
+                let dstTyNT = static_cast<NumericalType *>(dstTy);
                 
-                if (srcIntWidth > destIntWidth) {
-                    // casting to a smaller type
-                    op = llvm::Instruction::CastOps::Trunc;
-                } else {
-                    // casting to a larger type
-                    if (llvm::dyn_cast<NumericalType>(srcTy)->isSigned()) {
-                        op = llvm::Instruction::CastOps::SExt;
+                if (srcTyNT->isIntegerTy() && dstTyNT->isIntegerTy()) {
+                    let srcIntWidth = srcTyNT->getLLVMType()->getIntegerBitWidth();
+                    let dstIntWidth = dstTyNT->getLLVMType()->getIntegerBitWidth();
+                    
+                    if (srcIntWidth > dstIntWidth) {
+                        // casting to a smaller type
+                        op = LLVMCastOp::Trunc;
                     } else {
-                        op = llvm::Instruction::CastOps::ZExt;
+                        // casting to a larger type
+                        if (srcTyNT->isSigned()) {
+                            op = LLVMCastOp::SExt;
+                        } else {
+                            op = LLVMCastOp::ZExt;
+                        }
+                    }
+                } else if (srcTyNT->isFloatTy() && dstTyNT->isIntegerTy()) {
+                    if (dstTyNT->isSigned()) {
+                        op = LLVMCastOp::FPToSI;
+                    } else {
+                        op = LLVMCastOp::FPToUI;
+                    }
+                } else if (srcTyNT->isIntegerTy() && dstTyNT->isFloatTy()) {
+                    if (srcTyNT->isSigned()) {
+                        op = LLVMCastOp::SIToFP;
+                    } else {
+                        op = LLVMCastOp::UIToFP;
                     }
                 }
                 break;
             }
             
-            auto msg = util::fmt::format("unable to resolve static_cast. No known conversion from '{}' to '{}'", srcTy, destTy);
-            diagnostics::failWithError(cast->getSourceLocation(), msg);
+            auto msg = util::fmt::format("unable to resolve static_cast. No known conversion from '{}' to '{}'", srcTy, dstTy);
+            diagnostics::failWithError(castExpr->getSourceLocation(), msg);
         }
     }
     
-    return builder.CreateCast(op, codegen(cast->expr), destTy->getLLVMType());
+    if (op == static_cast<LLVMCastOp>(-1)) {
+        auto msg = util::fmt::format("Unable to resolve cast from '{}' to '{}'", srcTy, dstTy);
+        diagnostics::failWithError(castExpr->getSourceLocation(), msg);
+    }
+    
+    emitDebugLocation(castExpr);
+    return builder.CreateCast(op, codegen(castExpr->expr), dstTy->getLLVMType());
 }
 
 
@@ -1233,7 +1256,7 @@ llvm::Value *IRGenerator::codegen_HandleMatchPatternExpr(MatchExprPatternCodegen
     
     if (TT->isNumericalTy()) {
         if (auto numberLiteral = std::dynamic_pointer_cast<ast::NumberLiteral>(PE)) {
-            if (valueIsTriviallyConvertibleTo(numberLiteral, TT)) {
+            if (valueIsTriviallyConvertible(numberLiteral, TT)) {
                 auto cmp = std::make_shared<ast::BinOp>(ast::Operator::EQ,
                                                         std::make_shared<ast::RawLLVMValueExpr>(info.targetLLVMValue, TT),
                                                         numberLiteral);
@@ -1768,7 +1791,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             if (argTy != expectedType) {
                 if (arg->getNodeKind() == ast::Node::NodeKind::NumberLiteral) {
                     auto numberLiteral = std::static_pointer_cast<ast::NumberLiteral>(arg);
-                    if (valueIsTriviallyConvertibleTo(numberLiteral, expectedType)) {
+                    if (valueIsTriviallyConvertible(numberLiteral, expectedType)) {
                         score += 1;
                     } else {
                         //util::fmt::print("discarding '{}' bc argument #{} not trivially convertible", targetName, i);
@@ -2634,34 +2657,46 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
 
 
 
-bool IRGenerator::valueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiteral> number, Type *type) {
+bool IRGenerator::valueIsTriviallyConvertible(std::shared_ptr<ast::NumberLiteral> numberExpr, Type *dstTy) {
     // TODO is this function strict enough?
     using NT = ast::NumberLiteral::NumberType;
     
-    if (!type->isNumericalTy()) return false; // TODO is this too strict?
+    if (!dstTy->isNumericalTy()) return false; // TODO is this too strict?
+    auto dstTyNT = static_cast<NumericalType *>(dstTy);
     
     // Allowed trivial conversions:
     // int literal to any int type (as long as the value fits)
     // int literal to double
     
-    if (number->type == NT::Boolean) return type == Type::getBoolType();
     
-    if (type == Type::getFloat64Type()) {
-        return number->type == NT::Double || number->type == NT::Integer;
+    if (numberExpr->type == NT::Boolean) {
+        return dstTyNT == Type::getBoolType();
     }
     
-    if (!type->isNumericalTy()) return false;
+    if (dstTyNT == Type::getFloat64Type()) {
+        switch (numberExpr->type) {
+            case NT::Double:
+                return true;
+            case NT::Integer:
+                return value_fits_in_type<double>(numberExpr->value);
+            case NT::Boolean:
+            case NT::Character:
+                return false;
+        }
+    } else if (dstTyNT->isIntegerTy()) {
+        switch (numberExpr->type) {
+            case NT::Double:
+                return false; // TODO is this a good idea?
+            case NT::Integer:
+                return integerLiteralFitsInIntegralType(numberExpr->value, dstTyNT);
+            case NT::Boolean:
+                return false; // TODO this should be true, right?
+            case NT::Character:
+                return true;
+        }
+    }
     
-    LKAssert(number->type == NT::Integer && type->isNumericalTy());
-    auto numTy = llvm::dyn_cast<NumericalType>(type);
-    LKAssert(numTy->isIntegerTy());
-    LKAssert(number->value >= 0); // TODO whatthefuc? this will never be false since ast::NumberLitera::Value is unsigned!!!!!
-    
-    auto value = number->value;
-    uint8_t bitCount = 0;
-    while (value != 0) { ++bitCount; value >>= 1; }
-    
-    return bitCount <= numTy->getPrimitiveSizeInBits();
+    LKFatalError("TODO?");
 }
 
 

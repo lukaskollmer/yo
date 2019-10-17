@@ -1296,8 +1296,12 @@ std::shared_ptr<NumberLiteral> Parser::parseNumberLiteral() {
             type = NumberLiteral::NumberType::Integer;
             break;
         
-        case TK::DoubleLiteral:
-            LKFatalError("TODO: implement");
+        case TK::DoubleLiteral: {
+            auto floatValue = currentToken().getData<double>();
+            value = *reinterpret_cast<uint64_t *>(&floatValue);
+            type = NumberLiteral::NumberType::Double;
+            break;
+        }
         
         case TK::CharLiteral:
             value = currentToken().getData<char>();

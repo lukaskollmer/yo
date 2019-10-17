@@ -243,7 +243,7 @@ private:
     //TypeInfo *guessType(std::shared_ptr<ast::NumberLiteral>);
     Type* guessType(std::shared_ptr<ast::Expr>);
     
-    bool valueIsTriviallyConvertibleTo(std::shared_ptr<ast::NumberLiteral>, Type *);
+    bool valueIsTriviallyConvertible(std::shared_ptr<ast::NumberLiteral>, Type *);
     
     bool equal(const ast::FunctionSignature &lhs, const ast::FunctionSignature &rhs);
     

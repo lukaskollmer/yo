@@ -25,6 +25,8 @@
 #define NS_START(x) namespace x {
 #define NS_END }
 
+#define let const auto
+#define var auto
 
 extern bool LKCompilerInternalOptionSigabrtOnFatalError();
 

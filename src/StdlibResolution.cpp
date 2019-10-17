@@ -18,8 +18,8 @@
 
 static std::map<std::string, std::string_view> stdlibModules = {
     MODULE(":runtime/core", runtime_core),
+    MODULE(":runtime/operators", runtime_operators),
     MODULE(":runtime/intrinsics", runtime_intrinsics),
-    MODULE(":runtime/casts", runtime_casts),
     MODULE(":runtime/memory", runtime_memory),
     MODULE(":runtime/refcounting", runtime_refcounting),
     MODULE(":std/math", std_math),

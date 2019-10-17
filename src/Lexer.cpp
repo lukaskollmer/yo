@@ -320,6 +320,7 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& fi
             uint8_t base = 10;
             std::string rawValue;
             auto next = sourceText[offset + 1];
+            bool isFloat = false;
             
             if (c == '0') { // binary/octal/decimal/hex ?
                 if (next == 'b') {
@@ -337,19 +338,44 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& fi
                 }
             }
             
-            // The hex digits charset contains all other digits as well, so it makes most sense to use that.
-            // Invalid characters will be detected by `std::stoll` below
-            
-            do {
+            while (true) {
                 rawValue.push_back(sourceText[offset]);
-            } while (isHexDigitChar(sourceText[++offset]));
+                
+                auto nextChar = sourceText[++offset];
+                // The hex digits charset contains all other digits as well, so it makes most sense to use that.
+                // Invalid characters will be detected by `std::{stoll|stod}` below
+                if (isHexDigitChar(nextChar)) continue;
+                // All of the below are valid!
+                // 1.7
+                // 1.x
+                // 1.7.x
+                if (nextChar == '.') {
+                    if (isFloat) {
+                        // parsing a float and there's a second period
+                        break;
+                    }
+                    // the literal just became a float
+                    if (base != 10) {
+                        auto loc = currentSourceLocation(0, 0);
+                        diagnostics::failWithError(loc, "f64 literal must be base 10");
+                    }
+                    isFloat = true;
+                } else {
+                    break; // end of literal?
+                }
+            }
             
             
-            uint64_t value;
+            double value_f64;
+            uint64_t value_i64;
             std::size_t length;
             
             try {
-                value = std::stoll(rawValue, &length, base);
+                if (isFloat) {
+                    value_f64 = std::stod(rawValue, &length);
+                } else {
+                    value_i64 = std::stoll(rawValue, &length, base);
+                }
             } catch (const std::exception &e) {
                 std::cout << e.what() << std::endl;
                 throw;
@@ -362,7 +388,12 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& fi
                 diagnostics::failWithError(loc, "Invalid character in number literal");
             }
             
-            handleRawToken(rawValue, TK::IntegerLiteral).setData(value);
+            auto &token = handleRawToken(rawValue, isFloat ? TK::DoubleLiteral : TK::IntegerLiteral);
+            if (isFloat) {
+                token.setData(value_f64);
+            } else {
+                token.setData(value_i64);
+            }
             continue;
         }
         auto loc = currentSourceLocation(0, 1);
@@ -413,10 +444,7 @@ Token& Lexer::handleRawToken(const std::string& tokenSourceText, Token::TokenKin
         LKFatalError("didn't initialize token for '%s'", tokenSourceText.c_str());
     }
     
-    //auto column = offset + 2 - lineStart - tokenSourceText.length();
-    //token.setSourceLocation(TokenSourceLocation(filepath, line + 1, column, tokenSourceText.length()));
     token.setSourceLocation(currentSourceLocation(0, tokenSourceText.length()));
-    
     tokens.push_back(token);
     return tokens.back();
 }

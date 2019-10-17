@@ -1,7 +1,25 @@
+// Casts between related types
+// Fails if there is no known conversion from T to R
+#[intrinsic]
+fn static_cast<R, T>(T) -> R;
+
+
+// Returns `arg`, with the bit pattern reinterpreted as R
+// Requires T and R to have the exact same bit width
+#[intrinsic]
+fn reinterpret_cast<R, T>(T) -> R;
+
+// Calls the `llvm.trap` intrinsic
 #[intrinsic] fn __trap();
+
+
+// Returns a string describing the name of the template parameter `T`
 #[intrinsic] fn __typename<T>() -> *i8;
 
+// Returns true if `T` and `U` are the same type, otherwise false
 #[intrinsic] fn __is_same<T, U>() -> bool;
+
+// Returns true if `T` is a pointer type
 #[intrinsic] fn __is_pointer<T>() -> bool;
 
 #[intrinsic] fn __add<T>(T, T) -> T;
