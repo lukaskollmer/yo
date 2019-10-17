@@ -24,6 +24,7 @@
 
 NS_START(yo::irgen)
 
+enum class Intrinsic : uint8_t;
 
 enum ValueKind {
     LValue, RValue
@@ -84,7 +85,6 @@ struct FunctionState {
 class IRGenerator {
     std::unique_ptr<llvm::Module> module;
     llvm::IRBuilder<> builder;
-    
     
     // Debug Metadata
     struct {
@@ -181,7 +181,7 @@ private:
     llvm::Value *codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionDecl>, std::shared_ptr<ast::CallExpr>);
     llvm::Value *codegen_HandleArithmeticIntrinsic(ast::Operator, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs);
     llvm::Value *codegen_HandleComparisonIntrinsic(ast::Operator, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs);
-    llvm::Value *codegen_HandleLogOpIntrinsic(ast::Operator, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs);
+    llvm::Value *codegen_HandleLogOpIntrinsic(Intrinsic, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs);
     
     
     // Match Expr

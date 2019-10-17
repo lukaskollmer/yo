@@ -1904,7 +1904,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
 #pragma mark - Intrinsics
 
 
-enum class Intrinsic : uint8_t {
+enum class irgen::Intrinsic : uint8_t {
     Unknown,
     
     Add,
@@ -1921,6 +1921,9 @@ enum class Intrinsic : uint8_t {
     EQ,
     LT,
     GT,
+    
+    LAnd,
+    LOr,
     
     StaticCast,
     ReinterpretCast,
@@ -1944,6 +1947,9 @@ static const std::map<std::string_view, Intrinsic> intrinsics = {
     { "__eq", Intrinsic::EQ },
     { "__lt", Intrinsic::LT },
     { "__gt", Intrinsic::GT },
+    
+    { "__land", Intrinsic::LAnd },
+    { "__lor",  Intrinsic::LOr  },
     
     { "static_cast", Intrinsic::StaticCast },
     { "reinterpret_cast", Intrinsic::ReinterpretCast },
@@ -2010,9 +2016,13 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
         case Intrinsic::IsPointer:
             return llvm::ConstantInt::get(i1, resolveTypeDesc(call->explicitTemplateArgumentTypes[0])->isPointerTy());
         
+        case Intrinsic::LAnd:
+        case Intrinsic::LOr:
+            LKAssert(call->arguments.size() == 2);
+            return codegen_HandleLogOpIntrinsic(intrinsic, call->arguments[0], call->arguments[1]);
+        
         default: break;
     }
-    
     
     
     if (auto op = util::map::get_opt(intrinsicsArithmeticOperationMapping, intrinsic)) {
@@ -2025,11 +2035,6 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
         return codegen_HandleComparisonIntrinsic(op.value(), call->arguments[0], call->arguments[1]);
     }
     
-    
-    if (auto op = mangling::demangleCanonicalOperatorEncoding(name); op == ast::Operator::LAnd || op == ast::Operator::LOr) {
-        LKAssert(call->arguments.size() == 2);
-        return codegen_HandleLogOpIntrinsic(op, call->arguments[0], call->arguments[1]);
-    }
     
     diagnostics::failWithError(call->getSourceLocation(), util::fmt::format("Unhandled call to intrinsic '{}'", name));
 }
@@ -2207,11 +2212,11 @@ llvm::Value* IRGenerator::codegen_HandleComparisonIntrinsic(ast::Operator op, st
 
 
 
-llvm::Value* IRGenerator::codegen_HandleLogOpIntrinsic(ast::Operator op, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs) {
-    LKAssert(op == ast::Operator::LAnd || op == ast::Operator::LOr);
+llvm::Value* IRGenerator::codegen_HandleLogOpIntrinsic(Intrinsic I, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs) {
+    LKAssert(I == Intrinsic::LAnd || I == Intrinsic::LOr);
     LKAssert(guessType(lhs) == Type::getBoolType() && guessType(rhs) == Type::getBoolType());
     
-    const auto isAnd = op == ast::Operator::LAnd;
+    auto isAnd = I == Intrinsic::LAnd;
     
     auto llvmTrueVal = llvm::ConstantInt::getTrue(i1);
     auto llvmFalseVal = llvm::ConstantInt::getFalse(i1);
