@@ -75,6 +75,10 @@ public:
     void removeAllSinceMarker(Marker M) {
         entries.erase(entries.begin() + M, entries.end());
     }
+    
+    void removeAll() {
+        entries = {};
+    }
 };
 
 

@@ -33,6 +33,7 @@ enum ValueKind {
 
 struct ValueBinding {
     enum Flags : uint8_t {
+        None     = 0,
         CanRead  = 1 << 0,
         CanWrite = 1 << 1
     };
@@ -267,13 +268,13 @@ private:
         
         localScope = {};
         
-        auto retval = fn();
+        util::DeferHandle H([&]() {
+            localScope = prevLocalScope;
+            currentFunction = prevCurrentFunction;
+            builder.SetInsertPoint(prevInsertBlock);
+        });
         
-        localScope = prevLocalScope;
-        currentFunction = prevCurrentFunction;
-        builder.SetInsertPoint(prevInsertBlock);
-        
-        return retval;
+        return fn();
     }
 };
 

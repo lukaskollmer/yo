@@ -184,9 +184,9 @@ void IRGenerator::preflight(const ast::AST& ast) {
 void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDecl) {
     LKAssert(functionDecl->getParamNames().size() == functionDecl->getSignature().paramTypes.size());
     
-    const auto& sig = functionDecl->getSignature();
+    const auto &sig = functionDecl->getSignature();
     
-    bool isMain = functionDecl->isOfFunctionKind(ast::FunctionKind::GlobalFunction) && functionDecl->getName() == "main";
+    const bool isMain = functionDecl->isOfFunctionKind(ast::FunctionKind::GlobalFunction) && functionDecl->getName() == "main";
     
     if (isMain) {
         functionDecl->getAttributes().no_mangle = true;
@@ -218,10 +218,26 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     }
     
     
+    // Resolve parameter types and return type
+    // We temporarily need to put all parameters into the local scope, since they might be used in a decltype statement
+    
+    LKAssert(localScope.isEmpty());
+    
+    std::vector<llvm::Type *> paramTypes(sig.paramTypes.size(), nullptr);
+    
+    for (size_t idx = 0; idx < sig.paramTypes.size(); idx++) {
+        auto type = resolveTypeDesc(sig.paramTypes[idx]);
+        auto name = functionDecl->getParamNames()[idx]->value;
+        paramTypes[idx] = type->getLLVMType();
+        localScope.insert(name, ValueBinding(type, nullptr, []() -> llvm::Value* {
+            LKFatalError("should never reach here");
+        }, [](llvm::Value *) {
+            LKFatalError("should never reach here");
+        }, ValueBinding::Flags::None));
+    }
+    
     auto returnType = resolveTypeDesc(sig.returnType);
-    std::vector<llvm::Type *> parameterTypes = util::vector::map(sig.paramTypes, [this](const auto &paramType) {
-        return resolveTypeDesc(paramType)->getLLVMType();
-    });
+    localScope.removeAll();
     
     
     const std::string canonicalName = mangling::mangleCanonicalName(functionDecl);
@@ -241,7 +257,7 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     
     LKAssertMsg(module->getFunction(resolvedName) == nullptr, util::fmt_cstr("Redefinition of function '%s'", resolvedName.c_str())); // TODO print the signature instead!
     
-    auto FT = llvm::FunctionType::get(returnType->getLLVMType(), parameterTypes, functionDecl->getSignature().isVariadic);
+    auto FT = llvm::FunctionType::get(returnType->getLLVMType(), paramTypes, functionDecl->getSignature().isVariadic);
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, resolvedName, *module);
     F->setDSOLocal(!functionDecl->getAttributes().extern_);
     
@@ -1146,13 +1162,12 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, V
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::SubscriptExpr> subscript, ValueKind returnValueKind) {
-    emitDebugLocation(subscript);
-    
     auto target = codegen(subscript->target, RValue);
     LKAssert(target->getType()->isPointerTy());
     auto offset = codegen(subscript->offset, RValue);
     LKAssert(offset->getType()->isIntegerTy());
     
+    emitDebugLocation(subscript);
     auto GEP = builder.CreateGEP(target, codegen(subscript->offset));
     
     switch (returnValueKind) {
@@ -1637,10 +1652,20 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         // over re-instantiating the template. However, the code is not very good and cannot (yet?) do that
         
         // We need the function's types fully resolved for the `mangleFullyResolved` call below
-        resolveTypeDesc(specializedDecl->getSignature().returnType);
-        for (auto &paramTy : specializedDecl->getSignature().paramTypes) {
-            resolveTypeDesc(paramTy);
-        }
+        // TODO is withCleanSlate overkill here? we really just need the local scope to be empty so that we can insert the parameters
+        withCleanSlate([&]() -> void {
+            for (size_t i = 0; i < specializedDecl->getSignature().paramTypes.size(); i++) {
+                auto type = resolveTypeDesc(specializedDecl->getSignature().paramTypes[i]);
+                auto name = specializedDecl->getParamNames()[i]->value;
+                localScope.insert(name, ValueBinding(type, nullptr, []() -> llvm::Value* {
+                    LKFatalError("Value cannot be read");
+                }, [](llvm::Value *) {
+                    LKFatalError("Value cannot be written to");
+                }, ValueBinding::Flags::None));
+            }
+            resolveTypeDesc(specializedDecl->getSignature().returnType);
+        });
+        
         
         auto mangled = mangleFullyResolved(specializedDecl);
         if (auto decl = getResolvedFunctionWithName(mangled)) {
@@ -1651,8 +1676,10 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         
         llvm::Function *llvmFunction = nullptr;
         if (!omitCodegen && !specializedDecl->getAttributes().intrinsic) {
-            registerFunction(specializedDecl);
-            llvmFunction = withCleanSlate([&]() { return llvm::dyn_cast<llvm::Function>(codegen(specializedDecl)); });
+            llvmFunction = withCleanSlate([&]() {
+                registerFunction(specializedDecl);
+                return llvm::dyn_cast<llvm::Function>(codegen(specializedDecl));
+            });
         }
         return ResolvedCallable(specializedDecl, llvmFunction, argumentOffset);
     };
