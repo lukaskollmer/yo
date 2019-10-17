@@ -2,13 +2,6 @@ use ":runtime/intrinsics";
 
 use size_t = u64;
 
-
-// Returns the size of `T`, in bytes.
-// For example, `sizeof<i64>()` would return 8.
-#[intrinsic]
-fn sizeof<T>() -> size_t;
-
-
 #[extern] fn malloc(size_t) -> *i8;
 #[extern] fn calloc(size_t, size_t) -> *i8;
 #[extern] fn free(*i8);

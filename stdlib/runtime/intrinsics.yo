@@ -3,15 +3,20 @@
 #[intrinsic]
 fn static_cast<R, T>(T) -> R;
 
-
 // Returns `arg`, with the bit pattern reinterpreted as R
 // Requires T and R to have the exact same bit width
 #[intrinsic]
 fn reinterpret_cast<R, T>(T) -> R;
 
+
 // Calls the `llvm.trap` intrinsic
 #[intrinsic] fn __trap();
 
+
+// Returns the size of `T`, in bytes.
+// For example, `sizeof<i64>()` would return 8.
+#[intrinsic]
+fn sizeof<T>() -> size_t;
 
 // Returns a string describing the name of the template parameter `T`
 #[intrinsic] fn __typename<T>() -> *i8;
@@ -22,6 +27,7 @@ fn reinterpret_cast<R, T>(T) -> R;
 // Returns true if `T` is a pointer type
 #[intrinsic] fn __is_pointer<T>() -> bool;
 
+// Arithmetic intrinsics
 #[intrinsic] fn __add<T>(T, T) -> T;
 #[intrinsic] fn __sub<T>(T, T) -> T;
 #[intrinsic] fn __mul<T>(T, T) -> T;
@@ -37,6 +43,7 @@ fn reinterpret_cast<R, T>(T) -> R;
 #[intrinsic] fn __shl<T>(T, T) -> T;
 #[intrinsic] fn __shr<T>(T, T) -> T;
 
+// Equality / Comparison for builtin types
 #[intrinsic] fn __eq<T>(T, T) -> bool;
 #[intrinsic] fn __gt<T>(T, T) -> bool;
 #[intrinsic] fn __lt<T>(T, T) -> bool;
