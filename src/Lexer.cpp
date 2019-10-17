@@ -339,6 +339,8 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& fi
             }
             
             while (true) {
+                // TODO allow non-base-10 floating point literals?
+                // ie: 0b101.11 = 5.75
                 rawValue.push_back(sourceText[offset]);
                 
                 auto nextChar = sourceText[++offset];
@@ -351,7 +353,7 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& fi
                 // 1.7.x
                 if (nextChar == '.') {
                     if (isFloat || base != 10) {
-                        // parsing a float or something that cannot become a float and there's a second period
+                        // parsing a float and there's a second period or parsing something that cannot become a float and there's a period
                         break;
                     }
                     isFloat = true;

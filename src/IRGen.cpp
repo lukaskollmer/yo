@@ -973,7 +973,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
     } else {
         llvmTargetLValue = codegen(assignment->target, LValue);
         
-        // The binop branch already handled implicit conversions so we don't need that twice
+        // The binop branch already handled implicit conversions so there's no need to do that twice
         Type *T;
         if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, destTy, &T)) {
             LKFatalError("type mismatch: cannot assign '%s' to '%s'", T->str().c_str(), destTy->str().c_str());
