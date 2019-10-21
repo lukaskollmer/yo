@@ -21,6 +21,7 @@ yo.build/
 Debug/
 a.out
 ideas.md
+.tabnineignore
 
 stdlib_old/
 

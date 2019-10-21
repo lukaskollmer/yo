@@ -12,6 +12,16 @@ title: Reference
 <div id="toc"></div>
 
 
+<!--
+TODO:
+- only have two levels in the main toc, then add a small local toc to the beginning of each section?
+-->
+
+
+
+
+
+
 
 
 
@@ -52,8 +62,8 @@ letter = [a-zA-Z_]
 ident  = <letter>(<letter>|<digit>)*
 ```
 
-- A sequence of characters that satisfies the `ident` pattern above and is not a reserved keyword is assumed to be an identifier
-- All identifiers with two leading underscores are reserved and should be considered internal
+A sequence of characters that satisfies the `ident` pattern above and is not a reserved keyword is assumed to be an identifier.  
+All identifiers with two leading underscores are reserved and should be considered internal.
 
 
 <h3 sectionId="yo.lex.operators">Operators and punctuation</h3>
@@ -89,11 +99,12 @@ hex_literal      =  0x[0-9a-f]+   // base 16
 ```
 
 <h4 sectionId="yo.lex.literals.float">Floating-point literals</h4>
-TODO
+
+*TODO*
 
 <h4 sectionId="yo.lex.literals.char">Character literal</h4>
 A character literal is a valid ascii codepoint, enclosed by single quotes.
-TODO
+*TODO*
 
 <h4 sectionId="yo.lex.literals.string">String literals</h4>
 A string literal is a sequence of valid ascii codepoints enclosed by double quotes.  
@@ -125,6 +136,12 @@ The `b` and `r` prefixes can be combined to create a raw bytestring.
 
 
 
+
+
+
+
+
+
 <!--
 YO.TYPES
 -->
@@ -136,18 +153,30 @@ YO.TYPES
 <h3 sectionId="yo.types.primitive">Primitive types</h3>
 Yo defines the following primitive types:
 
-| Typename | Size (bytes) | Description           | Values                   |
-| :------- | :----------- | :-------------------- | :----------------------- |
-| `void`   | 0            | the void type         | n/a                      |
-| `u{N}`   | N/8          | unsigned integer type | `0 ... 2^N-1`            |
-| `i{N}`   | N/8          | signed integer type   | `-2^(N-1) ... 2^(N-1)-1` |
-| `bool`   | 1            | the boolean type      | `true`, `false`          |
-| `f64`    | 8            | IEEE-754 binary64     | todo                     |
+| Typename | Size (bytes) | Description           | Values                                |
+| :------- | :----------- | :-------------------- | :------------------------------------ |
+| `void`   | 0            | the void type         | n/a                                   |
+| `u{N}`   | N/8          | unsigned integer type | `0 ... 2^N-1`                         |
+| `i{N}`   | N/8          | signed integer type   | `-2^(N-1) ... 2^(N-1)-1`              |
+| `bool`   | 1            | the boolean type      | `true`, `false`                       |
+| `f64`    | 8            | IEEE-754 binary64     | [see wikipedia][ieee754binary64_wiki] |
 
-- Valid integer type sizes are: N = 8, 16, 32, 64
-- An integer type's prefix indicates its signedness: `i8` is a signed integer, `u8` an unsigned integer
-- A pointer to a type is declared by prefixing the type with an asterisk: `*i8` is a pointer to an `i8`
-- Pointers can only point to types with a size > 0. The yo equivalent of C's `void*` is `*i8`
+[ieee754binary64_wiki]: https://en.wikipedia.org/wiki/Double-precision_floating-point_format
+
+
+
+<h3 sectionId="yo.types.int">Integer types</h3>
+
+For integer types `u{N}` and `i{N}`, valid sizes are: N = 8, 16, 32, 64.
+
+An integer type's signedness is indicated by its prefix: `i8` is a signed integer, `u8` an unsigned integer.
+
+<h3 sectionId="yo.types.ptr">Pointer types</h3>
+Prefixing a base type `T` with a star yields a pointer type `*T`
+
+A pointer type's base type must be of size > 0.
+Yo's equivalent of a C `void *` is `*i8`.
+
 
 
 <h3 sectionId="yo.types.fn">Function types</h3>
@@ -158,6 +187,32 @@ A function type represents all functions with the same parameter and result type
 (i32, i32) -> i64   // a function that takes two `i32` values and returns an `i64` value
 ```
 A function type (ie, a [function](#yo.decl.fn)'s signature) only contains the types of the parameter and return types, it does not contain the names of the individual parameters or any [attributes](#yo.attr.fn) the actual function declaration might have.
+
+
+
+<h3 sectionId="yo.types.decltype">decltype</h3>
+
+```
+decltype(<expr>)
+```
+
+The `decltype` construct can be used whenever the compiler would expect a type.
+It takes a single argument - an expression - and yields the type that expression would evaluate to. The expression is not evaluated.
+
+`decltype` is useful in situations where it would otherwise be difficult or impossible to declare a type, for example when dealing with types that depend on template parameters.
+
+**Example**
+```rust
+fn add<T, U>(x: T, y: U) -> decltype(x + y) {
+    return x + y;
+}
+```
+
+
+
+
+
+
 
 
 
@@ -172,7 +227,9 @@ YO.DECL
 
 <!-- yo.decl.fn -->
 
-<h2 sectionId="yo.decl.fn">Function declarations</h2>
+<h2 sectionId="yo.fn">Functions</h2>
+
+<h3 sectionId="yo.fn.decl">Function declaration</h3>
 
 A function is declared using the `fn` keyword. A function declaration consists of:
 - *(optional)* the function's [attributes](#yo.attr.fn)
@@ -192,7 +249,7 @@ fn add(x: i64, y: i64) -> i64 {
 }
 ```
 
-<h3 sectionId="yo.decl.fn.temp">Function templates</h3>
+<h3 sectionId="yo.fn.decl.temp">Function template</h3>
 
 In the case of a [function template](#yo.temp.fn) declaration, the template parameter names are listed in angled brackets, immediately prior to the function's parameter list.
 
@@ -210,9 +267,9 @@ fn add<T>(x: T, y: T) -> T {
 ```
 
 
-<h3 sectionId="yo.decl.fn.operator">Operator declarations</h3>
+<h3 sectionId="yo.fn.operator">Operator declaration</h3>
 
-Some [binary operators](yo.expr.operators) can be specialized for a specific overload.
+Some [binary operators](yo.expr.operators) can be overloaded for a specific signature.
 Operator overloads are declared as functions with the name `operator`, followed by the operator being overloaded.
 
 ```rust
@@ -221,21 +278,41 @@ fn operator + (x: Foo, y: Foo) -> Foo {
 }
 ```
 
+The following operators can be overloaded:
+```
++    &     &&    ==
+-    |     ||    !=
+*    ^           <
+/    <<          >
+%    >>          <=
+                 >=
+```
+**Note** When overloading equality operators, in most cases overloading just the `==` operator is sufficient, since the default implementation of the `!=` operator is essentially just a forward to `==`.
+
+
+<h3 sectionId="yo.fn.resolution">Overload resolution</h3>
+
+When generating code for a function call, the compiler will collect a set of potential target for the call.
+From that set, the overload most closely matching the supplied arguments will be selected, based on a scoring system.
+A tie (ie, two or more equally likely targets) will result in a compile-time error.
 
 
 
 
-<!-- yo.decl.struct -->
 
-<h2 sectionId="yo.decl.struct">Structs</h2>
+<!-- yo.struct -->
+
+<h2 sectionId="yo.struct">Structs</h2>
+
+<h3 sectionId="yo.struct">Struct declaration</h3>
 
 Custom types can be defined using the `struct` keyword. All struct types are uniquely identified by their name. A struct type can have properties and a set of member functions (methods) associated with it. Member functions are declared in one or multiple `impl` blocks.
 
 - Instance methods are type member functions that can be called on an instance of the type. They must take `self` as their first parameter
 - Static methods are type member functions that can be called on the type itself, using the `::` syntax
-- Unless the `no_init` [attribute](#yo.attr.struct) is present, the compiler will synthesize an initializer for a struct type.
+- Unless the `no_init` [attribute](#yo.attr.struct) is present, the compiler will synthesize an initializer for a struct type
 
-> **Note** For the time being, structs are always allocated on the heap
+**Note** For the time being, structs are always allocated on the heap
 
 **Example** Declaring a struct with properties and member functions  
 ```rust
@@ -273,6 +350,62 @@ YO.EXPR
 Every expression evaluates to a value of a specific type, which must be known at compile time.
 
 
+<h3 sectionId="yo.expr.literals">Literals</h3>
+
+| Literal                     | Type      | Example   |
+| :-------------------------- | :-------- | :-------: |
+| Integer literal             | `i64`     | `12`      |
+| Floating point literal      | `f64`     | `12.0`    |
+| Character literal           | `i8`      | `'a'`     |
+| String literal              | `*String` | `"text"`  |
+| String literal (bytestring) | `*i8`     | `b"text"` |
+
+
+
+<!-- yo.expr.operators -->
+
+<h3 sectionId="yo.expr.operators">Operators</h3>
+
+- Prefix (unary) operators:
+
+    | Operator | Description |
+    | :-------:| :---------- |
+    | `-`      | negation    |
+    | `~`      | bitwise NOT |
+    | `!`      | logical NOT |
+
+    These prefix operators – if defined for a type `T` – have the signature `(T) -> T`.
+
+- Infix (binary) operators (in decreasing order of precedence):
+
+    | Operator | Description           | Signature        | Precedence         |
+    | :------: | :-------------------- | :--------------- | :----------------- |
+    | `<<`     | bitwise shift left    | `(T, T) -> T`    | Bitshift           |
+    | `>>`     | bitwise shift right   | `(T, T) -> T`    | Bitshift           |
+    | `*`      | multiplication        | `(T, T) -> T`    | Multiplication     |
+    | `/`      | division              | `(T, T) -> T`    | Multiplication     |
+    | `%`      | remainder             | `(T, T) -> T`    | Multiplication     |
+    | `&`      | bitwise AND           | `(T, T) -> T`    | Multiplication     |
+    | `+`      | addition              | `(T, T) -> T`    | Addition           |
+    | `-`      | subtraction           | `(T, T) -> T`    | Addition           |
+    | `|`      | bitwise OR            | `(T, T) -> T`    | Addition           |
+    | `^`      | bitwise XOR           | `(T, T) -> T`    | Addition           |
+    | `==`     | equal                 | `(T, T) -> bool` | Comparison         |
+    | `!=`     | not equal             | `(T, T) -> bool` | Comparison         |
+    | `<`      | less than             | `(T, T) -> bool` | Comparison         |
+    | `<=`     | less than or equal    | `(T, T) -> bool` | Comparison         |
+    | `>`      | greater than          | `(T, T) -> bool` | Comparison         |
+    | `>=`     | greater than or equal | `(T, T) -> bool` | Comparison         |
+    | `&&`     | logical AND           | `(T, T) -> bool` | LogicalConjunction |
+    | `||`     | logical OR            | `(T, T) -> bool` | LogicalConjunction |
+    | `|>`     | function pipeline     | n/a              | FunctionPipeline   |
+    | `=`      | assignment            | n/a              | Assignment         |
+
+**Note** Since most of the binary operators above are implemented as functions, they can be overloaded (see [yo.decl.fn.operator](yo.decl.fn.operator))
+
+
+
+
 <!-- yo.expr.cast -->
 
 <h3 sectionId="yo.expr.cast">Type conversions</h3>
@@ -308,54 +441,12 @@ fn bar() -> i32 {
 ```
 
 
-<!-- yo.expr.operators -->
-
-<h3 sectionId="yo.expr.operators">Operators</h3>
-
-- Prefix (unary) operators:
-
-    | Operator | Description |
-    | :-------:| :---------- |
-    | `-`      | negation    |
-    | `~`      | bitwise NOT |
-    | `!`      | logical NOT |
-
-    These prefix operators – if defined for a type `T` – have the signature `(T) -> T`.
-
-- Infix (binary) operators:
-    
-    Infix operators are listed in decreasing order of precedence.
-
-    | Operator | Description           | Signature        | Precedence         |
-    | :------: | :-------------------- | :--------------- | :----------------- |
-    | `<<`     | bitwise shift left    | `(T, T) -> T`    | Bitshift           |
-    | `>>`     | bitwise shift right   | `(T, T) -> T`    | Bitshift           |
-    | `*`      | multiplication        | `(T, T) -> T`    | Multiplication     |
-    | `/`      | division              | `(T, T) -> T`    | Multiplication     |
-    | `%`      | remainder             | `(T, T) -> T`    | Multiplication     |
-    | `&`      | bitwise AND           | `(T, T) -> T`    | Multiplication     |
-    | `+`      | addition              | `(T, T) -> T`    | Addition           |
-    | `-`      | subtraction           | `(T, T) -> T`    | Addition           |
-    | `|`      | bitwise OR            | `(T, T) -> T`    | Addition           |
-    | `^`      | bitwise XOR           | `(T, T) -> T`    | Addition           |
-    | `==`     | equal                 | `(T, T) -> bool` | Comparison         |
-    | `!=`     | not equal             | `(T, T) -> bool` | Comparison         |
-    | `<`      | less than             | `(T, T) -> bool` | Comparison         |
-    | `<=`     | less than or equal    | `(T, T) -> bool` | Comparison         |
-    | `>`      | greater than          | `(T, T) -> bool` | Comparison         |
-    | `>=`     | greater than or equal | `(T, T) -> bool` | Comparison         |
-    | `&&`     | logical AND           | `(T, T) -> bool` | LogicalConjunction |
-    | `||`     | logical OR            | `(T, T) -> bool` | LogicalConjunction |
-    | `|>`     | function pipeline     | n/a              | FunctionPipeline   |
-    | `=`      | assignment            | n/a              | Assignment         |
-
-> **Note** Since most binary operators above are implemented as functions, they can be overloaded (see [yo.decl.fn.operator](yo.decl.fn.operator))
 
 
-<!-- yo.expr.lambda -->
+<!-- yo.expr.lambda
 
 <h3 sectionId="yo.expr.lambda">Lambdas</h3>
-A lambda expression constructs an anynomous function
+A lambda expression constructs an anynomous function -->
 
 
 
@@ -398,16 +489,16 @@ Splitting multiple attributes up into multiple separate attribute lists is seman
 
 <h3 sectionId="yo.attr.fn">Function Attributes</h3>
 
-| Name            | Type     | Description                                              |
-| :-------------- | :------- | :------------------------------------------------------- |
-| `extern`        | `bool`   | C linkage                                                |
-| `inline`        | `bool`   | Function may be inlined                                  |
-| `always_inline` | `bool`   | Function should always be inlined                        |
-| `intrinsic`     | `bool`   | (internal) declares a compile-time intrinsic             |
-| `no_mangle`     | `bool`   | Don't mangle the function's name                         |
-| `mangle`        | `string` | Override a function's mangled name                       |
-| `startup`       | `bool`   | Causes the function to be called before `main` is called |
-| `shutdown`      | `bool`   | Causes the function to be called after `main` returns    |
+| Name            | Type     | Description                                                     |
+| :-------------- | :------- | :-------------------------------------------------------------- |
+| `extern`        | `bool`   | C linkage                                                       |
+| `inline`        | `bool`   | Function may be inlined                                         |
+| `always_inline` | `bool`   | Function should always be inlined                               |
+| `intrinsic`     | `bool`   | (internal) declares a compile-time intrinsic                    |
+| `no_mangle`     | `bool`   | Don't mangle the function's name                                |
+| `mangle`        | `string` | Override a function's mangled name                              |
+| `startup`       | `bool`   | Causes the function to be called before execution enters `main` |
+| `shutdown`      | `bool`   | Causes the function to be called after `main` returns           |
 
 <!-- | `side_effects(...)` | Specify a function's side effects | -->
 <!-- | `arc` | (wip!) enable arc on a per-function basis | -->
@@ -437,6 +528,20 @@ fn foo() -> void { ... }
 
 
 
+
+
+
+<!--
+YO.INTRINSIC
+-->
+
+
+<h2 sectionId="yo.intrinsic">Intrinsics</h2>
+
+A function declared with the `intrinsic` [attribute](#yo.attr.fn) is considered a compile-time intrinsic. Calls to intrinsic functions will receive special handling by the compiler.
+All intrinsic functions are declared in the [`:runtime/intrinsics`](https://github.com/lukaskollmer/yo/blob/master/stdlib/runtime/intrinsics.yo) module.
+
+An intrinsic function may be overloaded with a custom implementation, in this case the overload must not declare the `intrinsic` attribute.
 
 
 

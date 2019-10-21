@@ -54,9 +54,12 @@ General Options:
   -emit               - Output format(s)
     =asm              -   Assembly
     =llvm-ir          -   LLVM IR
+    =llvm-bc          -   LLVM Bitcode
     =bin              -   Binary
     =obj              -   Object File
     =none             -   None
+  -farc               - (experimental) enable ARC
+  -fzero-initialize   - allow uninitialized variables and zero-initialize them
   -g                  - Emit debug metadata
   -print-ast          - Print the Abstract Syntax Tree
   -pygmentize         - Lex input, then print pygmentized HTML to stdout
