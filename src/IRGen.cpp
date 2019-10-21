@@ -35,9 +35,6 @@ throw; }
 
 
 
-// TODO:
-// - get rid of `guessType` and instead have all functions return a `pair<llvm::Value*, yo::irgen::Type*>` ?
-
 
 std::shared_ptr<ast::Ident> makeIdent(const std::string& str) {
     return std::make_shared<ast::Ident>(str);
@@ -520,7 +517,7 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
         }
         
         case TDK::Decltype:
-            return handleResolvedTy(guessType(typeDesc->getDecltypeExpr()));
+            return handleResolvedTy(getType(typeDesc->getDecltypeExpr()));
     }
     
     LKFatalError("unhandled type desc: %s", typeDesc->str().c_str());
@@ -776,7 +773,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
     if (varDecl->type == nullptr) {
         // If no type is specified, there _has_ to be an initial value
         LKAssert(varDecl->initialValue);
-        type = guessType(varDecl->initialValue);
+        type = getType(varDecl->initialValue);
         hasInferredType = true;
     } else {
         type = resolveTypeDesc(varDecl->type);
@@ -924,7 +921,7 @@ bool integerLiteralFitsInIntegralType(uint64_t value, Type *type) {
 
 
 bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *expr, Type *expectedType, Type **initialTypeOfExpr) {
-    auto type = guessType(*expr);
+    auto type = getType(*expr);
     if (initialTypeOfExpr) *initialTypeOfExpr = type;
     
     if (type == expectedType) return true;
@@ -946,11 +943,11 @@ bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
 // TODO should assignments return something?
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
     // TODO rewrite this so that it doesn't rely on GuessType for function calls!
-    // TODO why is relying on guessType for function calls an issue?
+    // TODO why is relying on getType for function calls an issue?
     
     llvm::Value *llvmTargetLValue = nullptr;
     auto expr = assignment->value;
-    const auto destTy = guessType(assignment->target);
+    const auto destTy = getType(assignment->target);
     
     
     if (expr->isOfKind(NK::BinOp) && static_cast<ast::BinOp *>(expr.get())->isInPlaceBinop()) {
@@ -1078,7 +1075,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> castExpr) {
     using LLVMCastOp = llvm::Instruction::CastOps;
     
     LLVMCastOp op = static_cast<LLVMCastOp>(-1); // TODO is -1 a good invalid value?
-    const auto srcTy = guessType(castExpr->expr);
+    const auto srcTy = getType(castExpr->expr);
     const auto dstTy = resolveTypeDesc(castExpr->destType);
     const auto &DL = module->getDataLayout();
     
@@ -1157,7 +1154,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> castExpr) {
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, ValueKind returnValueKind) {
     emitDebugLocation(memberExpr);
     
-    auto targetTy = guessType(memberExpr->target);
+    auto targetTy = getType(memberExpr->target);
     LKAssert(targetTy->isPointerTy());
     auto pointerTy = llvm::dyn_cast<PointerType>(targetTy);
     LKAssert(pointerTy->getPointee()->isStructTy());
@@ -1217,7 +1214,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::UnaryExpr> unaryExpr) {
             return builder.CreateNot(codegen(expr));
             
         case ast::UnaryExpr::Operation::LogicalNegation: {
-            auto ty = guessType(expr);
+            auto ty = getType(expr);
             LKAssert(ty == Type::getBoolType() || ty->isPointerTy() || (ty->isNumericalTy() && llvm::dyn_cast<NumericalType>(ty)->isIntegerTy()));
             return builder.CreateIsNull(codegen(expr)); // TODO this seems like a cop-out answer?
         }
@@ -1252,7 +1249,7 @@ llvm::Value *IRGenerator::codegen_HandleMatchPatternExpr(MatchExprPatternCodegen
     
     auto TT = info.targetType;
     auto PE = info.patternExpr;
-    auto PT = guessType(PE);
+    auto PT = getType(PE);
     
     if (TT->isNumericalTy()) {
         if (auto numberLiteral = std::dynamic_pointer_cast<ast::NumberLiteral>(PE)) {
@@ -1291,8 +1288,8 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MatchExpr> matchExpr) {
     
     // TODO require that match patterns cannot contain side effects? (this should go in _IsValidMatchPatternForMatchedExprType!)
     auto F = currentFunction.llvmFunction;
-    auto matchedExprType = guessType(matchExpr->target);
-    auto resultType = guessType(matchExpr->branches.front().expression);
+    auto matchedExprType = getType(matchExpr->target);
+    auto resultType = getType(matchExpr->branches.front().expression);
     auto matchTargetValue = codegen(matchExpr->target);
     
     
@@ -1413,8 +1410,8 @@ llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::BinOp> binop) {
 bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *lhs, std::shared_ptr<ast::Expr> *rhs, Type **lhsTy_out, Type **rhsTy_out) {
     LKAssert(lhsTy_out && rhsTy_out);
     
-    auto lhsTy = guessType(*lhs);
-    auto rhsTy = guessType(*rhs);
+    auto lhsTy = getType(*lhs);
+    auto rhsTy = getType(*rhs);
     
     *lhsTy_out = lhsTy;
     *rhsTy_out = rhsTy;
@@ -1539,7 +1536,7 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
         }
         
         if (auto mapping = templateArgumentMapping.find(paramTypename); mapping != templateArgumentMapping.end()) {
-            auto guessedArgumentType = guessType(call->arguments[i]);
+            auto guessedArgumentType = getType(call->arguments[i]);
             auto isLiteral = call->arguments[i]->getNodeKind() == NK::NumberLiteral;
             auto reason = isLiteral ? DeductionReason::Literal : DeductionReason::Expr;
             if (!mapping->second.has_value()) {
@@ -1630,7 +1627,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         // - calling a method
         // - calling a property that happens to be a function
         
-        auto targetTy = guessType(memberExpr->target);
+        auto targetTy = getType(memberExpr->target);
         LKAssert(targetTy->isPointerTy());
         auto ptrTy = llvm::dyn_cast<PointerType>(targetTy);
         LKAssert(ptrTy->getPointee()->isStructTy());
@@ -1777,7 +1774,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         
         for (size_t i = argumentOffset; i < lastTypecheckedArgument; i++) {
             auto arg = callExpr->arguments[i];
-            auto argTy = guessType(arg);
+            auto argTy = getType(arg);
             Type *expectedType = nullptr;
 
             if (i < sig.paramTypes.size()) {
@@ -1815,7 +1812,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
 #if 0
     std::ostringstream OS;
     for (auto expr : callExpr->arguments) {
-        OS << guessType(expr) << ", ";
+        OS << getType(expr) << ", ";
     }
     util::fmt::print("Matching overloads for call to '{}'({}):", targetName, OS.str());
     for (auto& match : matches) {
@@ -2212,8 +2209,8 @@ llvm::CmpInst::Predicate getMatchingLLVMCmpInstPredicateForComparisonOperator_Fl
 llvm::Value* IRGenerator::codegen_HandleComparisonIntrinsic(ast::Operator op, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs) {
     emitDebugLocation(lhs);
     
-    auto lhsTy = guessType(lhs);
-    auto rhsTy = guessType(rhs);
+    auto lhsTy = getType(lhs);
+    auto rhsTy = getType(rhs);
     
     llvm::CmpInst::Predicate pred;
     llvm::Value *lhsVal, *rhsVal;
@@ -2264,7 +2261,7 @@ llvm::Value* IRGenerator::codegen_HandleComparisonIntrinsic(ast::Operator op, st
 
 llvm::Value* IRGenerator::codegen_HandleLogOpIntrinsic(Intrinsic I, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs) {
     LKAssert(I == Intrinsic::LAnd || I == Intrinsic::LOr);
-    LKAssert(guessType(lhs) == Type::getBoolType() && guessType(rhs) == Type::getBoolType());
+    LKAssert(getType(lhs) == Type::getBoolType() && getType(rhs) == Type::getBoolType());
     
     auto isAnd = I == Intrinsic::LAnd;
     
@@ -2409,7 +2406,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ForLoop> forLoop) {
     
     LKFatalError("TODO");
     
-//    auto T = guessType(forLoop->expr);
+//    auto T = getType(forLoop->expr);
 //    LKAssert(T->isPointer() && T->getPointee()->isComplex());
 //    auto iteratorCallTarget = mangling::mangleCanonicalName(T->getPointee()->getName(), "iterator", ast::FunctionSignature::FunctionKind::InstanceMethod);
 //
@@ -2702,7 +2699,7 @@ bool IRGenerator::valueIsTriviallyConvertible(std::shared_ptr<ast::NumberLiteral
 
 
 
-Type* IRGenerator::guessType(std::shared_ptr<ast::Expr> expr) {
+Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
     switch (expr->getNodeKind()) {
         case NK::NumberLiteral: {
             using NT = ast::NumberLiteral::NumberType;
@@ -2745,21 +2742,21 @@ Type* IRGenerator::guessType(std::shared_ptr<ast::Expr> expr) {
             return resolveTypeDesc(resolveCall(std::static_pointer_cast<ast::CallExpr>(expr), true).signature.returnType);
         
         case NK::MatchExpr:
-            return guessType(static_cast<ast::MatchExpr *>(expr.get())->branches.front().expression); // TODO add a check somewhere to make sure all branches return the same type
+            return getType(static_cast<ast::MatchExpr *>(expr.get())->branches.front().expression); // TODO add a check somewhere to make sure all branches return the same type
         
         case NK::RawLLVMValueExpr:
             return static_cast<ast::RawLLVMValueExpr *>(expr.get())->type;
         
         case NK::SubscriptExpr: {
             // TODO allow non-pointer subscripting
-            auto targetTy = guessType(static_cast<ast::SubscriptExpr *>(expr.get())->target);
+            auto targetTy = getType(static_cast<ast::SubscriptExpr *>(expr.get())->target);
             LKAssert(targetTy->isPointerTy());
             return llvm::dyn_cast<PointerType>(targetTy)->getPointee();
         }
         
         case NK::MemberExpr: {
             auto memberExpr = static_cast<ast::MemberExpr *>(expr.get());
-            auto targetTy = guessType(memberExpr->target);
+            auto targetTy = getType(memberExpr->target);
             LKAssert(targetTy->isPointerTy());
             auto ptrTy = llvm::dyn_cast<PointerType>(targetTy);
             LKAssert(ptrTy->getPointee()->isStructTy());
@@ -2773,7 +2770,7 @@ Type* IRGenerator::guessType(std::shared_ptr<ast::Expr> expr) {
         }
         
         case NK::UnaryExpr: {
-            return guessType(static_cast<ast::UnaryExpr *>(expr.get())->expr);
+            return getType(static_cast<ast::UnaryExpr *>(expr.get())->expr);
         }
         
         case NK::CompOp:

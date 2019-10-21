@@ -239,9 +239,7 @@ private:
     ResolvedCallable resolveCall(std::shared_ptr<ast::CallExpr>, bool omitCodegen);
     std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset);
     
-    //TypeInfo *guessType(std::shared_ptr<ast::Expr>);
-    //TypeInfo *guessType(std::shared_ptr<ast::NumberLiteral>);
-    Type* guessType(std::shared_ptr<ast::Expr>);
+    Type* getType(std::shared_ptr<ast::Expr>);
     
     bool valueIsTriviallyConvertible(std::shared_ptr<ast::NumberLiteral>, Type *);
     
