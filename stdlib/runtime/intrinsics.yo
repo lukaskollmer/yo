@@ -45,7 +45,6 @@ fn sizeof<T>() -> size_t;
 
 // Equality / Comparison for builtin types
 #[intrinsic] fn __eq<T>(T, T) -> bool;
-#[intrinsic] fn __gt<T>(T, T) -> bool;
 #[intrinsic] fn __lt<T>(T, T) -> bool;
 
 // short-circuited logical AND

@@ -1967,7 +1967,6 @@ enum class irgen::Intrinsic : uint8_t {
     
     EQ,
     LT,
-    GT,
     
     LAnd,
     LOr,
@@ -1993,7 +1992,6 @@ static const std::map<std::string_view, Intrinsic> intrinsics = {
     
     { "__eq", Intrinsic::EQ },
     { "__lt", Intrinsic::LT },
-    { "__gt", Intrinsic::GT },
     
     { "__land", Intrinsic::LAnd },
     { "__lor",  Intrinsic::LOr  },
@@ -2018,7 +2016,7 @@ static const std::map<Intrinsic, ast::Operator> intrinsicsArithmeticOperationMap
 
 static const std::map<Intrinsic, ast::Operator> intrinsicsComparisonOperationMapping = {
 #define MAPPING(name) { Intrinsic::name, ast::Operator::name },
-    MAPPING(EQ) MAPPING(LT) MAPPING(GT)
+    MAPPING(EQ) MAPPING(LT)
 #undef MAPPING
 };
 
@@ -2179,11 +2177,7 @@ llvm::CmpInst::Predicate getMatchingLLVMCmpInstPredicateForComparisonOperator_In
     
     switch (op) {
         case Op::EQ: return Pred::ICMP_EQ;
-        case Op::NE: return Pred::ICMP_NE;
         case Op::LT: return isSigned ? Pred::ICMP_SLT : Pred::ICMP_ULT;
-        case Op::LE: return isSigned ? Pred::ICMP_SLE : Pred::ICMP_ULE;
-        case Op::GT: return isSigned ? Pred::ICMP_SGT : Pred::ICMP_UGT;
-        case Op::GE: return isSigned ? Pred::ICMP_SGE : Pred::ICMP_UGE;
         default: LKFatalError("");
     }
 }
@@ -2195,11 +2189,7 @@ llvm::CmpInst::Predicate getMatchingLLVMCmpInstPredicateForComparisonOperator_Fl
     
     switch (op) {
         case Op::EQ: return Pred::FCMP_OEQ;
-        case Op::NE: return Pred::FCMP_ONE;
         case Op::LT: return Pred::FCMP_OLT;
-        case Op::LE: return Pred::FCMP_OLE;
-        case Op::GT: return Pred::FCMP_OGT;
-        case Op::GE: return Pred::FCMP_OGE;
         default: LKFatalError("");
     }
 }
@@ -2444,10 +2434,7 @@ void IRGenerator::handleStartupAndShutdownFunctions() {
     std::vector<llvm::Type *> structTys = {
         i32, llvm::FunctionType::get(Void, false)->getPointerTo(), i8_ptr
     };
-    //auto structTy = llvm::StructType::get(C, structTys);
     auto structTy = llvm::StructType::create(C, structTys);
-    
-    
     
     auto imp = [&](llvm::StringRef dest, bool attributes::FunctionAttributes::* attr) {
         std::vector<ResolvedCallable> functions;
@@ -2475,9 +2462,7 @@ void IRGenerator::handleStartupAndShutdownFunctions() {
         auto global = module->getGlobalVariable(dest);
         global->setInitializer(array);
         global->setLinkage(llvm::GlobalVariable::LinkageTypes::AppendingLinkage);
-        
     };
-    
     
     imp("llvm.global_ctors", &attributes::FunctionAttributes::startup);
     imp("llvm.global_dtors", &attributes::FunctionAttributes::shutdown);

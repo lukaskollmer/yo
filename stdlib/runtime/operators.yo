@@ -74,24 +74,23 @@ fn operator != <T>(lhs: T, rhs: T) -> bool {
     return !(lhs == rhs);
 }
 
-
-#[always_inline]
-fn operator > <T> (lhs: T, rhs: T) -> bool {
-    return __gt(lhs, rhs);
-}
-
-
 #[always_inline]
 fn operator < <T> (lhs: T, rhs: T) -> bool {
     return __lt(lhs, rhs);
 }
 
 #[always_inline]
+fn operator > <T> (lhs: T, rhs: T) -> bool {
+    return rhs < lhs;
+}
+
+
+#[always_inline]
 fn operator <= <T>(lhs: T, rhs: T) -> bool {
-    return lhs < rhs || lhs == rhs;
+    return !(lhs > rhs);
 }
 
 #[always_inline]
 fn operator >= <T>(lhs: T, rhs: T) -> bool {
-    return lhs > rhs || lhs == rhs;
+    return !(lhs < rhs);
 }
