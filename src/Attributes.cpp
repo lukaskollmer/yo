@@ -14,6 +14,65 @@ using namespace yo;
 using namespace yo::attributes;
 
 
+
+template <typename T>
+struct Mapping {
+    using MemberT = typename util::typeinfo::member_ptr<T>::memberT;
+    
+    const std::string_view key;
+    const T memberPtr;
+    
+    Mapping(std::string_view key, T memberPtr) : key(key), memberPtr(memberPtr) {}
+};
+
+
+
+template <typename T, typename U>
+void set_attr_val(U &dest, const Attribute &attr, T mapping) {
+    dest.*(mapping.memberPtr) = std::get<typename T::MemberT>(attr.data);
+}
+
+
+#define IF_ATTR(attr, mapping)          \
+if (attr.getKey() == mapping.key) {     \
+    set_attr_val(*this, attr, mapping); \
+    continue;                           \
+}
+
+
+namespace builtin_attributes {
+#define ENTRY(scope, name_int, name_ext) \
+static const auto name_int = Mapping(name_ext, &scope::name_int);
+
+namespace func_decl {
+ENTRY(FunctionAttributes, no_mangle, "no_mangle")
+ENTRY(FunctionAttributes, mangledName, "mangle")
+ENTRY(FunctionAttributes, arc, "arc")
+ENTRY(FunctionAttributes, extern_, "extern")
+ENTRY(FunctionAttributes, inline_, "inline")
+ENTRY(FunctionAttributes, always_inline, "always_inline")
+ENTRY(FunctionAttributes, startup, "startup")
+ENTRY(FunctionAttributes, shutdown, "shutdown")
+ENTRY(FunctionAttributes, side_effects, "side_effects")
+ENTRY(FunctionAttributes, intrinsic, "intrinsic")
+}
+
+
+namespace struct_decl {
+ENTRY(StructAttributes, arc, "arc")
+ENTRY(StructAttributes, no_init, "no_init")
+}
+
+namespace var_decl {
+ENTRY(VarDeclAttributes, constexpr_, "constexpr")
+}
+
+#undef ENTRY
+} // namespace builtin_attributes
+
+
+
+
 namespace attr_vec_utils {
     std::optional<Attribute> get_with_key(const std::vector<Attribute> &attributes, std::string_view key) {
         return util::vector::first_where(attributes, [&key](const auto& attr) { return attr.getKey() == key; });
@@ -25,36 +84,20 @@ namespace attr_vec_utils {
 }
 
 
-#define ATTRIBUTE(scope, name) \
-namespace builtin_attributes::scope::name { const std::string_view _yo_attr_key = #name; }
-
-#define ATTRIBUTE_custom_mapping(scope, internalName, externalName) \
-namespace builtin_attributes::scope::internalName { const std::string_view _yo_attr_key = #externalName; }
-
-#define ATTR_MEMBER(scope, attr_name, member_name) \
-namespace builtin_attributes::scope::attr_name { const std::string_view member_name = #member_name; }
 
 #pragma mark - Function Attributes
 
-ATTRIBUTE(function, no_mangle)
-ATTRIBUTE(function, intrinsic)
-ATTRIBUTE(function, arc)
-ATTRIBUTE(function, mangle)
-ATTRIBUTE(function, always_inline)
-ATTRIBUTE(function, side_effects)
-ATTRIBUTE(function, startup)
-ATTRIBUTE(function, shutdown)
-ATTRIBUTE_custom_mapping(function, extern_, extern)
-ATTRIBUTE_custom_mapping(function, inline_, inline)
 
-ATTR_MEMBER(function, side_effects, none)
-ATTR_MEMBER(function, side_effects, io)
-ATTR_MEMBER(function, side_effects, unknown)
-
+std::optional<SideEffect> sideEffectFromString(std::string_view str) {
+    if (str == "none") return SideEffect::None;
+    if (str == "io") return SideEffect::IO;
+    if (str == "unknown") return SideEffect::Unknown;
+    return std::nullopt;
+}
 
 
 std::vector<SideEffect> HandleSideEffectsAttribute(const Attribute &attribute) {
-    LKAssert(attribute.key == builtin_attributes::function::side_effects::_yo_attr_key);
+    LKAssert(attribute.key == builtin_attributes::func_decl::side_effects.key);
     
     auto values = std::get<std::vector<std::string>>(attribute.data);
     std::vector<SideEffect> sideEffects;
@@ -65,13 +108,9 @@ std::vector<SideEffect> HandleSideEffectsAttribute(const Attribute &attribute) {
     }
     
     for (const auto& value : values) {
-        if (value == builtin_attributes::function::side_effects::none) {
-            containsNone = true;
-            sideEffects.push_back(SideEffect::None);
-        } else if (value == builtin_attributes::function::side_effects::io) {
-            sideEffects.push_back(SideEffect::IO);
-        } else if (value == builtin_attributes::function::side_effects::unknown) {
-            sideEffects.push_back(SideEffect::Unknown);
+        if (auto SE = sideEffectFromString(value)) {
+            containsNone = containsNone || *SE == SideEffect::None;
+            sideEffects.push_back(*SE);
         } else {
             LKFatalError("unknown value in side_effects attribute: '%s'", value.c_str());
         }
@@ -105,67 +144,47 @@ void ensure_mutual_exclusivity(const std::vector<std::string_view> &attributeNam
 
 
 
-// TODO the comparisons below surely can be implemented in a better way?
-
-
 FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes) : FunctionAttributes() {    
     if (attributes.empty()) return;
     
     std::vector<std::string_view> handledAttributes;
 
-    for (const auto& attribute : attributes) {
-        LKAssert(!util::vector::contains(handledAttributes, attribute.getKey()));
-        handledAttributes.push_back(attribute.getKey());
+    for (const auto& attr : attributes) {
+        LKAssert(!util::vector::contains(handledAttributes, attr.getKey()));
+        handledAttributes.push_back(attr.getKey());
         
-        if (attribute.key == builtin_attributes::function::no_mangle::_yo_attr_key) {
-            no_mangle = std::get<bool>(attribute.data);
-            
-        } else if (attribute.key == builtin_attributes::function::arc::_yo_attr_key) {
-            arc = std::get<bool>(attribute.data);
+        IF_ATTR(attr, builtin_attributes::func_decl::no_mangle)
+        IF_ATTR(attr, builtin_attributes::func_decl::mangledName)
+        IF_ATTR(attr, builtin_attributes::func_decl::arc)
+        IF_ATTR(attr, builtin_attributes::func_decl::extern_)
+        IF_ATTR(attr, builtin_attributes::func_decl::inline_)
+        IF_ATTR(attr, builtin_attributes::func_decl::always_inline)
+        IF_ATTR(attr, builtin_attributes::func_decl::startup)
+        IF_ATTR(attr, builtin_attributes::func_decl::shutdown)
+        IF_ATTR(attr, builtin_attributes::func_decl::intrinsic)
         
-        } else if (attribute.key == builtin_attributes::function::intrinsic::_yo_attr_key) {
-            intrinsic = std::get<bool>(attribute.data);
-        
-        } else if (attribute.key == builtin_attributes::function::side_effects::_yo_attr_key) {
-            side_effects = HandleSideEffectsAttribute(attribute);
-            
-        } else if (attribute.key == builtin_attributes::function::mangle::_yo_attr_key) {
-            mangledName = std::get<std::string>(attribute.data);
-            
-        } else if (attribute.key == builtin_attributes::function::extern_::_yo_attr_key) {
-            extern_ = std::get<bool>(attribute.data);
-            
-        } else if (attribute.key == builtin_attributes::function::inline_::_yo_attr_key) {
-            inline_ = std::get<bool>(attribute.data);
-            
-        } else if (attribute.key == builtin_attributes::function::always_inline::_yo_attr_key) {
-            always_inline = std::get<bool>(attribute.data);
-        
-        } else if (attribute.key == builtin_attributes::function::startup::_yo_attr_key) {
-            startup = std::get<bool>(attribute.data);
-        
-        } else if (attribute.key == builtin_attributes::function::shutdown::_yo_attr_key) {
-            shutdown = std::get<bool>(attribute.data);
-            
-        } else {
-            LKFatalError("unknown function attribute: '%s'", attribute.key.c_str());
+        if (attr.key == builtin_attributes::func_decl::side_effects.key) {
+            side_effects = HandleSideEffectsAttribute(attr);
+            continue;
         }
+      
+        LKFatalError("unknown function attribute: '%s'", attr.key.c_str());
     }
     
     ensure_mutual_exclusivity(handledAttributes, {
-        builtin_attributes::function::mangle::_yo_attr_key,
-        builtin_attributes::function::no_mangle::_yo_attr_key
+        builtin_attributes::func_decl::mangledName.key,
+        builtin_attributes::func_decl::no_mangle.key
     });
     
     ensure_mutual_exclusivity(handledAttributes, {
-        builtin_attributes::function::inline_::_yo_attr_key,
-        builtin_attributes::function::always_inline::_yo_attr_key
+        builtin_attributes::func_decl::inline_.key,
+        builtin_attributes::func_decl::always_inline.key
     });
     
     ensure_mutual_exclusivity(handledAttributes, {
-        builtin_attributes::function::extern_::_yo_attr_key,
-        builtin_attributes::function::mangle::_yo_attr_key,
-        builtin_attributes::function::no_mangle::_yo_attr_key
+        builtin_attributes::func_decl::extern_.key,
+        builtin_attributes::func_decl::mangledName.key,
+        builtin_attributes::func_decl::no_mangle.key
     });
 }
 
@@ -181,10 +200,8 @@ bool FunctionAttributes::operator==(const FunctionAttributes &other) const {
 
 
 
-#pragma mark - Struct Attributes
 
-ATTRIBUTE(structDecl, arc)
-ATTRIBUTE(structDecl, no_init)
+#pragma mark - Struct Attributes
 
 
 StructAttributes::StructAttributes(const std::vector<Attribute> &attributes) : StructAttributes() {
@@ -196,13 +213,27 @@ StructAttributes::StructAttributes(const std::vector<Attribute> &attributes) : S
         LKAssert(!util::vector::contains(handledAttributes, attribute.getKey()));
         handledAttributes.push_back(attribute.key);
         
-        if (attribute.key == builtin_attributes::structDecl::arc::_yo_attr_key) {
-            arc = std::get<bool>(attribute.data);
-        } else if (attribute.key == builtin_attributes::structDecl::no_init::_yo_attr_key) {
-            no_init = std::get<bool>(attribute.data);
-        } else {
-            LKFatalError("unknown struct attribute: '%s'", attribute.key.c_str());
-        }
+        IF_ATTR(attribute, builtin_attributes::struct_decl::arc)
+        IF_ATTR(attribute, builtin_attributes::struct_decl::no_init)
+        
+        LKFatalError("unknown struct attribute: '%s'", attribute.key.c_str());
     }
 }
 
+
+#pragma mark - VarDecl Attributes
+
+VarDeclAttributes::VarDeclAttributes(const std::vector<Attribute> &attributes) : VarDeclAttributes() {
+    if (attributes.empty()) return;
+    
+    std::vector<std::string_view> handledAttributes;
+    
+    for (const auto &attr : attributes) {
+        LKAssert(!util::vector::contains(handledAttributes, attr.getKey()));
+        
+        IF_ATTR(attr, builtin_attributes::var_decl::constexpr_)
+        
+        LKFatalError("unhandled attribute: '%s'", attr.key.c_str());
+    }
+    
+}

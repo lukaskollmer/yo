@@ -183,6 +183,18 @@ struct TypeInfo {
 template <typename T>
 const std::string TypeInfo<T>::name = demangle(typeid(T).name());
 
+
+// Extracts a member pointer's class and member type
+
+template <typename T>
+struct member_ptr;
+
+template <typename ClassT, typename MemberT>
+struct member_ptr<MemberT ClassT::*> {
+    using classT = ClassT;
+    using memberT = MemberT;
+};
+
 } // namespace typeinfo
 
 
