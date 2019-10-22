@@ -45,13 +45,11 @@ fn get_retainCount_imp(obj: *LKMetadataAccessor) -> u64 {
 
 fn retain_imp(obj: *LKMetadataAccessor) -> void {
     if isMarkedForRelease_imp(obj) {
-        //obj.retainCount &= static_cast<u64>(~(1 << 60));
-        obj.retainCount = obj.retainCount & static_cast<u64>(~(1 << 60));
+        obj.retainCount &= static_cast<u64>(~(1 << 60));
         //unsetIsMarkedForReleaseBit_imp(obj);
         return;
     }
-    //obj.retainCount += 1;
-    obj.retainCount = obj.retainCount + 1;
+    obj.retainCount += 1;
     printf(b"retain_imp: RC: %lu\n", get_retainCount_imp(obj));
     return;
 }
@@ -59,8 +57,7 @@ fn retain_imp(obj: *LKMetadataAccessor) -> void {
 
 fn release_imp(obj: *LKMetadataAccessor) -> void {
     if isMarkedForRelease_imp(obj) {
-        //obj.retainCount &= static_cast<u64>(~(1 << 60));
-        obj.retainCount = obj.retainCount & static_cast<u64>(~(1 << 60));
+        obj.retainCount &= static_cast<u64>(~(1 << 60));
     }
 
     if obj.retainCount == 1 {
@@ -68,8 +65,7 @@ fn release_imp(obj: *LKMetadataAccessor) -> void {
         return;
     }
 
-    //obj.retainCount -= 1;
-    obj.retainCount = obj.retainCount - 1;
+    obj.retainCount -= 1;
     printf(b"release_imp: RC: %lu\n", get_retainCount_imp(obj));
     return;
 }
@@ -81,7 +77,6 @@ fn isMarkedForRelease_imp(obj: *LKMetadataAccessor) -> bool {
 
 
 fn markForRelease_imp(obj: *LKMetadataAccessor) {
-    //obj.retainCount |= static_cast<u64>(1 << 60);
-    obj.retainCount = obj.retainCount | static_cast<u64>(1 << 60);
+    obj.retainCount |= static_cast<u64>(1 << 60);
     return;
 }
