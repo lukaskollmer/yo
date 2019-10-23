@@ -164,7 +164,7 @@ std::vector<std::shared_ptr<ast::LocalStmt>> TemplateSpecializer::specialize(std
 }
 
 std::shared_ptr<ast::ReturnStmt> TemplateSpecializer::specialize(std::shared_ptr<ast::ReturnStmt> returnStmt) {
-    auto X = std::make_shared<ast::ReturnStmt>(specialize(returnStmt->expression));
+    auto X = std::make_shared<ast::ReturnStmt>(specialize(returnStmt->expr));
     X->setSourceLocation(returnStmt->getSourceLocation());
     return X;
 }
