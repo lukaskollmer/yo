@@ -180,9 +180,9 @@ private:
     llvm::Value *codegen(std::shared_ptr<ast::CallExpr>);
     
     llvm::Value *codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionDecl>, std::shared_ptr<ast::CallExpr>);
-    llvm::Value *codegen_HandleArithmeticIntrinsic(ast::Operator, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs);
-    llvm::Value *codegen_HandleComparisonIntrinsic(ast::Operator, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs);
-    llvm::Value *codegen_HandleLogOpIntrinsic(Intrinsic, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs);
+    llvm::Value *codegen_HandleArithmeticIntrinsic(ast::Operator, std::shared_ptr<ast::CallExpr>);
+    llvm::Value *codegen_HandleComparisonIntrinsic(ast::Operator, std::shared_ptr<ast::CallExpr>);
+    llvm::Value *codegen_HandleLogOpIntrinsic(Intrinsic, std::shared_ptr<ast::CallExpr>);
     
     
     // Match Expr

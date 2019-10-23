@@ -2064,7 +2064,7 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
         case Intrinsic::LAnd:
         case Intrinsic::LOr:
             LKAssert(call->arguments.size() == 2);
-            return codegen_HandleLogOpIntrinsic(intrinsic, call->arguments[0], call->arguments[1]);
+            return codegen_HandleLogOpIntrinsic(intrinsic, call);
         
         default: break;
     }
@@ -2072,12 +2072,11 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
     
     if (auto op = util::map::get_opt(intrinsicsArithmeticOperationMapping, intrinsic)) {
         LKAssert(call->arguments.size() == 2);
-        return codegen_HandleArithmeticIntrinsic(op.value(), call->arguments[0], call->arguments[1]);
+        return codegen_HandleArithmeticIntrinsic(op.value(), call);
     }
     
     if (auto op = util::map::get_opt(intrinsicsComparisonOperationMapping, intrinsic)) {
-        LKAssert(call->arguments.size() == 2);
-        return codegen_HandleComparisonIntrinsic(op.value(), call->arguments[0], call->arguments[1]);
+        return codegen_HandleComparisonIntrinsic(op.value(), call);
     }
     
     
@@ -2144,10 +2143,14 @@ bool isValidFloatArithBinop(ast::Operator op) {
 }
 
 
-llvm::Value* IRGenerator::codegen_HandleArithmeticIntrinsic(ast::Operator op, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs) {
-    emitDebugLocation(lhs);
+llvm::Value* IRGenerator::codegen_HandleArithmeticIntrinsic(ast::Operator op, std::shared_ptr<ast::CallExpr> call) {
+    //emitDebugLocation(lhs);
+    LKAssert(call->arguments.size() == 2);
     
-    Type *lhsTy, *rhsTy;
+    Type *lhsTy = nullptr, *rhsTy = nullptr;
+    
+    auto lhs = call->arguments.at(0);
+    auto rhs = call->arguments.at(1);
     
     if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&lhs, &rhs, &lhsTy, &rhsTy)) {
         LKFatalError("unable to create binop for supplied operand types '%s' and '%s'", lhsTy->str().c_str(), rhsTy->str().c_str());
@@ -2165,8 +2168,11 @@ llvm::Value* IRGenerator::codegen_HandleArithmeticIntrinsic(ast::Operator op, st
         LKAssert("TODO: invalid operand type?");
     }
     
-    auto llvmOp = numTy->isFloatTy() ? getLLVMBinaryOpInstruction_Float(op) : getLLVMBinaryOpInstruction_Int(op, numTy->isSigned());
-    return builder.CreateBinOp(llvmOp, codegen(lhs), codegen(rhs));
+    const auto llvmOp = numTy->isFloatTy() ? getLLVMBinaryOpInstruction_Float(op) : getLLVMBinaryOpInstruction_Int(op, numTy->isSigned());
+    const auto lhsVal = codegen(lhs);
+    const auto rhsVal = codegen(rhs);
+    emitDebugLocation(call);
+    return builder.CreateBinOp(llvmOp, lhsVal, rhsVal);
 }
 
 
@@ -2196,19 +2202,25 @@ llvm::CmpInst::Predicate getMatchingLLVMCmpInstPredicateForComparisonOperator_Fl
 
 
 
-llvm::Value* IRGenerator::codegen_HandleComparisonIntrinsic(ast::Operator op, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs) {
-    emitDebugLocation(lhs);
+llvm::Value* IRGenerator::codegen_HandleComparisonIntrinsic(ast::Operator op, std::shared_ptr<ast::CallExpr> call) {
+    LKAssert(call->arguments.size() == 2);
     
-    auto lhsTy = getType(lhs);
-    auto rhsTy = getType(rhs);
+    const auto lhs = call->arguments.at(0);
+    const auto rhs = call->arguments.at(1);
+    
+    const auto lhsTy = getType(lhs);
+    const auto rhsTy = getType(rhs);
     
     llvm::CmpInst::Predicate pred;
     llvm::Value *lhsVal, *rhsVal;
     
     // Floats?
     if (lhsTy == rhsTy && lhsTy == Type::getFloat64Type()) {
-        return builder.CreateFCmp(getMatchingLLVMCmpInstPredicateForComparisonOperator_Float(op),
-                                  codegen(lhs), codegen(rhs));
+        lhsVal = codegen(lhs);
+        rhsVal = codegen(rhs);
+        pred = getMatchingLLVMCmpInstPredicateForComparisonOperator_Float(op);
+        emitDebugLocation(call);
+        return builder.CreateFCmp(pred, lhsVal, rhsVal);
     }
     
     // Are both integers?
@@ -2242,6 +2254,7 @@ llvm::Value* IRGenerator::codegen_HandleComparisonIntrinsic(ast::Operator op, st
         
     }
     
+    emitDebugLocation(call);
     return builder.CreateICmp(pred, lhsVal, rhsVal);
 }
 
@@ -2249,8 +2262,13 @@ llvm::Value* IRGenerator::codegen_HandleComparisonIntrinsic(ast::Operator op, st
 
 
 
-llvm::Value* IRGenerator::codegen_HandleLogOpIntrinsic(Intrinsic I, std::shared_ptr<ast::Expr> lhs, std::shared_ptr<ast::Expr> rhs) {
+llvm::Value* IRGenerator::codegen_HandleLogOpIntrinsic(Intrinsic I, std::shared_ptr<ast::CallExpr> call) {
+    LKAssert(call->arguments.size() == 2);
     LKAssert(I == Intrinsic::LAnd || I == Intrinsic::LOr);
+    
+    const auto lhs = call->arguments.at(0);
+    const auto rhs = call->arguments.at(1);
+    
     LKAssert(getType(lhs) == Type::getBoolType() && getType(rhs) == Type::getBoolType());
     
     auto isAnd = I == Intrinsic::LAnd;
