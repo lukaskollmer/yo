@@ -266,9 +266,9 @@ public:
 
 class ReturnStmt : public LocalStmt {
 public:
-    std::shared_ptr<Expr> expression;
+    std::shared_ptr<Expr> expr;
     
-    explicit ReturnStmt(std::shared_ptr<Expr> expression) : LocalStmt(Node::NodeKind::ReturnStmt), expression(expression) {}
+    explicit ReturnStmt(std::shared_ptr<Expr> expr) : LocalStmt(Node::NodeKind::ReturnStmt), expr(expr) {}
 };
 
 

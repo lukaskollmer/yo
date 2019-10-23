@@ -876,7 +876,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ReturnStmt> returnStmt) {
     auto FName = builder.GetInsertBlock()->getParent()->getName().str();
     const auto returnType = resolveTypeDesc(currentFunction.decl->getSignature().returnType);
     
-    if (auto expr = returnStmt->expression) {
+    if (auto expr = returnStmt->expr) {
         Type *T;
         if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, returnType, &T)) {
             auto msg = util::fmt::format("expression evaluates to type '{}', which is incompatible with the expected return type '{p}'",

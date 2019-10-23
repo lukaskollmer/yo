@@ -306,7 +306,7 @@ Mirror Reflect(const Composite *C) {
 
 Mirror Reflect(const ReturnStmt *ret) {
     return {
-        { "expr", ret->expression }
+        { "expr", ret->expr }
     };
 }
 
