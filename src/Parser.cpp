@@ -775,9 +775,7 @@ std::shared_ptr<IfStmt> Parser::parseIfStmt() {
     auto mainExpr = parseExpression();
     assertTk(TK::OpeningCurlyBraces);
     
-    branches.push_back(std::make_shared<IfStmt::Branch>(Kind::If,
-                                                        mainExpr,
-                                                        parseComposite()));
+    branches.push_back(std::make_shared<IfStmt::Branch>(Kind::If, mainExpr, parseComposite()));
     
     while (currentTokenKind() == TK::Else && peekKind() == TK::If) {
         consume(2);
@@ -1031,10 +1029,12 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
         
 //    parse_subscript_expr:
         if (currentTokenKind() == TK::OpeningSquareBrackets) {
+            auto loc = getCurrentSourceLocation();
             consume();
             auto offsetExpr = parseExpression();
             assertTkAndConsume(TK::ClosingSquareBrackets);
             expr = std::make_shared<ast::SubscriptExpr>(expr, offsetExpr);
+            expr->setSourceLocation(loc);
         }
         
         

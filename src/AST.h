@@ -98,7 +98,7 @@ public:
     
     // TODO add a `str` function that prints the node, as it would look as source code
     virtual std::string description() const;
-    const parser::TokenSourceLocation &getSourceLocation() const {
+    const parser::TokenSourceLocation& getSourceLocation() const {
         return sourceLocation;
     }
     
@@ -442,6 +442,7 @@ public:
 
 
 
+// SourceLoc should point to the `[` character
 class SubscriptExpr : public Expr {
 public:
     std::shared_ptr<ast::Expr> target;

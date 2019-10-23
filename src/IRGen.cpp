@@ -363,7 +363,6 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
 
 
 #define CASE(node, kind, ...) case NK::kind: return codegen(std::static_pointer_cast<ast::kind>(node), ## __VA_ARGS__);
-#define CASE2(node, kind, ty, ...) case NK::kind: return codegen(std::static_pointer_cast<ast::ty>(node), ## __VA_ARGS__);
 #define SKIP(node, kind) case NK::kind: return nullptr;
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
@@ -386,6 +385,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::LocalStmt> localStmt) {
         CASE(localStmt, WhileStmt)
         CASE(localStmt, ForLoop)
         CASE(localStmt, ExprStmt)
+        CASE(localStmt, ReturnStmt)
         default: unhandled_node(localStmt);
     }
 }
@@ -772,14 +772,19 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
     
     if (varDecl->type == nullptr) {
         // If no type is specified, there _has_ to be an initial value
-        LKAssert(varDecl->initialValue);
+        if (!varDecl->initialValue) {
+            diagnostics::failWithError(varDecl->getSourceLocation(), "Must specify initial value");
+        }
         type = getType(varDecl->initialValue);
         hasInferredType = true;
     } else {
         type = resolveTypeDesc(varDecl->type);
     }
+    if (!type) {
+        diagnostics::failWithError(varDecl->getSourceLocation(), "Unable to infer type of variable");
+    }
     
-    LKAssert(type);
+    emitDebugLocation(varDecl);
     auto alloca = builder.CreateAlloca(type->getLLVMType());
     alloca->setName(varDecl->name);
     
@@ -809,7 +814,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
     if (auto expr = varDecl->initialValue) {
         // Q: Why create and handle an assignment to set the initial value, instead of just calling Binding.Write?
         // A: The Assignment codegen also includes the trivial type transformations, whish we'd otherwise have to implement again in here
-        codegen(std::make_shared<ast::Assignment>(makeIdent(varDecl->name), varDecl->initialValue));
+        auto assignment = std::make_shared<ast::Assignment>(makeIdent(varDecl->name), varDecl->initialValue);
+        assignment->setSourceLocation(varDecl->getSourceLocation());
+        codegen(assignment);
     } else {
         if (!CLIOptions.fzeroInitialize) {
             diagnostics::failWithError(varDecl->getSourceLocation(), "no initial value specified");
@@ -823,6 +830,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
                 diagnostics::failWithError(varDecl->getSourceLocation(), "only pointer or numerical types can be zero-initialized");
             } else {
                 auto null = llvm::Constant::getNullValue(type->getLLVMType());
+                emitDebugLocation(varDecl);
                 builder.CreateStore(null, alloca);
             }
         }
@@ -840,7 +848,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Composite> composite) {
-    emitDebugLocation(composite);
+    emitDebugLocation(composite); // TODO does this even affect anything?
     return codegen(composite->statements);
 }
 
@@ -850,12 +858,10 @@ llvm::Value *IRGenerator::codegen(const std::vector<std::shared_ptr<ast::LocalSt
     bool didReturn = false;
     
     for (auto it = stmtList.begin(); !didReturn && it != stmtList.end(); it++) {
-        const auto &stmt = *it;
-        if (auto returnStmt = std::dynamic_pointer_cast<ast::ReturnStmt>(stmt)) {
-            codegen(returnStmt);
+        const auto stmt = *it;
+        codegen(stmt);
+        if (stmt->isOfKind(NK::ReturnStmt)) {
             didReturn = true;
-        } else {
-            codegen(stmt);
         }
     }
     
@@ -871,24 +877,26 @@ llvm::Value *IRGenerator::codegen(const std::vector<std::shared_ptr<ast::LocalSt
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ReturnStmt> returnStmt) {
-    emitDebugLocation(returnStmt);
-    
-    auto FName = builder.GetInsertBlock()->getParent()->getName().str();
+    const auto FName = builder.GetInsertBlock()->getParent()->getName().str();
     const auto returnType = resolveTypeDesc(currentFunction.decl->getSignature().returnType);
     
     if (auto expr = returnStmt->expr) {
         Type *T;
         if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, returnType, &T)) {
-            auto msg = util::fmt::format("expression evaluates to type '{}', which is incompatible with the expected return type '{p}'",
+            auto msg = util::fmt::format("Expression evaluates to type '{}', which is incompatible with the expected return type '{}'",
                                          T, returnType);
             diagnostics::failWithError(expr->getSourceLocation(), msg);
         }
         
-        codegen(std::make_shared<ast::Assignment>(std::make_shared<ast::Ident>(kRetvalAllocaIdentifier), expr));
+        auto retvalAss = std::make_shared<ast::Assignment>(makeIdent(kRetvalAllocaIdentifier), expr);
+        retvalAss->setSourceLocation(returnStmt->getSourceLocation());
+        codegen(retvalAss);
+        emitDebugLocation(returnStmt);
         return builder.CreateBr(currentFunction.returnBB);
     }
     
     LKAssert(returnType->isVoidTy());
+    emitDebugLocation(returnStmt);
     return builder.CreateBr(currentFunction.returnBB);
 }
 
@@ -993,6 +1001,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::RawLLVMValueExpr> rawExpr) {
+    emitDebugLocation(rawExpr);
     return rawExpr->value;
 }
 
@@ -1031,18 +1040,19 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::NumberLiteral> numberLite
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StringLiteral> stringLiteral) {
     using SLK = ast::StringLiteral::StringLiteralKind;
-    
-    emitDebugLocation(stringLiteral);
 
     switch (stringLiteral->kind) {
         case SLK::ByteString:
+            emitDebugLocation(stringLiteral);
             return builder.CreateGlobalStringPtr(stringLiteral->value);
+        
         case SLK::NormalString: {
             if (!nominalTypes.contains("String")) {
                 diagnostics::failWithError(stringLiteral->getSourceLocation(), "Unable to find 'String' type");
             }
             stringLiteral->kind = SLK::ByteString;
             auto target = std::make_shared<ast::Ident>(mangling::mangleCanonicalName("String", "new", ast::FunctionKind::StaticMethod));
+            target->setSourceLocation(stringLiteral->getSourceLocation());
             auto call = std::make_shared<ast::CallExpr>(target, std::vector<std::shared_ptr<ast::Expr>>(1, stringLiteral));
             call->setSourceLocation(stringLiteral->getSourceLocation());
             return codegen(call);
@@ -1059,6 +1069,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Ident> ident, ValueKind r
         switch (returnValueKind) {
             case LValue:
                 return const_cast<llvm::Value *>(binding->value);
+            
             case RValue:
                 if (!binding->hasFlag(ValueBinding::Flags::CanRead)) {
                     diagnostics::failWithError(ident->getSourceLocation(), util::fmt::format("Value binding for ident '{}' in local scope does not allow reading", ident->value));
@@ -1152,8 +1163,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> castExpr) {
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, ValueKind returnValueKind) {
-    emitDebugLocation(memberExpr);
-    
     auto targetTy = getType(memberExpr->target);
     LKAssert(targetTy->isPointerTy());
     auto pointerTy = llvm::dyn_cast<PointerType>(targetTy);
@@ -1168,12 +1177,15 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, V
         llvm::ConstantInt::get(i32, memberIndex)
     };
     
-    auto V = builder.CreateGEP(codegen(memberExpr->target), offsets);
+    auto targetV = codegen(memberExpr->target);
+    emitDebugLocation(memberExpr);
+    auto V = builder.CreateGEP(targetV, offsets);
     
     switch (returnValueKind) {
         case LValue:
             return V;
         case RValue:
+            emitDebugLocation(memberExpr); // TODO is this redundant?
             return builder.CreateLoad(V);
     }
 }
@@ -1182,23 +1194,56 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, V
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::SubscriptExpr> subscript, ValueKind returnValueKind) {
-    auto target = codegen(subscript->target, RValue);
-    LKAssert(target->getType()->isPointerTy());
-    auto offset = codegen(subscript->offset, RValue);
-    LKAssert(offset->getType()->isIntegerTy());
+//    auto target = codegen(subscript->target, RValue);
+//    LKAssert(target->getType()->isPointerTy());
+//    auto offset = codegen(subscript->offset, RValue);
+//    LKAssert(offset->getType()->isIntegerTy());
+//
+//    emitDebugLocation(subscript);
+//    auto GEP = builder.CreateGEP(target, codegen(subscript->offset));
+//
+//    switch (returnValueKind) {
+//        case LValue:
+//            return GEP;
+//        case RValue:
+//            return builder.CreateLoad(GEP);
+//    }
+    
+    auto TT = getType(subscript->target);
+    if (!TT->isPointerTy()) {
+        auto msg = util::fmt::format("Cannot subscript value of type '{}'", TT);
+        diagnostics::failWithError(subscript->target->getSourceLocation(), msg);
+    }
+    
+    auto OT = getType(subscript->offset);
+    if (!OT->isNumericalTy() || !llvm::dyn_cast<NumericalType>(OT)->isIntegerTy()) {
+        auto msg = util::fmt::format("Expected integral type, got '{}'", OT);
+        diagnostics::failWithError(subscript->offset->getSourceLocation(), msg);
+    }
+    
+    auto target = codegen(subscript->target);
+    auto offset = codegen(subscript->offset);
     
     emitDebugLocation(subscript);
-    auto GEP = builder.CreateGEP(target, codegen(subscript->offset));
+    auto GEP = builder.CreateGEP(target, offset);
     
     switch (returnValueKind) {
-        case LValue:
-            return GEP;
-        case RValue:
-            return builder.CreateLoad(GEP);
+        case LValue: return GEP;
+        case RValue: return builder.CreateLoad(GEP);
     }
 }
 
 
+
+bool isValidUnaryOpLogicalNegType(Type *ty) {
+    if (ty == Type::getBoolType() || ty->isPointerTy()) return true;
+    
+    if (auto numTy = llvm::dyn_cast<NumericalType>(ty)) {
+        return numTy->isIntegerTy();
+    }
+    
+    return false;
+}
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::UnaryExpr> unaryExpr) {
@@ -1215,15 +1260,20 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::UnaryExpr> unaryExpr) {
             
         case ast::UnaryExpr::Operation::LogicalNegation: {
             auto ty = getType(expr);
-            LKAssert(ty == Type::getBoolType() || ty->isPointerTy() || (ty->isNumericalTy() && llvm::dyn_cast<NumericalType>(ty)->isIntegerTy()));
-            return builder.CreateIsNull(codegen(expr)); // TODO this seems like a cop-out answer?
+            if (!isValidUnaryOpLogicalNegType(ty)) {
+                auto msg = util::fmt::format("Type '{}' cannpt be used in logical negation", ty);
+                diagnostics::failWithError(unaryExpr->getSourceLocation(), msg);
+            }
+            auto V = codegen(expr);
+            emitDebugLocation(unaryExpr);
+            return builder.CreateIsNull(V); // TODO this seems like a cop-out answer?
         }
     }
 }
 
 
 
-
+// TODO this is bad code
 bool isValidMatchPatternForMatchedExprType(std::shared_ptr<ast::Expr> patternExpr, Type *matchedExprType) {
     // Only patterns that are trivially and can be matched w/out side effects are allowed
     // TODO add the side effect checking
@@ -1283,6 +1333,7 @@ bool lastBranchIsWildcard(const std::shared_ptr<ast::MatchExpr> &matchExpr) {
 
 
 // TODO should this go in the control flow section?
+// TODO improve debug location emission for match expressions
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MatchExpr> matchExpr) {
     emitDebugLocation(matchExpr);
     
@@ -1899,6 +1950,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
     
     
     if (resolvedTarget.funcDecl && resolvedTarget.funcDecl->getAttributes().intrinsic) {
+        emitDebugLocation(call);
         return codegen_HandleIntrinsic(resolvedTarget.funcDecl, call);
     }
     
@@ -2022,6 +2074,8 @@ static const std::map<Intrinsic, ast::Operator> intrinsicsComparisonOperationMap
 
 
 llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionDecl> funcDecl, std::shared_ptr<ast::CallExpr> call) {
+    emitDebugLocation(call);
+    
     auto name = mangling::mangleCanonicalName(funcDecl);
     auto intrinsic = intrinsics.at(name);
     
@@ -2076,6 +2130,7 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
     }
     
     if (auto op = util::map::get_opt(intrinsicsComparisonOperationMapping, intrinsic)) {
+        LKAssert(call->arguments.size() == 2);
         return codegen_HandleComparisonIntrinsic(op.value(), call);
     }
     
@@ -2248,8 +2303,13 @@ llvm::Value* IRGenerator::codegen_HandleComparisonIntrinsic(ast::Operator op, st
             castDestTy = Type::getInt64Type();
         }
         
-        lhsVal = codegen(std::make_shared<ast::CastExpr>(lhs, ast::TypeDesc::makeResolved(castDestTy), ast::CastExpr::CastKind::StaticCast));
-        rhsVal = codegen(std::make_shared<ast::CastExpr>(rhs, ast::TypeDesc::makeResolved(castDestTy), ast::CastExpr::CastKind::StaticCast));
+        auto lhsCast = std::make_shared<ast::CastExpr>(lhs, ast::TypeDesc::makeResolved(castDestTy), ast::CastExpr::CastKind::StaticCast);
+        lhsCast->setSourceLocation(lhs->getSourceLocation());
+        auto rhsCast = std::make_shared<ast::CastExpr>(rhs, ast::TypeDesc::makeResolved(castDestTy), ast::CastExpr::CastKind::StaticCast);
+        rhsCast->setSourceLocation(rhs->getSourceLocation());
+        
+        lhsVal = codegen(lhsCast);
+        rhsVal = codegen(rhsCast);
         pred = getMatchingLLVMCmpInstPredicateForComparisonOperator_Int(op, numTyLhs->isSigned() || numTyRhs->isSigned());
         
     }
@@ -2281,7 +2341,10 @@ llvm::Value* IRGenerator::codegen_HandleLogOpIntrinsic(Intrinsic I, std::shared_
     auto rhsBB = llvm::BasicBlock::Create(C, "rhs");
     auto mergeBB = llvm::BasicBlock::Create(C, "merge");
     
-    builder.CreateCondBr(builder.CreateICmpEQ(codegen(lhs), llvmTrueVal),
+    auto lhsCmp = builder.CreateICmpEQ(codegen(lhs), llvmTrueVal);
+    
+    emitDebugLocation(call); // call's SL is the original binop's SL
+    builder.CreateCondBr(lhsCmp,
                          isAnd ? rhsBB : mergeBB,
                          isAnd ? mergeBB : rhsBB);
     
@@ -2294,6 +2357,7 @@ llvm::Value* IRGenerator::codegen_HandleLogOpIntrinsic(Intrinsic I, std::shared_
     F->getBasicBlockList().push_back(mergeBB);
     builder.SetInsertPoint(mergeBB);
     
+    emitDebugLocation(call);
     auto phi = builder.CreatePHI(i1, 2);
     phi->addIncoming(isAnd ? llvmFalseVal : llvmTrueVal, lhsBB);
     phi->addIncoming(rhsVal, rhsBB);
@@ -2309,6 +2373,7 @@ llvm::Value* IRGenerator::codegen_HandleLogOpIntrinsic(Intrinsic I, std::shared_
 #pragma mark - Control Flow
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::IfStmt> ifStmt) {
+    // TODO does this need more debug locations?
     emitDebugLocation(ifStmt);
     
     using BK = ast::IfStmt::Branch::BranchKind;
