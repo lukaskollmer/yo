@@ -52,15 +52,39 @@ IRGenerator::IRGenerator(const std::string& translationUnitPath)
     debugInfo{llvm::DIBuilder(*module), nullptr, {}},
     CLIOptions(cl::get_options())
 {
-    i8  = llvm::Type::getInt8Ty(C);
-    i16 = llvm::Type::getInt16Ty(C);
-    i32 = llvm::Type::getInt32Ty(C);
-    i64 = llvm::Type::getInt64Ty(C);
+    builtinTypes.llvm = {
+        llvm::Type::getInt8Ty(C),
+        llvm::Type::getInt16Ty(C),
+        llvm::Type::getInt32Ty(C),
+        llvm::Type::getInt64Ty(C),
+        llvm::Type::getInt1Ty(C),
+        llvm::Type::getVoidTy(C),
+        llvm::Type::getDoubleTy(C),
+        llvm::Type::getInt8PtrTy(C)
+    };
     
-    i8_ptr = i8->getPointerTo();
-    Void = llvm::Type::getVoidTy(C);
-    i1 = llvm::Type::getInt1Ty(C);
-    Double = llvm::Type::getDoubleTy(C);
+    // create all primitives' llvm::Type and llvm::DIType objects
+    Type::initPrimitives();
+    
+    auto preflight_type = [&](auto *type) -> auto* {
+        type->setLLVMType(getLLVMType(type));
+        type->setLLVMDIType(getDIType(type));
+        return type;
+    };
+    builtinTypes.yo = {
+        preflight_type(Type::getUInt8Type()),
+        preflight_type(Type::getUInt16Type()),
+        preflight_type(Type::getUInt32Type()),
+        preflight_type(Type::getUInt64Type()),
+        preflight_type(Type::getInt8Type()),
+        preflight_type(Type::getInt16Type()),
+        preflight_type(Type::getInt32Type()),
+        preflight_type(Type::getInt64Type()),
+        preflight_type(Type::getBoolType()),
+        preflight_type(Type::getFloat64Type()),
+        preflight_type(Type::getVoidType()),
+        preflight_type(Type::getInt8Type()->getPointerTo())
+    };
     
     const auto [path, filename] = util::string::extractPathAndFilename(translationUnitPath);
     module->setSourceFileName(filename);
@@ -70,28 +94,6 @@ IRGenerator::IRGenerator(const std::string& translationUnitPath)
                                                                 "yo", CLIOptions.optimize, "", 0);
     debugInfo.lexicalBlocks.push_back(debugInfo.compileUnit);
     module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
-    
-    
-    
-    // create all primitives' llvm::Type and llvm::DIType objects
-    
-    Type::initPrimitives();
-    
-    auto preflight_type = [&](Type *type) {
-        type->setLLVMType(getLLVMType(type));
-        type->setLLVMDIType(getDIType(type));
-    };
-    preflight_type(Type::getVoidType());
-    preflight_type(Type::getBoolType());
-    preflight_type(Type::getInt8Type());
-    preflight_type(Type::getUInt8Type());
-    preflight_type(Type::getInt16Type());
-    preflight_type(Type::getUInt16Type());
-    preflight_type(Type::getInt32Type());
-    preflight_type(Type::getUInt32Type());
-    preflight_type(Type::getInt64Type());
-    preflight_type(Type::getUInt64Type());
-    preflight_type(Type::getFloat64Type());
 }
 
 
@@ -189,13 +191,13 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
         functionDecl->getAttributes().no_mangle = true;
         
         // Check signature
-        if (sig.paramTypes.empty() && resolveTypeDesc(sig.returnType) != Type::getInt32Type()) {
+        if (sig.paramTypes.empty() && resolveTypeDesc(sig.returnType) != builtinTypes.yo.i32) {
             diagnostics::failWithError(functionDecl->getSourceLocation(), "Invalid signature: 'main' must return 'i32'");
         } else if (!sig.paramTypes.empty()) {
             ast::FunctionSignature expectedSig;
-            expectedSig.returnType = ast::TypeDesc::makeResolved(Type::getInt32Type());
+            expectedSig.returnType = ast::TypeDesc::makeResolved(builtinTypes.yo.i32);
             expectedSig.paramTypes = {
-                expectedSig.returnType, ast::TypeDesc::makeResolved(Type::getInt8Type()->getPointerTo()->getPointerTo())
+                expectedSig.returnType, ast::TypeDesc::makeResolved(builtinTypes.yo.i8Ptr->getPointerTo())
             };
             if (!equal(sig, expectedSig)) {
                 diagnostics::failWithError(functionDecl->getSourceLocation(), util::fmt::format("Invalid signature for function 'main'. Expected {}, got {}", expectedSig, sig));
@@ -442,19 +444,19 @@ llvm::DISubroutineType *IRGenerator::_toDISubroutineType(const ast::FunctionSign
 
 
 
-Type* resolvePrimitiveType(std::string_view name) {
+Type* IRGenerator::resolvePrimitiveType(std::string_view name) {
 #define HANDLE(_name, ty) if (name == _name) return ty;
-    HANDLE("void", Type::getVoidType())
-    HANDLE("bool", Type::getBoolType())
-    HANDLE("i8",   Type::getInt8Type())
-    HANDLE("i16",  Type::getInt16Type())
-    HANDLE("i32",  Type::getInt32Type())
-    HANDLE("i64",  Type::getInt64Type())
-    HANDLE("u8",   Type::getUInt8Type())
-    HANDLE("u16",  Type::getUInt16Type())
-    HANDLE("u32",  Type::getUInt32Type())
-    HANDLE("u64",  Type::getUInt64Type())
-    HANDLE("f64",  Type::getFloat64Type())
+    HANDLE("void", builtinTypes.yo.Void)
+    HANDLE("bool", builtinTypes.yo.Bool)
+    HANDLE("i8",   builtinTypes.yo.i8)
+    HANDLE("i16",  builtinTypes.yo.i16)
+    HANDLE("i32",  builtinTypes.yo.i32)
+    HANDLE("i64",  builtinTypes.yo.i64)
+    HANDLE("u8",   builtinTypes.yo.u8)
+    HANDLE("u16",  builtinTypes.yo.u16)
+    HANDLE("u32",  builtinTypes.yo.u32)
+    HANDLE("u64",  builtinTypes.yo.u64)
+    HANDLE("f64",  builtinTypes.yo.f64)
 #undef HANDLE
     return nullptr;
 }
@@ -1019,19 +1021,19 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::NumberLiteral> numberLite
     
     switch (numberLiteral->type) {
         case NT::Boolean: {
-            return llvm::ConstantInt::get(i1, numberLiteral->value);
+            return llvm::ConstantInt::get(builtinTypes.llvm.i1, numberLiteral->value);
         }
         case NT::Character: {
-            LKAssert(integerLiteralFitsInIntegralType(numberLiteral->value, Type::getInt8Type()));
-            return llvm::ConstantInt::get(i8, numberLiteral->value);
+            LKAssert(integerLiteralFitsInIntegralType(numberLiteral->value, builtinTypes.yo.i8));
+            return llvm::ConstantInt::get(builtinTypes.llvm.i8, numberLiteral->value);
         }
         case NT::Integer: {
-            return llvm::ConstantInt::get(llvm::Type::getInt64Ty(C), numberLiteral->value);
+            return llvm::ConstantInt::get(builtinTypes.llvm.i64, numberLiteral->value);
         }
         case NT::Double: {
             uint64_t bitPattern = numberLiteral->value;
             double value = *reinterpret_cast<double *>(&bitPattern);
-            return llvm::ConstantFP::get(llvm::Type::getDoubleTy(C), value);
+            return llvm::ConstantFP::get(builtinTypes.llvm.Double, value);
         }
     }
 }
@@ -1173,8 +1175,8 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, V
     LKAssert(memberType != nullptr && "member does not exist");
     
     llvm::Value *offsets[] = {
-        llvm::ConstantInt::get(i32, 0),
-        llvm::ConstantInt::get(i32, memberIndex)
+        llvm::ConstantInt::get(builtinTypes.llvm.i32, 0),
+        llvm::ConstantInt::get(builtinTypes.llvm.i32, memberIndex)
     };
     
     auto targetV = codegen(memberExpr->target);
@@ -2094,14 +2096,13 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
         
         case Intrinsic::Sizeof: {
             auto ty = resolveTypeDesc(call->explicitTemplateArgumentTypes[0])->getLLVMType();
-            return llvm::ConstantInt::get(i64, module->getDataLayout().getTypeAllocSize(ty));
+            return llvm::ConstantInt::get(builtinTypes.llvm.i64, module->getDataLayout().getTypeAllocSize(ty));
         }
         
         case Intrinsic::Trap:
             return builder.CreateIntrinsic(llvm::Intrinsic::ID::trap, {}, {});
         
         case Intrinsic::Typename: {
-            LKAssert(resolveTypeDesc(funcDecl->getSignature().returnType) == Type::getInt8Type()->getPointerTo());
             auto ty = resolveTypeDesc(call->explicitTemplateArgumentTypes[0]);
             return builder.CreateGlobalStringPtr(ty->getName()); // TODO is getName the right choice here?
         }
@@ -2109,11 +2110,11 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
         case Intrinsic::IsSame: {
             auto ty1 = resolveTypeDesc(call->explicitTemplateArgumentTypes[0]);
             auto ty2 = resolveTypeDesc(call->explicitTemplateArgumentTypes[1]);
-            return llvm::ConstantInt::get(i1, ty1 == ty2);
+            return llvm::ConstantInt::get(builtinTypes.llvm.i1, ty1 == ty2);
         }
         
         case Intrinsic::IsPointer:
-            return llvm::ConstantInt::get(i1, resolveTypeDesc(call->explicitTemplateArgumentTypes[0])->isPointerTy());
+            return llvm::ConstantInt::get(builtinTypes.llvm.i1, resolveTypeDesc(call->explicitTemplateArgumentTypes[0])->isPointerTy());
         
         case Intrinsic::LAnd:
         case Intrinsic::LOr:
@@ -2270,7 +2271,7 @@ llvm::Value* IRGenerator::codegen_HandleComparisonIntrinsic(ast::Operator op, st
     llvm::Value *lhsVal, *rhsVal;
     
     // Floats?
-    if (lhsTy == rhsTy && lhsTy == Type::getFloat64Type()) {
+    if (lhsTy == rhsTy && lhsTy == builtinTypes.yo.f64) {
         lhsVal = codegen(lhs);
         rhsVal = codegen(rhs);
         pred = getMatchingLLVMCmpInstPredicateForComparisonOperator_Float(op);
@@ -2296,11 +2297,11 @@ llvm::Value* IRGenerator::codegen_HandleComparisonIntrinsic(ast::Operator op, st
         Type *castDestTy;
         auto largerSize = std::max(numTyLhs->getSize(), numTyRhs->getSize());
         
-        if (largerSize <= Type::getInt32Type()->getSize()) {
-            castDestTy = Type::getInt32Type();
+        if (largerSize <= builtinTypes.yo.i32->getSize()) {
+            castDestTy = builtinTypes.yo.i32;
         } else {
-            LKAssert(largerSize == Type::getInt64Type()->getSize());
-            castDestTy = Type::getInt64Type();
+            LKAssert(largerSize == builtinTypes.yo.i64->getSize());
+            castDestTy = builtinTypes.yo.i64;
         }
         
         auto lhsCast = std::make_shared<ast::CastExpr>(lhs, ast::TypeDesc::makeResolved(castDestTy), ast::CastExpr::CastKind::StaticCast);
@@ -2329,12 +2330,12 @@ llvm::Value* IRGenerator::codegen_HandleLogOpIntrinsic(Intrinsic I, std::shared_
     const auto lhs = call->arguments.at(0);
     const auto rhs = call->arguments.at(1);
     
-    LKAssert(getType(lhs) == Type::getBoolType() && getType(rhs) == Type::getBoolType());
+    LKAssert(getType(lhs) == builtinTypes.yo.Bool && getType(rhs) == builtinTypes.yo.Bool);
     
     auto isAnd = I == Intrinsic::LAnd;
     
-    auto llvmTrueVal = llvm::ConstantInt::getTrue(i1);
-    auto llvmFalseVal = llvm::ConstantInt::getFalse(i1);
+    auto llvmTrueVal = llvm::ConstantInt::getTrue(builtinTypes.llvm.i1);
+    auto llvmFalseVal = llvm::ConstantInt::getFalse(builtinTypes.llvm.i1);
     auto F = currentFunction.llvmFunction;
     
     auto lhsBB = builder.GetInsertBlock();
@@ -2358,7 +2359,7 @@ llvm::Value* IRGenerator::codegen_HandleLogOpIntrinsic(Intrinsic I, std::shared_
     builder.SetInsertPoint(mergeBB);
     
     emitDebugLocation(call);
-    auto phi = builder.CreatePHI(i1, 2);
+    auto phi = builder.CreatePHI(builtinTypes.llvm.i1, 2);
     phi->addIncoming(isAnd ? llvmFalseVal : llvmTrueVal, lhsBB);
     phi->addIncoming(rhsVal, rhsBB);
     
@@ -2515,7 +2516,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ForLoop> forLoop) {
 
 void IRGenerator::handleStartupAndShutdownFunctions() {
     std::vector<llvm::Type *> structTys = {
-        i32, llvm::FunctionType::get(Void, false)->getPointerTo(), i8_ptr
+        builtinTypes.llvm.i32, llvm::FunctionType::get(builtinTypes.llvm.Void, false)->getPointerTo(), builtinTypes.llvm.i8Ptr
     };
     auto structTy = llvm::StructType::create(C, structTys);
     
@@ -2534,9 +2535,9 @@ void IRGenerator::handleStartupAndShutdownFunctions() {
         std::vector<llvm::Constant *> arrayElements;
         for (const auto &fn : functions) {
             std::vector<llvm::Constant *> values = {
-                llvm::ConstantInt::get(i32, 65535), // TODO how should this be ordered?
+                llvm::ConstantInt::get(builtinTypes.llvm.i32, 65535), // TODO how should this be ordered?
                 llvm::dyn_cast<llvm::Function>(fn.llvmValue),
-                llvm::ConstantPointerNull::get(llvm::dyn_cast<llvm::PointerType>(i8_ptr))
+                llvm::ConstantPointerNull::get(llvm::dyn_cast<llvm::PointerType>(builtinTypes.llvm.i8Ptr))
             };
             arrayElements.push_back(llvm::ConstantStruct::get(structTy, values));
         }
@@ -2568,32 +2569,32 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
     
     switch (type->getTypeId()) {
         case Type::TypeID::Void:
-            return handle_llvm_type(Void);
+            return handle_llvm_type(builtinTypes.llvm.Void);
         
         case Type::TypeID::Numerical: {
             auto numTy = llvm::dyn_cast<NumericalType>(type);
             switch (numTy->getNumericalTypeID()) {
                 case NumericalType::NumericalTypeID::Bool:
-                    return handle_llvm_type(i1);
+                    return handle_llvm_type(builtinTypes.llvm.i1);
                 
                 case NumericalType::NumericalTypeID::Int8:
                 case NumericalType::NumericalTypeID::UInt8:
-                    return handle_llvm_type(i8);
+                    return handle_llvm_type(builtinTypes.llvm.i8);
                 
                 case NumericalType::NumericalTypeID::Int16:
                 case NumericalType::NumericalTypeID::UInt16:
-                    return handle_llvm_type(i16);
+                    return handle_llvm_type(builtinTypes.llvm.i16);
                 
                 case NumericalType::NumericalTypeID::Int32:
                 case NumericalType::NumericalTypeID::UInt32:
-                    return handle_llvm_type(i32);
+                    return handle_llvm_type(builtinTypes.llvm.i32);
                 
                 case NumericalType::NumericalTypeID::Int64:
                 case NumericalType::NumericalTypeID::UInt64:
-                    return handle_llvm_type(i64);
+                    return handle_llvm_type(builtinTypes.llvm.i64);
                 
                 case NumericalType::NumericalTypeID::Float64:
-                    return handle_llvm_type(Double);
+                    return handle_llvm_type(builtinTypes.llvm.Double);
             }
         }
         
@@ -2735,10 +2736,10 @@ bool IRGenerator::valueIsTriviallyConvertible(std::shared_ptr<ast::NumberLiteral
     
     
     if (numberExpr->type == NT::Boolean) {
-        return dstTyNT == Type::getBoolType();
+        return dstTyNT == builtinTypes.yo.Bool;
     }
     
-    if (dstTyNT == Type::getFloat64Type()) {
+    if (dstTyNT == builtinTypes.yo.f64) {
         switch (numberExpr->type) {
             case NT::Double:
                 return true;
@@ -2773,17 +2774,17 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             using NT = ast::NumberLiteral::NumberType;
             auto numberLiteral = std::static_pointer_cast<ast::NumberLiteral>(expr);
             switch (numberLiteral->type) {
-                case NT::Boolean:   return Type::getBoolType();
-                case NT::Integer:   return Type::getInt64Type();
-                case NT::Character: return Type::getUInt8Type(); // TODO introduce a dedicated char type?
-                case NT::Double:    return Type::getFloat64Type();
+                case NT::Boolean:   return builtinTypes.yo.Bool;
+                case NT::Integer:   return builtinTypes.yo.i64;
+                case NT::Character: return builtinTypes.yo.i8; // TODO introduce a dedicated char type?
+                case NT::Double:    return builtinTypes.yo.f64;
             }
         }
         
         case NK::StringLiteral: {
             using SLK = ast::StringLiteral::StringLiteralKind;
             switch (static_cast<ast::StringLiteral *>(expr.get())->kind) {
-                case SLK::ByteString: return Type::getInt8Type()->getPointerTo();
+                case SLK::ByteString: return builtinTypes.yo.i8Ptr;
                 case SLK::NormalString: {
                     if (auto StringTy = nominalTypes.get("String")) {
                         return StringTy.value()->getPointerTo();
@@ -2842,7 +2843,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
         }
         
         case NK::CompOp:
-            return Type::getBoolType();
+            return builtinTypes.yo.Bool;
         
         case NK::BinOp: {
             auto binopExpr = static_cast<ast::BinOp *>(expr.get());
@@ -2950,8 +2951,8 @@ llvm::Value *IRGenerator::generateStructInitializer(std::shared_ptr<ast::StructD
         auto sel = mangling::mangleCanonicalName(structName, "dealloc", ast::FunctionKind::InstanceMethod);
         auto dealloc_fn = functions[sel][0].llvmValue;
 
-        llvm::Type *t[] = { i8_ptr };
-        auto dealloc_fn_ty = llvm::FunctionType::get(Void, t, false)->getPointerTo();
+        llvm::Type *t[] = { builtinTypes.llvm.i8Ptr };
+        auto dealloc_fn_ty = llvm::FunctionType::get(builtinTypes.llvm.Void, t, false)->getPointerTo();
         auto dealloc_fn_cast = builder.CreateBitCast(dealloc_fn, dealloc_fn_ty);
         auto set_deallocFn = std::make_shared<ast::Assignment>(std::make_shared<ast::MemberExpr>(self, "deallocPtr"),
                                                                std::make_shared<ast::RawLLVMValueExpr>(dealloc_fn_cast,

@@ -94,6 +94,22 @@ class IRGenerator {
         std::vector<llvm::DIScope *> lexicalBlocks;
     } debugInfo;
     
+    
+    // Builtin Types
+    struct {
+        struct {
+            llvm::IntegerType *i8, *i16, *i32, *i64, *i1;
+            llvm::Type *Void, *Double;
+            llvm::PointerType *i8Ptr;
+        } llvm;
+        struct {
+            NumericalType *u8, *u16, *u32, *u64;
+            NumericalType *i8, *i16, *i32, *i64, *Bool, *f64;
+            Type *Void;
+            PointerType *i8Ptr;
+        } yo;
+    } builtinTypes;
+    
     const cl::Options &CLIOptions;
     
     NamedScope<ValueBinding> localScope;
@@ -102,14 +118,10 @@ class IRGenerator {
     // If the type is a template specialization, the key is the mangled name
     NamedScope<Type *> nominalTypes;
     
-    llvm::Type *i8, *i16, *i32, *i64;
-    llvm::Type *i8_ptr;
-    llvm::Type *Void, *Double, *i1;
-    
     std::map<std::string, std::vector<std::shared_ptr<ast::FunctionDecl>>> templateFunctions;
     
     
-    /// key: canonical function name
+    // key: canonical function name
     std::map<std::string, std::vector<ResolvedCallable>> functions;
     // TODO: what's the point of `resolvedFunctions`?
     // key: fully resolved function name
@@ -203,6 +215,7 @@ private:
     llvm::Type *getLLVMType(Type *);
     llvm::DIType *getDIType(Type *);
     uint8_t argumentOffsetForCallingConvention(CallingConvention cc);
+    Type* resolvePrimitiveType(std::string_view name);
     
     
     
