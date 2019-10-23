@@ -168,6 +168,11 @@ template <typename T>
 inline constexpr bool is_nullable_v = std::is_pointer_v<T> || is_shared_ptr_v<T>;
 
 
+template <typename T>
+using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
+
+
+
 
 template <typename T>
 std::string getTypename(const T &arg) {
@@ -372,25 +377,30 @@ namespace fmt {
 
 
 // TODO somehow allow overloading this to get custom formatting for custom types?
-template <typename T, typename = void>
-static void value_formatter(std::ostream &OS, std::string_view flags, const T &arg) {
+template <typename T>
+void value_formatter(std::ostream &OS, std::string_view flags, const T &arg) {
+    if constexpr(typeinfo::is_nullable_v<T>) {
+        if (flags == "p") {
+            if constexpr(std::is_pointer_v<T>) {
+                OS << reinterpret_cast<void *>(arg);
+            } else if constexpr(typeinfo::is_shared_ptr_v<T>) {
+                OS << reinterpret_cast<void *>(arg.get());
+            } else {
+                static_assert(std::is_same_v<T, void>, "should never reach here");
+            }
+            return;
+        }
+    }
+    
     OS << arg;
 }
 
-//template <>
-//void value_formatter<bool>(std::ostream &OS, std::string_view flags, const bool &arg) {
-//    OS << (arg ? "true" : "false");
-//}
 
-// TODO thid does not work!
-template <typename T, typename std::enable_if_t<std::is_pointer_v<T>>>
-void value_formatter(std::ostream &OS, std::string_view flags, const T &arg) {
-    if (flags == "p") {
-        OS << reinterpret_cast<void *>(arg);
-    } else {
-        OS << arg;
-    }
+template <>
+inline void value_formatter<bool>(std::ostream &OS, std::string_view flags, const bool &arg) {
+    OS << (arg ? "true" : "false");
 }
+
 
 
 template <typename T, typename... Ts>
@@ -403,16 +413,14 @@ void format_imp(std::ostream &OS, std::string_view format, T &&arg, Ts&&... args
     
     OS << format.substr(0, pos);
     if (format[pos + 1] == '}') {
-        //formatter<T>::format(OS, "", arg);
-        value_formatter<T>(OS, "", arg);
+        value_formatter<typeinfo::remove_cvref_t<T>>(OS, "", arg);
         format.remove_prefix(pos + 2);
     } else {
         auto end_pos = format.find_first_of('}', pos);
         LKAssert(end_pos != std::string_view::npos);
-        std::string_view flags = format.substr(pos + 1, end_pos - pos);
+        std::string_view flags = format.substr(pos + 1, end_pos - 1 - pos);
         
-        //formatter<T>::format(OS, flags, arg);
-        value_formatter<T>(OS, flags, arg);
+        value_formatter<typeinfo::remove_cvref_t<T>>(OS, flags, arg);
         format.remove_prefix(end_pos + 1);
     }
 
