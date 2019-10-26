@@ -1140,6 +1140,10 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> castExpr) {
                     } else {
                         op = LLVMCastOp::UIToFP;
                     }
+                } else if (srcTyNT->isBoolTy() && dstTyNT->isIntegerTy()) {
+                    op = LLVMCastOp::ZExt;
+//                } else if (srcTyNT->isIntegerTy() && dstTyNT->isBoolTy()) {
+//                    // TODO this needs an icmp?
                 }
                 break;
             }
@@ -2048,7 +2052,9 @@ static const std::map<std::string_view, Intrinsic> intrinsics = {
     { "__lt", Intrinsic::LT },
     
     { "__land", Intrinsic::LAnd },
+    { "~13",    Intrinsic::LAnd },
     { "__lor",  Intrinsic::LOr  },
+    { "~14",    Intrinsic::LOr  },
     
     { "static_cast", Intrinsic::StaticCast },
     { "reinterpret_cast", Intrinsic::ReinterpretCast },

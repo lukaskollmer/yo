@@ -1,16 +1,5 @@
 use ":runtime/intrinsics";
 
-// short-circuited logical AND operator
-#[always_inline]
-fn operator && (lhs: bool, rhs: bool) -> bool {
-    return __land(lhs, rhs);
-}
-// short-circuited logical OR operator
-#[always_inline]
-fn operator || (lhs: bool, rhs: bool) -> bool {
-    return __lor(lhs, rhs);
-}
-
 
 #[always_inline]
 fn operator + <T> (lhs: T, rhs: T) -> T {

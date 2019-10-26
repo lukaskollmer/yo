@@ -47,7 +47,11 @@ fn sizeof<T>() -> size_t;
 #[intrinsic] fn __eq<T>(T, T) -> bool;
 #[intrinsic] fn __lt<T>(T, T) -> bool;
 
+
 // short-circuited logical AND
 #[intrinsic] fn __land(bool, bool) -> bool;
+#[intrinsic] fn operator && (bool, bool) -> bool;
+
 // short-circuited logical OR
 #[intrinsic] fn __lor(bool, bool) -> bool;
+#[intrinsic] fn operator || (bool, bool) -> bool;
