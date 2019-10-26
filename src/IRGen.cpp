@@ -2033,7 +2033,8 @@ enum class irgen::Intrinsic : uint8_t {
     ReinterpretCast,
     Sizeof,
     Trap, Typename,
-    IsSame, IsPointer
+    IsSame, IsPointer,
+    Func, PrettyFunc, MangledFunc
 };
 
 static const std::map<std::string, Intrinsic> intrinsics = {
@@ -2063,6 +2064,9 @@ static const std::map<std::string, Intrinsic> intrinsics = {
     { "__typename", Intrinsic::Typename },
     { "__is_same", Intrinsic::IsSame },
     { "__is_pointer", Intrinsic::IsPointer },
+    { "__func", Intrinsic::Func },
+    { "__pretty_func", Intrinsic::PrettyFunc },
+    { "__mangled_func", Intrinsic::MangledFunc },
 };
 
 
@@ -2126,6 +2130,19 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
         case Intrinsic::LOr:
             LKAssert(call->arguments.size() == 2);
             return codegen_HandleLogOpIntrinsic(intrinsic, call);
+        
+        case Intrinsic::Func:
+            return builder.CreateGlobalStringPtr(currentFunction.decl->getName());
+        
+        case Intrinsic::PrettyFunc: {
+            std::ostringstream OS;
+            OS << currentFunction.decl->getName();
+            OS << currentFunction.decl->getSignature();
+            return builder.CreateGlobalStringPtr(OS.str());
+        }
+        
+        case Intrinsic::MangledFunc:
+            return builder.CreateGlobalStringPtr(currentFunction.llvmFunction->getName());
         
         default: break;
     }

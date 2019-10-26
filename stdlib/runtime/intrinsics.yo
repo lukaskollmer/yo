@@ -13,6 +13,16 @@ fn reinterpret_cast<R, T>(T) -> R;
 #[intrinsic] fn __trap();
 
 
+// Name of the current function
+#[intrinsic] fn __func() -> *i8;
+
+// Name of the current function, including the full signature
+#[intrinsic] fn __pretty_func() -> *i8;
+
+// Mangled name of the current function
+#[intrinsic] fn __mangled_func() -> *i8;
+
+
 // Returns the size of `T`, in bytes.
 // For example, `sizeof<i64>()` would return 8.
 #[intrinsic]
