@@ -105,7 +105,7 @@ std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specialize(std::shared_p
     specializedFuncDecl->setSourceLocation(decl->getSourceLocation());
     
     if (decl->getAttributes().intrinsic) {
-        LKAssert(decl->getBody().empty());
+        LKAssert(decl->getBody()->isEmpty());
         return specializedFuncDecl;
     }
     

@@ -385,7 +385,9 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
         return fnDecl;
     }
     
-    fnDecl->setBody(parseComposite()->statements);
+    auto body = parseComposite();
+    fnDecl->setBody(body);
+    
     return fnDecl;
 }
 

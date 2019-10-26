@@ -551,8 +551,8 @@ bool IRGenerator::equal(const ast::FunctionSignature &lhs, const ast::FunctionSi
 #pragma mark - Top Level Statements
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDecl) {
-    const auto& sig = functionDecl->getSignature();
-    const auto& attr = functionDecl->getAttributes();
+    const auto &sig = functionDecl->getSignature();
+    const auto &attr = functionDecl->getAttributes();
     
     if (attr.extern_ || attr.intrinsic || sig.isTemplateFunction()) {
         return nullptr;
@@ -689,8 +689,8 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
 //    scope.remove("f");
     
     
-    // TODO this is a bad idea!
-    if (F->getReturnType()->isVoidTy() && !std::dynamic_pointer_cast<ast::ReturnStmt>(functionDecl->getBody().back())) {
+    // TODO is this a good idea?
+    if (returnType->isVoidTy() && (functionDecl->getBody()->isEmpty() || !functionDecl->getBody()->statements.back()->isOfKind(NK::ReturnStmt))) {
         codegen(std::make_shared<ast::ReturnStmt>(nullptr));
     }
     
@@ -2934,7 +2934,8 @@ llvm::Value *IRGenerator::generateStructInitializer(std::shared_ptr<ast::StructD
     auto F = functions[mangling::mangleCanonicalName(structName, "init", ast::FunctionKind::StaticMethod)][0].funcDecl;
     F->setSourceLocation(SL);
     
-    std::vector<std::shared_ptr<ast::LocalStmt>> fnBody;
+    std::shared_ptr<ast::Composite> fnBody;
+    fnBody->setSourceLocation(SL);
 
     auto self = std::make_shared<ast::Ident>("self");
 
@@ -2946,7 +2947,7 @@ llvm::Value *IRGenerator::generateStructInitializer(std::shared_ptr<ast::StructD
         }));
         allocCall->setSourceLocation(SL);
         allocCall->explicitTemplateArgumentTypes = { ast::TypeDesc::makeResolved(structType) };
-        fnBody.push_back(std::make_shared<ast::VarDecl>(self->value, ast::TypeDesc::makeResolved(structType->getPointerTo()), allocCall));
+        fnBody->statements.push_back(std::make_shared<ast::VarDecl>(self->value, ast::TypeDesc::makeResolved(structType->getPointerTo()), allocCall));
     }
 
     // set runtime metadata
@@ -2964,8 +2965,8 @@ llvm::Value *IRGenerator::generateStructInitializer(std::shared_ptr<ast::StructD
                                                                std::make_shared<ast::RawLLVMValueExpr>(dealloc_fn_cast,
                                                                                                        structType->getMembers()[1].second));
 
-        fnBody.push_back(set_retaincount);
-        fnBody.push_back(set_deallocFn);
+        fnBody->statements.push_back(set_retaincount);
+        fnBody->statements.push_back(set_deallocFn);
     }
 
     // set properties
@@ -2975,11 +2976,11 @@ llvm::Value *IRGenerator::generateStructInitializer(std::shared_ptr<ast::StructD
         memberExpr->setSourceLocation(SL);
         auto assignment = std::make_shared<ast::Assignment>(memberExpr, makeIdent(name));
         assignment->setSourceLocation(SL);
-        fnBody.push_back(assignment);
+        fnBody->statements.push_back(assignment);
     }
     auto ret = std::make_shared<ast::ReturnStmt>(self);
     ret->setSourceLocation(SL);
-    fnBody.push_back(ret);
+    fnBody->statements.push_back(ret);
     
     F->setBody(fnBody);
 

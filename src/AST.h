@@ -174,7 +174,7 @@ std::ostream& operator<<(std::ostream&, const ast::FunctionSignature&);
 class FunctionDecl : public TopLevelStmt {
     FunctionSignature signature;
     std::vector<std::shared_ptr<ast::Ident>> paramNames;
-    std::vector<std::shared_ptr<LocalStmt>> funcBody;
+    std::shared_ptr<ast::Composite> body;
     attributes::FunctionAttributes attributes;
     
     FunctionKind funcKind;
@@ -187,7 +187,7 @@ class FunctionDecl : public TopLevelStmt {
     
 public:
     FunctionDecl(FunctionKind kind, std::string name, FunctionSignature sig, std::vector<std::shared_ptr<ast::Ident>> paramNames, attributes::FunctionAttributes attr)
-    : TopLevelStmt(Node::NodeKind::FunctionDecl), signature(sig), paramNames(paramNames), attributes(attr), funcKind(kind), name(name) {}
+    : TopLevelStmt(Node::NodeKind::FunctionDecl), signature(sig), paramNames(paramNames), body(std::make_shared<Composite>()), attributes(attr), funcKind(kind), name(name) {}
     
     FunctionKind getFunctionKind() const { return funcKind; }
     void setFunctionKind(FunctionKind kind) { funcKind = kind; }
@@ -205,8 +205,8 @@ public:
     attributes::FunctionAttributes& getAttributes() { return attributes; }
     const attributes::FunctionAttributes& getAttributes() const { return attributes; }
     
-    const std::vector<std::shared_ptr<LocalStmt>>& getBody() const { return funcBody; }
-    void setBody(std::vector<std::shared_ptr<LocalStmt>> body) { funcBody = body; }
+    const std::shared_ptr<ast::Composite>& getBody() const { return body; }
+    void setBody(std::shared_ptr<ast::Composite> B) { body = B; }
     
     
     bool isOfFunctionKind(FunctionKind kind) const { return funcKind == kind; }
