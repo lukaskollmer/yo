@@ -2036,7 +2036,7 @@ enum class irgen::Intrinsic : uint8_t {
     IsSame, IsPointer
 };
 
-static const std::map<std::string_view, Intrinsic> intrinsics = {
+static const std::map<std::string, Intrinsic> intrinsics = {
     { "__add", Intrinsic::Add },
     { "__sub", Intrinsic::Sub },
     { "__mul", Intrinsic::Mul },
@@ -2052,9 +2052,9 @@ static const std::map<std::string_view, Intrinsic> intrinsics = {
     { "__lt", Intrinsic::LT },
     
     { "__land", Intrinsic::LAnd },
-    { "~13",    Intrinsic::LAnd },
     { "__lor",  Intrinsic::LOr  },
-    { "~14",    Intrinsic::LOr  },
+    { mangling::mangleCanonicalName(ast::Operator::LAnd), Intrinsic::LAnd },
+    { mangling::mangleCanonicalName(ast::Operator::LOr),  Intrinsic::LOr  },
     
     { "static_cast", Intrinsic::StaticCast },
     { "reinterpret_cast", Intrinsic::ReinterpretCast },
