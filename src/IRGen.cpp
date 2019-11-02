@@ -346,7 +346,7 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
             // TODO don't call resolveTypeDesc on templated methods
             bool isInstanceMethod =
                 fn->getParamNames().front()->value == "self"
-                && resolveTypeDesc(fn->getSignature().paramTypes.front()) == type->getPointerTo();
+                && resolveTypeDesc(fn->getSignature().paramTypes.front()) == type->getReferenceTo();
             
             if (isInstanceMethod) kind = FK::InstanceMethod;
         }
