@@ -192,7 +192,7 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
         
         // Check signature
         if (sig.paramTypes.empty() && resolveTypeDesc(sig.returnType) != builtinTypes.yo.i32) {
-            diagnostics::failWithError(functionDecl->getSourceLocation(), "Invalid signature: 'main' must return 'i32'");
+            diagnostics::emitError(functionDecl->getSourceLocation(), "Invalid signature: 'main' must return 'i32'");
         } else if (!sig.paramTypes.empty()) {
             ast::FunctionSignature expectedSig;
             expectedSig.returnType = ast::TypeDesc::makeResolved(builtinTypes.yo.i32);
@@ -200,7 +200,7 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
                 expectedSig.returnType, ast::TypeDesc::makeResolved(builtinTypes.yo.i8Ptr->getPointerTo())
             };
             if (!equal(sig, expectedSig)) {
-                diagnostics::failWithError(functionDecl->getSourceLocation(), util::fmt::format("Invalid signature for function 'main'. Expected {}, got {}", expectedSig, sig));
+                diagnostics::emitError(functionDecl->getSourceLocation(), util::fmt::format("Invalid signature for function 'main'. Expected {}, got {}", expectedSig, sig));
             }
         }
     }
@@ -208,7 +208,7 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     
     if (sig.isTemplateFunction() || functionDecl->getAttributes().intrinsic) {
         if (sig.isTemplateFunction() && sig.templateArgumentNames.size() != sig.distinctTemplateArgumentNames().size()) {
-            diagnostics::failWithError(functionDecl->getSourceLocation(), "Template argument types must be distinct");
+            diagnostics::emitError(functionDecl->getSourceLocation(), "Template argument types must be distinct");
         }
         
         auto canonicalName = mangling::mangleCanonicalName(functionDecl);
@@ -320,12 +320,12 @@ void IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl
             paramNames.push_back(makeIdent(member->name));
         }
         
-        auto initFnDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::StaticMethod,
-                                                              "init", signature, paramNames,
+        auto ctorFnDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::StaticMethod,
+                                                              structName, signature, paramNames,
                                                               attributes::FunctionAttributes());
-        initFnDecl->setImplType(structTy);
+        ctorFnDecl->setImplType(structTy);
         
-        registerFunction(initFnDecl);
+        registerFunction(ctorFnDecl);
     }
 }
 
@@ -430,119 +430,9 @@ llvm::DISubroutineType *IRGenerator::_toDISubroutineType(const ast::FunctionSign
     types.push_back(resolveTypeDesc(signature.returnType)->getLLVMDIType());
     for (const auto& paramTy : signature.paramTypes) {
         types.push_back(resolveTypeDesc(paramTy)->getLLVMDIType());
-    }    
+    }
     return debugInfo.builder.createSubroutineType(debugInfo.builder.getOrCreateTypeArray(types));
 }
-
-
-
-
-
-
-
-
-#pragma mark - Types
-
-
-
-Type* IRGenerator::resolvePrimitiveType(std::string_view name) {
-#define HANDLE(_name, ty) if (name == _name) return ty;
-    HANDLE("void", builtinTypes.yo.Void)
-    HANDLE("bool", builtinTypes.yo.Bool)
-    HANDLE("i8",   builtinTypes.yo.i8)
-    HANDLE("i16",  builtinTypes.yo.i16)
-    HANDLE("i32",  builtinTypes.yo.i32)
-    HANDLE("i64",  builtinTypes.yo.i64)
-    HANDLE("u8",   builtinTypes.yo.u8)
-    HANDLE("u16",  builtinTypes.yo.u16)
-    HANDLE("u32",  builtinTypes.yo.u32)
-    HANDLE("u64",  builtinTypes.yo.u64)
-    HANDLE("f64",  builtinTypes.yo.f64)
-#undef HANDLE
-    return nullptr;
-}
-
-
-
-// Attempts to resolve an AST TypeDesc and returns a unique `yo::Type*` pointer.
-// Also creates the `yo::Type`'s `llvm::Type` and `llvm::DIType` and sets the respective member fields
-Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool setInternalResolvedType) {
-    // HUGE FUCKING PROBLEM: typedescs should be resolved in the context which they were declared, not the one in which they might be used
-    // (this isn't that big an issue rn, but might become in the future)
-    
-    using TDK = ast::TypeDesc::Kind;
-    
-    if (!typeDesc) LKFatalError("NULL TYPE DESC");
-    
-    auto handleResolvedTy = [this, typeDesc, setInternalResolvedType](Type *ty) {
-        if (setInternalResolvedType) typeDesc->setResolvedType(ty);
-        ty->setLLVMType(getLLVMType(ty));
-        ty->setLLVMDIType(getDIType(ty));
-        return ty;
-    };
-    
-    if (auto ty = typeDesc->getResolvedType()) {
-        return handleResolvedTy(ty);
-    }
-    
-    switch (typeDesc->getKind()) {
-        case TDK::Resolved:
-            // Should actually never reach here since we already have the nonnull check above
-            return typeDesc->getResolvedType();
-        
-        case TDK::Nominal: {
-            const auto& name = typeDesc->getName();
-            if (auto ty = resolvePrimitiveType(name)) {
-                return handleResolvedTy(ty);
-            } else {
-                // a nominal, non-primitive type
-                
-                // If there is already an entry for that type, return that
-                if (auto entry = nominalTypes.get(name)) {
-                    return handleResolvedTy(entry.value());
-                }
-                
-                diagnostics::failWithError(typeDesc->getSourceLocation(), util::fmt::format("Unable to resolve nominal type '{}'", name));
-            }
-            break;
-        }
-        case TDK::Pointer:
-            return handleResolvedTy(resolveTypeDesc(typeDesc->getPointee())->getPointerTo());
-        
-        case TDK::Reference:
-            return handleResolvedTy(resolveTypeDesc(typeDesc->getPointee()));
-            
-        
-        case TDK::Function: {
-            const auto& FTI = typeDesc->getFunctionTypeInfo();
-            const auto paramTypes = util::vector::map(FTI.parameterTypes, [this](const auto& typeDesc) { return resolveTypeDesc(typeDesc); });
-            return handleResolvedTy(FunctionType::create(resolveTypeDesc(FTI.returnType), paramTypes, FTI.callingConvention));
-        }
-        
-        case TDK::Decltype:
-            return handleResolvedTy(getType(typeDesc->getDecltypeExpr()));
-    }
-    
-    LKFatalError("unhandled type desc: %s", typeDesc->str().c_str());
-}
-
-
-
-
-bool IRGenerator::equal(const ast::FunctionSignature &lhs, const ast::FunctionSignature &rhs) {
-    if (resolveTypeDesc(lhs.returnType, false) != resolveTypeDesc(rhs.returnType, false)) return false;
-    
-    if (lhs.paramTypes.size() != rhs.paramTypes.size()) return false;
-    
-    for (size_t i = 0; i < lhs.paramTypes.size(); i++) {
-        if (resolveTypeDesc(lhs.paramTypes[i], false) != resolveTypeDesc(rhs.paramTypes[i], false)) return false;
-    }
-    
-    if (lhs.templateArgumentNames != rhs.templateArgumentNames) return false;
-    
-    return true;
-}
-
 
 
 
@@ -742,101 +632,26 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ImplBlock> implBlock) {
 
 
 
+
 #pragma mark - Local Statements
-
-
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
-    Type *type = nullptr;
-    bool hasInferredType = false;
-    
-    if (varDecl->type == nullptr) {
-        // If no type is specified, there _has_ to be an initial value
-        if (!varDecl->initialValue) {
-            diagnostics::failWithError(varDecl->getSourceLocation(), "Must specify initial value");
-        }
-        type = getType(varDecl->initialValue);
-        hasInferredType = true;
-    } else {
-        type = resolveTypeDesc(varDecl->type);
-    }
-    if (!type) {
-        diagnostics::failWithError(varDecl->getSourceLocation(), "Unable to infer type of variable");
-    }
-    
-    emitDebugLocation(varDecl);
-    auto alloca = builder.CreateAlloca(type->getLLVMType());
-    alloca->setName(varDecl->name);
-    
-    // Create Debug Metadata
-    if (CLIOptions.emitDebugMetadata) {
-        auto D = debugInfo.builder.createAutoVariable(currentFunction.llvmFunction->getSubprogram(),
-                                                      varDecl->name,
-                                                      debugInfo.lexicalBlocks.back()->getFile(),
-                                                      varDecl->getSourceLocation().line,
-                                                      type->getLLVMDIType());
-        debugInfo.builder.insertDeclare(alloca, D,
-                                        debugInfo.builder.createExpression(),
-                                        llvm::DebugLoc::get(varDecl->getSourceLocation().line, 0, currentFunction.llvmFunction->getSubprogram()),
-                                        builder.GetInsertBlock());
-    }
-    
-    localScope.insert(varDecl->name, ValueBinding(
-        type, alloca, [=]() -> llvm::Value* {
-            return builder.CreateLoad(alloca);
-        }, [=](llvm::Value *V) {
-            LKAssert(V->getType() == alloca->getType()->getPointerElementType());
-            builder.CreateStore(V, alloca);
-        },
-        ValueBinding::Flags::CanRead | ValueBinding::Flags::CanWrite
-    ));
-    
-    if (auto expr = varDecl->initialValue) {
-        // Q: Why create and handle an assignment to set the initial value, instead of just calling Binding.Write?
-        // A: The Assignment codegen also includes the trivial type transformations, whish we'd otherwise have to implement again in here
-        auto assignment = std::make_shared<ast::Assignment>(makeIdent(varDecl->name), varDecl->initialValue);
-        assignment->setSourceLocation(varDecl->getSourceLocation());
-        codegen(assignment);
-    } else {
-        if (!CLIOptions.fzeroInitialize) {
-            diagnostics::failWithError(varDecl->getSourceLocation(), "no initial value specified");
-        } else {
-            // zero initialize
-            if (!(type->isPointerTy() || type->isNumericalTy())) {
-                // TODO:
-                // 1) should function types be considered pointers? (probably, right?)
-                // 2) there are other types that can also be zero-initialized? (basically everything!)
-                // -> this is a stupid requirement
-                diagnostics::failWithError(varDecl->getSourceLocation(), "only pointer or numerical types can be zero-initialized");
-            } else {
-                auto null = llvm::Constant::getNullValue(type->getLLVMType());
-                emitDebugLocation(varDecl);
-                builder.CreateStore(null, alloca);
-            }
-        }
-    }
-    
-    return alloca;
-}
-
-
-
-
-
-
 
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Composite> composite) {
     emitDebugLocation(composite); // TODO does this even affect anything?
-    return codegen(composite->statements);
-}
 
-
-llvm::Value *IRGenerator::codegen(const std::vector<std::shared_ptr<ast::LocalStmt>>& stmtList) {
+    
+    // Note: There's obvious potential for improval here
+    // What;s going on here?
+    // We first hoist all allocas
+    
     auto marker = localScope.getMarker();
     bool didReturn = false;
     
-    for (auto it = stmtList.begin(); !didReturn && it != stmtList.end(); it++) {
+    
+    const auto &stmts = composite->statements;
+    
+    for (auto it = stmts.begin(); !didReturn && it != stmts.end(); it++) {
         const auto stmt = *it;
         codegen(stmt);
         if (stmt->isOfKind(NK::ReturnStmt)) {
@@ -855,6 +670,117 @@ llvm::Value *IRGenerator::codegen(const std::vector<std::shared_ptr<ast::LocalSt
 
 
 
+
+
+llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
+    Type *type = nullptr;
+    bool hasInferredType = false;
+    
+    if (varDecl->type == nullptr) {
+        // If no type is specified, there _has_ to be an initial value
+        if (!varDecl->initialValue) {
+            diagnostics::emitError(varDecl->getSourceLocation(), "Must specify initial value");
+        }
+        type = getType(varDecl->initialValue);
+        hasInferredType = true;
+    } else {
+        type = resolveTypeDesc(varDecl->type);
+    }
+    if (!type) {
+        diagnostics::emitError(varDecl->getSourceLocation(), "Unable to infer type of variable");
+    }
+    
+    if (varDecl->declaresUntypedReference) {
+        if (!type->isReferenceTy()) {
+            type = type->getReferenceTo();
+        }
+    } else if (!varDecl->declaresUntypedReference && type->isReferenceTy()) {
+        type = llvm::dyn_cast<ReferenceType>(type)->getReferencedType();
+    }
+    
+    if (type->isReferenceTy()) {
+        if (!varDecl->initialValue) {
+            diagnostics::emitError(varDecl->getSourceLocation(), "lvalue reference declaration requires initial value");
+        }
+        
+        if (!canBecomeLValue(varDecl->initialValue)) {
+            auto msg = util::fmt::format("lvalue reference of type '{}' cannot bind to temporary of type '{}'", type, getType(varDecl->initialValue));
+            diagnostics::emitError(varDecl->initialValue->getSourceLocation(), msg);
+        }
+    } else {
+        // TODO necessary?
+    }
+    
+    emitDebugLocation(varDecl);
+    auto alloca = builder.CreateAlloca(getLLVMType(type));
+    alloca->setName(varDecl->name);
+    
+    // Create Debug Metadata
+    if (CLIOptions.emitDebugMetadata) {
+        auto D = debugInfo.builder.createAutoVariable(currentFunction.llvmFunction->getSubprogram(),
+                                                      varDecl->name,
+                                                      debugInfo.lexicalBlocks.back()->getFile(),
+                                                      varDecl->getSourceLocation().line,
+                                                      getDIType(type));
+        debugInfo.builder.insertDeclare(alloca, D,
+                                        debugInfo.builder.createExpression(),
+                                        llvm::DebugLoc::get(varDecl->getSourceLocation().line, 0, currentFunction.llvmFunction->getSubprogram()),
+                                        builder.GetInsertBlock());
+    }
+    
+    localScope.insert(varDecl->name, ValueBinding(
+        type, alloca, [=]() -> llvm::Value* {
+            return builder.CreateLoad(alloca);
+        }, [=](llvm::Value *V) {
+            LKAssert(V->getType() == alloca->getType()->getPointerElementType());
+            builder.CreateStore(V, alloca);
+        },
+        ValueBinding::Flags::CanRead | ValueBinding::Flags::CanWrite
+    ));
+    
+    if (auto initialValueExpr = varDecl->initialValue) {
+        auto initialValueType = getType(initialValueExpr);
+        // Q: Why create and handle an assignment to set the initial value, instead of just calling Binding.Write?
+        // A: The Assignment codegen also includes the trivial type transformations, whish we'd otherwise have to implement again in here
+        if (!type->isReferenceTy()) {
+            auto assignment = std::make_shared<ast::Assignment>(makeIdent(varDecl->name), initialValueExpr);
+            assignment->setSourceLocation(varDecl->getSourceLocation());
+            codegen(assignment);
+        } else {
+            auto V = codegen(initialValueExpr, LValue);
+            if (initialValueType->isReferenceTy()) {
+                V = builder.CreateLoad(V);
+            }
+            emitDebugLocation(varDecl);
+            builder.CreateStore(V, alloca);
+        }
+    } else {
+        if (!CLIOptions.fzeroInitialize) {
+            diagnostics::emitError(varDecl->getSourceLocation(), "no initial value specified");
+        } else {
+            // zero initialize
+            if (!(type->isPointerTy() || type->isNumericalTy())) {
+                // TODO:
+                // 1) should function types be considered pointers? (probably, right?)
+                // 2) there are other types that can also be zero-initialized? (basically everything!)
+                // -> this is a stupid requirement
+                diagnostics::emitError(varDecl->getSourceLocation(), "only pointer or numerical types can be zero-initialized");
+            } else {
+                auto null = llvm::Constant::getNullValue(type->getLLVMType());
+                emitDebugLocation(varDecl);
+                builder.CreateStore(null, alloca);
+            }
+        }
+    }
+    
+    return alloca;
+}
+
+
+
+
+
+
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ReturnStmt> returnStmt) {
     const auto FName = builder.GetInsertBlock()->getParent()->getName().str();
     const auto returnType = resolveTypeDesc(currentFunction.decl->getSignature().returnType);
@@ -864,7 +790,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ReturnStmt> returnStmt) {
         if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, returnType, &T)) {
             auto msg = util::fmt::format("Expression evaluates to type '{}', which is incompatible with the expected return type '{}'",
                                          T, returnType);
-            diagnostics::failWithError(expr->getSourceLocation(), msg);
+            diagnostics::emitError(expr->getSourceLocation(), msg);
         }
         
         auto retvalAss = std::make_shared<ast::Assignment>(makeIdent(kRetvalAllocaIdentifier), expr);
@@ -933,39 +859,61 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
     // TODO why is relying on getType for function calls an issue?
     
     llvm::Value *llvmTargetLValue = nullptr;
-    auto expr = assignment->value;
-    const auto destTy = getType(assignment->target);
+    auto rhsExpr = assignment->value;
+    auto lhsTy = getType(assignment->target);
+    auto rhsTy = getType(assignment->value);
     
     
-    if (expr->isOfKind(NK::BinOp) && static_cast<ast::BinOp *>(expr.get())->isInPlaceBinop()) {
+    if (rhsExpr->isOfKind(NK::BinOp) && static_cast<ast::BinOp *>(rhsExpr.get())->isInPlaceBinop()) {
         // <lhs> <op>= <rhs>
         // The issue here is that we have to make sure not to evaluate lhs twice
-        auto binop = std::static_pointer_cast<ast::BinOp>(expr);
+        auto binop = std::static_pointer_cast<ast::BinOp>(rhsExpr);
         LKAssert(assignment->target == binop->getLhs());
         
         auto lhsLValue = codegen(binop->getLhs(), LValue);
-        auto lhsRValue = builder.CreateLoad(lhsLValue);
         llvmTargetLValue = lhsLValue;
+        auto lhsRValue = builder.CreateLoad(lhsLValue);
         
-        auto newLhs = std::make_shared<ast::RawLLVMValueExpr>(lhsRValue, destTy);
+        auto newLhs = std::make_shared<ast::RawLLVMValueExpr>(lhsRValue, lhsTy);
         newLhs->setSourceLocation(assignment->target->getSourceLocation());
         
         auto newBinop = std::make_shared<ast::BinOp>(binop->getOperator(), newLhs, binop->getRhs());
         newBinop->setSourceLocation(binop->getSourceLocation());
-        expr = newBinop;
+        rhsExpr = newBinop;
         
     } else {
         llvmTargetLValue = codegen(assignment->target, LValue);
         
-        // The binop branch already handled implicit conversions so there's no need to do that twice
+        auto ty = lhsTy;
+        if (auto refTy = llvm::dyn_cast_or_null<ReferenceType>(ty)) {
+            ty = refTy->getReferencedType();
+        }
+        
         Type *T;
-        if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, destTy, &T)) {
-            LKFatalError("type mismatch: cannot assign '%s' to '%s'", T->str().c_str(), destTy->str().c_str());
+        if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&rhsExpr, ty, &T)) {
+            if (auto refTy = llvm::dyn_cast_or_null<ReferenceType>(T)) {
+                if (!lhsTy->isReferenceTy() && refTy->getReferencedType() == lhsTy) {
+                    // assigning from a reference to a non-reference
+                    goto ok;
+                }
+            }
+            auto msg = util::fmt::format("cannot assign to '{}' from incompatible type '{}'", ty, T);
+            diagnostics::emitError(assignment->getSourceLocation(), msg);
         }
     }
     
+    ok:
+    
+    auto V = codegen(rhsExpr, RValue);
+    if (!lhsTy->isReferenceTy() && rhsTy->isReferenceTy()) {
+        V = builder.CreateLoad(V);
+    } else if (lhsTy->isReferenceTy() && !rhsTy->isReferenceTy()) {
+        llvmTargetLValue = builder.CreateLoad(llvmTargetLValue);
+    }
+    
     emitDebugLocation(assignment);
-    builder.CreateStore(codegen(expr, RValue), llvmTargetLValue);
+    builder.CreateStore(V, llvmTargetLValue);
+    
     return nullptr;
 }
 
@@ -1027,7 +975,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StringLiteral> stringLite
         
         case SLK::NormalString: {
             if (!nominalTypes.contains("String")) {
-                diagnostics::failWithError(stringLiteral->getSourceLocation(), "Unable to find 'String' type");
+                diagnostics::emitError(stringLiteral->getSourceLocation(), "Unable to find 'String' type");
             }
             stringLiteral->kind = SLK::ByteString;
             auto target = std::make_shared<ast::Ident>(mangling::mangleCanonicalName("String", "new", ast::FunctionKind::StaticMethod));
@@ -1044,20 +992,22 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StringLiteral> stringLite
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Ident> ident, ValueKind returnValueKind) {
     emitDebugLocation(ident);
     
-    if (auto binding = localScope.get(ident->value)) {
-        switch (returnValueKind) {
-            case LValue:
-                return const_cast<llvm::Value *>(binding->value);
-            
-            case RValue:
-                if (!binding->hasFlag(ValueBinding::Flags::CanRead)) {
-                    diagnostics::failWithError(ident->getSourceLocation(), util::fmt::format("Value binding for ident '{}' in local scope does not allow reading", ident->value));
-                }
-                return binding->read();
-        }
+    auto binding = localScope.get(ident->value);
+    if (!binding) {
+        diagnostics::emitError(ident->getSourceLocation(), util::fmt::format("use of undeclared identifier '{}'", ident->value));
     }
     
-    diagnostics::failWithError(ident->getSourceLocation(), util::fmt::format("use of undeclared identifier '{}'", ident->value));
+    switch (returnValueKind) {
+        case LValue:
+            return binding->value;
+        
+        case RValue:
+            if (!binding->hasFlag(ValueBinding::Flags::CanRead)) {
+                auto msg = util::fmt::format("Value binding for ident '{}' in local scope does not allow reading", ident->value);
+                diagnostics::emitError(ident->getSourceLocation(), msg);
+            }
+            return binding->read();
+    }
 }
 
 
@@ -1126,13 +1076,13 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> castExpr) {
             }
             
             auto msg = util::fmt::format("unable to resolve static_cast. No known conversion from '{}' to '{}'", srcTy, dstTy);
-            diagnostics::failWithError(castExpr->getSourceLocation(), msg);
+            diagnostics::emitError(castExpr->getSourceLocation(), msg);
         }
     }
     
     if (op == static_cast<LLVMCastOp>(-1)) {
         auto msg = util::fmt::format("Unable to resolve cast from '{}' to '{}'", srcTy, dstTy);
-        diagnostics::failWithError(castExpr->getSourceLocation(), msg);
+        diagnostics::emitError(castExpr->getSourceLocation(), msg);
     }
     
     emitDebugLocation(castExpr);
@@ -1147,10 +1097,23 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> castExpr) {
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, ValueKind returnValueKind) {
     auto targetTy = getType(memberExpr->target);
-    LKAssert(targetTy->isPointerTy());
-    auto pointerTy = llvm::dyn_cast<PointerType>(targetTy);
-    LKAssert(pointerTy->getPointee()->isStructTy());
-    auto structTy = llvm::dyn_cast<StructType>(pointerTy->getPointee());
+    
+    bool isPtr = false;
+    StructType *structTy = nullptr;
+    
+    if (auto structTy_ = llvm::dyn_cast_or_null<StructType>(targetTy)) {
+        structTy = structTy_;
+        isPtr = false;
+    } else if (auto ptrTy = llvm::dyn_cast_or_null<PointerType>(targetTy)) {
+        structTy = llvm::dyn_cast<StructType>(ptrTy->getPointee());
+        isPtr = true;
+    } else if (auto refTy = llvm::dyn_cast_or_null<ReferenceType>(targetTy)) {
+        structTy = llvm::dyn_cast<StructType>(refTy->getReferencedType());
+        isPtr = true;
+    } else {
+        auto msg = util::fmt::format("Invalid member expr base type: '{}'", targetTy);
+        diagnostics::emitError(memberExpr->getSourceLocation(), msg);
+    }
     
     auto [memberIndex, memberType] = structTy->getMember(memberExpr->memberName);
     LKAssert(memberType != nullptr && "member does not exist");
@@ -1160,7 +1123,10 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, V
         llvm::ConstantInt::get(builtinTypes.llvm.i32, memberIndex)
     };
     
-    auto targetV = codegen(memberExpr->target);
+    auto targetV = codegen(memberExpr->target, LValue);
+    if (isPtr) {
+        targetV = builder.CreateLoad(targetV);
+    }
     emitDebugLocation(memberExpr);
     auto V = builder.CreateGEP(targetV, offsets);
     
@@ -1195,13 +1161,13 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::SubscriptExpr> subscript,
     auto TT = getType(subscript->target);
     if (!TT->isPointerTy()) {
         auto msg = util::fmt::format("Cannot subscript value of type '{}'", TT);
-        diagnostics::failWithError(subscript->target->getSourceLocation(), msg);
+        diagnostics::emitError(subscript->target->getSourceLocation(), msg);
     }
     
     auto OT = getType(subscript->offset);
     if (!OT->isNumericalTy() || !llvm::dyn_cast<NumericalType>(OT)->isIntegerTy()) {
         auto msg = util::fmt::format("Expected integral type, got '{}'", OT);
-        diagnostics::failWithError(subscript->offset->getSourceLocation(), msg);
+        diagnostics::emitError(subscript->offset->getSourceLocation(), msg);
     }
     
     auto target = codegen(subscript->target);
@@ -1245,7 +1211,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::UnaryExpr> unaryExpr) {
             auto ty = getType(expr);
             if (!isValidUnaryOpLogicalNegType(ty)) {
                 auto msg = util::fmt::format("Type '{}' cannpt be used in logical negation", ty);
-                diagnostics::failWithError(unaryExpr->getSourceLocation(), msg);
+                diagnostics::emitError(unaryExpr->getSourceLocation(), msg);
             }
             auto V = codegen(expr);
             emitDebugLocation(unaryExpr);
@@ -1295,11 +1261,11 @@ llvm::Value *IRGenerator::codegen_HandleMatchPatternExpr(MatchExprPatternCodegen
                 
             }
         } else {
-            diagnostics::failWithError(PE->getSourceLocation(), util::fmt::format( "Cannot match value of type '{}' against '{}'", TT, PT));
+            diagnostics::emitError(PE->getSourceLocation(), util::fmt::format( "Cannot match value of type '{}' against '{}'", TT, PT));
         }
     }
     
-    diagnostics::failWithError(PE->getSourceLocation(), "Not a valid pattern expression");
+    diagnostics::emitError(PE->getSourceLocation(), "Not a valid pattern expression");
 }
 
 
@@ -1366,7 +1332,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MatchExpr> matchExpr) {
         
         Type *_initialTy = nullptr;
         if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&branch.expression, resultType, &_initialTy)) {
-            //diagnostics::failWithError(branch.expression->getSourceLocation(),
+            //diagnostics::emitError(branch.expression->getSourceLocation(),
             //                           "Invalud match branch pattern value: Type '%s' not compatible with expected type '%s'",
             //                           _initialTy->str().c_str(), resultType->str().c_str());
             LKFatalError("Invalid match branch result value: Type %s not compatible with expected type %s",
@@ -1429,7 +1395,7 @@ bool isValidBinopOperator(ast::Operator op) {
 
 llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::BinOp> binop) {
     if (!isValidBinopOperator(binop->getOperator())) {
-        diagnostics::failWithError(binop->getSourceLocation(), "Not a valid binary operator");
+        diagnostics::emitError(binop->getSourceLocation(), "Not a valid binary operator");
     }
     
     auto callExpr = std::make_shared<ast::CallExpr>(makeIdent(mangling::mangleCanonicalName(binop->getOperator())),
@@ -1498,10 +1464,11 @@ uint8_t IRGenerator::argumentOffsetForCallingConvention(CallingConvention cc) {
 // A: Because this map is then passed on to the template specialization instantiator, which simply creates a bunch of AST nodes, and therefore needs TypeDescs
 
 // Note that this function returns fully resolved ast::TypeDesc objects.
-std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset) {
+std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>>
+IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset) {
     // TODO properly take the argument offset into account when handling calls to templated instance methods, or other functions w/ an offset > 0
     
-    const auto& sig = templateFunction->getSignature();
+    const auto &sig = templateFunction->getSignature();
     // TODO this excludes variadic functions?
     // Not a huge issue for the time being since only external functions can be variadic
     if (sig.paramTypes.size() != call->arguments.size() + argumentOffset) {
@@ -1552,40 +1519,75 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
     // TODO this needs a fundamental rewrite to support more than just nominal types and pointers to (pointers to) nominal types!
     // What about a pointer to a function, or a function that takes another functuin, etc etc etc
     
-    for (size_t i = argumentOffset; i < call->arguments.size(); i++) {
+    
+    /*
+     for now:
+     - T
+     - *T
+     - &*T
+     
+     in the future (hopefully):
+     - Foo<T>
+     - Foo<T, U>
+     - Foo<Foo<T>>
+     - Foo<*T>
+     - Foo<&T>
+     - ...
+     
+     */
+    
+    
+    for (uint64_t i = argumentOffset; i < call->arguments.size(); i++) {
         // We have to keep working w/ the ast::TypeDesc object as long as possible since calling resolveTypeDesc might resolve a typename shadowed by a template w/ some other type declared in the parent scope
-        std::string paramTypename;
-        auto paramType = sig.paramTypes[i];
-        uint64_t paramIndirectionCount = 0;
+        // TODO example in which circumstances this might happen?
         
-        if (paramType->isPointer()) {
-            auto ty = paramType;
+        std::string paramTypename;
+        auto sigParamTypeDesc = sig.paramTypes[i];
+        uint64_t sigParamTypeDescPointerIndirectionCount = 0;
+        bool isReference = sigParamTypeDesc->isReference();
+        if (isReference) {
+            sigParamTypeDesc = sigParamTypeDesc->getPointee();
+        }
+
+        if (sigParamTypeDesc->isPointer()) {
+            auto ty = sigParamTypeDesc;
             while (ty->isPointer()) {
-                paramIndirectionCount += 1;
+                sigParamTypeDescPointerIndirectionCount += 1;
                 ty = ty->getPointee();
             }
             paramTypename = ty->getName();
         } else {
-            paramTypename = paramType->getName();
+            paramTypename = sigParamTypeDesc->getName();
         }
-        
+
         if (auto mapping = templateArgumentMapping.find(paramTypename); mapping != templateArgumentMapping.end()) {
-            auto guessedArgumentType = getType(call->arguments[i]);
+            auto argTy = getType(call->arguments[i]);
+            if (auto argTyRef = llvm::dyn_cast_or_null<ReferenceType>(argTy)) {
+                // Calling a function `<T>(T)` with `&T` will deduce `T` as `T` and drop the reference
+                // TODO probably gonna need a better explanation here
+                argTy = argTyRef->getReferencedType();
+            }
+            
             auto isLiteral = call->arguments[i]->getNodeKind() == NK::NumberLiteral;
             auto reason = isLiteral ? DeductionReason::Literal : DeductionReason::Expr;
             if (!mapping->second.has_value()) {
-                while (paramIndirectionCount-- > 0) {
-                    LKAssert(guessedArgumentType->isPointerTy());
-                    guessedArgumentType = llvm::dyn_cast<PointerType>(guessedArgumentType)->getPointee();
+                while (sigParamTypeDescPointerIndirectionCount-- > 0) {
+                    LKAssert(argTy->isPointerTy());
+                    argTy = llvm::dyn_cast<PointerType>(argTy)->getPointee();
                 }
-                mapping->second = { guessedArgumentType, reason };
+                if (auto argTyRef = llvm::dyn_cast_or_null<ReferenceType>(argTy); argTyRef && isReference) {
+                    argTy = argTyRef->getReferencedType();
+                }
+                mapping->second = { argTy, reason };
             } else {
                 if (mapping->second->reason == DeductionReason::Literal) {
-                    mapping->second = { guessedArgumentType, reason };
-                } else if (!isLiteral && mapping->second->type != guessedArgumentType) {
+                    mapping->second = { argTy, reason };
+                } else if (!isLiteral && mapping->second->type != argTy) {
                     return std::nullopt;
                 }
             }
+        } else {
+            LKFatalError("unreachable?");
         }
     }
     
@@ -1597,7 +1599,7 @@ std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> IRGenerator
         } else {
             // TODO should this judt return std::nullopt instead of throwing an error?
             // TODO also print the location of the call! this is pretty useless without proper context
-            diagnostics::failWithError(templateFunction->getSourceLocation(), util::fmt::format("unable to deduce template argument '{}", name));
+            diagnostics::emitError(templateFunction->getSourceLocation(), util::fmt::format("unable to deduce template argument '{}", name));
         }
     }
     return retvalMap;
@@ -1681,10 +1683,14 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             argumentOffset = kInstanceMethodCallArgumentOffset;
         }
     } else {
-        diagnostics::failWithError(callExpr->getSourceLocation(), "Unable to resolve call target");
+        diagnostics::emitError(callExpr->getSourceLocation(), "Unable to resolve call target");
     }
     
-    
+    // TODO does this mean we might miss another potential target
+    // Not if the compiler disallows free functions w/ the same name as a defined type
+    if (auto ty_ = nominalTypes.get(targetName)) {
+        targetName = mangling::mangleCanonicalName(targetName, targetName, ast::FunctionKind::StaticMethod);
+    }
     
 
     auto specializeTemplateFunctionForCall = [this, argumentOffset, omitCodegen] (std::shared_ptr<ast::FunctionDecl> functionDecl, std::map<std::string, std::shared_ptr<ast::TypeDesc>> templateArgumentMapping) -> ResolvedCallable {
@@ -1739,13 +1745,12 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     };
     
     
-    
     // find a matching target
     
     const auto &possibleTargets = functions[targetName];
     
     if (possibleTargets.empty()) {
-        diagnostics::failWithError(callExpr->getSourceLocation(), util::fmt::format("unable to resolve call to '{}'", targetName));
+        diagnostics::emitError(callExpr->getSourceLocation(), util::fmt::format("unable to resolve call to '{}'", targetName));
     }
     
     
@@ -1801,7 +1806,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         } else if (sig.templateArgumentNames.empty() != decl->getResolvedTemplateArgTypes().empty()) {
             // Discard already instantiated template functions. Not necessarily necessary,
             // but also not a huge issue since it'll just resolve to the already instantiated version
-            //util::fmt::print("discarding {} bc already instantiated", decl->getName());
+            //util::fmt::print("[{}] discarding {} bc already instantiated", targetName, decl->getName());
             goto discard_potential_match;
         }
         
@@ -1818,21 +1823,37 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             }
 
             LKAssert(expectedType);
-
-            if (argTy != expectedType) {
-                if (arg->getNodeKind() == ast::Node::NodeKind::NumberLiteral) {
-                    auto numberLiteral = std::static_pointer_cast<ast::NumberLiteral>(arg);
-                    if (valueIsTriviallyConvertible(numberLiteral, expectedType)) {
-                        score += 1;
-                    } else {
-                        //util::fmt::print("discarding '{}' bc argument #{} not trivially convertible", targetName, i);
-                        goto discard_potential_match;
-                    }
+            
+            if (argTy == expectedType) {
+                continue;
+            }
+            
+            if (arg->isOfKind(NK::NumberLiteral)) {
+                auto numberLiteral = std::static_pointer_cast<ast::NumberLiteral>(arg);
+                if (valueIsTriviallyConvertible(numberLiteral, expectedType)) {
+                    score += 1;
+                    continue;
                 } else {
-                    //util::fmt::print("discarding '{}' bc argument #{}: {} not of expected type {}", targetName, i, argTy, expectedType);
+                    //util::fmt::print("[{}] discarding '{}' bc argument #{} not trivially convertible from '{}' to '{}'",
+                    //                 targetName, sig, i, argTy, expectedType);
                     goto discard_potential_match;
                 }
             }
+            
+            if (expectedType->isReferenceTy()) {
+                if (canBecomeLValue(arg) && !argTy->isReferenceTy() && argTy->getReferenceTo() == expectedType) {
+//                    score += 1;
+                    continue;
+                }
+            } else if (!expectedType->isReferenceTy() && argTy->isReferenceTy()) {
+                if (llvm::dyn_cast<ReferenceType>(argTy)->getReferencedType() == expectedType) {
+//                    score += 1;
+                    continue;
+                }
+            }
+            
+            //util::fmt::print("[{}] discarding '{}' bc argument #{}: {} not of expected type {}", targetName, sig, i, argTy, expectedType);
+            goto discard_potential_match;
         }
         
         matches.push_back({score, decl, target.llvmValue, templateArgTypeMapping});
@@ -1844,28 +1865,30 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     std::sort(matches.begin(), matches.end(), [](auto &arg0, auto &arg1) { return arg0.score < arg1.score; });
     
 #if 0
-    std::ostringstream OS;
-    for (auto expr : callExpr->arguments) {
-        OS << getType(expr) << ", ";
-    }
-    util::fmt::print("Matching overloads for call to '{}'({}):", targetName, OS.str());
-    for (auto& match : matches) {
-        util::fmt::print("- {}: {}", match.score, match.decl->getSignature());
+    {
+        std::ostringstream OS;
+        for (auto expr : callExpr->arguments) {
+            OS << getType(expr) << ", ";
+        }
+        util::fmt::print("Matching overloads for call to '{}'({}):", targetName, OS.str());
+        for (auto& match : matches) {
+            util::fmt::print("- {}: {}", match.score, match.decl->getSignature());
+        }
     }
 #endif
     
     if (matches.size() > 1 && matches[0].score == matches[1].score) {
-        util::fmt::print("Error: ambiguous call to '{}'. Potential candidates are:", targetName);
-        for (auto& match : matches) {
-            std::cout << "- " << match.score << ": " << match.decl->getSignature() << std::endl;
+        for (const auto &match : matches) {
+            diagnostics::emitNote(match.decl->getSourceLocation(), "note: potential target");
         }
-        util::exitOrAbort();
+        auto msg = util::fmt::format("ambiguous call to '{}'", targetName);
+        diagnostics::emitError(callExpr->getSourceLocation(), msg);
     }
     
     
     if (matches.empty()) {
         // TOOD list all considered targets and explain why they were rejected?
-        diagnostics::failWithError(callExpr->getSourceLocation(), "Unable to resolve call");
+        diagnostics::emitError(callExpr->getSourceLocation(), "Unable to resolve call");
     }
 
     
@@ -1918,15 +1941,33 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
         }
     }
     
+    // Indices of arguments that are converted to references (ie, passed as an LValue)
+    //std::vector<uint64_t> argumentsPassedByReference;
+    enum class ArgumentHandlingPolicy {
+        PassByValue,
+        PassByValue_ExtractReference,
+        PassByReference
+    };
+    std::map<uint64_t, ArgumentHandlingPolicy> argumentHandlingPolicies;
     
     for (size_t i = resolvedTarget.argumentOffset; i < resolvedTarget.signature.paramTypes.size(); i++) {
         auto expectedType = resolveTypeDesc(resolvedTarget.signature.paramTypes[i]);
         auto expr = call->arguments[i - resolvedTarget.argumentOffset];
+        argumentHandlingPolicies[i] = ArgumentHandlingPolicy::PassByValue;
         Type *T;
         if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, expectedType, &T)) {
-            diagnostics::failWithError(expr->getSourceLocation(),
+            auto exprTy = getType(expr);
+            if (expectedType->isReferenceTy() && !exprTy->isReferenceTy() && exprTy->getReferenceTo() == expectedType) {
+                argumentHandlingPolicies[i] = ArgumentHandlingPolicy::PassByReference;
+                goto cont;
+            } else if (!expectedType->isReferenceTy() && exprTy->isReferenceTy() && expectedType->getReferenceTo() == exprTy) {
+                argumentHandlingPolicies[i] = ArgumentHandlingPolicy::PassByValue_ExtractReference;
+                goto cont;
+            }
+            diagnostics::emitError(expr->getSourceLocation(),
                                        util::fmt::format("Incompatible type for argument #{}. Expected '{}', got '{}'", i, expectedType, T));
         }
+        cont:
         // TODO is modifying the arguments in-place necessarily a good idea?
         call->arguments[i - resolvedTarget.argumentOffset] = expr;
     }
@@ -1947,14 +1988,32 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
     std::vector<llvm::Value *> args(resolvedTarget.argumentOffset, nullptr);
     auto numFixedArgs = llvmFunctionTy->getNumParams() - resolvedTarget.argumentOffset;
     
-    for (size_t i = resolvedTarget.argumentOffset; i < llvmFunctionTy->getNumParams(); i++) {
-        auto expectedType = resolveTypeDesc(resolvedTarget.signature.paramTypes[i]);
-        auto expr = call->arguments[i - resolvedTarget.argumentOffset];
-        Type *T;
-        if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, expectedType, &T)) {
-            LKFatalError("Type mismatch in call to '%s'. Arg #%zu: expected '%s', got '%s'", llvmFunction->getName().str().c_str(), i, expectedType->str().c_str(), T->str().c_str());
+    if (llvmFunction->getName() == "_F3incvRq") {
+        for (auto [idx, pol] : argumentHandlingPolicies) {
+            util::fmt::print("[{}] = {}", idx, static_cast<uint32_t>(pol));
         }
-        args.push_back(codegen(expr));
+    }
+    
+    for (uint64_t i = resolvedTarget.argumentOffset; i < llvmFunctionTy->getNumParams(); i++) {
+        auto expr = call->arguments[i - resolvedTarget.argumentOffset];
+        auto argTy = getType(expr);
+        llvm::Value *V = nullptr;
+        
+        switch (argumentHandlingPolicies[i]) {
+            case ArgumentHandlingPolicy::PassByValue:
+                V = codegen(expr, RValue);
+                break;
+            case ArgumentHandlingPolicy::PassByReference:
+                V = codegen(expr, LValue);
+                break;
+            case ArgumentHandlingPolicy::PassByValue_ExtractReference:
+                V = codegen(expr, RValue);
+                LKAssert(argTy->isReferenceTy());
+                V = builder.CreateLoad(V);
+                break;
+        }
+        
+        args.push_back(V);
     }
     
     if (auto memberExpr = std::dynamic_pointer_cast<ast::MemberExpr>(call->target); memberExpr != nullptr && resolvedTarget.argumentOffset == kInstanceMethodCallArgumentOffset) {
@@ -2136,7 +2195,7 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
     }
     
     
-    diagnostics::failWithError(call->getSourceLocation(), util::fmt::format("Unhandled call to intrinsic '{}'", name));
+    diagnostics::emitError(call->getSourceLocation(), util::fmt::format("Unhandled call to intrinsic '{}'", name));
 }
 
 
@@ -2559,6 +2618,112 @@ void IRGenerator::handleStartupAndShutdownFunctions() {
 #pragma mark - Types
 
 
+
+Type* IRGenerator::resolvePrimitiveType(std::string_view name) {
+#define HANDLE(_name, ty) if (name == _name) return ty;
+    HANDLE("void", builtinTypes.yo.Void)
+    HANDLE("bool", builtinTypes.yo.Bool)
+    HANDLE("i8",   builtinTypes.yo.i8)
+    HANDLE("i16",  builtinTypes.yo.i16)
+    HANDLE("i32",  builtinTypes.yo.i32)
+    HANDLE("i64",  builtinTypes.yo.i64)
+    HANDLE("u8",   builtinTypes.yo.u8)
+    HANDLE("u16",  builtinTypes.yo.u16)
+    HANDLE("u32",  builtinTypes.yo.u32)
+    HANDLE("u64",  builtinTypes.yo.u64)
+    HANDLE("f64",  builtinTypes.yo.f64)
+#undef HANDLE
+    return nullptr;
+}
+
+
+
+// Attempts to resolve an AST TypeDesc and returns a unique `yo::Type*` pointer.
+// Also creates the `yo::Type`'s `llvm::Type` and `llvm::DIType` and sets the respective member fields
+Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool setInternalResolvedType) {
+    // HUGE FUCKING PROBLEM: typedescs should be resolved in the context which they were declared, not the one in which they might be used
+    // (this isn't that big an issue rn, but might become in the future)
+    
+    using TDK = ast::TypeDesc::Kind;
+    
+    if (!typeDesc) LKFatalError("NULL TYPE DESC");
+    
+    auto handleResolvedTy = [this, typeDesc, setInternalResolvedType](Type *ty) {
+        if (setInternalResolvedType) typeDesc->setResolvedType(ty);
+        ty->setLLVMType(getLLVMType(ty));
+        ty->setLLVMDIType(getDIType(ty));
+        return ty;
+    };
+    
+    if (auto ty = typeDesc->getResolvedType()) {
+        return handleResolvedTy(ty);
+    }
+    
+    if (typeDesc->isReference() && typeDesc->getPointee()->isReference()) {
+        diagnostics::emitError(typeDesc->getSourceLocation(), "Reference type cannot have indirection count > 1");
+    }
+    
+    switch (typeDesc->getKind()) {
+        case TDK::Resolved:
+            // Should actually never reach here since we already have the nonnull check above
+            return typeDesc->getResolvedType();
+        
+        case TDK::Nominal: {
+            const auto& name = typeDesc->getName();
+            if (auto ty = resolvePrimitiveType(name)) {
+                return handleResolvedTy(ty);
+            } else {
+                // a nominal, non-primitive type
+                
+                // If there is already an entry for that type, return that
+                if (auto entry = nominalTypes.get(name)) {
+                    return handleResolvedTy(entry.value());
+                }
+                
+                diagnostics::emitError(typeDesc->getSourceLocation(), util::fmt::format("Unable to resolve nominal type '{}'", name));
+            }
+            break;
+        }
+        case TDK::Pointer:
+            return handleResolvedTy(resolveTypeDesc(typeDesc->getPointee())->getPointerTo());
+        
+        case TDK::Reference:
+            return handleResolvedTy(resolveTypeDesc(typeDesc->getPointee())->getReferenceTo());
+            
+        
+        case TDK::Function: {
+            const auto& FTI = typeDesc->getFunctionTypeInfo();
+            const auto paramTypes = util::vector::map(FTI.parameterTypes, [this](const auto& typeDesc) { return resolveTypeDesc(typeDesc); });
+            return handleResolvedTy(FunctionType::create(resolveTypeDesc(FTI.returnType), paramTypes, FTI.callingConvention));
+        }
+        
+        case TDK::Decltype:
+            return handleResolvedTy(getType(typeDesc->getDecltypeExpr()));
+    }
+    
+    LKFatalError("unhandled type desc: %s", typeDesc->str().c_str());
+}
+
+
+
+
+bool IRGenerator::equal(const ast::FunctionSignature &lhs, const ast::FunctionSignature &rhs) {
+    if (resolveTypeDesc(lhs.returnType, false) != resolveTypeDesc(rhs.returnType, false)) return false;
+    
+    if (lhs.paramTypes.size() != rhs.paramTypes.size()) return false;
+    
+    for (size_t i = 0; i < lhs.paramTypes.size(); i++) {
+        if (resolveTypeDesc(lhs.paramTypes[i], false) != resolveTypeDesc(rhs.paramTypes[i], false)) return false;
+    }
+    
+    if (lhs.templateArgumentNames != rhs.templateArgumentNames) return false;
+    
+    return true;
+}
+
+
+
+
 llvm::Type *IRGenerator::getLLVMType(Type *type) {
     if (auto T = type->getLLVMType()) return T;
     
@@ -2598,22 +2763,12 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
             }
         }
         
-        case Type::TypeID::Pointer: {
-            //auto ptrTy = static_cast<PointerType *>(type);
-            uint64_t numIndirections = 0;
-            
-            Type *ty = type;
-            while (ty->isPointerTy()) {
-                numIndirections += 1;
-                ty = llvm::dyn_cast<PointerType>(ty)->getPointee();
-            }
-            
-            auto llvmType = getLLVMType(ty);
-            while (numIndirections--) {
-                llvmType = llvmType->getPointerTo();
-            }
-            
-            return handle_llvm_type(llvmType);
+        case Type::TypeID::Pointer:
+        case Type::TypeID::Reference: {
+            Type *pointee = type->isPointerTy()
+                ? llvm::dyn_cast<PointerType>(type)->getPointee()
+                : llvm::dyn_cast<ReferenceType>(type)->getReferencedType();
+            return handle_llvm_type(getLLVMType(pointee)->getPointerTo());
         }
         
         case Type::TypeID::Struct: {
@@ -2664,8 +2819,11 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
         case Type::TypeID::Void:
             return nullptr;
         
-        case Type::TypeID::Pointer: {
-            auto pointee = llvm::dyn_cast<PointerType>(type)->getPointee();
+        case Type::TypeID::Pointer:
+        case Type::TypeID::Reference: {
+            Type *pointee = type->isPointerTy()
+                ? llvm::dyn_cast<PointerType>(type)->getPointee()
+                : llvm::dyn_cast<ReferenceType>(type)->getReferencedType();
             return handle_di_type(builder.createPointerType(getDIType(pointee), pointerWidth));
         }
         
@@ -2789,7 +2947,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
                     if (auto StringTy = nominalTypes.get("String")) {
                         return StringTy.value()->getPointerTo();
                     } else {
-                        diagnostics::failWithError(expr->getSourceLocation(), "Unable to find 'String' type");
+                        diagnostics::emitError(expr->getSourceLocation(), "Unable to find 'String' type");
                     }
                 }
             }
@@ -2800,7 +2958,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             if (auto VB = localScope.get(identExpr->value)) {
                 return VB->type;
             } else {
-                diagnostics::failWithError(identExpr->getSourceLocation(), util::fmt::format("Unable to resolve identifier '{}'", identExpr->value));
+                diagnostics::emitError(identExpr->getSourceLocation(), util::fmt::format("Unable to resolve identifier '{}'", identExpr->value));
             }
         }
         
@@ -2823,19 +2981,40 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             return llvm::dyn_cast<PointerType>(targetTy)->getPointee();
         }
         
+        // <target>.<member>
         case NK::MemberExpr: {
             auto memberExpr = static_cast<ast::MemberExpr *>(expr.get());
             auto targetTy = getType(memberExpr->target);
-            LKAssert(targetTy->isPointerTy());
-            auto ptrTy = llvm::dyn_cast<PointerType>(targetTy);
-            LKAssert(ptrTy->getPointee()->isStructTy());
-            auto structTy = llvm::dyn_cast<StructType>(ptrTy->getPointee());
-            auto memberTy = structTy->getMember(memberExpr->memberName).second;
-            if (!memberTy) {
-                auto msg = util::fmt::format("type '{}' does not have a member named '{}'", structTy->getName(), memberExpr->memberName);
-                diagnostics::failWithError(memberExpr->getSourceLocation(), msg);
+            
+            Type *underlyingTy = nullptr;
+            
+            switch (targetTy->getTypeId()) {
+                case Type::TypeID::Struct:
+                    underlyingTy = static_cast<StructType *>(targetTy);
+                    break;
+                
+                case Type::TypeID::Reference:
+                    underlyingTy = static_cast<ReferenceType *>(targetTy)->getReferencedType();
+                    break;
+                
+                case Type::TypeID::Pointer:
+                    underlyingTy = static_cast<PointerType *>(targetTy)->getPointee();
+                    break;
+                
+                default: LKFatalError("OOF");
             }
-            return memberTy;
+            
+            if (auto structTy = llvm::dyn_cast_or_null<StructType>(underlyingTy)) {
+                if (auto memberTy = structTy->getMember(memberExpr->memberName).second) {
+                    return memberTy;
+                } else {
+                    auto msg = util::fmt::format("type '{}' does not have a member named '{}'", structTy->getName(), memberExpr->memberName);
+                    diagnostics::emitError(memberExpr->getSourceLocation(), msg);
+                }
+            } else {
+                auto msg = util::fmt::format("MemberExpr target type '{}' not a struct", underlyingTy->str());
+                diagnostics::emitError(memberExpr->getSourceLocation(), msg);
+            }
         }
         
         case NK::UnaryExpr: {
@@ -2860,6 +3039,27 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             LKFatalError("TODO");
     }
 }
+
+
+
+bool IRGenerator::canBecomeLValue(std::shared_ptr<ast::Expr> expr) {
+    switch (expr->getNodeKind()) {
+        case NK::NumberLiteral:
+        case NK::StringLiteral:
+            return false;
+        
+        case NK::Ident:
+            // TODO this is waaay too simple!
+            return true;
+        
+        default:
+            unhandled_node(expr);
+            LKFatalError("TODO");
+    }
+}
+
+
+
 
 
 
@@ -2921,11 +3121,12 @@ namespace astgen {
 
 
 llvm::Value *IRGenerator::generateStructInitializer(std::shared_ptr<ast::StructDecl> structDecl) {
+    return;
     const auto SL = structDecl->getSourceLocation();
     const auto &structName = structDecl->name;
     const auto structType = llvm::dyn_cast<StructType>(nominalTypes.get(structName).value());
 
-    auto F = functions[mangling::mangleCanonicalName(structName, "init", ast::FunctionKind::StaticMethod)][0].funcDecl;
+    auto F = functions[mangling::mangleCanonicalName(structName, structName, ast::FunctionKind::StaticMethod)][0].funcDecl;
     F->setSourceLocation(SL);
     
     std::shared_ptr<ast::Composite> fnBody;

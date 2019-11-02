@@ -40,6 +40,9 @@ std::shared_ptr<ast::TypeDesc> TemplateSpecializer::resolveType(std::shared_ptr<
         case TDK::Pointer:
             return ast::TypeDesc::makePointer(resolveType(typeDesc->getPointee()), loc);
         
+        case TDK::Reference:
+            return ast::TypeDesc::makeReference(resolveType(typeDesc->getPointee()), loc);
+        
         case TDK::Nominal: {
             if (auto ty = util::map::get_opt(templateArgumentMapping, typeDesc->getName())) {
                 return std::make_shared<ast::TypeDesc>(**ty);
@@ -51,7 +54,6 @@ std::shared_ptr<ast::TypeDesc> TemplateSpecializer::resolveType(std::shared_ptr<
             return ast::TypeDesc::makeDecltype(specialize(typeDesc->getDecltypeExpr()), loc);
         
         case TDK::Function:
-        case TDK::Reference:
             LKFatalError("TODO");
         
     }

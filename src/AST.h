@@ -280,6 +280,10 @@ public:
     std::shared_ptr<TypeDesc> type;
     std::shared_ptr<Expr> initialValue;
     
+    // eg `let &x = y;`
+    // Requires `type` to be nil
+    bool declaresUntypedReference = false;
+    
     VarDecl(std::string name, std::shared_ptr<TypeDesc> type, std::shared_ptr<Expr> initialValue = nullptr)
     : LocalStmt(Node::NodeKind::VarDecl), name(name), type(type), initialValue(initialValue) {}
 };

@@ -8,9 +8,6 @@
 
 #pragma once
 
-// TODO can you call it diagnostics if it fails after the first error and (almost) never suggests any fixits?
-
-
 #include "util.h"
 #include "Token.h"
 
@@ -18,10 +15,13 @@
 
 NS_START(yo::diagnostics)
 
-[[noreturn]]
-void failWithError(std::string_view);
+void emitNote(std::string_view);
+void emitNote(const parser::TokenSourceLocation&, std::string_view);
 
 [[noreturn]]
-void failWithError(const parser::TokenSourceLocation&, std::string_view);
+void emitError(std::string_view);
+
+[[noreturn]]
+void emitError(const parser::TokenSourceLocation&, std::string_view);
 
 NS_END

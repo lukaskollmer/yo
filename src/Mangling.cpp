@@ -153,13 +153,18 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(yo::irgen::Type 
             return append("v");
         
         case TypeID::Numerical: {
-            auto *numTy = static_cast<yo::irgen::NumericalType*>(ty);
+            auto *numTy = static_cast<yo::irgen::NumericalType *>(ty);
             return append(numericalTypeEncodings.at(numTy->getNumericalTypeID()));
         }
         
         case TypeID::Pointer: {
-            auto *pointerTy = static_cast<yo::irgen::PointerType*>(ty);
+            auto *pointerTy = static_cast<yo::irgen::PointerType *>(ty);
             return append("P").appendEncodedType(pointerTy->getPointee());
+        }
+        
+        case TypeID::Reference: {
+            auto refTy = static_cast<yo::irgen::ReferenceType *>(ty);
+            return append("R").appendEncodedType(refTy->getReferencedType());
         }
         
         case TypeID::Function:

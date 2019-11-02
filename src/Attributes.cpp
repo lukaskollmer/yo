@@ -123,7 +123,7 @@ std::vector<SideEffect> HandleSideEffectsAttribute(const Attribute &attribute) {
 
 void ensure_mutual_exclusivity(const std::vector<std::string_view> &attributeNames, const std::initializer_list<std::string_view> &attributesToCheckFor) {
     std::vector<std::string_view> foundAttributeNames;
-    for (const auto& attr_check : attributesToCheckFor) {
+    for (const auto &attr_check : attributesToCheckFor) {
         if (util::vector::contains(attributeNames, attr_check)) {
             foundAttributeNames.push_back(attr_check);
         }

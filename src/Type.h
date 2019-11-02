@@ -32,6 +32,7 @@ class Type;
 class NumericalType;
 class StructType;
 class PointerType;
+class ReferenceType;
 class FunctionType;
 class StructType;
 
@@ -43,6 +44,7 @@ public:
         Void,
         Numerical,
         Pointer,
+        Reference,
         Function,
         Struct
     };
@@ -52,6 +54,7 @@ private:
     llvm::Type *llvmType = nullptr;
     llvm::DIType *llvmDIType = nullptr;
     PointerType *pointerTo = nullptr;
+    ReferenceType *referenceTo = nullptr;
 
 protected:
     explicit Type(TypeID typeId) : typeId(typeId) {}
@@ -74,10 +77,10 @@ public:
     bool isNumericalTy() const { return typeId == TypeID::Numerical; }
     bool isFunctionTy() const { return typeId == TypeID::Function; }
     bool isStructTy() const { return typeId == TypeID::Struct; }
-    
-    Type* getPointerElementType() const;
-    
+    bool isReferenceTy() const { return typeId == TypeID::Reference; }
+        
     PointerType* getPointerTo();
+    ReferenceType* getReferenceTo();
 
     
     static void initPrimitives();
@@ -142,7 +145,7 @@ class PointerType : public Type {
     
     Type *pointee;
     
-    // Use Type::getPointerTo instead
+    // Use `Type::getPointerTo` to create a pointer type
     explicit PointerType(Type *pointee) : Type(Type::TypeID::Pointer), pointee(pointee) {}
     
 public:
@@ -152,6 +155,26 @@ public:
     
     static bool classof(const Type *type) {
         return type->getTypeId() == TypeID::Pointer;
+    }
+};
+
+
+
+
+class ReferenceType : public Type {
+    friend class Type;
+    Type *pointee;
+    
+    // Use `Type::getReferenceTo` to create a reference type
+    explicit ReferenceType(Type *pointee) : Type(Type::TypeID::Reference), pointee(pointee) {}
+    
+public:
+    std::string getName() const;
+    std::string str() const;
+    Type* getReferencedType() const { return pointee; }
+    
+    static bool classof(const Type *type) {
+        return type->getTypeId() == TypeID::Reference;
     }
 };
 

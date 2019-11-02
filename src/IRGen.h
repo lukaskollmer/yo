@@ -165,8 +165,6 @@ private:
     llvm::Value *codegen(std::shared_ptr<ast::StructDecl>);
     llvm::Value *codegen(std::shared_ptr<ast::ImplBlock>);
     
-    
-    llvm::Value *codegen(const std::vector<std::shared_ptr<ast::LocalStmt>>&);
     llvm::Value *codegen(std::shared_ptr<ast::Composite>);
     llvm::Value *codegen(std::shared_ptr<ast::ReturnStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::VarDecl>);
@@ -216,6 +214,10 @@ private:
     llvm::DIType *getDIType(Type *);
     uint8_t argumentOffsetForCallingConvention(CallingConvention cc);
     Type* resolvePrimitiveType(std::string_view name);
+    
+    // TODO is this a good idea? Does it even make sense?
+    // TODO invert return value and rename to `isTemporary`
+    bool canBecomeLValue(std::shared_ptr<ast::Expr>);
     
     
     

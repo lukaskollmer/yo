@@ -72,8 +72,15 @@ std::string Type::getName() const {
 
 
 PointerType* Type::getPointerTo() {
+    LKAssert(!isReferenceTy() && "pointer to reference is illegal");
     if (pointerTo) return pointerTo;
     return pointerTo = new PointerType(this);
+}
+
+ReferenceType* Type::getReferenceTo() {
+    LKAssert(!isReferenceTy() && "reference to reference is illegal");
+    if (referenceTo) return referenceTo;
+    return referenceTo = new ReferenceType(this);
 }
 
 
@@ -176,13 +183,26 @@ bool NumericalType::isSigned() const {
 
 #pragma mark - PointerType
 
+std::string PointerType::getName() const {
+    LKFatalError("TODO");
+    return "";
+}
 
 std::string PointerType::str() const {
     return std::string("*").append(pointee->str());
 }
 
-std::string PointerType::getName() const {
+
+
+#pragma mark - ReferenceType
+
+std::string ReferenceType::getName() const {
+    LKFatalError("TODO");
     return "";
+}
+
+std::string ReferenceType::str() const {
+    return util::fmt::format("&{}", pointee->str());
 }
 
 

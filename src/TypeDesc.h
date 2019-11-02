@@ -16,6 +16,7 @@
 #include <string>
 #include <variant>
 #include <memory>
+#include <iostream>
 
 
 
@@ -23,6 +24,7 @@ NS_START(yo::ast)
 
 class Expr;
 class TypeDesc;
+
 
 struct FunctionTypeInfo {
     yo::irgen::CallingConvention callingConvention;
@@ -34,6 +36,7 @@ struct FunctionTypeInfo {
 
 
 
+/// Describes a type, as expressed in the AST
 class TypeDesc {
 public:
     enum class Kind {
@@ -100,14 +103,16 @@ public:
     
     bool isPointer() const { return kind == Kind::Pointer; }
     bool isResolved() const { return resolvedType != nullptr; }
+    bool isReference() const { return kind == Kind::Reference; }
     
     const std::string& getName() const {
         LKAssert(kind == Kind::Nominal);
         return std::get<std::string>(data);
     }
     
+    /// Returns the referenced type, if this is a pointer or a reference
     std::shared_ptr<TypeDesc> getPointee() const {
-        LKAssert(kind == Kind::Pointer);
+        LKAssert(kind == Kind::Pointer || kind == Kind::Reference);
         return std::get<std::shared_ptr<TypeDesc>>(data);
     }
     
@@ -126,6 +131,14 @@ public:
     
 };
 
+
+inline std::ostream& operator<<(std::ostream &OS, const TypeDesc &typeDesc) {
+    return OS << typeDesc.str();
+}
+
+inline std::ostream& operator<<(std::ostream &OS, const std::shared_ptr<TypeDesc> &typeDesc) {
+    return OS << typeDesc->str();
+}
 
 
 

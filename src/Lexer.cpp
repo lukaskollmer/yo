@@ -382,7 +382,7 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& fi
             
             if (length != rawValue.length()) {
                 auto loc = currentSourceLocation(length, rawValue.length());
-                diagnostics::failWithError(loc, "Invalid character in number literal");
+                diagnostics::emitError(loc, "Invalid character in number literal");
             }
             
             auto &token = handleRawToken(rawValue, isFloat ? TK::DoubleLiteral : TK::IntegerLiteral);
@@ -394,7 +394,7 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& fi
             continue;
         }
         auto loc = currentSourceLocation(0, 1);
-        diagnostics::failWithError(loc, "Unexpected character in source text");
+        diagnostics::emitError(loc, "Unexpected character in source text");
     }
     
     handleRawToken("", TK::EOF_);

@@ -108,14 +108,14 @@ AST Parser::parse(const std::string &filepath) {
 void Parser::unhandledToken(const Token &token) {
     std::ostringstream OS;
     OS << "Unhandled token: '" << token.getKind() << "'.";
-    diagnostics::failWithError(token.getSourceLocation(), OS.str());
+    diagnostics::emitError(token.getSourceLocation(), OS.str());
 }
 
 void Parser::assertTk(Token::TokenKind expected) {
     if (currentTokenKind() != expected) {
         std::ostringstream OS;
         OS << "Invalid token in source code. Expected: '" << expected << "'.";
-        diagnostics::failWithError(getCurrentSourceLocation(), OS.str());
+        diagnostics::emitError(getCurrentSourceLocation(), OS.str());
     }
 }
 
@@ -131,7 +131,7 @@ std::string Parser::resolveImportPathRelativeToBaseDirectory(const TokenSourceLo
     auto path = util::fmt::format("{}/{}.yo", baseDirectory, moduleName);
     if (util::fs::file_exists(path)) return path;
     
-    diagnostics::failWithError(loc, util::fmt::format("Unable to resolve import of '{}' relative to '{}'", moduleName, baseDirectory));
+    diagnostics::emitError(loc, util::fmt::format("Unable to resolve import of '{}' relative to '{}'", moduleName, baseDirectory));
 }
 
 
@@ -284,7 +284,7 @@ std::vector<yo::attributes::Attribute> Parser::parseAttributes() {
                 consume();
                 if (auto value = parseStringLiteral()) {
                     if (value->kind != StringLiteral::StringLiteralKind::NormalString) {
-                        diagnostics::failWithError(value->getSourceLocation(), "Attribute string value must be a regular string");
+                        diagnostics::emitError(value->getSourceLocation(), "Attribute string value must be a regular string");
                     }
                     attributes.push_back(yo::attributes::Attribute(key, value->value));
                 } else if (auto ident = parseIdent()) {
@@ -337,7 +337,7 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
     if (name == "operator") {
         auto op = parseOperator();
         if (!op.has_value()) {
-            diagnostics::failWithError(loc, "Unable to parse operator");
+            diagnostics::emitError(loc, "Unable to parse operator");
         }
         
         functionKind = FunctionKind::OperatorOverload;
@@ -357,7 +357,7 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
             }
         }
         if (signature.templateArgumentNames.empty()) {
-            diagnostics::failWithError(loc, "Function template parameter list cannot be empty");
+            diagnostics::emitError(loc, "Function template parameter list cannot be empty");
         }
     }
     
@@ -419,7 +419,7 @@ std::vector<std::shared_ptr<ast::VarDecl>> Parser::parseStructPropertyDeclList()
         
         if (currentTokenKind() == TK::Comma) {
             if (peekKind() != TK::Ident) {
-                diagnostics::failWithError(getCurrentSourceLocation(), "Expected property declaration");
+                diagnostics::emitError(getCurrentSourceLocation(), "Expected property declaration");
             }
             consume();
         }
@@ -464,14 +464,14 @@ void Parser::parseFunctionParameterList(FunctionSignature &signature, std::vecto
             consume(3);
         }
         
-        if (!type) diagnostics::failWithError(ident->getSourceLocation(), "Unable to parse type");
+        if (!type) diagnostics::emitError(ident->getSourceLocation(), "Unable to parse type");
         
         paramNames.push_back(ident);
         signature.paramTypes.push_back(type);
         
         if (currentTokenKind() == TK::Comma) {
             if (!functionParameterInitialTokens.contains(peekKind())) {
-                diagnostics::failWithError(getCurrentSourceLocation(), "Expected parameter declaration");
+                diagnostics::emitError(getCurrentSourceLocation(), "Expected parameter declaration");
             }
             consume();
         }
@@ -736,11 +736,20 @@ std::shared_ptr<VarDecl> Parser::parseVariableDecl() {
     auto sourceLoc = getCurrentSourceLocation();
     assertTkAndConsume(TK::Let);
     
+    bool declaresUntypedReference = false;
+    if (currentTokenKind() == TK::Ampersand) {
+        declaresUntypedReference = true;
+        consume();
+    }
+    
     auto ident = parseIdentAsString();
     std::shared_ptr<TypeDesc> type;
     std::shared_ptr<Expr> initialValue;
     
     if (currentTokenKind() == TK::Colon) {
+        if (declaresUntypedReference) {
+            diagnostics::emitError(getCurrentSourceLocation(), "cannot specify both a type and the reference operator"); // TODO better wording
+        }
         consume();
         type = parseType();
     }
@@ -749,18 +758,19 @@ std::shared_ptr<VarDecl> Parser::parseVariableDecl() {
         consume();
         initialValue = parseExpression();
         if (!initialValue) {
-            diagnostics::failWithError(getCurrentSourceLocation(), "expected expression");
+            diagnostics::emitError(getCurrentSourceLocation(), "expected expression");
         }
     } else {
         initialValue = nullptr;
         // TOOD should this be a parse-time error?
-        //diagnostics::failWithError(getCurrentSourceLocation(), "expected initial value");
+        //diagnostics::emitError(getCurrentSourceLocation(), "expected initial value");
     }
     
     assertTkAndConsume(TK::Semicolon);
     
     auto decl = std::make_shared<VarDecl>(ident, type, initialValue);
     decl->setSourceLocation(sourceLoc);
+    decl->declaresUntypedReference = declaresUntypedReference;
     return decl;
 }
 
@@ -843,7 +853,7 @@ std::vector<std::shared_ptr<Expr>> Parser::parseExpressionList(Token::TokenKind 
     do {
         expressions.push_back(parseExpression());
         if (currentTokenKind() != TK::Comma && currentTokenKind() != delimiter) {
-            //diagnostics::failWithError(getCurrentSourceLocation(), "")
+            //diagnostics::emitError(getCurrentSourceLocation(), "")
             unhandledToken(currentToken()); // TODO should be unexpected
         }
         if (currentTokenKind() == TK::Comma) consume();
