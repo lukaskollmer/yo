@@ -129,7 +129,7 @@ std::string mangling::mangleCanonicalName(std::shared_ptr<ast::FunctionDecl> fun
  */
 
 
-static std::map<yo::irgen::NumericalType::NumericalTypeID, std::string_view> numericalTypeEncodings = {
+static const std::map<yo::irgen::NumericalType::NumericalTypeID, std::string_view> numericalTypeEncodings = {
     { yo::irgen::NumericalType::NumericalTypeID::Bool,    "b" },
     { yo::irgen::NumericalType::NumericalTypeID::Float64, "f" },
     

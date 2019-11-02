@@ -68,7 +68,7 @@ inline bool isSingleCharToken(char c) {
 
 
 // TODO no idea if/how this would work, but it'd be cool to have a compile-time assertion that the mapping below is complete
-static std::map<std::string, Token::TokenKind> tokenKindMappings = {
+static const std::map<std::string, Token::TokenKind> tokenKindMappings = {
     { "(" , TK::OpeningParens },
     { ")" , TK::ClosingParens },
     { "{" , TK::OpeningCurlyBraces },
