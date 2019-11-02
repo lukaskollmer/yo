@@ -140,6 +140,70 @@ The `b` and `r` prefixes can be combined to create a raw bytestring.
 
 
 
+<!--
+YO.MODULE
+-->
+
+
+
+<h2 sectionId="yo.module">Modules</h2>
+
+Yo source code is organized in modules.
+Every `.yo` file is considered a module, uniquely identified by its absolute path.
+
+The `use` keyword, followed by a string literal, imports a module:
+
+```rust
+use "<path>";
+```
+
+Note that this is essentially the same as C++'s `#include` directive, as in that the parser will simply insert the contents of the imported module at the location of the `use` statement.
+If a module has already been imported, future imports of the same module will have no effect.
+
+
+<h3 sectionId="yo.module.resolve">Path resolution</h3>
+<!-- **Path resolution**   -->
+Import paths are resolved relative to the directory of the module containing the `use` statement.
+
+<!-- Consider the following directory structure:
+```
+src/
+    A/
+        foo.yo
+        bar.yo
+    B/
+        foo.yo
+    main.yo
+    foo.yo
+```
+
+use foo in main will resolve to src/foo.yo, while [...]
+-->
+
+
+<h3 sectionId="yo.module.builtin">Builtin modules</h3>
+<!-- **Builtin modules**   -->
+The [`/stdlib`](https://github.com/lukaskollmer/yo/blob/master/stdlib/) folder contains several builtin modules.
+These can be imported by prefixing the import name with a colon.
+
+Builtin modules are bundled with the compiler, meaning that the actual stdlib/ files need not be present.  
+However, the `-stdlib-root` flag can be used to specify the base directory all imports with a path prefixed by `:` will be resolved to.
+
+**Example** Importing a builtin module
+```rust
+use ":runtime/core";
+```
+
+
+
+
+
+
+
+
+
+
+
 
 
 <!--
@@ -209,6 +273,13 @@ fn add<T, U>(x: T, y: U) -> decltype(x + y) {
 ```
 
 
+<h3 sectionId="yo.types.typealias">Typealias</h3>
+
+```rust
+use A = B;
+```
+
+The `use` keyword, followed by an identifier, introduces a typealias.
 
 
 
@@ -269,8 +340,8 @@ fn add<T>(x: T, y: T) -> T {
 
 <h3 sectionId="yo.fn.operator">Operator declaration</h3>
 
-Some [binary operators](yo.expr.operators) can be overloaded for a specific signature.
-Operator overloads are declared as functions with the name `operator`, followed by the operator being overloaded.
+Since most [binary operators](yo.expr.operators) are implemented as functions, they can be overloaded for a specific signature.
+An operator overload is declared as a function with the name `operator`, followed by the operator being overloaded.
 
 ```rust
 fn operator + (x: Foo, y: Foo) -> Foo {
@@ -287,7 +358,8 @@ The following operators can be overloaded:
 %    >>          <=
                  >=
 ```
-**Note** When overloading equality operators, in most cases overloading just the `==` operator is sufficient, since the default implementation of the `!=` operator is essentially just a forward to `==`.
+
+**Note** When overloading comparison operators, implementing just `==` and `<` is sufficient, since all other operators have default implementations defined in terms of these two.
 
 
 <h3 sectionId="yo.fn.resolution">Overload resolution</h3>
