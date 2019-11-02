@@ -1761,9 +1761,17 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         std::map<std::string, std::shared_ptr<ast::TypeDesc>> templateArgumentMapping; // fully resolved ast::TypeDescs!
     };
     
+    struct TargetRejectionInfo {
+        std::string reason;
+        const ast::FunctionDecl &decl; // using a reference should be fine since the rejection info objects never leave the current scope
+        
+        TargetRejectionInfo(std::string reason, const ast::FunctionDecl &decl) : reason(reason), decl(decl) {}
+    };
+    
     
     // list of potential targets, with a score indicating how close they match the call
     std::vector<FunctionResolutionMatchInfo> matches;
+    std::vector<TargetRejectionInfo> rejections;
     
     for (const auto &target : possibleTargets) {
         const auto &decl = target.funcDecl;
@@ -1771,10 +1779,10 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         const bool isVariadicWithCLinkage = sig.isVariadic && target.funcDecl->getAttributes().extern_;
         
         if (!sig.isVariadic && callExpr->arguments.size() != sig.paramTypes.size() - argumentOffset) {
-            //util::fmt::print("rejecting target '{}: {}' because of argument count mismatch", targetName, target.signature);
+            rejections.emplace_back("argument count mismatch", *decl);
             continue;
         } else if (sig.isVariadic && (callExpr->arguments.size() < sig.paramTypes.size() - argumentOffset - !isVariadicWithCLinkage)) {
-            //util::fmt::print("rejecting target '{}: {}' because of variadic argument count mismatch", targetName, target.signature);
+            rejections.emplace_back("variadic arguments count mismatch", *decl);
             continue;
         }
         
@@ -1793,9 +1801,8 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             
             if (auto mapping = attemptToResolveTemplateArgumentTypesForCall(decl, callExpr, argumentOffset)) {
                 templateArgTypeMapping = *mapping;
-                //score += util::abs(sig.numberOfDistinctTemplateArgumentNames() - sig.templateArgumentNames.size()); // TODO is this a good idea?
             } else {
-                //util::fmt::print("[resolveCall, targetName='{}'] skipped bc unable to resolve: {}", targetName, target.signature);
+                rejections.emplace_back("unable to resolve template parameter types", *decl);
                 goto discard_potential_match;
             }
             
@@ -1814,43 +1821,43 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         for (size_t i = argumentOffset; i < lastTypecheckedArgument; i++) {
             auto arg = callExpr->arguments[i];
             auto argTy = getType(arg);
-            Type *expectedType = nullptr;
+            Type *expectedTy = nullptr;
 
             if (i < sig.paramTypes.size()) {
-                expectedType = resolveTypeDesc(sig.paramTypes[i], false);
+                expectedTy = resolveTypeDesc(sig.paramTypes[i], false);
             } else {
                 LKFatalError("is this non-C-linkage varargs?");
             }
 
-            LKAssert(expectedType);
+            LKAssert(expectedTy);
             
-            if (argTy == expectedType) {
+            if (argTy == expectedTy) {
                 continue;
             }
             
             if (arg->isOfKind(NK::NumberLiteral)) {
                 auto numberLiteral = std::static_pointer_cast<ast::NumberLiteral>(arg);
-                if (valueIsTriviallyConvertible(numberLiteral, expectedType)) {
+                if (valueIsTriviallyConvertible(numberLiteral, expectedTy)) {
                     score += 1;
                     continue;
                 } else {
-                    //util::fmt::print("[{}] discarding '{}' bc argument #{} not trivially convertible from '{}' to '{}'",
-                    //                 targetName, sig, i, argTy, expectedType);
+                    auto str = util::fmt::format("argument #{} not trivially convertible from '{}' to '{}'", i, argTy, expectedTy);
+                    rejections.emplace_back(str, *decl);
                     goto discard_potential_match;
                 }
             }
             
-            if (expectedType->isReferenceTy()) {
-                if (canBecomeLValue(arg) && !argTy->isReferenceTy() && argTy->getReferenceTo() == expectedType) {
+            if (expectedTy->isReferenceTy()) {
+                if (canBecomeLValue(arg) && !argTy->isReferenceTy() && argTy->getReferenceTo() == expectedTy) {
                     continue;
                 }
-            } else if (!expectedType->isReferenceTy() && argTy->isReferenceTy()) {
-                if (llvm::dyn_cast<ReferenceType>(argTy)->getReferencedType() == expectedType) {
+            } else if (!expectedTy->isReferenceTy() && argTy->isReferenceTy()) {
+                if (llvm::dyn_cast<ReferenceType>(argTy)->getReferencedType() == expectedTy) {
                     continue;
                 }
             }
             
-            //util::fmt::print("[{}] discarding '{}' bc argument #{}: {} not of expected type {}", targetName, sig, i, argTy, expectedType);
+            rejections.emplace_back(util::fmt::format("argument #{} of type '{}' incompatible with expected type '{}'", i, argTy, expectedTy), *decl);
             goto discard_potential_match;
         }
         
@@ -1885,8 +1892,10 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     
     
     if (matches.empty()) {
-        // TOOD list all considered targets and explain why they were rejected?
-        diagnostics::emitError(callExpr->getSourceLocation(), "Unable to resolve call");
+        for (const auto &rejection : rejections) {
+            diagnostics::emitNote(rejection.decl.getSourceLocation(), util::fmt::format("not viable: {}", rejection.reason));
+        }
+        diagnostics::emitError(callExpr->getSourceLocation(), util::fmt::format("unable to resolve call to '{}'", targetName));
     }
 
     
