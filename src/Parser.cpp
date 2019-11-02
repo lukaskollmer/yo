@@ -1365,7 +1365,7 @@ static const MappedTokenSet<ast::UnaryExpr::Operation> unaryOperators = {
     { TK::Minus,           UnaryExpr::Operation::Negate          },
     { TK::Tilde,           UnaryExpr::Operation::BitwiseNot      },
     { TK::ExclamationMark, UnaryExpr::Operation::LogicalNegation },
-    { TK::Ampersand,       UnaryExpr::Operation::AddressOf       }
+//    { TK::Ampersand,       UnaryExpr::Operation::AddressOf       }
 };
 
 std::shared_ptr<UnaryExpr> Parser::parseUnaryExpr() {
