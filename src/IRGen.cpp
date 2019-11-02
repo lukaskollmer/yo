@@ -557,8 +557,12 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     codegen(functionDecl->getBody());
     
     // TODO is this a good idea?
-    if (returnType->isVoidTy() && (functionDecl->getBody()->isEmpty() || !functionDecl->getBody()->statements.back()->isOfKind(NK::ReturnStmt))) {
-        codegen(std::make_shared<ast::ReturnStmt>(nullptr));
+    if (functionDecl->getBody()->isEmpty() || !functionDecl->getBody()->statements.back()->isOfKind(NK::ReturnStmt)) {
+        if (returnType->isVoidTy()) {
+            codegen(std::make_shared<ast::ReturnStmt>(nullptr));
+        } else {
+            diagnostics::emitError(functionDecl->getSourceLocation(), "missing return statement at end of function body");
+        }
     }
     
     F->getBasicBlockList().push_back(returnBB);
