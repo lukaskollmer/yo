@@ -56,10 +56,12 @@ void addOptimizationPasses(llvm::PassRegistry &PR, llvm::legacy::PassManager &MP
     PMBuilder.OptLevel = cl::get_options().optimize ? 1 : 0;
     PMBuilder.SizeLevel = 0;
     
-    if (PMBuilder.OptLevel > 1) {
-        PMBuilder.Inliner = llvm::createFunctionInliningPass(PMBuilder.OptLevel, PMBuilder.SizeLevel, false);
-    } else {
-        PMBuilder.Inliner = llvm::createAlwaysInlinerLegacyPass();
+    if (!cl::get_options().fnoInline) {
+        if (PMBuilder.OptLevel > 1) {
+            PMBuilder.Inliner = llvm::createFunctionInliningPass(PMBuilder.OptLevel, PMBuilder.SizeLevel, false);
+        } else {
+            PMBuilder.Inliner = llvm::createAlwaysInlinerLegacyPass();
+        }
     }
     
     PMBuilder.populateFunctionPassManager(FPM);

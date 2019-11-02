@@ -42,6 +42,7 @@ struct Options {
     bool int_trapOnFatalError;
     bool farc;
     bool fzeroInitialize;
+    bool fnoInline;
 };
 
 
