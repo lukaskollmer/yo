@@ -11,14 +11,14 @@
 using namespace yo;
 
 
-void diagnostics::emitNote(std::string_view msg) {
-    std::cout << msg << std::endl;
+void diagnostics::emit(std::string_view category, std::string_view msg) {
+    std::cout << category << ": " << msg << std::endl;
 }
 
-void diagnostics::emitNote(const parser::TokenSourceLocation &loc, std::string_view msg) {
-    if (loc.empty()) return emitNote(msg);
+void diagnostics::emit(std::string_view category, const parser::TokenSourceLocation &loc, std::string_view msg) {
+    if (loc.empty()) return emit(category, msg);
     
-    util::fmt::print("{}:{}:{}: {}", loc.filepath, loc.line, loc.column, msg);
+    util::fmt::print("{}:{}:{}: {}: {}", loc.filepath, loc.line, loc.column, category, msg);
     std::cout << util::fs::read_specific_line(loc.filepath, loc.line - 1) << std::endl;
     
     for (uint64_t i = 0; i < loc.column - 1; i++) {
@@ -28,12 +28,21 @@ void diagnostics::emitNote(const parser::TokenSourceLocation &loc, std::string_v
 }
 
 
+void diagnostics::emitNote(std::string_view msg) {
+    emit("note", msg);
+}
+
+void diagnostics::emitNote(const parser::TokenSourceLocation &loc, std::string_view msg) {
+    emit("note", loc, msg);
+}
+
+
 void diagnostics::emitError(std::string_view msg) {
-    emitNote(msg);
+    emit("error", msg);
     util::exitOrAbort();
 }
 
 void diagnostics::emitError(const parser::TokenSourceLocation &loc, std::string_view msg) {
-    emitNote(loc, msg);
+    emit("error", loc, msg);
     util::exitOrAbort();
 }
