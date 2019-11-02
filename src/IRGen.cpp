@@ -664,31 +664,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     
     currentFunction = FunctionState(functionDecl, F, returnBB, retvalAlloca);
     
-    
-//    {
-//        auto ty = llvm::dyn_cast<StructType>(nominalTypes["Foo"]);
-//
-//        auto alloca = builder.CreateAlloca(getLLVMType(ty));
-//        alloca->setName("f");
-//
-//
-//        scope.insert("f", ty, ValueBinding(alloca, [=]() {
-//            return builder.CreateLoad(alloca);
-//        }, [=](llvm::Value *val) {
-//            LKFatalError("write");
-//        }));
-//
-//
-//        llvm::Value *fVal = codegen(makeIdent("f"), LValue);
-//        llvm::outs() << fVal << "\n";
-//        llvm::outs() << fVal->getType() << "\n";
-//
-//    }
-    
     codegen(functionDecl->getBody());
-    
-//    scope.remove("f");
-    
     
     // TODO is this a good idea?
     if (returnType->isVoidTy() && (functionDecl->getBody()->isEmpty() || !functionDecl->getBody()->statements.back()->isOfKind(NK::ReturnStmt))) {
