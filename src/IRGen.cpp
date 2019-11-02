@@ -1842,12 +1842,10 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             
             if (expectedType->isReferenceTy()) {
                 if (canBecomeLValue(arg) && !argTy->isReferenceTy() && argTy->getReferenceTo() == expectedType) {
-//                    score += 1;
                     continue;
                 }
             } else if (!expectedType->isReferenceTy() && argTy->isReferenceTy()) {
                 if (llvm::dyn_cast<ReferenceType>(argTy)->getReferencedType() == expectedType) {
-//                    score += 1;
                     continue;
                 }
             }
