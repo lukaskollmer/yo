@@ -424,7 +424,8 @@ llvm::DIFile* DIFileForSourceLocation(llvm::DIBuilder& builder, const parser::To
 llvm::DISubroutineType *IRGenerator::_toDISubroutineType(const ast::FunctionSignature& signature) {
     // Looking at [godbolt]( https://godbolt.org/z/EKfzqi ), it seems like the first element should be the function's return type?
     
-    std::vector<llvm::Metadata *> types(signature.paramTypes.size() + 1);
+    std::vector<llvm::Metadata *>types;
+    types.reserve(signature.paramTypes.size() + 1);
     
     types.push_back(resolveTypeDesc(signature.returnType)->getLLVMDIType());
     for (const auto& paramTy : signature.paramTypes) {
