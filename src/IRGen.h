@@ -35,7 +35,8 @@ struct ValueBinding {
     enum Flags : uint8_t {
         None     = 0,
         CanRead  = 1 << 0,
-        CanWrite = 1 << 1
+        CanWrite = 1 << 1,
+        ReadWrite = CanRead | CanWrite
     };
     
     using ReadImp  = std::function<llvm::Value*(void)>;
@@ -75,10 +76,15 @@ struct FunctionState {
     llvm::Function *llvmFunction;
     llvm::BasicBlock *returnBB;
     llvm::Value *retvalAlloca;
+    uint64_t tmpIdentCounter;
     
-    FunctionState() : decl(nullptr), llvmFunction(nullptr), returnBB(nullptr), retvalAlloca(nullptr) {}
+    FunctionState() : decl(nullptr), llvmFunction(nullptr), returnBB(nullptr), retvalAlloca(nullptr), tmpIdentCounter(0) {}
     FunctionState(std::shared_ptr<ast::FunctionDecl> decl, llvm::Function *llvmFunction, llvm::BasicBlock *returnBB, llvm::Value *retvalAlloca)
-    : decl(decl), llvmFunction(llvmFunction), returnBB(returnBB), retvalAlloca(retvalAlloca) {}
+    : decl(decl), llvmFunction(llvmFunction), returnBB(returnBB), retvalAlloca(retvalAlloca), tmpIdentCounter(0) {}
+    
+    std::string getTmpIdent() {
+        return util::fmt::format("tmp_{}", tmpIdentCounter++);
+    }
 };
 
 
@@ -219,6 +225,8 @@ private:
     // TODO invert return value and rename to `isTemporary`
     bool canBecomeLValue(std::shared_ptr<ast::Expr>);
     
+    llvm::Value* constructStruct(StructType *, std::shared_ptr<ast::CallExpr> ctorCall);
+    
     
     
     llvm::DISubroutineType *_toDISubroutineType(const ast::FunctionSignature&);
@@ -238,16 +246,14 @@ private:
     bool typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *lhs, std::shared_ptr<ast::Expr> *rhs, Type **lhsTy, Type **rhsTy);
     
     
-    llvm::Value *generateStructInitializer(std::shared_ptr<ast::StructDecl> structDecl);
+    llvm::Value *synthesizeDefaultMemberwiseInitializer(std::shared_ptr<ast::StructDecl> structDecl);
     
     
     // Other stuff
     std::optional<ResolvedCallable> getResolvedFunctionWithName(const std::string &name);
     
     Type *instantiateTemplatedType(std::shared_ptr<ast::TypeDesc>);
-    
-    llvm::Value *NEW_synthesizeStructInitializer(std::shared_ptr<ast::StructDecl>);
-    
+        
     
     // set omitCodegen to true if you only care about the return type of the call
     // for each callExpr, omitCodegen should be false exactly once!!!

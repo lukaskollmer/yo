@@ -233,6 +233,8 @@ public:
     
     bool hasMember(const std::string &name) const;
     
+    uint64_t memberCount() const { return members.size(); }
+    
     // Returns a tuple containing the members index and type
     // Returns {0, nullptr} if the struct does not have a member with this name
     std::pair<uint64_t, Type*> getMember(const std::string &name) const;

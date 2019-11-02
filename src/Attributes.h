@@ -55,6 +55,7 @@ struct FunctionAttributes {
     bool always_inline = false;
     bool startup = false;
     bool shutdown = false;
+    bool int_isCtor = false;
     std::string mangledName = "";
     std::vector<SideEffect> side_effects = { SideEffect::Unknown };
     

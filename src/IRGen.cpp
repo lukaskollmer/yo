@@ -184,7 +184,6 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     LKAssert(functionDecl->getParamNames().size() == functionDecl->getSignature().paramTypes.size());
     
     const auto &sig = functionDecl->getSignature();
-    
     const bool isMain = functionDecl->isOfFunctionKind(ast::FunctionKind::GlobalFunction) && functionDecl->getName() == "main";
     
     if (isMain) {
@@ -206,7 +205,7 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     }
     
     
-    if (sig.isTemplateFunction() || functionDecl->getAttributes().intrinsic) {
+    if (sig.isTemplateFunction() || functionDecl->getAttributes().intrinsic || functionDecl->getAttributes().int_isCtor) {
         if (sig.isTemplateFunction() && sig.templateArgumentNames.size() != sig.distinctTemplateArgumentNames().size()) {
             diagnostics::emitError(functionDecl->getSourceLocation(), "Template argument types must be distinct");
         }
@@ -314,16 +313,14 @@ void IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl
     if (!structDecl->attributes.no_init) {
         ast::FunctionSignature signature;
         std::vector<std::shared_ptr<ast::Ident>> paramNames;
-        signature.returnType = ast::TypeDesc::makeResolved(structTy->getPointerTo());
-        for (const auto &member : structDecl->members) {
-            signature.paramTypes.push_back(member->type);
-            paramNames.push_back(makeIdent(member->name));
-        }
+        signature.returnType = ast::TypeDesc::makeResolved(structTy);
         
         auto ctorFnDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::StaticMethod,
                                                               structName, signature, paramNames,
                                                               attributes::FunctionAttributes());
         ctorFnDecl->setImplType(structTy);
+        ctorFnDecl->setSourceLocation(structDecl->getSourceLocation());
+        ctorFnDecl->getAttributes().int_isCtor = true;
         
         registerFunction(ctorFnDecl);
     }
@@ -524,8 +521,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     }
     
     
-    
-    
     llvm::Value *retvalAlloca = nullptr;
     auto returnType = resolveTypeDesc(sig.returnType);
     
@@ -553,7 +548,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     }
     
     currentFunction = FunctionState(functionDecl, F, returnBB, retvalAlloca);
-    
     codegen(functionDecl->getBody());
     
     // TODO is this a good idea?
@@ -592,35 +586,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StructDecl> structDecl) {
     if (!structDecl->attributes.no_init) {
-        generateStructInitializer(structDecl);
+        synthesizeDefaultMemberwiseInitializer(structDecl);
     }
-    
-    //NEW_synthesizeStructInitializer(structDecl);
-    
     return nullptr;
-}
-
-
-
-
-llvm::Value *IRGenerator::NEW_synthesizeStructInitializer(std::shared_ptr<ast::StructDecl> structDecl) {
-    LKFatalError("TODO: implement!");
-//    auto structTy = llvm::dyn_cast<StructType>(resolveTypeDesc(ast::TypeDesc::makeNominal(structDecl->name)));
-//
-//    std::string name = structTy->getName();
-//
-//    std::vector<llvm::Type *> params = { i32 };
-//
-//    auto llvmFnTy = llvm::FunctionType::get(structTy->getLLVMType(), params, false);
-//    auto llvmFn = llvm::Function::Create(llvmFnTy, llvm::Function::LinkageTypes::ExternalLinkage, name, *module);
-//
-//    // resolvedFunctions[name] =
-//    ast::FunctionSignature sig;
-//    functions[name] = ResolvedCallable(, <#std::shared_ptr<ast::FunctionDecl> funcDecl#>, <#llvm::Value *llvmValue#>, <#uint8_t argumentOffset#>)
-//
-//
-//
-//    LKFatalError("TODO");
 }
 
 
@@ -888,35 +856,33 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
     } else {
         llvmTargetLValue = codegen(assignment->target, LValue);
         
-        auto ty = lhsTy;
-        if (auto refTy = llvm::dyn_cast_or_null<ReferenceType>(ty)) {
-            ty = refTy->getReferencedType();
+        if (lhsTy == rhsTy) goto ok;
+        
+        auto check_one_is_matching_ref = [](Type *t1, Type *t2) -> bool {
+            return !t1->isReferenceTy() && t2->isReferenceTy() && static_cast<ReferenceType *>(t2)->getReferencedType() == t1;
+        };
+        if (check_one_is_matching_ref(lhsTy, rhsTy) || check_one_is_matching_ref(rhsTy, lhsTy)) {
+            // either of the following:
+            // - `&T` <- `T`
+            // - `T` <- `&T`
+            goto ok;
         }
         
         Type *T;
-        if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&rhsExpr, ty, &T)) {
-            if (auto refTy = llvm::dyn_cast_or_null<ReferenceType>(T)) {
-                if (!lhsTy->isReferenceTy() && refTy->getReferencedType() == lhsTy) {
-                    // assigning from a reference to a non-reference
-                    goto ok;
-                }
-            }
-            auto msg = util::fmt::format("cannot assign to '{}' from incompatible type '{}'", ty, T);
+        if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&rhsExpr, lhsTy, &T)) {
+            auto msg = util::fmt::format("cannot assign to '{}' from incompatible type '{}'", lhsTy, T);
             diagnostics::emitError(assignment->getSourceLocation(), msg);
         }
     }
     
-    ok:
+ok:
     
-    auto V = codegen(rhsExpr, RValue);
-    if (!lhsTy->isReferenceTy() && rhsTy->isReferenceTy()) {
-        V = builder.CreateLoad(V);
-    } else if (lhsTy->isReferenceTy() && !rhsTy->isReferenceTy()) {
-        llvmTargetLValue = builder.CreateLoad(llvmTargetLValue);
-    }
+    auto llvmRhsVal = codegen(rhsExpr, RValue);
+    if (lhsTy->isReferenceTy()) llvmTargetLValue = builder.CreateLoad(llvmTargetLValue);
+    if (rhsTy->isReferenceTy()) llvmRhsVal = builder.CreateLoad(llvmRhsVal);
     
     emitDebugLocation(assignment);
-    builder.CreateStore(V, llvmTargetLValue);
+    builder.CreateStore(llvmRhsVal, llvmTargetLValue);
     
     return nullptr;
 }
@@ -1668,10 +1634,22 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         // - calling a property that happens to be a function
         
         auto targetTy = getType(memberExpr->target);
-        LKAssert(targetTy->isPointerTy());
-        auto ptrTy = llvm::dyn_cast<PointerType>(targetTy);
-        LKAssert(ptrTy->getPointee()->isStructTy());
-        auto structTy = llvm::dyn_cast<StructType>(ptrTy->getPointee());
+        
+        StructType *structTy = nullptr;
+        switch (targetTy->getTypeId()) {
+            case Type::TypeID::Struct:
+                structTy = static_cast<StructType *>(targetTy);
+                break;
+            case Type::TypeID::Pointer:
+                structTy = llvm::dyn_cast<StructType>(llvm::dyn_cast<PointerType>(targetTy)->getPointee());
+                break;
+            case Type::TypeID::Reference:
+                structTy = llvm::dyn_cast<StructType>(llvm::dyn_cast<ReferenceType>(targetTy)->getReferencedType());
+                break;
+            default:
+                diagnostics::emitError(memberExpr->getSourceLocation(), "invalid call target member expr target type");
+        }
+        
         auto structName = structTy->getName();
         
         if (auto [memberIndex, memberTy] = structTy->getMember(memberExpr->memberName); memberTy != nullptr) {
@@ -1694,6 +1672,14 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     // Not if the compiler disallows free functions w/ the same name as a defined type
     if (auto ty_ = nominalTypes.get(targetName)) {
         targetName = mangling::mangleCanonicalName(targetName, targetName, ast::FunctionKind::StaticMethod);
+        
+        const auto &targets = functions[targetName];
+        if (targets.size() != 1) {
+            diagnostics::emitError(callExpr->getSourceLocation(), "umable to resolve struct constructor");
+        }
+        auto &target = targets.front();
+        LKAssert(target.funcDecl->getAttributes().int_isCtor);
+        return target;
     }
     
 
@@ -1709,7 +1695,6 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         if (functionDecl->getName() == "static_cast") {
             LKAssert(!functionDecl->getSignature().paramTypes[0]->isResolved());
         }
-        
         
         // Avoid generating the same specialization multiple times
         // In theory, we should never end up here since the call target resolution code should prefer the already-specialized version
@@ -1729,7 +1714,6 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             }
             resolveTypeDesc(specializedDecl->getSignature().returnType);
         });
-        
         
         auto mangled = mangleFullyResolved(specializedDecl);
         if (auto decl = getResolvedFunctionWithName(mangled)) {
@@ -1821,14 +1805,13 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             goto discard_potential_match;
         }
         
-        
-        for (size_t i = argumentOffset; i < lastTypecheckedArgument; i++) {
+        for (size_t i = 0; i < lastTypecheckedArgument; i++) {
             auto arg = callExpr->arguments[i];
             auto argTy = getType(arg);
             Type *expectedTy = nullptr;
 
             if (i < sig.paramTypes.size()) {
-                expectedTy = resolveTypeDesc(sig.paramTypes[i], false);
+                expectedTy = resolveTypeDesc(sig.paramTypes[i + argumentOffset], false);
             } else {
                 LKFatalError("is this non-C-linkage varargs?");
             }
@@ -1888,7 +1871,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     
     if (matches.size() > 1 && matches[0].score == matches[1].score) {
         for (const auto &match : matches) {
-            diagnostics::emitNote(match.decl->getSourceLocation(), "note: potential target");
+            diagnostics::emitNote(match.decl->getSourceLocation(), util::fmt::format("note: potential target (score: {})", match.score));
         }
         auto msg = util::fmt::format("ambiguous call to '{}'", targetName);
         diagnostics::emitError(callExpr->getSourceLocation(), msg);
@@ -1933,11 +1916,39 @@ bool callerCalleeSideEffectsCompatible(const std::vector<yo::attributes::SideEff
 
 
 
+llvm::Value *IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<ast::CallExpr> call) {
+    auto alloca = builder.CreateAlloca(getLLVMType(structTy));
+    auto ident = currentFunction.getTmpIdent();
+    
+    localScope.insert(ident, ValueBinding(structTy, alloca, [=]() {
+        return builder.CreateLoad(alloca);
+    }, [=](llvm::Value *V) {
+        LKFatalError("use references to write to object?");
+    }, ValueBinding::Flags::ReadWrite));
+    
+    auto callTarget = std::make_shared<ast::MemberExpr>(makeIdent(ident), "init");
+    auto callExpr = std::make_shared<ast::CallExpr>(callTarget);
+    callExpr->arguments = call->arguments;
+    callExpr->explicitTemplateArgumentTypes = call->explicitTemplateArgumentTypes;
+    callExpr->setSourceLocation(call->getSourceLocation());
+    
+    codegen(callExpr);
+    
+    return builder.CreateLoad(alloca);
+}
+
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
     emitDebugLocation(call);
     
     auto resolvedTarget = resolveCall(call, false);
+    
+    
+    if (resolvedTarget.funcDecl->getAttributes().int_isCtor) {
+        auto structTy = llvm::dyn_cast<StructType>(resolvedTarget.funcDecl->getImplType());
+        return constructStruct(structTy, call);
+    }
+    
     
     // TODO:
     // - run argument type checks for intrinsics as well
@@ -2023,7 +2034,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
                 V = builder.CreateLoad(V);
                 break;
         }
-        
         args.push_back(V);
     }
     
@@ -2033,7 +2043,27 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
         // maybe a better idea: get rid of the argumentOffset thing, introduce more granular calling conventions (yo.globalFunction, yo.staticmember, yo.instancemember, yo.lambda, etc) and make implicit argument insertion dependent on that!
         
         // TODO make sure this doesn't codegen the target twice!
-        args[0] = codegen(memberExpr->target);
+        
+        auto expectedSelfTy = resolveTypeDesc(resolvedTarget.signature.paramTypes[0]);
+        auto implicitSelfArg = memberExpr->target;
+        Type *selfTy = getType(implicitSelfArg);
+        llvm::Value *selfVal = nullptr;
+        
+        // We know that the self target is either `T`, `&T` or `*T`, since these are the only cases
+        // handled by the call target resolution code (when extracting the underlying struct)
+        
+        if (expectedSelfTy->isReferenceTy() && (selfTy->isPointerTy() || selfTy->isReferenceTy())) {
+            // Note: this is the only case where an implicit pointer-to-reference conversion takes place
+            selfVal = codegen(implicitSelfArg, RValue);
+        } else if ((expectedSelfTy->isPointerTy() || expectedSelfTy->isReferenceTy()) && selfTy->isStructTy()) {
+            selfVal = codegen(implicitSelfArg, LValue);
+        } else {
+            LKFatalError("unhandled self param case (exp: %s, act: %s)", expectedSelfTy->str().c_str(), selfTy->str().c_str());
+        }
+        
+        args[0] = selfVal;
+    } else if (resolvedTarget.argumentOffset != 0) {
+        LKFatalError("ugh");
     }
     
     if (isVariadic && getResolvedFunctionWithName(llvmFunction->getName().str())->funcDecl->getAttributes().extern_) {
@@ -2113,7 +2143,7 @@ static const std::map<std::string, Intrinsic> intrinsics = {
     { "__is_pointer", Intrinsic::IsPointer },
     { "__func", Intrinsic::Func },
     { "__pretty_func", Intrinsic::PrettyFunc },
-    { "__mangled_func", Intrinsic::MangledFunc },
+    { "__mangled_func", Intrinsic::MangledFunc }
 };
 
 
@@ -2867,7 +2897,7 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
             auto llvmStructTyLayout = DL.getStructLayout(llvmStructTy);
             auto unit = DIFileForSourceLocation(builder, structTy->getSourceLocation());
             
-            std::vector<llvm::Metadata *> llvmMembers = util::vector::mapi(structTy->getMembers(), [&](auto idx, auto& member) -> llvm::Metadata* {
+            std::vector<llvm::Metadata *> llvmMembers = util::vector::mapi(structTy->getMembers(), [&](auto idx, auto &member) -> llvm::Metadata* {
                 auto llvmMemberTy = getLLVMType(member.second);
                 return  builder.createMemberType(unit, member.first, unit, 0, // TODO struct member line number?
                                                  DL.getTypeSizeInBits(llvmMemberTy), DL.getPrefTypeAlignment(llvmMemberTy),
@@ -3131,64 +3161,112 @@ namespace astgen {
 }
 
 
-llvm::Value *IRGenerator::generateStructInitializer(std::shared_ptr<ast::StructDecl> structDecl) {
-    return;
-    const auto SL = structDecl->getSourceLocation();
-    const auto &structName = structDecl->name;
-    const auto structType = llvm::dyn_cast<StructType>(nominalTypes.get(structName).value());
-
-    auto F = functions[mangling::mangleCanonicalName(structName, structName, ast::FunctionKind::StaticMethod)][0].funcDecl;
-    F->setSourceLocation(SL);
+llvm::Value *IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr<ast::StructDecl> structDecl) {
+    // TODO set the source location for all nodes generated in here!
     
-    std::shared_ptr<ast::Composite> fnBody;
-    fnBody->setSourceLocation(SL);
-
-    auto self = std::make_shared<ast::Ident>("self");
-
-    // allocate object
-    {
-        auto allocCall = std::make_shared<ast::CallExpr>(astgen::ident("alloc"), astgen::exprVec({
-            //astgen::Number(M->getDataLayout().getTypeAllocSize(getLLVMType(T)))
-            astgen::number(1)
-        }));
-        allocCall->setSourceLocation(SL);
-        allocCall->explicitTemplateArgumentTypes = { ast::TypeDesc::makeResolved(structType) };
-        fnBody->statements.push_back(std::make_shared<ast::VarDecl>(self->value, ast::TypeDesc::makeResolved(structType->getPointerTo()), allocCall));
-    }
-
-    // set runtime metadata
-    if (CLIOptions.farc && structDecl->attributes.arc) {
-        auto set_retaincount = std::make_shared<ast::Assignment>(std::make_shared<ast::MemberExpr>(self, "retainCount"),
-                                                                 astgen::number((uint64_t(1) << 60) | 1));
-
-        auto sel = mangling::mangleCanonicalName(structName, "dealloc", ast::FunctionKind::InstanceMethod);
-        auto dealloc_fn = functions[sel][0].llvmValue;
-
-        llvm::Type *t[] = { builtinTypes.llvm.i8Ptr };
-        auto dealloc_fn_ty = llvm::FunctionType::get(builtinTypes.llvm.Void, t, false)->getPointerTo();
-        auto dealloc_fn_cast = builder.CreateBitCast(dealloc_fn, dealloc_fn_ty);
-        auto set_deallocFn = std::make_shared<ast::Assignment>(std::make_shared<ast::MemberExpr>(self, "deallocPtr"),
-                                                               std::make_shared<ast::RawLLVMValueExpr>(dealloc_fn_cast,
-                                                                                                       structType->getMembers()[1].second));
-
-        fnBody->statements.push_back(set_retaincount);
-        fnBody->statements.push_back(set_deallocFn);
-    }
-
-    // set properties
-    for (size_t i = 0; i < F->getSignature().paramTypes.size(); i++) {
-        const auto &name = F->getParamNames()[i]->value;
-        auto memberExpr = std::make_shared<ast::MemberExpr>(self, name);
-        memberExpr->setSourceLocation(SL);
-        auto assignment = std::make_shared<ast::Assignment>(memberExpr, makeIdent(name));
-        assignment->setSourceLocation(SL);
-        fnBody->statements.push_back(assignment);
-    }
-    auto ret = std::make_shared<ast::ReturnStmt>(self);
-    ret->setSourceLocation(SL);
-    fnBody->statements.push_back(ret);
+    const auto &SL = structDecl->getSourceLocation();
+    const auto &SN = structDecl->name;
+    const auto ST = llvm::dyn_cast<StructType>(nominalTypes.get(SN).value());
+    const auto &SM = ST->getMembers();
     
-    F->setBody(fnBody);
-
-    return codegen(F);
+    const auto selfIdent = makeIdent("self");
+    
+    ast::FunctionSignature sig;
+    std::vector<std::shared_ptr<ast::Ident>> paramNames;
+    attributes::FunctionAttributes attr;
+    
+    sig.setSourceLocation(SL);
+    sig.returnType = ast::TypeDesc::makeResolved(builtinTypes.yo.Void);
+    sig.paramTypes.reserve(ST->memberCount());
+    sig.paramTypes.push_back(ast::TypeDesc::makeResolved(ST->getReferenceTo()));
+    
+    paramNames.reserve(ST->memberCount());
+    paramNames.push_back(selfIdent);
+    
+    util::vector::iteri(SM, [&](uint64_t idx, const std::pair<std::string, Type *> &elem) -> void {
+        sig.paramTypes.push_back(ast::TypeDesc::makeResolved(elem.second));
+        paramNames.push_back(makeIdent(util::fmt::format("__arg{}", idx)));
+    });
+    
+    auto funcDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod, "init", sig, paramNames, attr);
+    funcDecl->setSourceLocation(SL);
+    funcDecl->setImplType(ST);
+    
+    auto mangledName = mangleFullyResolved(funcDecl);
+    if (auto F = module->getFunction(mangledName)) {
+        // Only generate an initializer if there is no existing overload
+        return F;
+    }
+    
+    auto body = std::make_shared<ast::Composite>();
+    body->setSourceLocation(SL);
+    
+    for (uint64_t idx = 0; idx < SM.size(); idx++) {
+        auto target = std::make_shared<ast::MemberExpr>(selfIdent, SM.at(idx).first);
+        auto A = std::make_shared<ast::Assignment>(target, paramNames.at(idx + 1));
+        body->statements.push_back(A);
+    }
+    
+    registerFunction(funcDecl);
+    return codegen(funcDecl);
+    
+//    return;
+//    const auto SL = structDecl->getSourceLocation();
+//    const auto &structName = structDecl->name;
+//    const auto structType = llvm::dyn_cast<StructType>(nominalTypes.get(structName).value());
+//
+//    auto F = functions[mangling::mangleCanonicalName(structName, "init", ast::FunctionKind::StaticMethod)][0].funcDecl;
+//    F->setSourceLocation(SL);
+//
+//    std::shared_ptr<ast::Composite> fnBody;
+//    fnBody->setSourceLocation(SL);
+//
+//    auto self = std::make_shared<ast::Ident>("self");
+//
+//    // allocate object
+//    {
+//        auto allocCall = std::make_shared<ast::CallExpr>(astgen::ident("alloc"), astgen::exprVec({
+//            //astgen::Number(M->getDataLayout().getTypeAllocSize(getLLVMType(T)))
+//            astgen::number(1)
+//        }));
+//        allocCall->setSourceLocation(SL);
+//        allocCall->explicitTemplateArgumentTypes = { ast::TypeDesc::makeResolved(structType) };
+//        fnBody->statements.push_back(std::make_shared<ast::VarDecl>(self->value, ast::TypeDesc::makeResolved(structType->getPointerTo()), allocCall));
+//    }
+//
+//    // set runtime metadata
+//    if (CLIOptions.farc && structDecl->attributes.arc) {
+//        auto set_retaincount = std::make_shared<ast::Assignment>(std::make_shared<ast::MemberExpr>(self, "retainCount"),
+//                                                                 astgen::number((uint64_t(1) << 60) | 1));
+//
+//        auto sel = mangling::mangleCanonicalName(structName, "dealloc", ast::FunctionKind::InstanceMethod);
+//        auto dealloc_fn = functions[sel][0].llvmValue;
+//
+//        llvm::Type *t[] = { builtinTypes.llvm.i8Ptr };
+//        auto dealloc_fn_ty = llvm::FunctionType::get(builtinTypes.llvm.Void, t, false)->getPointerTo();
+//        auto dealloc_fn_cast = builder.CreateBitCast(dealloc_fn, dealloc_fn_ty);
+//        auto set_deallocFn = std::make_shared<ast::Assignment>(std::make_shared<ast::MemberExpr>(self, "deallocPtr"),
+//                                                               std::make_shared<ast::RawLLVMValueExpr>(dealloc_fn_cast,
+//                                                                                                       structType->getMembers()[1].second));
+//
+//        fnBody->statements.push_back(set_retaincount);
+//        fnBody->statements.push_back(set_deallocFn);
+//    }
+//
+//    // set properties
+//    for (size_t i = 0; i < F->getSignature().paramTypes.size(); i++) {
+//        const auto &name = F->getParamNames()[i]->value;
+//        auto memberExpr = std::make_shared<ast::MemberExpr>(self, name);
+//        memberExpr->setSourceLocation(SL);
+//        auto assignment = std::make_shared<ast::Assignment>(memberExpr, makeIdent(name));
+//        assignment->setSourceLocation(SL);
+//        fnBody->statements.push_back(assignment);
+//    }
+//    auto ret = std::make_shared<ast::ReturnStmt>(self);
+//    ret->setSourceLocation(SL);
+//    fnBody->statements.push_back(ret);
+//
+//    F->setBody(fnBody);
+//
+//    return codegen(F);
 }
