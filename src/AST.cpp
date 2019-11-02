@@ -469,6 +469,12 @@ Mirror Reflect(const ast::BinOp *binop) {
     };
 }
 
+Mirror Reflect(const ast::RawLLVMValueExpr *rawLLVMExpr) {
+    return {
+        { "type", ast::TypeDesc::makeResolved(rawLLVMExpr->type) },
+        { "value", "TODO" },
+    };
+}
 
 
 Mirror Reflect(const Node *node) {
@@ -502,6 +508,7 @@ Mirror Reflect(const Node *node) {
         CASE(ExprStmt)
         CASE(TypealiasDecl)
         CASE(BinOp)
+        CASE(RawLLVMValueExpr)
         default:
             std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::getTypename(*node) << std::endl;
             LKFatalError("");
