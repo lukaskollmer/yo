@@ -518,9 +518,10 @@ public:
 class UnaryExpr : public Expr {
 public:
     enum class Operation : uint8_t {
-        Negate,// = Operator::Neg,
+        Negate,
         BitwiseNot,
-        LogicalNegation
+        LogicalNegation,
+        AddressOf
     };
     
     Operation op;
