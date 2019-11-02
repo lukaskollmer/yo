@@ -2870,8 +2870,13 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
         
         case Type::TypeID::Numerical: {
             auto numTy = llvm::dyn_cast<NumericalType>(type);
-            auto ty = builder.createBasicType(numTy->getName(), numTy->getPrimitiveSizeInBits(),
-                                              numTy->isSigned() ? llvm::dwarf::DW_ATE_signed : llvm::dwarf::DW_ATE_unsigned);
+            unsigned int encoding = 0;
+            
+            if (numTy->isBoolTy()) encoding = llvm::dwarf::DW_ATE_boolean;
+            else if (numTy->isFloatTy()) encoding = llvm::dwarf::DW_ATE_float;
+            else encoding = numTy->isSigned() ? llvm::dwarf::DW_ATE_signed : llvm::dwarf::DW_ATE_unsigned;
+            
+            auto ty = builder.createBasicType(numTy->getName(), numTy->getPrimitiveSizeInBits(), encoding);
             return handle_di_type(ty);
         }
         

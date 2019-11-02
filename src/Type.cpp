@@ -146,7 +146,6 @@ uint8_t NumericalType::getSize() const {
 uint8_t NumericalType::getPrimitiveSizeInBits() const {
     switch (numericalTypeId) {
         case NumericalTypeID::Bool:
-            return 1; // TODO 1 or 8?
         case NumericalTypeID::Int8:
         case NumericalTypeID::UInt8:
             return 8;
