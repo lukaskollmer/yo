@@ -231,6 +231,13 @@ std::optional<T> first_where(const std::vector<T> &vector, F fn) {
 
 
 template <typename T, typename F>
+void iteri(const std::vector<T> &vec, F &&fn) {
+    for (size_t i = 0; i < vec.size(); i++) {
+        fn(i, vec[i]);
+    }
+}
+
+template <typename T, typename F>
 auto map(const std::vector<T>& vec, F&& fn) {
     std::vector<std::invoke_result_t<F, const T&>> mapped;
     mapped.reserve(vec.size());
@@ -394,7 +401,6 @@ void value_formatter(std::ostream &OS, std::string_view flags, const T &arg) {
     
     OS << arg;
 }
-
 
 template <>
 inline void value_formatter<bool>(std::ostream &OS, std::string_view flags, const bool &arg) {
