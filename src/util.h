@@ -254,7 +254,7 @@ auto mapi(const std::vector<T>& vec, F&& fn) {
     mapped.reserve(vec.size());
     for (auto it = vec.begin(); it != vec.end(); it++) {
         auto idx = std::distance(vec.begin(), it);
-        mapped[idx] = fn(idx, *it);
+        mapped.push_back(fn(idx, *it));
     }
     return mapped;
 }
