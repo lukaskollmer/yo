@@ -401,6 +401,16 @@ inline void value_formatter<bool>(std::ostream &OS, std::string_view flags, cons
     OS << (arg ? "true" : "false");
 }
 
+template <>
+inline void value_formatter<uint8_t>(std::ostream &OS, std::string_view flags, const uint8_t &arg) {
+    if (flags == "c") {
+        OS << arg;
+    } else {
+        OS << static_cast<uint32_t>(arg);
+    }
+    //OS << (arg ? "true" : "false");
+}
+
 
 
 template <typename T, typename... Ts>
