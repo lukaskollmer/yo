@@ -9,7 +9,8 @@
 #pragma once
 
 #include <string>
+#include <optional>
 
 namespace yo::stdlib_resolution {
-    std::string_view getContentsOfModuleWithName(const std::string &Name);
+    std::optional<std::string_view> getContentsOfModuleWithName(std::string_view);
 }

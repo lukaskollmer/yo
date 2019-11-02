@@ -151,7 +151,11 @@ void Parser::resolveImport() {
         return;
     } else if (isStdlibImport && !customStdlibRoot.has_value()) {
         importedFiles.push_back(moduleName);
-        newTokens = Lexer().lex(stdlib_resolution::getContentsOfModuleWithName(moduleName), moduleName);
+        if (auto contents = stdlib_resolution::getContentsOfModuleWithName(moduleName)) {
+            newTokens = Lexer().lex(*contents, moduleName);
+        } else {
+            diagnostics::emitError(importLoc, util::fmt::format("unable to resolve stdlib module '{}'", moduleName));
+        }
     } else {
         if (isStdlibImport) {
             importedFiles.push_back(moduleName);

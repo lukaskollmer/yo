@@ -9,14 +9,13 @@
 #include "StdlibResolution.h"
 
 #include <map>
-#include <iostream>
 #include "stdlib_sources.h"
 
 #include "util.h"
 
 #define MODULE(_0, _1) { _0, std::string_view(reinterpret_cast<const char *>(stdlib_##_1##_yo), stdlib_##_1##_yo_len) }
 
-static std::map<std::string, std::string_view> stdlibModules = {
+static const std::map<std::string_view, std::string_view> stdlibModules = {
     MODULE(":runtime/core", runtime_core),
     MODULE(":runtime/operators", runtime_operators),
     MODULE(":runtime/intrinsics", runtime_intrinsics),
@@ -27,9 +26,6 @@ static std::map<std::string, std::string_view> stdlibModules = {
 #undef MODULE
 
 
-std::string_view yo::stdlib_resolution::getContentsOfModuleWithName(const std::string &name) {
-    if (auto module = util::map::get_opt(stdlibModules, name)) {
-        return *module;
-    }
-    LKFatalError("Unable to resolve import of stdlib module '%s'", name.c_str());
+std::optional<std::string_view> yo::stdlib_resolution::getContentsOfModuleWithName(std::string_view name) {
+    return util::map::get_opt(stdlibModules, name);
 }
