@@ -16,7 +16,7 @@ void diagnostics::emitNote(std::string_view msg) {
 }
 
 void diagnostics::emitNote(const parser::TokenSourceLocation &loc, std::string_view msg) {
-    if (loc.empty()) return emitError(msg);
+    if (loc.empty()) return emitNote(msg);
     
     util::fmt::print("{}:{}:{}: {}", loc.filepath, loc.line, loc.column, msg);
     std::cout << util::fs::read_specific_line(loc.filepath, loc.line - 1) << std::endl;
