@@ -17,7 +17,7 @@
 
 #include "AST.h"
 #include "Type.h"
-#include "Scope.h"
+#include "NamedScope.h"
 #include "util.h"
 #include "CommandLine.h"
 

@@ -50,11 +50,11 @@ add_executable(yo
     src/Lexer.cpp
     src/Mangling.h
     src/Mangling.cpp
+    src/NamedScope.h
     src/Parser.h
     src/Parser.cpp
     src/Pygmentize.h
     src/Pygmentize.cpp
-    src/Scope.h
     src/StdlibResolution.h
     src/StdlibResolution.cpp
     src/TemplateSpecialization.h

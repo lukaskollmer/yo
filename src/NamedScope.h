@@ -1,5 +1,5 @@
 //
-//  Scope.h
+//  NamedScope.h
 //  yo
 //
 //  Created by Lukas Kollmer on 2019-03-07.
@@ -61,7 +61,7 @@ public:
     }
     
     void remove(const std::string &ident) {
-        auto it = std::find_if(entries.rbegin(), entries.rend(), [ident] (const auto &entry) -> bool {
+        auto it = std::find_if(entries.rbegin(), entries.rend(), [ident](const auto &entry) -> bool {
             return entry.first == ident;
         });
         
