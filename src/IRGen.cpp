@@ -1009,12 +1009,12 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> castExpr) {
         }
         case ast::CastExpr::CastKind::StaticCast: {
             if (srcTy->isNumericalTy() && dstTy->isNumericalTy()) {
-                let srcTyNT = static_cast<NumericalType *>(srcTy);
-                let dstTyNT = static_cast<NumericalType *>(dstTy);
+                auto srcTyNT = static_cast<NumericalType *>(srcTy);
+                auto dstTyNT = static_cast<NumericalType *>(dstTy);
                 
                 if (srcTyNT->isIntegerTy() && dstTyNT->isIntegerTy()) {
-                    let srcIntWidth = srcTyNT->getLLVMType()->getIntegerBitWidth();
-                    let dstIntWidth = dstTyNT->getLLVMType()->getIntegerBitWidth();
+                    auto srcIntWidth = srcTyNT->getLLVMType()->getIntegerBitWidth();
+                    auto dstIntWidth = dstTyNT->getLLVMType()->getIntegerBitWidth();
                     
                     if (srcIntWidth > dstIntWidth) {
                         // casting to a smaller type
