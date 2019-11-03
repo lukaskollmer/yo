@@ -33,12 +33,12 @@ public:
     uint64_t size() const { return entries.size(); }
     
     void insert(const std::string &ident, const T entry) {
-        entries.emplace_back(std::make_pair(ident, entry));
+        entries.emplace_back(ident, entry);
     }
     
     bool contains(const std::string &ident) const {
         return util::vector::contains_where(entries, [&ident](const auto &entry) {
-            return std::get<0>(entry) == ident;
+            return entry.first == ident;
         });
     }
     
@@ -61,7 +61,7 @@ public:
     }
     
     void remove(const std::string &ident) {
-        auto it = std::find_if(entries.rbegin(), entries.rend(), [ident](const auto &entry) -> bool {
+        auto it = std::find_if(entries.rbegin(), entries.rend(), [&ident](const auto &entry) -> bool {
             return entry.first == ident;
         });
         
