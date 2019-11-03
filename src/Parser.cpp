@@ -174,6 +174,133 @@ void Parser::resolveImport() {
 
 
 
+#pragma mark - Types
+
+
+// Attempts to extract a calling convention from a type's attributes list
+// If no calling convention is explicitly specified, the default calling convention is returned
+yo::irgen::CallingConvention extractCallingConventionAttribute(const std::vector<attributes::Attribute> &attributes) {
+    using CC = yo::irgen::CallingConvention;
+    
+    if (auto attr = util::vector::first_where(attributes, [](auto& attr) { return attr.getKey() == "convention"; })) {
+        auto value = attr.value().getData<std::string>();
+        if (value == "C") {
+            return CC::C;
+        } else {
+            LKFatalError("unknown calling convention '%s'", value.c_str());
+        }
+    }
+    
+    return CC::C; // TODO change default calling convention / get it from somewhere so that it's the same everywhere?
+}
+
+
+// Parse a type description
+//
+// This can be:
+// - A simple nominal type: `i64`, `String`, ...
+// - A pointer
+// - A function type
+// - A structural type (TODO!?)
+std::shared_ptr<TypeDesc> Parser::parseType() {
+    // TODO add source location to type statements?
+    auto SL = getCurrentSourceLocation();
+    auto attributes = parseAttributes();
+    
+    switch (currentTokenKind()) {
+        case TK::Decltype: {
+            consume();
+            assertTkAndConsume(TK::OpeningParens);
+            auto expr = parseExpression();
+            assertTkAndConsume(TK::ClosingParens);
+            return TypeDesc::makeDecltype(expr, SL);
+        }
+            
+        case TK::Ampersand: {
+            const auto &loc = getCurrentSourceLocation();
+            consume();
+            return TypeDesc::makeReference(parseType(), loc);
+        }
+        case TK::Asterisk: {
+            auto loc = getCurrentSourceLocation();
+            consume();
+            return TypeDesc::makePointer(parseType(), loc);
+        }
+        case TK::Ident: {
+            // Issue: we have to be careful here. consider the following code:
+            // `x < static_cast<T>(0)`. until we reach the opening parens, the expression is ambiguous.
+            // Solution to this is never allowing parens in type declarations?
+            // - `x < y<T>()` -> expr
+            // - `x<y>::z()` -> expr
+            
+            save_pos(fallback);
+            
+            auto loc = getCurrentSourceLocation();
+            auto name = parseIdentAsString();
+            if (currentTokenKind() == TK::Colon) {
+                LKFatalError("TODO implement?");
+            
+            } else if (currentTokenKind() == TK::OpeningAngledBracket) {
+                consume();
+                std::vector<std::shared_ptr<TypeDesc>> paramTys;
+                while (auto ty = parseType()) {
+                    paramTys.push_back(ty);
+                    if (currentTokenKind() == TK::Comma) {
+                        consume();
+                        continue;
+                    } else if (currentTokenKind() == TK::ClosingAngledBracket) {
+                        break;
+                    } else {
+                        unhandledToken(currentToken());
+                    }
+                }
+                assertTkAndConsume(TK::ClosingAngledBracket);
+                LKAssert(!paramTys.empty());
+                if (currentTokenKind() == TK::OpeningParens) {
+                    // ie `if x < static_cast<T>(0)`.
+                    restore_pos(fallback);
+                    return nullptr;
+                }
+                unhandledToken(currentToken());
+                LKFatalError("TODO implement!");
+            }
+            
+            return TypeDesc::makeNominal(name, loc);
+        }
+        case TK::OpeningParens: {
+            auto loc = getCurrentSourceLocation();
+            consume();
+            std::vector<std::shared_ptr<TypeDesc>> types;
+            while (currentTokenKind() != TK::ClosingParens) {
+                types.push_back(parseType());
+                if (currentTokenKind() == TK::Comma) {
+                    consume();
+                }
+            }
+            assertTkAndConsume(TK::ClosingParens);
+            
+            if (currentTokenKind() == TK::Minus && peekKind() == TK::ClosingAngledBracket) {
+                // Function type
+                consume(2);
+                auto cc = extractCallingConventionAttribute(attributes);
+                auto returnType = parseType();
+                return TypeDesc::makeFunction(cc, returnType, types, loc);
+            } else {
+                LKFatalError("tuple");
+            }
+        }
+        default: return nullptr;
+    }
+}
+
+
+
+
+
+
+#pragma mark - ast::TopLevelStmt
+
+
 std::shared_ptr<TopLevelStmt> Parser::parseTopLevelStmt() {
     std::shared_ptr<TopLevelStmt> stmt;
     auto attributeList = parseAttributes();
@@ -484,126 +611,6 @@ void Parser::parseFunctionParameterList(FunctionSignature &signature, std::vecto
 
 
 
-// Attempts to extract a calling convention from a type's attributes list
-// If no calling convention is explicitly specified, the default calling convention is returned
-yo::irgen::CallingConvention extractCallingConventionAttribute(const std::vector<attributes::Attribute> &attributes) {
-    using CC = yo::irgen::CallingConvention;
-    
-    if (auto attr = util::vector::first_where(attributes, [](auto& attr) { return attr.getKey() == "convention"; })) {
-        auto value = attr.value().getData<std::string>();
-        if (value == "C") {
-            return CC::C;
-        } else {
-            LKFatalError("unknown calling convention '%s'", value.c_str());
-        }
-    }
-    
-    return CC::C; // TODO change default calling convention / get it from somewhere so that it's the same everywhere?
-}
-
-
-// Parse a type description
-//
-// This can be:
-// - A simple nominal type: `i64`, `String`, ...
-// - A pointer
-// - A function type
-// - A structural type (TODO!?)
-std::shared_ptr<TypeDesc> Parser::parseType() {
-    // TODO add source location to type statements?
-    auto SL = getCurrentSourceLocation();
-    auto attributes = parseAttributes();
-    
-    switch (currentTokenKind()) {
-        case TK::Decltype: {
-            consume();
-            assertTkAndConsume(TK::OpeningParens);
-            auto expr = parseExpression();
-            assertTkAndConsume(TK::ClosingParens);
-            return TypeDesc::makeDecltype(expr, SL);
-        }
-            
-        case TK::Ampersand: {
-            const auto &loc = getCurrentSourceLocation();
-            consume();
-            return TypeDesc::makeReference(parseType(), loc);
-        }
-        case TK::Asterisk: {
-            auto loc = getCurrentSourceLocation();
-            consume();
-            return TypeDesc::makePointer(parseType(), loc);
-        }
-        case TK::Ident: {
-            // Issue: we have to be careful here. consider the following code:
-            // `x < static_cast<T>(0)`. until we reach the opening parens, the expression is ambiguous.
-            // Solution to this is never allowing parens in type declarations?
-            // - `x < y<T>()` -> expr
-            // - `x<y>::z()` -> expr
-            
-            save_pos(fallback);
-            
-            auto loc = getCurrentSourceLocation();
-            auto name = parseIdentAsString();
-            if (currentTokenKind() == TK::Colon) {
-                LKFatalError("TODO implement?");
-            
-            } else if (currentTokenKind() == TK::OpeningAngledBracket) {
-                consume();
-                std::vector<std::shared_ptr<TypeDesc>> paramTys;
-                while (auto ty = parseType()) {
-                    paramTys.push_back(ty);
-                    if (currentTokenKind() == TK::Comma) {
-                        consume();
-                        continue;
-                    } else if (currentTokenKind() == TK::ClosingAngledBracket) {
-                        break;
-                    } else {
-                        unhandledToken(currentToken());
-                    }
-                }
-                assertTkAndConsume(TK::ClosingAngledBracket);
-                LKAssert(!paramTys.empty());
-                if (currentTokenKind() == TK::OpeningParens) {
-                    // ie `if x < static_cast<T>(0)`.
-                    restore_pos(fallback);
-                    return nullptr;
-                }
-                unhandledToken(currentToken());
-                LKFatalError("TODO implement!");
-            }
-            
-            return TypeDesc::makeNominal(name, loc);
-        }
-        case TK::OpeningParens: {
-            auto loc = getCurrentSourceLocation();
-            consume();
-            std::vector<std::shared_ptr<TypeDesc>> types;
-            while (currentTokenKind() != TK::ClosingParens) {
-                types.push_back(parseType());
-                if (currentTokenKind() == TK::Comma) {
-                    consume();
-                }
-            }
-            assertTkAndConsume(TK::ClosingParens);
-            
-            if (currentTokenKind() == TK::Minus && peekKind() == TK::ClosingAngledBracket) {
-                // Function type
-                consume(2);
-                auto cc = extractCallingConventionAttribute(attributes);
-                auto returnType = parseType();
-                return TypeDesc::makeFunction(cc, returnType, types, loc);
-            } else {
-                LKFatalError("tuple");
-            }
-        }
-        default: return nullptr;
-    }
-}
-
-
-
-
-
 std::shared_ptr<ast::TypealiasDecl> Parser::parseTypealias() {
     auto sourceLoc = getCurrentSourceLocation();
     assertTkAndConsume(TK::Use);
@@ -618,27 +625,7 @@ std::shared_ptr<ast::TypealiasDecl> Parser::parseTypealias() {
 
 
 
-#pragma mark - Local Statements
-
-
-
-std::shared_ptr<Composite> Parser::parseComposite() {
-    auto sourceLoc = getCurrentSourceLocation();
-    assertTkAndConsume(TK::OpeningCurlyBraces);
-    
-    auto stmt = std::make_shared<Composite>();
-    stmt->setSourceLocation(sourceLoc);
-    while (currentTokenKind() != TK::ClosingCurlyBraces) {
-        stmt->statements.push_back(parseLocalStmt());
-    }
-    
-    assertTkAndConsume(TK::ClosingCurlyBraces);
-    return stmt;
-}
-
-
-
-
+#pragma mark - ast::LocalStmt
 
 
 std::shared_ptr<LocalStmt> Parser::parseLocalStmt() {
@@ -706,6 +693,20 @@ std::shared_ptr<LocalStmt> Parser::parseLocalStmt() {
     unhandledToken(currentToken());
 }
 
+
+std::shared_ptr<Composite> Parser::parseComposite() {
+    auto sourceLoc = getCurrentSourceLocation();
+    assertTkAndConsume(TK::OpeningCurlyBraces);
+    
+    auto stmt = std::make_shared<Composite>();
+    stmt->setSourceLocation(sourceLoc);
+    while (currentTokenKind() != TK::ClosingCurlyBraces) {
+        stmt->statements.push_back(parseLocalStmt());
+    }
+    
+    assertTkAndConsume(TK::ClosingCurlyBraces);
+    return stmt;
+}
 
 
 std::shared_ptr<ReturnStmt> Parser::parseReturnStmt() {
