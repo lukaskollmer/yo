@@ -83,7 +83,7 @@ public:
         FunctionDecl, ImplBlock, StructDecl, TypealiasDecl,
         
         // Local Statements
-        Assignment, Composite, ExprStmt, ForLoop, IfStmt, ReturnStmt, VarDecl, WhileStmt,
+        Assignment, Composite, ExprStmt, ForLoop, IfStmt, ReturnStmt, VarDecl, WhileStmt, BreakStmt, ContinueStmt,
         
         // Expressions
         BinOp, CallExpr, CompOp, Ident, LogicalOp, MatchExpr, MemberExpr, NumberLiteral, RawLLVMValueExpr, StaticDeclRefExpr,
@@ -341,6 +341,18 @@ public:
 };
 
 
+
+// TODO put break and continue in a single class?
+
+class BreakStmt : public LocalStmt {
+public:
+    BreakStmt() : LocalStmt(Node::NodeKind::BreakStmt) {}
+};
+
+class ContinueStmt : public LocalStmt {
+public:
+    ContinueStmt() : LocalStmt(Node::NodeKind::ContinueStmt) {}
+};
 
 
 

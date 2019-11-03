@@ -64,6 +64,8 @@ std::string TokenKindToString(Token::TokenKind kind) {
         CASE(LineComment)
         CASE(BlockComment)
         CASE(Decltype)
+        CASE(Break)
+        CASE(Continue)
     }
 #undef CASE
 }

@@ -642,25 +642,15 @@ std::shared_ptr<Composite> Parser::parseComposite() {
 
 
 std::shared_ptr<LocalStmt> Parser::parseLocalStmt() {
-    // TODO make this a switch?
-    if (currentTokenKind() == TK::Return) {
-        return parseReturnStmt();
-    }
-    
-    if (currentTokenKind() == TK::Let) {
-        return parseVariableDecl();
-    }
-    
-    if (currentTokenKind() == TK::If) {
-        return parseIfStmt();
-    }
-    
-    if (currentTokenKind() == TK::While) {
-        return parseWhileStmt();
-    }
-    
-    if (currentTokenKind() == TK::For) {
-        return parseForLoop();
+    switch (currentTokenKind()) {
+        case TK::Return:   return parseReturnStmt();
+        case TK::Let:      return parseVariableDecl();
+        case TK::If:       return parseIfStmt();
+        case TK::While:    return parseWhileStmt();
+        case TK::For:      return parseForLoop();
+        case TK::Break:    return parseBreakStmt();
+        case TK::Continue: return parseContinueStmt();
+        default: break;
     }
     
     auto sourceLoc = getCurrentSourceLocation();
@@ -840,6 +830,28 @@ std::shared_ptr<ForLoop> Parser::parseForLoop() {
     stmt->setSourceLocation(sourceLoc);
     return stmt;
 }
+
+
+
+std::shared_ptr<BreakStmt> Parser::parseBreakStmt() {
+    auto SL = getCurrentSourceLocation();
+    assertTkAndConsume(TK::Break);
+    assertTkAndConsume(TK::Semicolon);
+    auto stmt = std::make_shared<BreakStmt>();
+    stmt->setSourceLocation(SL);
+    return stmt;
+}
+
+
+std::shared_ptr<ContinueStmt> Parser::parseContinueStmt() {
+    auto SL = getCurrentSourceLocation();
+    assertTkAndConsume(TK::Continue);
+    assertTkAndConsume(TK::Semicolon);
+    auto stmt = std::make_shared<ContinueStmt>();
+    stmt->setSourceLocation(SL);
+    return stmt;
+}
+
 
 
 

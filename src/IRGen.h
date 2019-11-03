@@ -178,6 +178,8 @@ private:
     llvm::Value *codegen(std::shared_ptr<ast::IfStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::WhileStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::ForLoop>);
+    llvm::Value *codegen(std::shared_ptr<ast::BreakStmt>);
+    llvm::Value *codegen(std::shared_ptr<ast::ContinueStmt>);
     
     llvm::Value *codegen(std::shared_ptr<ast::NumberLiteral>);
     llvm::Value *codegen(std::shared_ptr<ast::StringLiteral>);

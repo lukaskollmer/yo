@@ -113,6 +113,8 @@ static const std::map<std::string, Token::TokenKind> tokenKindMappings = {
     { "in",       TK::In       },
     { "match",    TK::Match    },
     { "decltype", TK::Decltype },
+    { "break",    TK::Break    },
+    { "continue", TK::Continue },
 };
 
 
@@ -129,7 +131,6 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& fi
     for (offset = 0; offset < length; offset++) {
         auto c = sourceText[offset];
         
-        //if (whitespaceCharacters.contains(c)) {
         if (isWhitespaceChar(c)) {
             if (preserveFullInput) {
                 handleRawToken(std::string(1, c), TK::Whitespace);
@@ -187,7 +188,7 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& fi
         
         // Offset after returning is the character after the end of the escaped character
         // For example, if we're parsing `'\123x`, the Offset after returhing would "point" to the x
-        auto parseEscapedCharacter = [&] () -> char {
+        auto parseEscapedCharacter = [&]() -> char {
             LKAssert(sourceText[offset] == '\\');
             if (sourceText[offset + 1] == '\\') {
                 // Escaped backslash

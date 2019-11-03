@@ -366,26 +366,28 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
     switch (TLS->getNodeKind()) {
-        CASE(TLS, FunctionDecl)
-        CASE(TLS, StructDecl)
-        CASE(TLS, ImplBlock)
-        SKIP(TLS, TypealiasDecl)
-        default: unhandled_node(TLS);
+    CASE(TLS, FunctionDecl)
+    CASE(TLS, StructDecl)
+    CASE(TLS, ImplBlock)
+    SKIP(TLS, TypealiasDecl)
+    default: unhandled_node(TLS);
     }
 }
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::LocalStmt> localStmt) {
     switch (localStmt->getNodeKind()) {
-        CASE(localStmt, Composite)
-        CASE(localStmt, VarDecl)
-        CASE(localStmt, IfStmt)
-        CASE(localStmt, Assignment)
-        CASE(localStmt, WhileStmt)
-        CASE(localStmt, ForLoop)
-        CASE(localStmt, ExprStmt)
-        CASE(localStmt, ReturnStmt)
-        default: unhandled_node(localStmt);
+    CASE(localStmt, Composite)
+    CASE(localStmt, VarDecl)
+    CASE(localStmt, IfStmt)
+    CASE(localStmt, Assignment)
+    CASE(localStmt, WhileStmt)
+    CASE(localStmt, ForLoop)
+    CASE(localStmt, ExprStmt)
+    CASE(localStmt, ReturnStmt)
+    CASE(localStmt, BreakStmt)
+    CASE(localStmt, ContinueStmt)
+    default: unhandled_node(localStmt);
     }
 }
 
@@ -2605,6 +2607,15 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ForLoop> forLoop) {
 }
 
 
+
+llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::BreakStmt> breakStmt) {
+    LKFatalError("TODO: implement!");
+}
+
+
+llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::ContinueStmt> continueStmt) {
+    LKFatalError("TODO: implement!");
+}
 
 
 

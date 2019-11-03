@@ -77,6 +77,7 @@ public:
         Fn, Struct, Impl,
         Let, Return,
         If, Else, While, For, In, Match,
+        Break, Continue,
         Decltype
     };
     
@@ -116,8 +117,8 @@ public:
     T getData() const { return std::get<T>(data); }
 };
 
-std::ostream &operator<<(std::ostream &OS, const Token &T);
-std::ostream &operator<<(std::ostream &OS, const Token::TokenKind TK);
+std::ostream& operator<<(std::ostream &OS, const Token &T);
+std::ostream& operator<<(std::ostream &OS, const Token::TokenKind TK);
 
 
 NS_END
