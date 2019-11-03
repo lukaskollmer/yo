@@ -83,3 +83,27 @@ fn operator <= <T>(lhs: T, rhs: T) -> bool {
 fn operator >= <T>(lhs: T, rhs: T) -> bool {
     return !(lhs < rhs);
 }
+
+
+// Pointer arithmetic
+
+#[always_inline]
+fn operator + <T> (lhs: *T, rhs: size_t) -> *T {
+    return reinterpret_cast<*T>(reinterpret_cast<uintptr_t>(lhs) + sizeof<T>() * rhs);
+}
+
+#[always_inline]
+fn operator + <T> (lhs: i64, rhs: *T) -> *T {
+    return rhs + lhs;
+}
+
+
+#[always_inline]
+fn operator - <T> (lhs: *T, rhs: size_t) -> *T {
+    return reinterpret_cast<*T>(reinterpret_cast<uintptr_t>(lhs) - sizeof<T>() * rhs);
+}
+
+#[always_inline]
+fn operator - <T> (lhs: i64, rhs: *T) -> *T {
+    return rhs - lhs;
+}
