@@ -173,7 +173,7 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& fi
             // Note that we deliberately don't check whether a comment's end is within a string literal
             uint64_t startPos = offset;
             offset += 2;
-            while (sourceText[offset++] != '*' && sourceText[offset] != '/') {
+            while (!(sourceText[offset++] == '*' && sourceText[offset] == '/')) {
                 if (sourceText[offset] == '\n') handleNewline(true);
             }
             
