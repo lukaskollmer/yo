@@ -2992,7 +2992,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
                 case SLK::ByteString: return builtinTypes.yo.i8Ptr;
                 case SLK::NormalString: {
                     if (auto StringTy = nominalTypes.get("String")) {
-                        return StringTy.value()->getPointerTo();
+                        return *StringTy;
                     } else {
                         diagnostics::emitError(expr->getSourceLocation(), "Unable to find 'String' type");
                     }
