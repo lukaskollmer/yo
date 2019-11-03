@@ -1,8 +1,5 @@
 use ":std/core";
-
-#[extern] fn malloc(size_t) -> *i8;
-#[extern] fn calloc(size_t, size_t) -> *i8;
-#[extern] fn free(*i8);
+use ":C/stdlib";
 
 
 // Allocate some memory

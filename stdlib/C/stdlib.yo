@@ -1,0 +1,6 @@
+// Forward declarations for stdlib.h
+use ":std/core";
+
+#[extern] fn malloc(size_t) -> *i8;
+#[extern] fn calloc(size_t, size_t) -> *i8;
+#[extern] fn free(*i8);
