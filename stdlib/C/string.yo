@@ -1,0 +1,5 @@
+// Forward declarations for string.h
+
+#[extern] fn strlen(*i8) -> i64;
+
+#[extern] fn strdup(*i8) -> *i8;

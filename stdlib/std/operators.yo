@@ -1,4 +1,4 @@
-use ":runtime/intrinsics";
+use ":std/intrinsics";
 
 
 #[always_inline]

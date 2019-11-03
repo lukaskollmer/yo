@@ -1,0 +1,3 @@
+// Forward declarations for stdio.h
+
+#[extern] fn printf(*i8...);

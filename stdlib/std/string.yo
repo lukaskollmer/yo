@@ -1,0 +1,37 @@
+use ":C/string";
+use ":std/memory";
+
+struct String {
+    ptr: *i8,
+    len: i64
+}
+
+impl String {
+    fn init(self: &String, ptr: *i8) {
+        self.ptr = strdup(ptr);
+        self.len = strlen(ptr);
+    }
+
+    fn init(self: &String, other: &String) {
+        self.ptr = strdup(other.ptr);
+        self.len = other.len;
+    }
+
+    fn c_str(self: &String) -> *i8 {
+        return self.ptr;
+    }
+
+    fn length(self: &String) -> i64 {
+        return self.len;
+    }
+
+    fn print_desc(self: &String) {
+        printf(b"[String ptr: %p len: %lli text: %s]\n", self.ptr, self.len, self.ptr);
+    }
+
+    fn dealloc(self: &String) {
+        // TODO;
+        printf(b"%s\n", __pretty_func());
+        free(self.ptr);
+    }
+}

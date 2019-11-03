@@ -1,6 +1,4 @@
-use ":runtime/intrinsics";
-
-use size_t = u64;
+use ":std/core";
 
 #[extern] fn malloc(size_t) -> *i8;
 #[extern] fn calloc(size_t, size_t) -> *i8;

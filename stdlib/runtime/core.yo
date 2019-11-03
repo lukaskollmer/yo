@@ -1,3 +1,0 @@
-use ":runtime/intrinsics";
-use ":runtime/operators";
-use ":runtime/memory";

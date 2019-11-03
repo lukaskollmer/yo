@@ -1,0 +1,10 @@
+use ":std/intrinsics";
+use ":std/operators";
+
+use size_t = u64;
+
+fn swap<T>(x: &T, y: &T) {
+    let tmp = x;
+    x = y;
+    y = tmp;
+}
