@@ -93,7 +93,7 @@ fn operator + <T> (lhs: *T, rhs: size_t) -> *T {
 }
 
 #[always_inline]
-fn operator + <T> (lhs: i64, rhs: *T) -> *T {
+fn operator + <T> (lhs: size_t, rhs: *T) -> *T {
     return rhs + lhs;
 }
 
@@ -104,6 +104,6 @@ fn operator - <T> (lhs: *T, rhs: size_t) -> *T {
 }
 
 #[always_inline]
-fn operator - <T> (lhs: i64, rhs: *T) -> *T {
+fn operator - <T> (lhs: size_t, rhs: *T) -> *T {
     return rhs - lhs;
 }
