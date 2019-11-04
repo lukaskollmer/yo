@@ -67,8 +67,9 @@ IRGenerator::IRGenerator(const std::string& translationUnitPath)
     Type::initPrimitives();
     
     auto preflight_type = [&](auto *type) -> auto* {
-        type->setLLVMType(getLLVMType(type));
-        type->setLLVMDIType(getDIType(type));
+        // getLLVM{DI}Type() will also set the respective member fields in the type object
+        getLLVMType(type);
+        getDIType(type);
         return type;
     };
     builtinTypes.yo = {
@@ -2702,8 +2703,9 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
     
     auto handleResolvedTy = [this, typeDesc, setInternalResolvedType](Type *ty) {
         if (setInternalResolvedType) typeDesc->setResolvedType(ty);
-        ty->setLLVMType(getLLVMType(ty));
-        ty->setLLVMDIType(getDIType(ty));
+        // these will set the respective members
+        getLLVMType(ty);
+        getDIType(ty);
         return ty;
     };
     

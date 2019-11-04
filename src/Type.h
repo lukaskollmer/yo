@@ -63,10 +63,16 @@ public:
     TypeID getTypeId() const { return typeId; }
     
     llvm::Type* getLLVMType() const { return llvmType; }
-    void setLLVMType(llvm::Type *ty) { llvmType = ty; }
+    void setLLVMType(llvm::Type *ty) {
+        LKAssert(!llvmType && "can only set llvmType once");
+        llvmType = ty;
+    }
     
     llvm::DIType* getLLVMDIType() const { return llvmDIType; }
-    void setLLVMDIType(llvm::DIType *ty) { llvmDIType = ty; }
+    void setLLVMDIType(llvm::DIType *ty) {
+        LKAssert(!llvmDIType && "can only set llvmDIType once");
+        llvmDIType = ty;
+    }
     
     
     virtual std::string getName() const;
