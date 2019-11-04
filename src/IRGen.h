@@ -21,6 +21,7 @@
 #include "util.h"
 #include "CommandLine.h"
 
+#include <stack>
 
 NS_START(yo::irgen)
 
@@ -72,15 +73,17 @@ struct ResolvedCallable {
 
 // State of the function currently being generated
 struct FunctionState {
-    std::shared_ptr<ast::FunctionDecl> decl; // TODO just the signature is enough
-    llvm::Function *llvmFunction;
-    llvm::BasicBlock *returnBB;
-    llvm::Value *retvalAlloca;
-    uint64_t tmpIdentCounter;
+    std::shared_ptr<ast::FunctionDecl> decl = nullptr;
+    llvm::Function *llvmFunction = nullptr;
+    llvm::BasicBlock *returnBB = nullptr;
+    llvm::Value *retvalAlloca = nullptr;
+    uint64_t tmpIdentCounter = 0;
+    std::stack<llvm::BasicBlock *> breakDestinations;
+    std::stack<llvm::BasicBlock *> continueDestinations;
     
-    FunctionState() : decl(nullptr), llvmFunction(nullptr), returnBB(nullptr), retvalAlloca(nullptr), tmpIdentCounter(0) {}
+    FunctionState() {}
     FunctionState(std::shared_ptr<ast::FunctionDecl> decl, llvm::Function *llvmFunction, llvm::BasicBlock *returnBB, llvm::Value *retvalAlloca)
-    : decl(decl), llvmFunction(llvmFunction), returnBB(returnBB), retvalAlloca(retvalAlloca), tmpIdentCounter(0) {}
+    : decl(decl), llvmFunction(llvmFunction), returnBB(returnBB), retvalAlloca(retvalAlloca) {}
     
     std::string getTmpIdent() {
         return util::fmt::format("tmp_{}", tmpIdentCounter++);
@@ -178,8 +181,7 @@ private:
     llvm::Value *codegen(std::shared_ptr<ast::IfStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::WhileStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::ForLoop>);
-    llvm::Value *codegen(std::shared_ptr<ast::BreakStmt>);
-    llvm::Value *codegen(std::shared_ptr<ast::ContinueStmt>);
+    llvm::Value *codegen(std::shared_ptr<ast::BreakContStmt>);
     
     llvm::Value *codegen(std::shared_ptr<ast::NumberLiteral>);
     llvm::Value *codegen(std::shared_ptr<ast::StringLiteral>);

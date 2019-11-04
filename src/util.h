@@ -389,9 +389,9 @@ void value_formatter(std::ostream &OS, std::string_view flags, const T &arg) {
     if constexpr(typeinfo::is_nullable_v<T>) {
         if (flags == "p") {
             if constexpr(std::is_pointer_v<T>) {
-                OS << reinterpret_cast<void *>(arg);
+                OS << reinterpret_cast<const void *>(arg);
             } else if constexpr(typeinfo::is_shared_ptr_v<T>) {
-                OS << reinterpret_cast<void *>(arg.get());
+                OS << reinterpret_cast<const void *>(arg.get());
             } else {
                 static_assert(std::is_same_v<T, void>, "should never reach here");
             }

@@ -386,8 +386,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::LocalStmt> localStmt) {
     CASE(localStmt, ForLoop)
     CASE(localStmt, ExprStmt)
     CASE(localStmt, ReturnStmt)
-    CASE(localStmt, BreakStmt)
-    CASE(localStmt, ContinueStmt)
+    CASE(localStmt, BreakContStmt)
     default: unhandled_node(localStmt);
     }
 }
@@ -2553,8 +2552,15 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::WhileStmt> whileStmt) {
     
     F->getBasicBlockList().push_back(bodyBB);
     builder.SetInsertPoint(bodyBB);
+    
+    currentFunction.breakDestinations.push(mergeBB);
+    currentFunction.continueDestinations.push(condBB);
+    
     codegen(whileStmt->body);
     builder.CreateBr(condBB);
+    
+    currentFunction.continueDestinations.pop();
+    currentFunction.breakDestinations.pop();
     
     F->getBasicBlockList().push_back(mergeBB);
     builder.SetInsertPoint(mergeBB);
@@ -2602,15 +2608,23 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ForLoop> forLoop) {
 }
 
 
-
-llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::BreakStmt> breakStmt) {
-    LKFatalError("TODO: implement!");
+llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::BreakContStmt> stmt) {
+    if (currentFunction.breakDestinations.empty()) {
+        auto msg = util::fmt::format("'{}' statement may only be used in a loop", stmt->isBreak() ? "break" : "continue");
+        diagnostics::emitError(stmt->getSourceLocation(), msg);
+    }
+    
+    llvm::BasicBlock *dest;
+    if (stmt->isBreak()) {
+        dest = currentFunction.breakDestinations.top();
+    } else {
+        dest = currentFunction.continueDestinations.top();
+    }
+    
+    // TODO clear stack?!
+    return builder.CreateBr(dest);
 }
 
-
-llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::ContinueStmt> continueStmt) {
-    LKFatalError("TODO: implement!");
-}
 
 
 

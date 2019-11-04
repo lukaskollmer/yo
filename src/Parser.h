@@ -118,8 +118,7 @@ private:
     std::shared_ptr<ast::IfStmt> parseIfStmt();
     std::shared_ptr<ast::WhileStmt> parseWhileStmt();
     std::shared_ptr<ast::ForLoop> parseForLoop();
-    std::shared_ptr<ast::BreakStmt> parseBreakStmt();
-    std::shared_ptr<ast::ContinueStmt> parseContinueStmt();
+    std::shared_ptr<ast::BreakContStmt> parseBreakOrContinueStmt();
     
     std::shared_ptr<ast::Expr> parseExpression(PrecedenceGroup currentPrecedenceGroup = PrecedenceGroup::Initial);
     
