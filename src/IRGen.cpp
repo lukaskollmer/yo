@@ -2013,12 +2013,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
     std::vector<llvm::Value *> args(resolvedTarget.argumentOffset, nullptr);
     auto numFixedArgs = llvmFunctionTy->getNumParams() - resolvedTarget.argumentOffset;
     
-    if (llvmFunction->getName() == "_F3incvRq") {
-        for (auto [idx, pol] : argumentHandlingPolicies) {
-            util::fmt::print("[{}] = {}", idx, static_cast<uint32_t>(pol));
-        }
-    }
-    
     for (uint64_t i = resolvedTarget.argumentOffset; i < llvmFunctionTy->getNumParams(); i++) {
         auto expr = call->arguments[i - resolvedTarget.argumentOffset];
         auto argTy = getType(expr);
