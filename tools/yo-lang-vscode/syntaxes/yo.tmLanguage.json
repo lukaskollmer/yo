@@ -67,7 +67,7 @@
                 "3": {
                     "name":"entity.name.function.yo",
                     "patterns": [{
-                        "match": "static_cast",
+                        "match": "static_cast|reinterpret_cast",
                         "name":"keyword.control.other.cast.yo"
                     }]
                 },
@@ -94,7 +94,7 @@
         },
         "block_comment": {
             "name":"comment.block.yo",
-            "match": "/\\*.*\\*/"
+            "match": "/\\*.*?\\*/"
         },
         "strings": {
             "name": "string.quoted.double.yo",
