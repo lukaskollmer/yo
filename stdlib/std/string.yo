@@ -27,13 +27,9 @@ impl String {
 
     fn append(self: &String, other: String) {
         let newLength = self.len + other.len;
-        let newPtr = alloc<i8>(newLength + 1);
-        memcpy(newPtr, self.ptr, self.len);
-        memcpy(newPtr + self.len, other.ptr, other.len);
-        newPtr[newLength] = '\0';
-        free(self.ptr);
-        self.ptr = newPtr;
-        self.len = newLength;
+        self.ptr = realloc(self.ptr, newLength + 1);
+        memcpy(self.ptr + self.len, other.ptr, other.len);
+        self.ptr[newLength] = '\0';
     }
 
     fn print_desc(self: &String) {
