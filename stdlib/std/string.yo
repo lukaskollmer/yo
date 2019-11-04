@@ -7,11 +7,21 @@ struct String {
 }
 
 impl String {
+    /// Initialize a new String from a char pointer
+    /// The length of the String will be determined by the first null byte found
     fn init(self: &String, ptr: *i8) {
         self.ptr = strdup(ptr);
         self.len = strlen(ptr);
     }
 
+    /// Initialize a new String with the first `len` characters pointed to by `ptr`
+    fn init(self: &String, ptr: *i8, len: size_t) {
+        self.ptr = alloc<i8>(len);
+        memcpy(self.ptr, ptr, len);
+        self.len = len;
+    }
+
+    /// Initialize a String by copying another String's contents
     fn init(self: &String, other: &String) {
         self.ptr = strdup(other.ptr);
         self.len = other.len;
