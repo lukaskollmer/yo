@@ -40,6 +40,7 @@ impl String {
         self.ptr = realloc(self.ptr, newLength + 1);
         memcpy(self.ptr + self.len, other.ptr, other.len);
         self.ptr[newLength] = '\0';
+        self.len = newLength;
     }
 
     fn print_desc(self: &String) {
