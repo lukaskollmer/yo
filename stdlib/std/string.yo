@@ -3,7 +3,7 @@ use ":std/memory";
 
 struct String {
     ptr: *i8,
-    len: i64
+    len: size_t
 }
 
 impl String {
@@ -21,8 +21,19 @@ impl String {
         return self.ptr;
     }
 
-    fn length(self: &String) -> i64 {
+    fn length(self: &String) -> size_t {
         return self.len;
+    }
+
+    fn append(self: &String, other: String) {
+        let newLength = self.len + other.len;
+        let newPtr = alloc<i8>(newLength + 1);
+        memcpy(newPtr, self.ptr, self.len);
+        memcpy(newPtr + self.len, other.ptr, other.len);
+        newPtr[newLength] = '\0';
+        free(self.ptr);
+        self.ptr = newPtr;
+        self.len = newLength;
     }
 
     fn print_desc(self: &String) {
