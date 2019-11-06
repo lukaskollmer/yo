@@ -242,19 +242,23 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     const std::string canonicalName = mangling::mangleCanonicalName(functionDecl);
     const std::string resolvedName = functionDecl->getAttributes().extern_ ? canonicalName : mangleFullyResolved(functionDecl);
     
-    if (auto otherDecl = getResolvedFunctionWithName(resolvedName)) {
-        LKAssert(otherDecl->funcDecl);
-        const auto& otherSig = otherDecl->funcDecl->getSignature();
-        if (!equal(sig, otherSig)) {
-            LKFatalError("multiple forward decls w/ incompatible signatures");
+    if (auto otherDecl = getResolvedFunctionWithName(resolvedName); otherDecl && (otherDecl->funcDecl->getAttributes().extern_ || functionDecl->getAttributes().extern_)) {
+        if (!(otherDecl->funcDecl->getAttributes().extern_ && functionDecl->getAttributes().extern_)) {
+            diagnostics::emitNote(otherDecl->funcDecl->getSourceLocation(), "identical signature already declared here");
+            diagnostics::emitError(functionDecl->getSourceLocation(), "only external functions can have multiple identical declarations");
         }
-        //LKAssert(functionDecl->getAttributes().extern_ && "only extern functions are allowed to have multiple declarations");
-        //LKAssert(resolveTypeDesc(sig.returnType) == resolveTypeDesc(otherSig.returnType));
-        //LKAssert(sig.paramTypes.size() == otherSig.paramTypes.size());
+        const auto &otherSig = otherDecl->funcDecl->getSignature();
+        if (!equal(sig, otherSig)) {
+            diagnostics::emitNote(otherDecl->funcDecl->getSourceLocation(), "other declaration here");
+            diagnostics::emitError(functionDecl->getSourceLocation(), "multiple forward declarations w/ non-matching signatures");
+        }
         return;
     }
     
-    LKAssertMsg(module->getFunction(resolvedName) == nullptr, util::fmt_cstr("Redefinition of function '%s'", resolvedName.c_str())); // TODO print the signature instead!
+    if (auto RC = util::map::get_opt(resolvedFunctions, resolvedName)) {
+        diagnostics::emitNote(RC->funcDecl->getSourceLocation(), "already declared here");
+        diagnostics::emitError(functionDecl->getSourceLocation(), "multiple declarations w/ same signature");
+    }
     
     auto FT = llvm::FunctionType::get(returnType->getLLVMType(), paramTypes, functionDecl->getSignature().isVariadic);
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, resolvedName, *module);
