@@ -55,6 +55,8 @@ public:
         return entries.size();
     }
     
+    const std::vector<Entry>& getEntries() const { return entries; }
+    
     std::vector<Entry> getEntriesSinceMarker(Marker M) const {
         if (M >= entries.size()) return {};
         return std::vector<Entry>(entries.begin() + M, entries.end());
@@ -72,6 +74,7 @@ public:
         }
     }
     
+    /// Removes all entries *including* the marker
     void removeAllSinceMarker(Marker M) {
         entries.erase(entries.begin() + M, entries.end());
     }

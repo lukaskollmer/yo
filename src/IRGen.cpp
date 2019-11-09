@@ -27,7 +27,10 @@ using NK = ast::Node::NodeKind;
 
 
 inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
-static const std::string kRetvalAllocaIdentifier = "%retval";
+
+static const std::string kInitializerMethodName = "init";
+static const std::string kSynthesizedDeallocMethodName = "__dealloc";
+static const std::string kRetvalAllocaIdentifier = "__retval";
 
 #define unhandled_node(node) \
 { std::cout << __PRETTY_FUNCTION__ << ": Unhandled Node: " << util::typeinfo::getTypename(*(node)) << std::endl; \
@@ -192,7 +195,7 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
         
         // Check signature
         if (sig.paramTypes.empty() && resolveTypeDesc(sig.returnType) != builtinTypes.yo.i32) {
-            diagnostics::emitError(functionDecl->getSourceLocation(), "Invalid signature: 'main' must return 'i32'");
+            diagnostics::emitError(functionDecl->getSourceLocation(), "invalid signature: 'main' must return 'i32'");
         } else if (!sig.paramTypes.empty()) {
             ast::FunctionSignature expectedSig;
             expectedSig.returnType = ast::TypeDesc::makeResolved(builtinTypes.yo.i32);
@@ -200,7 +203,7 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
                 expectedSig.returnType, ast::TypeDesc::makeResolved(builtinTypes.yo.i8Ptr->getPointerTo())
             };
             if (!equal(sig, expectedSig)) {
-                diagnostics::emitError(functionDecl->getSourceLocation(), util::fmt::format("Invalid signature for function 'main'. Expected {}, got {}", expectedSig, sig));
+                diagnostics::emitError(functionDecl->getSourceLocation(), util::fmt::format("invalid signature for function 'main'. Expected {}, got {}", expectedSig, sig));
             }
         }
     }
@@ -208,7 +211,7 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     
     if (sig.isTemplateFunction() || functionDecl->getAttributes().intrinsic || functionDecl->getAttributes().int_isCtor) {
         if (sig.isTemplateFunction() && sig.templateArgumentNames.size() != sig.distinctTemplateArgumentNames().size()) {
-            diagnostics::emitError(functionDecl->getSourceLocation(), "Template argument types must be distinct");
+            diagnostics::emitError(functionDecl->getSourceLocation(), "template argument types must be distinct");
         }
         
         auto canonicalName = mangling::mangleCanonicalName(functionDecl);
@@ -396,18 +399,18 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::LocalStmt> localStmt) {
 }
 
 
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Expr> expr, ValueKind returnValueKind) {
+llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Expr> expr, ValueKind VK) {
     switch (expr->getNodeKind()) {
     CASE(expr, NumberLiteral)
-    CASE(expr, Ident, returnValueKind)
+    CASE(expr, Ident, VK)
     CASE(expr, CastExpr)
-    CASE(expr, StringLiteral)
+    CASE(expr, StringLiteral, VK)
     CASE(expr, UnaryExpr)
     CASE(expr, MatchExpr)
     CASE(expr, RawLLVMValueExpr)
-    CASE(expr, MemberExpr, returnValueKind)
-    CASE(expr, SubscriptExpr, returnValueKind)
-    CASE(expr, CallExpr)
+    CASE(expr, MemberExpr, VK)
+    CASE(expr, SubscriptExpr, VK)
+    CASE(expr, CallExpr, VK)
     CASE(expr, BinOp)
     default: unhandled_node(expr)
     }
@@ -422,22 +425,6 @@ llvm::DIFile* DIFileForSourceLocation(llvm::DIBuilder& builder, const parser::To
     const auto [directory, filename] = util::string::extractPathAndFilename(loc.filepath);
     return builder.createFile(filename, directory);
 }
-
-
-llvm::DISubroutineType *IRGenerator::_toDISubroutineType(const ast::FunctionSignature& signature) {
-    // Looking at [godbolt]( https://godbolt.org/z/EKfzqi ), it seems like the first element should be the function's return type?
-    
-    std::vector<llvm::Metadata *>types;
-    types.reserve(signature.paramTypes.size() + 1);
-    
-    types.push_back(resolveTypeDesc(signature.returnType)->getLLVMDIType());
-    for (const auto& paramTy : signature.paramTypes) {
-        types.push_back(resolveTypeDesc(paramTy)->getLLVMDIType());
-    }
-    return debugInfo.builder.createSubroutineType(debugInfo.builder.getOrCreateTypeArray(types));
-}
-
-
 
 
 
@@ -476,7 +463,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         auto unit = DIFileForSourceLocation(debugInfo.builder, functionDecl->getSourceLocation());
         auto SP = debugInfo.builder.createFunction(unit, functionDecl->getName(), resolvedName, unit,
                                            sig.getSourceLocation().line,
-                                           _toDISubroutineType(sig),
+                                           toDISubroutineType(sig),
                                            sig.getSourceLocation().line,
                                            llvm::DINode::FlagZero,
                                            llvm::DISubprogram::DISPFlags::SPFlagDefinition);
@@ -532,16 +519,16 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     
     if (!returnType->isVoidTy()) {
         retvalAlloca = builder.CreateAlloca(F->getFunctionType()->getReturnType());
+        retvalAlloca->setName(kRetvalAllocaIdentifier);
         
-        localScope.insert(kRetvalAllocaIdentifier, ValueBinding{
+        localScope.insert(kRetvalAllocaIdentifier, ValueBinding(
             returnType, retvalAlloca, []() -> llvm::Value* {
                 LKFatalError("retval is write-only");
             }, [this, retvalAlloca](llvm::Value *V) {
                 builder.CreateStore(V, retvalAlloca);
             },
-            ValueBinding::Flags::CanWrite
-        });
-        
+            ValueBinding::Flags::CanWrite | ValueBinding::Flags::DontDestroy
+        ));
         
         // Create Debug Metadata
         if (CLIOptions.emitDebugMetadata) {
@@ -553,20 +540,31 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         }
     }
     
-    currentFunction = FunctionState(functionDecl, F, returnBB, retvalAlloca);
-    codegen(functionDecl->getBody());
+    currentFunction = FunctionState(functionDecl, F, returnBB, retvalAlloca, localScope.getMarker());
+    
     
     // TODO is this a good idea?
     if (functionDecl->getBody()->isEmpty() || !functionDecl->getBody()->statements.back()->isOfKind(NK::ReturnStmt)) {
         if (returnType->isVoidTy()) {
-            codegen(std::make_shared<ast::ReturnStmt>(nullptr));
+            functionDecl->getBody()->statements.push_back(std::make_shared<ast::ReturnStmt>(nullptr));
         } else {
             diagnostics::emitError(functionDecl->getSourceLocation(), "missing return statement at end of function body");
         }
     }
     
+    
+    codegen(functionDecl->getBody());
+    
     F->getBasicBlockList().push_back(returnBB);
     builder.SetInsertPoint(returnBB);
+    
+    // These were alreadu\y destructed (either by returning from the local scope, or by reaching the end of the function body)
+    localScope.removeAllSinceMarker(currentFunction.stackTopMarker);
+    LKAssert(localScope.size() == currentFunction.stackTopMarker);
+    
+    // Cleanup the rest of the local scope (parameters and kRetvalAllocaIdentifier, although the return value won't be destructed)
+    destructLocalScopeUntilMarker(0, true);
+    LKAssert(localScope.isEmpty());
     
     if (returnType->isVoidTy()) {
         builder.CreateRetVoid();
@@ -574,16 +572,12 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         builder.CreateRet(builder.CreateLoad(retvalAlloca));
     }
     
-    LKAssert(localScope.size() == sig.paramTypes.size() + static_cast<uint8_t>(!returnType->isVoidTy()));
-    
-    for (const auto &entry : localScope.getEntriesSinceMarker(0)) {
-        localScope.remove(entry.first);
-    }
     
     currentFunction = FunctionState();
     if (CLIOptions.emitDebugMetadata) {
         debugInfo.lexicalBlocks.pop_back(); // TODO maybe add a check that the lexical blocks weren't somehow modified?
     }
+    
     return F;
 }
 
@@ -591,8 +585,10 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StructDecl> structDecl) {
-    if (!structDecl->attributes.no_init) {
+    if (!structDecl->attributes.no_init) { // TODO rename this attr since it now controls way more than just the default initializer
         synthesizeDefaultMemberwiseInitializer(structDecl);
+        synthesizeDefaultCopyConstructor(structDecl);
+        synthesizeDefaultDeallocMethod(structDecl);
     }
     return nullptr;
 }
@@ -615,20 +611,13 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ImplBlock> implBlock) {
 
 
 
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Composite> composite) {
-    emitDebugLocation(composite); // TODO does this even affect anything?
 
-    
-    // Note: There's obvious potential for improval here
-    // What;s going on here?
-    // We first hoist all allocas
+llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Composite> composite) {
+    const auto &stmts = composite->statements;
     
     auto marker = localScope.getMarker();
     bool didReturn = false;
-    
-    
-    const auto &stmts = composite->statements;
-    
+        
     for (auto it = stmts.begin(); !didReturn && it != stmts.end(); it++) {
         const auto stmt = *it;
         codegen(stmt);
@@ -637,14 +626,14 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Composite> composite) {
         }
     }
     
-    for (const auto &entry : localScope.getEntriesSinceMarker(marker)) {
-        localScope.remove(entry.first);
+    if (!didReturn) {
+        destructLocalScopeUntilMarker(marker, /*removeFromLocalScope*/ true);
+    } else {
+        localScope.removeAllSinceMarker(marker);
     }
     
     return nullptr;
 }
-
-
 
 
 
@@ -657,7 +646,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
     if (varDecl->type == nullptr) {
         // If no type is specified, there _has_ to be an initial value
         if (!varDecl->initialValue) {
-            diagnostics::emitError(varDecl->getSourceLocation(), "Must specify initial value");
+            diagnostics::emitError(varDecl->getSourceLocation(), "must specify initial value");
         }
         type = getType(varDecl->initialValue);
         hasInferredType = true;
@@ -665,7 +654,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
         type = resolveTypeDesc(varDecl->type);
     }
     if (!type) {
-        diagnostics::emitError(varDecl->getSourceLocation(), "Unable to infer type of variable");
+        diagnostics::emitError(varDecl->getSourceLocation(), "unable to infer type of variable");
     }
     
     if (varDecl->declaresUntypedReference) {
@@ -681,7 +670,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
             diagnostics::emitError(varDecl->getSourceLocation(), "lvalue reference declaration requires initial value");
         }
         
-        if (!canBecomeLValue(varDecl->initialValue)) {
+        if (isTemporary(varDecl->initialValue)) {
             auto msg = util::fmt::format("lvalue reference of type '{}' cannot bind to temporary of type '{}'", type, getType(varDecl->initialValue));
             diagnostics::emitError(varDecl->initialValue->getSourceLocation(), msg);
         }
@@ -713,7 +702,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
             LKAssert(V->getType() == alloca->getType()->getPointerElementType());
             builder.CreateStore(V, alloca);
         },
-        ValueBinding::Flags::CanRead | ValueBinding::Flags::CanWrite
+        ValueBinding::Flags::ReadWrite
     ));
     
     if (auto initialValueExpr = varDecl->initialValue) {
@@ -723,7 +712,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
         if (!type->isReferenceTy()) {
             auto assignment = std::make_shared<ast::Assignment>(makeIdent(varDecl->name), initialValueExpr);
             assignment->setSourceLocation(varDecl->getSourceLocation());
-            codegen(assignment);
+            codegen(assignment, /*shouldDestructOldValue*/ false);
         } else {
             auto V = codegen(initialValueExpr, LValue);
             if (initialValueType->isReferenceTy()) {
@@ -758,27 +747,26 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
 
 
 
-
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ReturnStmt> returnStmt) {
-    const auto FName = builder.GetInsertBlock()->getParent()->getName().str();
     const auto returnType = resolveTypeDesc(currentFunction.decl->getSignature().returnType);
     
     if (auto expr = returnStmt->expr) {
         Type *T;
         if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, returnType, &T)) {
-            auto msg = util::fmt::format("Expression evaluates to type '{}', which is incompatible with the expected return type '{}'",
+            auto msg = util::fmt::format("expression evaluates to type '{}', which is incompatible with the expected return type '{}'",
                                          T, returnType);
             diagnostics::emitError(expr->getSourceLocation(), msg);
         }
         
         auto retvalAss = std::make_shared<ast::Assignment>(makeIdent(kRetvalAllocaIdentifier), expr);
         retvalAss->setSourceLocation(returnStmt->getSourceLocation());
-        codegen(retvalAss);
-        emitDebugLocation(returnStmt);
-        return builder.CreateBr(currentFunction.returnBB);
+        codegen(retvalAss, /*shouldDestructOldValue*/ false);
+    } else {
+        LKAssert(returnType->isVoidTy());
     }
     
-    LKAssert(returnType->isVoidTy());
+    destructLocalScopeUntilMarker(currentFunction.stackTopMarker, /*removeFromLocalScope*/ false);
+    
     emitDebugLocation(returnStmt);
     return builder.CreateBr(currentFunction.returnBB);
 }
@@ -832,11 +820,9 @@ bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
 
 
 // TODO should assignments return something?
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
-    // TODO rewrite this so that it doesn't rely on GuessType for function calls!
-    // TODO why is relying on getType for function calls an issue?
-    
+llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment, bool shouldDestructOldValue) {
     llvm::Value *llvmTargetLValue = nullptr;
+    llvm::Value *llvmRhsVal = nullptr;
     auto rhsExpr = assignment->value;
     auto lhsTy = getType(assignment->target);
     auto rhsTy = getType(assignment->value);
@@ -860,6 +846,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
         rhsExpr = newBinop;
         
     } else {
+        if (isTemporary(assignment->target)) {
+            diagnostics::emitError(assignment->target->getSourceLocation(), "cannot assign to temporary value");
+        }
         llvmTargetLValue = codegen(assignment->target, LValue);
         
         if (lhsTy == rhsTy) goto ok;
@@ -883,9 +872,20 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
     
 ok:
     
-    auto llvmRhsVal = codegen(rhsExpr, RValue);
     if (lhsTy->isReferenceTy()) llvmTargetLValue = builder.CreateLoad(llvmTargetLValue);
-    if (rhsTy->isReferenceTy()) llvmRhsVal = builder.CreateLoad(llvmRhsVal);
+    
+    if (shouldDestructOldValue) {
+        auto destructStmt = createDestructStmtIfDefined(lhsTy, llvmTargetLValue, /*includeReferences*/ true);
+        if (destructStmt) {
+            codegen(destructStmt);
+        }
+    }
+    
+    bool didConstructCopy;
+    llvmRhsVal = constructCopyIfNecessary(rhsTy, rhsExpr, &didConstructCopy);
+    if (!didConstructCopy && rhsTy->isReferenceTy()) {
+        llvmRhsVal = builder.CreateLoad(llvmRhsVal);
+    }
     
     emitDebugLocation(assignment);
     builder.CreateStore(llvmRhsVal, llvmTargetLValue);
@@ -911,6 +911,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::RawLLVMValueExpr> rawExpr
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ExprStmt> exprStmt) {
     emitDebugLocation(exprStmt->expr);
+    // TODO insert value into localScope so that it is included in stack cleanup
     return codegen(exprStmt->expr);
 }
 
@@ -941,24 +942,28 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::NumberLiteral> numberLite
 
 
 
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StringLiteral> stringLiteral) {
+llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StringLiteral> stringLiteral, ValueKind VK) {
     using SLK = ast::StringLiteral::StringLiteralKind;
 
     switch (stringLiteral->kind) {
         case SLK::ByteString:
             emitDebugLocation(stringLiteral);
+            // TODO insert VK == RValue check here?
+            LKAssert(VK == RValue);
             return builder.CreateGlobalStringPtr(stringLiteral->value);
         
         case SLK::NormalString: {
             if (!nominalTypes.contains("String")) {
-                diagnostics::emitError(stringLiteral->getSourceLocation(), "Unable to find 'String' type");
+                diagnostics::emitError(stringLiteral->getSourceLocation(), "unable to find 'String' type");
             }
-            stringLiteral->kind = SLK::ByteString;
-            auto target = std::make_shared<ast::Ident>(mangling::mangleCanonicalName("String", "new", ast::FunctionKind::StaticMethod));
+            auto target = makeIdent("String"); //std::make_shared<ast::Ident>(mangling::mangleCanonicalName("String", "String", ast::FunctionKind::StaticMethod));
             target->setSourceLocation(stringLiteral->getSourceLocation());
-            auto call = std::make_shared<ast::CallExpr>(target, std::vector<std::shared_ptr<ast::Expr>>(1, stringLiteral));
-            call->setSourceLocation(stringLiteral->getSourceLocation());
-            return codegen(call);
+            auto callExpr = std::make_shared<ast::CallExpr>(target);
+            callExpr->arguments = {
+                std::make_shared<ast::RawLLVMValueExpr>(builder.CreateGlobalStringPtr(stringLiteral->value), builtinTypes.yo.i8Ptr)
+            };
+            callExpr->setSourceLocation(stringLiteral->getSourceLocation());
+            return codegen(callExpr, VK);
         }
     }
 }
@@ -979,7 +984,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Ident> ident, ValueKind r
         
         case RValue:
             if (!binding->hasFlag(ValueBinding::Flags::CanRead)) {
-                auto msg = util::fmt::format("Value binding for ident '{}' in local scope does not allow reading", ident->value);
+                auto msg = util::fmt::format("value binding for ident '{}' in local scope does not allow reading", ident->value);
                 diagnostics::emitError(ident->getSourceLocation(), msg);
             }
             return binding->read();
@@ -1011,6 +1016,8 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> castExpr) {
             }
             break;
         }
+        
+        // TODO support static casts between integers and bools
         case ast::CastExpr::CastKind::StaticCast: {
             if (srcTy->isNumericalTy() && dstTy->isNumericalTy()) {
                 auto srcTyNT = static_cast<NumericalType *>(srcTy);
@@ -1057,7 +1064,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> castExpr) {
     }
     
     if (op == static_cast<LLVMCastOp>(-1)) {
-        auto msg = util::fmt::format("Unable to resolve cast from '{}' to '{}'", srcTy, dstTy);
+        auto msg = util::fmt::format("unable to resolve cast from '{}' to '{}'", srcTy, dstTy);
         diagnostics::emitError(castExpr->getSourceLocation(), msg);
     }
     
@@ -1072,26 +1079,29 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> castExpr) {
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, ValueKind returnValueKind) {
-    auto targetTy = getType(memberExpr->target);
+    const auto targetTy = getType(memberExpr->target);
     
-    bool isPtr = false;
     StructType *structTy = nullptr;
+    const bool needsLoad = targetTy->isReferenceTy() || targetTy->isPointerTy();
     
-    if (auto structTy_ = llvm::dyn_cast_or_null<StructType>(targetTy)) {
-        structTy = structTy_;
-        isPtr = false;
+    auto struct_or_error = [&](Type *ty) -> StructType* {
+        if (ty->isStructTy()) return static_cast<StructType *>(ty);
+        auto msg = util::fmt::format("member expr base type '{}' not a struct", ty);
+        diagnostics::emitError(memberExpr->getSourceLocation(), msg);
+    };
+    
+    if (auto ST = llvm::dyn_cast_or_null<StructType>(targetTy)) {
+        structTy = ST;
     } else if (auto ptrTy = llvm::dyn_cast_or_null<PointerType>(targetTy)) {
-        structTy = llvm::dyn_cast<StructType>(ptrTy->getPointee());
-        isPtr = true;
+        structTy = struct_or_error(ptrTy->getPointee());
     } else if (auto refTy = llvm::dyn_cast_or_null<ReferenceType>(targetTy)) {
-        structTy = llvm::dyn_cast<StructType>(refTy->getReferencedType());
-        isPtr = true;
+        structTy = struct_or_error(refTy->getReferencedType());
     } else {
-        auto msg = util::fmt::format("Invalid member expr base type: '{}'", targetTy);
+        auto msg = util::fmt::format("invalid member expr base type: '{}'", targetTy);
         diagnostics::emitError(memberExpr->getSourceLocation(), msg);
     }
     
-    auto [memberIndex, memberType] = structTy->getMember(memberExpr->memberName);
+    const auto [memberIndex, memberType] = structTy->getMember(memberExpr->memberName);
     LKAssert(memberType != nullptr && "member does not exist");
     
     llvm::Value *offsets[] = {
@@ -1100,7 +1110,14 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, V
     };
     
     auto targetV = codegen(memberExpr->target, LValue);
-    if (isPtr) {
+    
+    if (isTemporary(memberExpr->target)) {
+        LKFatalError("TODO");
+        // TODO should this come after the load below?
+        markForDestruction(targetTy, targetV);
+    }
+    
+    if (needsLoad) {
         targetV = builder.CreateLoad(targetV);
     }
     emitDebugLocation(memberExpr);
@@ -1119,30 +1136,15 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, V
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::SubscriptExpr> subscript, ValueKind returnValueKind) {
-//    auto target = codegen(subscript->target, RValue);
-//    LKAssert(target->getType()->isPointerTy());
-//    auto offset = codegen(subscript->offset, RValue);
-//    LKAssert(offset->getType()->isIntegerTy());
-//
-//    emitDebugLocation(subscript);
-//    auto GEP = builder.CreateGEP(target, codegen(subscript->offset));
-//
-//    switch (returnValueKind) {
-//        case LValue:
-//            return GEP;
-//        case RValue:
-//            return builder.CreateLoad(GEP);
-//    }
-    
     auto TT = getType(subscript->target);
     if (!TT->isPointerTy()) {
-        auto msg = util::fmt::format("Cannot subscript value of type '{}'", TT);
+        auto msg = util::fmt::format("cannot subscript value of type '{}'", TT);
         diagnostics::emitError(subscript->target->getSourceLocation(), msg);
     }
     
     auto OT = getType(subscript->offset);
     if (!OT->isNumericalTy() || !llvm::dyn_cast<NumericalType>(OT)->isIntegerTy()) {
-        auto msg = util::fmt::format("Expected integral type, got '{}'", OT);
+        auto msg = util::fmt::format("expected integral type, got '{}'", OT);
         diagnostics::emitError(subscript->offset->getSourceLocation(), msg);
     }
     
@@ -1186,7 +1188,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::UnaryExpr> unaryExpr) {
         case ast::UnaryExpr::Operation::LogicalNegation: {
             auto ty = getType(expr);
             if (!isValidUnaryOpLogicalNegType(ty)) {
-                auto msg = util::fmt::format("Type '{}' cannpt be used in logical negation", ty);
+                auto msg = util::fmt::format("type '{}' cannpt be used in logical negation", ty);
                 diagnostics::emitError(unaryExpr->getSourceLocation(), msg);
             }
             auto V = codegen(expr);
@@ -1237,11 +1239,11 @@ llvm::Value *IRGenerator::codegen_HandleMatchPatternExpr(MatchExprPatternCodegen
                 
             }
         } else {
-            diagnostics::emitError(PE->getSourceLocation(), util::fmt::format( "Cannot match value of type '{}' against '{}'", TT, PT));
+            diagnostics::emitError(PE->getSourceLocation(), util::fmt::format( "cannot match value of type '{}' against '{}'", TT, PT));
         }
     }
     
-    diagnostics::emitError(PE->getSourceLocation(), "Not a valid pattern expression");
+    diagnostics::emitError(PE->getSourceLocation(), "not a valid pattern expression");
 }
 
 
@@ -1371,7 +1373,7 @@ bool isValidBinopOperator(ast::Operator op) {
 
 llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::BinOp> binop) {
     if (!isValidBinopOperator(binop->getOperator())) {
-        diagnostics::emitError(binop->getSourceLocation(), "Not a valid binary operator");
+        diagnostics::emitError(binop->getSourceLocation(), "not a valid binary operator");
     }
     
     auto callExpr = std::make_shared<ast::CallExpr>(makeIdent(mangling::mangleCanonicalName(binop->getOperator())),
@@ -1548,7 +1550,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
             auto reason = isLiteral ? DeductionReason::Literal : DeductionReason::Expr;
             if (!mapping->second.has_value()) {
                 while (sigParamTypeDescPointerIndirectionCount-- > 0) {
-                    LKAssert(argTy->isPointerTy());
+                    if (!argTy->isPointerTy()) return std::nullopt;
                     argTy = llvm::dyn_cast<PointerType>(argTy)->getPointee();
                 }
                 if (auto argTyRef = llvm::dyn_cast_or_null<ReferenceType>(argTy); argTyRef && isReference) {
@@ -1563,7 +1565,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
                 }
             }
         } else {
-            LKFatalError("unreachable?");
+            // `paramTyename` is not in the template parameter type list (ie, a regular, non-overloaded nominal type)
         }
     }
     
@@ -1671,7 +1673,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             argumentOffset = kInstanceMethodCallArgumentOffset;
         }
     } else {
-        diagnostics::emitError(callExpr->getSourceLocation(), "Unable to resolve call target");
+        diagnostics::emitError(callExpr->getSourceLocation(), "unable to resolve call target");
     }
     
     // TODO does this mean we might miss another potential target
@@ -1698,7 +1700,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         }
         specializedDecl->setResolvedTemplateArgTypes(templateArgTypes);
         
-        if (functionDecl->getName() == "static_cast") {
+        if (functionDecl->getName() == "static_cast") { // TODO is this necessary?
             LKAssert(!functionDecl->getSignature().paramTypes[0]->isResolved());
         }
         
@@ -1708,6 +1710,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         
         // We need the function's types fully resolved for the `mangleFullyResolved` call below
         // TODO is withCleanSlate overkill here? we really just need the local scope to be empty so that we can insert the parameters
+        // Not entirely true though, we also call resolveTypeDesc which otherwise might include local types defined only for the the scope of the current function
         withCleanSlate([&]() -> void {
             for (size_t i = 0; i < specializedDecl->getSignature().paramTypes.size(); i++) {
                 auto type = resolveTypeDesc(specializedDecl->getSignature().paramTypes[i]);
@@ -1841,9 +1844,9 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             }
             
             if (expectedTy->isReferenceTy()) {
-                if (canBecomeLValue(arg) && !argTy->isReferenceTy() && argTy->getReferenceTo() == expectedTy) {
+                if (!isTemporary(arg) && !argTy->isReferenceTy() && argTy->getReferenceTo() == expectedTy) {
                     continue;
-                }
+                } // TODO if we reach here bc we're passing an arg that cannot become an lvalue to a function expecting an lvalue reference, add that to the reason!
             } else if (!expectedTy->isReferenceTy() && argTy->isReferenceTy()) {
                 if (llvm::dyn_cast<ReferenceType>(argTy)->getReferencedType() == expectedTy) {
                     continue;
@@ -1921,38 +1924,14 @@ bool callerCalleeSideEffectsCompatible(const std::vector<yo::attributes::SideEff
 }
 
 
-
-llvm::Value *IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<ast::CallExpr> call) {
-    auto alloca = builder.CreateAlloca(getLLVMType(structTy));
-    auto ident = currentFunction.getTmpIdent();
-    
-    localScope.insert(ident, ValueBinding(structTy, alloca, [=]() {
-        return builder.CreateLoad(alloca);
-    }, [=](llvm::Value *V) {
-        LKFatalError("use references to write to object?");
-    }, ValueBinding::Flags::ReadWrite));
-    
-    auto callTarget = std::make_shared<ast::MemberExpr>(makeIdent(ident), "init");
-    auto callExpr = std::make_shared<ast::CallExpr>(callTarget);
-    callExpr->arguments = call->arguments;
-    callExpr->explicitTemplateArgumentTypes = call->explicitTemplateArgumentTypes;
-    callExpr->setSourceLocation(call->getSourceLocation());
-    
-    codegen(callExpr);
-    
-    return builder.CreateLoad(alloca);
-}
-
-
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
+llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind VK) {
     emitDebugLocation(call);
     
     auto resolvedTarget = resolveCall(call, false);
     
-    
     if (resolvedTarget.funcDecl->getAttributes().int_isCtor) {
         auto structTy = llvm::dyn_cast<StructType>(resolvedTarget.funcDecl->getImplType());
-        return constructStruct(structTy, call);
+        return constructStruct(structTy, call, /*putInLocalScope*/ false, VK); // TODO should `putInLocalScope` be true?
     }
     
     
@@ -1969,8 +1948,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
         }
     }
     
-    // Indices of arguments that are converted to references (ie, passed as an LValue)
-    //std::vector<uint64_t> argumentsPassedByReference;
     enum class ArgumentHandlingPolicy {
         PassByValue,
         PassByValue_ExtractReference,
@@ -1992,8 +1969,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
                 argumentHandlingPolicies[i] = ArgumentHandlingPolicy::PassByValue_ExtractReference;
                 goto cont;
             }
-            diagnostics::emitError(expr->getSourceLocation(),
-                                       util::fmt::format("Incompatible type for argument #{}. Expected '{}', got '{}'", i, expectedType, T));
+            
+            auto msg = util::fmt::format("incompatible type for argument #{}. Expected '{}', got '{}'", i, expectedType, T);
+            diagnostics::emitError(expr->getSourceLocation(), msg);
         }
         cont:
         // TODO is modifying the arguments in-place necessarily a good idea?
@@ -2015,27 +1993,35 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
     
     std::vector<llvm::Value *> args(resolvedTarget.argumentOffset, nullptr);
     auto numFixedArgs = llvmFunctionTy->getNumParams() - resolvedTarget.argumentOffset;
+
     
+    // TODO what about just adding the implicit argument(s) to the callExpr and getting rid of the whole argumentOffset dance?
     for (uint64_t i = resolvedTarget.argumentOffset; i < llvmFunctionTy->getNumParams(); i++) {
         auto expr = call->arguments[i - resolvedTarget.argumentOffset];
         auto argTy = getType(expr);
-        llvm::Value *V = nullptr;
+        auto expectedTy = resolveTypeDesc(resolvedTarget.signature.paramTypes[i]);
         
-        switch (argumentHandlingPolicies[i]) {
-            case ArgumentHandlingPolicy::PassByValue:
-                V = codegen(expr, RValue);
-                break;
-            case ArgumentHandlingPolicy::PassByReference:
-                V = codegen(expr, LValue);
-                break;
-            case ArgumentHandlingPolicy::PassByValue_ExtractReference:
-                V = codegen(expr, RValue);
-                LKAssert(argTy->isReferenceTy());
-                V = builder.CreateLoad(V);
-                break;
+        const auto policy = argumentHandlingPolicies[i];
+        
+        if (policy == ArgumentHandlingPolicy::PassByReference) {
+            args.push_back(codegen(expr, LValue));
+            continue;
+        }
+        
+        if (policy == ArgumentHandlingPolicy::PassByValue && expectedTy->isReferenceTy() && argTy->isReferenceTy()) {
+            args.push_back(codegen(expr, RValue));
+            continue;
+        }
+        
+        bool didConstructCopy;
+        auto V = constructCopyIfNecessary(argTy, expr, &didConstructCopy);
+        if (policy == ArgumentHandlingPolicy::PassByValue_ExtractReference) {
+            LKAssert(argTy->isReferenceTy());
+            V = builder.CreateLoad(V); // TODO only insert this load if no copy was made? (otherwise, the copy constructor already returns a non-reference object)
         }
         args.push_back(V);
     }
+    
     
     if (auto memberExpr = std::dynamic_pointer_cast<ast::MemberExpr>(call->target); memberExpr != nullptr && resolvedTarget.argumentOffset == kInstanceMethodCallArgumentOffset) {
         // TODO this is a pretty bad assumption to make.
@@ -2062,11 +2048,15 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
         }
         
         args[0] = selfVal;
+        if (isTemporary(implicitSelfArg)) {
+            markForDestruction(selfTy, selfVal);
+        }
     } else if (resolvedTarget.argumentOffset != 0) {
         LKFatalError("ugh");
     }
     
     if (isVariadic && getResolvedFunctionWithName(llvmFunction->getName().str())->funcDecl->getAttributes().extern_) {
+        // TOODO extract references if possible, disallow otherwise, promote types as expected by C
         for (auto it = call->arguments.begin() + numFixedArgs; it != call->arguments.end(); it++) {
             args.push_back(codegen(*it));
         }
@@ -2075,6 +2065,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call) {
     }
     
     emitDebugLocation(call);
+    // TODO do we need to take VK into account here?
     return builder.CreateCall(llvmFunction, args);
 }
 
@@ -2236,7 +2227,7 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
     }
     
     
-    diagnostics::emitError(call->getSourceLocation(), util::fmt::format("Unhandled call to intrinsic '{}'", name));
+    diagnostics::emitError(call->getSourceLocation(), util::fmt::format("unhandled call to intrinsic '{}'", name));
 }
 
 
@@ -2557,14 +2548,12 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::WhileStmt> whileStmt) {
     F->getBasicBlockList().push_back(bodyBB);
     builder.SetInsertPoint(bodyBB);
     
-    currentFunction.breakDestinations.push(mergeBB);
-    currentFunction.continueDestinations.push(condBB);
+    currentFunction.breakContDestinations.push({mergeBB, condBB});
     
     codegen(whileStmt->body);
     builder.CreateBr(condBB);
     
-    currentFunction.continueDestinations.pop();
-    currentFunction.breakDestinations.pop();
+    currentFunction.breakContDestinations.pop();
     
     F->getBasicBlockList().push_back(mergeBB);
     builder.SetInsertPoint(mergeBB);
@@ -2613,16 +2602,17 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ForLoop> forLoop) {
 
 
 llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::BreakContStmt> stmt) {
-    if (currentFunction.breakDestinations.empty()) {
+    if (currentFunction.breakContDestinations.empty()) {
         auto msg = util::fmt::format("'{}' statement may only be used in a loop", stmt->isBreak() ? "break" : "continue");
         diagnostics::emitError(stmt->getSourceLocation(), msg);
     }
     
     llvm::BasicBlock *dest;
+    const auto &destBBs = currentFunction.breakContDestinations.top();
     if (stmt->isBreak()) {
-        dest = currentFunction.breakDestinations.top();
+        dest = destBBs.breakDest;
     } else {
-        dest = currentFunction.continueDestinations.top();
+        dest = destBBs.contDest;
     }
     
     // TODO clear stack?!
@@ -2646,7 +2636,7 @@ void IRGenerator::handleStartupAndShutdownFunctions() {
     
     auto imp = [&](llvm::StringRef dest, bool attributes::FunctionAttributes::* attr) {
         std::vector<ResolvedCallable> functions;
-        
+
         for (const auto &[name, callable] : resolvedFunctions) {
             if (callable.funcDecl && callable.funcDecl->getAttributes().*attr) {
                 functions.push_back(callable);
@@ -2677,6 +2667,113 @@ void IRGenerator::handleStartupAndShutdownFunctions() {
 }
 
 
+
+
+#pragma mark - Allocation & Memory Management
+
+
+llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<ast::CallExpr> call, bool putInLocalScope, ValueKind VK) {
+    auto alloca = builder.CreateAlloca(getLLVMType(structTy));
+    auto ident = currentFunction.getTmpIdent();
+    alloca->setName(ident);
+    
+    localScope.insert(ident, ValueBinding(structTy, alloca, [=]() {
+        return builder.CreateLoad(alloca);
+    }, [=](llvm::Value *V) {
+        LKFatalError("use references to write to object?");
+    }, ValueBinding::Flags::ReadWrite));
+    
+    auto callTarget = std::make_shared<ast::MemberExpr>(makeIdent(ident), kInitializerMethodName);
+    auto callExpr = std::make_shared<ast::CallExpr>(callTarget);
+    callExpr->arguments = call->arguments;
+    callExpr->explicitTemplateArgumentTypes = call->explicitTemplateArgumentTypes;
+    callExpr->setSourceLocation(call->getSourceLocation());
+    
+    codegen(callExpr);
+    
+    if (!putInLocalScope) {
+        localScope.remove(ident);
+    }
+    
+    switch (VK) {
+        case LValue: return alloca;
+        case RValue: return builder.CreateLoad(alloca);
+    }
+}
+
+
+llvm::Value* IRGenerator::constructCopyIfNecessary(Type *type, std::shared_ptr<ast::Expr> expr, bool *didConstructCopy) {
+    if (!isTemporary(expr) && (type->isStructTy() || (type->isReferenceTy() && static_cast<ReferenceType *>(type)->getReferencedType()->isStructTy()))) {
+        // TODO skip the copy constructor if the type is trivially copyable?
+        StructType *structTy = llvm::dyn_cast_or_null<StructType>(type) ?: static_cast<StructType *>(static_cast<ReferenceType *>(type)->getReferencedType());
+        auto call = std::make_shared<ast::CallExpr>(nullptr);
+        call->setSourceLocation(expr->getSourceLocation());
+        call->arguments = { expr };
+        if (didConstructCopy) *didConstructCopy = true;
+        return constructStruct(structTy, call, /*putInLocalScope*/ false, RValue);
+    } else {
+        if (didConstructCopy) *didConstructCopy = false;
+        return codegen(expr);
+    }
+}
+
+
+llvm::Value* IRGenerator::destructValueIfNecessary(Type *type, llvm::Value *value, bool includeReferences) {
+    LKAssert(value->getType()->isPointerTy());
+    auto expr = std::make_shared<ast::RawLLVMValueExpr>(value, type->isReferenceTy() ? type : type->getReferenceTo());
+    if (auto destructStmt = createDestructStmtIfDefined(type, expr, includeReferences)) {
+        return codegen(destructStmt);
+    } else {
+        return nullptr;
+    }
+}
+
+
+std::shared_ptr<ast::LocalStmt> IRGenerator::createDestructStmtIfDefined(Type *type, llvm::Value *value, bool includeReferences) {
+    auto expr = std::make_shared<ast::RawLLVMValueExpr>(value, type->isReferenceTy() ? type : type->getReferenceTo());
+    return createDestructStmtIfDefined(type, expr, includeReferences);
+}
+
+std::shared_ptr<ast::LocalStmt> IRGenerator::createDestructStmtIfDefined(Type *type, std::shared_ptr<ast::Expr> expr, bool includeReferences) {
+    if (includeReferences && type->isReferenceTy()) type = static_cast<ReferenceType *>(type)->getReferencedType();
+    
+    auto structTy = llvm::dyn_cast_or_null<StructType>(type);
+    if (!structTy) return nullptr;
+    
+    auto canonicalDeallocName = mangling::mangleCanonicalName(structTy->getName(), kSynthesizedDeallocMethodName, ast::FunctionKind::InstanceMethod);
+    if (!util::map::has_key(functions, canonicalDeallocName)) return nullptr;
+    
+    auto callExpr = std::make_shared<ast::CallExpr>(makeIdent(canonicalDeallocName));
+    callExpr->arguments = { expr };
+    callExpr->setSourceLocation(currentFunction.decl->getSourceLocation());
+    
+    auto stmt = std::make_shared<ast::ExprStmt>(callExpr);
+    stmt->setSourceLocation(callExpr->getSourceLocation());
+    return stmt;
+    
+}
+
+
+void IRGenerator::markForDestruction(Type *type, llvm::Value *value) {
+    auto ident = currentFunction.getTmpIdent();
+    value->setName(ident);
+    localScope.insert(ident, ValueBinding(type, value, nullptr, nullptr, ValueBinding::Flags::None));
+}
+
+
+void IRGenerator::destructLocalScopeUntilMarker(NamedScope<ValueBinding>::Marker M, bool removeFromLocalScope) {
+    auto entries = localScope.getEntriesSinceMarker(M);
+    
+    for (auto it = entries.rbegin(); it != entries.rend(); it++) {
+        const auto &[name, binding] = *it;
+        if (!binding.hasFlag(ValueBinding::Flags::DontDestroy)) {
+            destructValueIfNecessary(binding.type, binding.value, /*includeReferences*/ false);
+        }
+    }
+    if (removeFromLocalScope) {
+        localScope.removeAllSinceMarker(M);
+    }
+}
 
 
 
@@ -2726,7 +2823,7 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
     }
     
     if (typeDesc->isReference() && typeDesc->getPointee()->isReference()) {
-        diagnostics::emitError(typeDesc->getSourceLocation(), "Reference type cannot have indirection count > 1");
+        diagnostics::emitError(typeDesc->getSourceLocation(), "teference type cannot have indirection count > 1");
     }
     
     switch (typeDesc->getKind()) {
@@ -2746,7 +2843,7 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
                     return handleResolvedTy(entry.value());
                 }
                 
-                diagnostics::emitError(typeDesc->getSourceLocation(), util::fmt::format("Unable to resolve nominal type '{}'", name));
+                diagnostics::emitError(typeDesc->getSourceLocation(), util::fmt::format("unable to resolve nominal type '{}'", name));
             }
             break;
         }
@@ -2949,6 +3046,19 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
 
 
 
+llvm::DISubroutineType* IRGenerator::toDISubroutineType(const ast::FunctionSignature& signature) {
+    // Looking at [godbolt]( https://godbolt.org/z/EKfzqi ), it seems like the first element should be the function's return type?
+    
+    std::vector<llvm::Metadata *>types;
+    types.reserve(signature.paramTypes.size() + 1);
+    
+    types.push_back(resolveTypeDesc(signature.returnType)->getLLVMDIType());
+    for (const auto& paramTy : signature.paramTypes) {
+        types.push_back(resolveTypeDesc(paramTy)->getLLVMDIType());
+    }
+    return debugInfo.builder.createSubroutineType(debugInfo.builder.getOrCreateTypeArray(types));
+}
+
 
 
 
@@ -3019,7 +3129,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
                     if (auto StringTy = nominalTypes.get("String")) {
                         return *StringTy;
                     } else {
-                        diagnostics::emitError(expr->getSourceLocation(), "Unable to find 'String' type");
+                        diagnostics::emitError(expr->getSourceLocation(), "unable to find 'String' type");
                     }
                 }
             }
@@ -3030,7 +3140,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             if (auto VB = localScope.get(identExpr->value)) {
                 return VB->type;
             } else {
-                diagnostics::emitError(identExpr->getSourceLocation(), util::fmt::format("Unable to resolve identifier '{}'", identExpr->value));
+                diagnostics::emitError(identExpr->getSourceLocation(), util::fmt::format("unable to resolve identifier '{}'", identExpr->value));
             }
         }
         
@@ -3084,7 +3194,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
                     diagnostics::emitError(memberExpr->getSourceLocation(), msg);
                 }
             } else {
-                auto msg = util::fmt::format("MemberExpr target type '{}' not a struct", underlyingTy->str());
+                auto msg = util::fmt::format("member expr target type '{}' not a struct", underlyingTy->str());
                 diagnostics::emitError(memberExpr->getSourceLocation(), msg);
             }
         }
@@ -3114,19 +3224,23 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
 
 
 
-bool IRGenerator::canBecomeLValue(std::shared_ptr<ast::Expr> expr) {
+
+
+// Whether the expression evaluates to a temporary value. ??This implies that `expr` cannot become an lvalue (except for references, of course)??
+bool IRGenerator::isTemporary(std::shared_ptr<ast::Expr> expr) {
+    // TODO this seems way too simple?
+    // TODO what about ast::RawLLVMValueExpr?
+    auto ty = getType(expr);
+    if (ty->isReferenceTy()) return false;
+    
     switch (expr->getNodeKind()) {
-        case NK::NumberLiteral:
-        case NK::StringLiteral:
+        case NK::Ident:
+        case NK::MemberExpr:
+        case NK::SubscriptExpr:
             return false;
         
-        case NK::Ident:
-            // TODO this is waaay too simple!
-            return true;
-        
         default:
-            unhandled_node(expr);
-            LKFatalError("TODO");
+            return true;
     }
 }
 
@@ -3167,32 +3281,7 @@ Type *IRGenerator::instantiateTemplatedType(std::shared_ptr<ast::TypeDesc> typeD
 #pragma mark - Synthesized Functions
 
 
-namespace astgen {
-    using namespace ast;
-    
-    std::shared_ptr<Ident> ident(std::string value) {
-        return std::make_shared<Ident>(value);
-    }
-    
-    std::vector<std::shared_ptr<Expr>> exprVec(std::initializer_list<std::shared_ptr<Expr>> e) {
-        return e;
-    }
-    
-    std::shared_ptr<NumberLiteral> number(uint64_t value) {
-        return std::make_shared<NumberLiteral>(value, NumberLiteral::NumberType::Integer);
-    }
-    
-    std::shared_ptr<Assignment> assign(std::shared_ptr<Expr> target, std::shared_ptr<Expr> value) {
-        return std::make_shared<Assignment>(target, value);
-    }
-    
-    std::shared_ptr<CastExpr> cast(std::shared_ptr<Expr> expr, Type *ty) {
-        return std::make_shared<CastExpr>(expr, ast::TypeDesc::makeResolved(ty), CastExpr::CastKind::StaticCast);
-    }
-}
-
-
-llvm::Value *IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr<ast::StructDecl> structDecl) {
+llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr<ast::StructDecl> structDecl) {
     // TODO set the source location for all nodes generated in here!
     
     const auto &SL = structDecl->getSourceLocation();
@@ -3208,10 +3297,10 @@ llvm::Value *IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
     
     sig.setSourceLocation(SL);
     sig.returnType = ast::TypeDesc::makeResolved(builtinTypes.yo.Void);
-    sig.paramTypes.reserve(ST->memberCount());
+    sig.paramTypes.reserve(ST->memberCount() + 1);
     sig.paramTypes.push_back(ast::TypeDesc::makeResolved(ST->getReferenceTo()));
     
-    paramNames.reserve(ST->memberCount());
+    paramNames.reserve(ST->memberCount() + 1);
     paramNames.push_back(selfIdent);
     
     util::vector::iteri(SM, [&](uint64_t idx, const std::pair<std::string, Type *> &elem) -> void {
@@ -3219,11 +3308,11 @@ llvm::Value *IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
         paramNames.push_back(makeIdent(util::fmt::format("__arg{}", idx)));
     });
     
-    auto funcDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod, "init", sig, paramNames, attr);
-    funcDecl->setSourceLocation(SL);
-    funcDecl->setImplType(ST);
+    auto FD = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod, kInitializerMethodName, sig, paramNames, attr);
+    FD->setSourceLocation(SL);
+    FD->setImplType(ST);
     
-    auto mangledName = mangleFullyResolved(funcDecl);
+    auto mangledName = mangleFullyResolved(FD);
     if (auto F = module->getFunction(mangledName)) {
         // Only generate an initializer if there is no existing overload
         return F;
@@ -3238,66 +3327,103 @@ llvm::Value *IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
         body->statements.push_back(A);
     }
     
-    registerFunction(funcDecl);
-    return codegen(funcDecl);
+    FD->setBody(body);
     
-//    return;
-//    const auto SL = structDecl->getSourceLocation();
-//    const auto &structName = structDecl->name;
-//    const auto structType = llvm::dyn_cast<StructType>(nominalTypes.get(structName).value());
-//
-//    auto F = functions[mangling::mangleCanonicalName(structName, "init", ast::FunctionKind::StaticMethod)][0].funcDecl;
-//    F->setSourceLocation(SL);
-//
-//    std::shared_ptr<ast::Composite> fnBody;
-//    fnBody->setSourceLocation(SL);
-//
-//    auto self = std::make_shared<ast::Ident>("self");
-//
-//    // allocate object
-//    {
-//        auto allocCall = std::make_shared<ast::CallExpr>(astgen::ident("alloc"), astgen::exprVec({
-//            //astgen::Number(M->getDataLayout().getTypeAllocSize(getLLVMType(T)))
-//            astgen::number(1)
-//        }));
-//        allocCall->setSourceLocation(SL);
-//        allocCall->explicitTemplateArgumentTypes = { ast::TypeDesc::makeResolved(structType) };
-//        fnBody->statements.push_back(std::make_shared<ast::VarDecl>(self->value, ast::TypeDesc::makeResolved(structType->getPointerTo()), allocCall));
-//    }
-//
-//    // set runtime metadata
-//    if (CLIOptions.farc && structDecl->attributes.arc) {
-//        auto set_retaincount = std::make_shared<ast::Assignment>(std::make_shared<ast::MemberExpr>(self, "retainCount"),
-//                                                                 astgen::number((uint64_t(1) << 60) | 1));
-//
-//        auto sel = mangling::mangleCanonicalName(structName, "dealloc", ast::FunctionKind::InstanceMethod);
-//        auto dealloc_fn = functions[sel][0].llvmValue;
-//
-//        llvm::Type *t[] = { builtinTypes.llvm.i8Ptr };
-//        auto dealloc_fn_ty = llvm::FunctionType::get(builtinTypes.llvm.Void, t, false)->getPointerTo();
-//        auto dealloc_fn_cast = builder.CreateBitCast(dealloc_fn, dealloc_fn_ty);
-//        auto set_deallocFn = std::make_shared<ast::Assignment>(std::make_shared<ast::MemberExpr>(self, "deallocPtr"),
-//                                                               std::make_shared<ast::RawLLVMValueExpr>(dealloc_fn_cast,
-//                                                                                                       structType->getMembers()[1].second));
-//
-//        fnBody->statements.push_back(set_retaincount);
-//        fnBody->statements.push_back(set_deallocFn);
-//    }
-//
-//    // set properties
-//    for (size_t i = 0; i < F->getSignature().paramTypes.size(); i++) {
-//        const auto &name = F->getParamNames()[i]->value;
-//        auto memberExpr = std::make_shared<ast::MemberExpr>(self, name);
-//        memberExpr->setSourceLocation(SL);
-//        auto assignment = std::make_shared<ast::Assignment>(memberExpr, makeIdent(name));
-//        assignment->setSourceLocation(SL);
-//        fnBody->statements.push_back(assignment);
-//    }
-//    auto ret = std::make_shared<ast::ReturnStmt>(self);
-//    ret->setSourceLocation(SL);
-//    fnBody->statements.push_back(ret);
-//
-//    F->setBody(fnBody);
-//
-//    return codegen(F);
+    registerFunction(FD);
+    return codegen(FD);
+}
+
+
+
+llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::StructDecl> structDecl) {
+    const auto &SL = structDecl->getSourceLocation();
+    const auto ST = llvm::dyn_cast<StructType>(nominalTypes.get(structDecl->name).value());
+    const auto &SM = ST->getMembers();
+    
+    ast::FunctionSignature sig;
+    std::vector<std::shared_ptr<ast::Ident>> paramNames;
+    attributes::FunctionAttributes attr;
+    
+    sig.setSourceLocation(SL);
+    sig.returnType = ast::TypeDesc::makeResolved(builtinTypes.yo.Void);
+    sig.paramTypes.push_back(ast::TypeDesc::makeResolved(ST->getReferenceTo()));
+    sig.paramTypes.push_back(ast::TypeDesc::makeResolved(ST->getReferenceTo()));
+    
+    auto selfIdent = makeIdent("self");
+    auto arg0Ident = makeIdent("__arg0");
+    
+    paramNames.push_back(selfIdent);
+    paramNames.push_back(arg0Ident);
+    
+    auto FD = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod, kInitializerMethodName, sig, paramNames, attr);
+    FD->setSourceLocation(SL);
+    FD->setImplType(ST);
+    
+    auto mangledName = mangleFullyResolved(FD);
+    if (auto F = module->getFunction(mangledName)) {
+        // type already has a user-defined copy constructor
+        return F;
+    }
+    
+    auto body = std::make_shared<ast::Composite>();
+    body->setSourceLocation(SL);
+    for (uint64_t idx = 0; idx < SM.size(); idx++) {
+        auto &memberName = SM.at(idx).first;
+        auto lhs = std::make_shared<ast::MemberExpr>(selfIdent, memberName);
+        auto rhs = std::make_shared<ast::MemberExpr>(arg0Ident, memberName);
+        auto ass = std::make_shared<ast::Assignment>(lhs, rhs);
+        body->statements.push_back(ass);
+    }
+    
+    FD->setBody(body);
+    
+    registerFunction(FD);
+    return codegen(FD);
+}
+
+
+
+llvm::Value* IRGenerator::synthesizeDefaultDeallocMethod(std::shared_ptr<ast::StructDecl> structDecl) {
+    const auto &SL = structDecl->getSourceLocation();
+    const auto ST = llvm::dyn_cast<StructType>(nominalTypes.get(structDecl->name).value());
+    const auto &SM = ST->getMembers();
+    
+    auto selfIdent = makeIdent("self");
+    
+    ast::FunctionSignature sig;
+    attributes::FunctionAttributes attr;
+    std::vector<std::shared_ptr<ast::Ident>> paramNames = { selfIdent };
+    
+    sig.returnType = ast::TypeDesc::makeResolved(builtinTypes.yo.Void);
+    sig.paramTypes = { ast::TypeDesc::makeResolved(ST->getReferenceTo()) };
+    
+    auto FD = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod, kSynthesizedDeallocMethodName, sig, paramNames, attr);
+    FD->setSourceLocation(SL);
+    FD->setImplType(ST);
+    
+    auto body = std::make_shared<ast::Composite>();
+    body->setSourceLocation(SL);
+    
+    // Invoke custom destructor if defined
+    if (auto CN = mangling::mangleCanonicalName(ST->getName(), "dealloc", ast::FunctionKind::InstanceMethod); util::map::has_key(functions, CN)) {
+        auto callExpr = std::make_shared<ast::CallExpr>(makeIdent(CN));
+        callExpr->arguments = { selfIdent };
+        callExpr->setSourceLocation(SL);
+        auto stmt = std::make_shared<ast::ExprStmt>(callExpr);
+        stmt->setSourceLocation(SL);
+        body->statements.push_back(stmt);
+    }
+    
+    // Destruct all members
+    for (const auto &[name, type] : SM) {
+        auto memberAccess = std::make_shared<ast::MemberExpr>(selfIdent, name);
+        if (auto stmt = createDestructStmtIfDefined(type, memberAccess, /*includeReferences*/ false)) {
+            body->statements.push_back(stmt);
+        }
+    }
+    
+    FD->setBody(body);
+    
+    registerFunction(FD);
+    return codegen(FD);
 }

@@ -103,6 +103,8 @@ void emitIR(llvm::Module &M, llvm::raw_pwrite_stream &OS) {
 
 // returns true on success
 bool emitModule(std::unique_ptr<llvm::Module> module, const std::string &filename, std::string &outputPath) {
+    const auto &CLIOptions = cl::get_options();
+    
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmParser();
     llvm::InitializeNativeTargetAsmPrinter();
@@ -147,7 +149,7 @@ bool emitModule(std::unique_ptr<llvm::Module> module, const std::string &filenam
     FPM.add(llvm::createTargetTransformInfoWrapperPass(targetMachine->getTargetIRAnalysis()));
     PM.add(llvm::createVerifierPass());
 
-    if (cl::get_options().dumpLLVMPreOpt) {
+    if (CLIOptions.dumpLLVMPreOpt) {
         PM.add(llvm::createPrintModulePass(llvm::outs(), "Pre-Optimized IR:", true));
     }
     addOptimizationPasses(PR, PM, FPM);
@@ -160,15 +162,15 @@ bool emitModule(std::unique_ptr<llvm::Module> module, const std::string &filenam
     }
     FPM.doFinalization();
 
-    if (cl::get_options().dumpLLVM) {
-        std::string banner = !cl::get_options().optimize ? "Final IR:" : "Final IR (Optimized):";
+    if (CLIOptions.dumpLLVM) {
+        std::string banner = !CLIOptions.optimize ? "Final IR:" : "Final IR (Optimized):";
         PM.add(llvm::createPrintModulePass(llvm::outs(), banner, true));
     }
 
     PM.run(*module);
 
     
-    if (cl::get_options().emit.size() == 1 && cl::get_options().emit[0] == OutputFileType::None) {
+    if (CLIOptions.emit.size() == 1 && CLIOptions.emit[0] == OutputFileType::None) {
         return true;
     }
 
@@ -276,16 +278,16 @@ int runExecutable(const std::string& executablePath, const char *const *envp) {
 
 int main(int argc, const char * argv[], const char *const *envp) {
     cl::init(argc, argv);
+    auto &CLIOptions = cl::get_options();
     
-    
-    if (!cl::get_options().runArgs.empty()) {
-        cl::get_options_mut().run = true;
+    if (!CLIOptions.runArgs.empty()) {
+        CLIOptions.run = true;
     }
     
-    const std::string inputFile = cl::get_options().inputFile;
+    const std::string inputFile = CLIOptions.inputFile;
     const std::string inputFilename = util::fs::path_utils::getFilename(inputFile);
     
-    if (cl::get_options().pygmentize) {
+    if (CLIOptions.pygmentize) {
         auto tokens = parser::Lexer().lex(util::fs::read_file(inputFile), inputFilename, true);
         std::cout << lex::pygmentize(tokens) << std::endl;
         return EXIT_SUCCESS;
@@ -294,13 +296,13 @@ int main(int argc, const char * argv[], const char *const *envp) {
     
     parser::Parser parser;
     
-    if (!cl::get_options().stdlibRoot.empty()) {
-        parser.setCustomStdlibRoot(cl::get_options().stdlibRoot);
+    if (!CLIOptions.stdlibRoot.empty()) {
+        parser.setCustomStdlibRoot(CLIOptions.stdlibRoot);
     }
     
     auto ast = parser.parse(inputFile);
     
-    if (cl::get_options().printAST) {
+    if (CLIOptions.printAST) {
         std::cout << ast::description(ast) << std::endl;
         return EXIT_SUCCESS;
     }
@@ -310,15 +312,15 @@ int main(int argc, const char * argv[], const char *const *envp) {
     
     std::unique_ptr<llvm::Module> M = codegen.getModule();
     
-    if (cl::get_options().run && !shouldEmitType(OutputFileType::Binary)) {
-        cl::get_options_mut().emit.push_back(OutputFileType::Binary);
+    if (CLIOptions.run && !shouldEmitType(OutputFileType::Binary)) {
+        CLIOptions.emit.push_back(OutputFileType::Binary);
     }
     
     if (shouldEmitType(OutputFileType::Binary) && !shouldEmitType(OutputFileType::ObjectFile)) {
-        cl::get_options_mut().emit.push_back(OutputFileType::ObjectFile);
+        CLIOptions.emit.push_back(OutputFileType::ObjectFile);
     }
     
-    LKAssertImplication(shouldEmitType(OutputFileType::None), cl::get_options().emit.size() == 1);
+    LKAssertImplication(shouldEmitType(OutputFileType::None), CLIOptions.emit.size() == 1);
     
     std::string executablePath;
     
@@ -326,7 +328,7 @@ int main(int argc, const char * argv[], const char *const *envp) {
         return EXIT_FAILURE;
     }
     
-    if (cl::get_options().run) {
+    if (CLIOptions.run) {
         if (auto reason = canRunExecutable()) {
             LKFatalError("Unable to run executable: %s", reason->c_str());
         }

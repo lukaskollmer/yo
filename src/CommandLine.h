@@ -46,8 +46,7 @@ struct Options {
 };
 
 
-Options& get_options_mut();
-const Options& get_options();
+Options& get_options();
 
 
 void init(int argc, const char * argv[]);

@@ -69,8 +69,7 @@ bool yo::cl::hasRawOption(const std::string &str) {
 }
 
 
-Options& yo::cl::get_options_mut() { return options; }
-const Options& yo::cl::get_options() { return options; }
+Options& yo::cl::get_options() { return options; }
 
 
 void version_printer(llvm::raw_ostream &OS) {

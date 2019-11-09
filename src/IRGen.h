@@ -8,20 +8,22 @@
 
 #pragma once
 
-#include <memory>
-#include <optional>
-
-#include "llvm/IR/Module.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/DIBuilder.h"
-
 #include "AST.h"
 #include "Type.h"
 #include "NamedScope.h"
 #include "util.h"
 #include "CommandLine.h"
 
+#include "llvm/IR/Module.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/DIBuilder.h"
+
+#include <vector>
+#include <string>
 #include <stack>
+#include <memory>
+#include <optional>
+
 
 NS_START(yo::irgen)
 
@@ -34,10 +36,11 @@ enum ValueKind {
 
 struct ValueBinding {
     enum Flags : uint8_t {
-        None     = 0,
-        CanRead  = 1 << 0,
-        CanWrite = 1 << 1,
-        ReadWrite = CanRead | CanWrite
+        None        = 0,
+        CanRead     = 1 << 0,
+        CanWrite    = 1 << 1,
+        DontDestroy = 1 << 2,
+        ReadWrite   = CanRead | CanWrite
     };
     
     using ReadImp  = std::function<llvm::Value*(void)>;
@@ -57,6 +60,7 @@ struct ValueBinding {
 
 
 struct ResolvedCallable {
+    // TODO add a "kind of callable" field (global function, instance/static method, lambda, etc). that could also replace the argumentOffset field
     ast::FunctionSignature signature;
     std::shared_ptr<ast::FunctionDecl> funcDecl; // only nonnull if the callable is a function decl
     llvm::Value *llvmValue;
@@ -73,20 +77,23 @@ struct ResolvedCallable {
 
 // State of the function currently being generated
 struct FunctionState {
+    struct BreakContDestinations {
+        llvm::BasicBlock *breakDest, *contDest;
+    };
     std::shared_ptr<ast::FunctionDecl> decl = nullptr;
     llvm::Function *llvmFunction = nullptr;
     llvm::BasicBlock *returnBB = nullptr;
     llvm::Value *retvalAlloca = nullptr;
     uint64_t tmpIdentCounter = 0;
-    std::stack<llvm::BasicBlock *> breakDestinations;
-    std::stack<llvm::BasicBlock *> continueDestinations;
+    NamedScope<ValueBinding>::Marker stackTopMarker = 0; // Beginning of function body
+    std::stack<BreakContDestinations> breakContDestinations;
     
     FunctionState() {}
-    FunctionState(std::shared_ptr<ast::FunctionDecl> decl, llvm::Function *llvmFunction, llvm::BasicBlock *returnBB, llvm::Value *retvalAlloca)
-    : decl(decl), llvmFunction(llvmFunction), returnBB(returnBB), retvalAlloca(retvalAlloca) {}
+    FunctionState(std::shared_ptr<ast::FunctionDecl> decl, llvm::Function *llvmFunction, llvm::BasicBlock *returnBB, llvm::Value *retvalAlloca, NamedScope<ValueBinding>::Marker STM)
+    : decl(decl), llvmFunction(llvmFunction), returnBB(returnBB), retvalAlloca(retvalAlloca), stackTopMarker(STM) {}
     
     std::string getTmpIdent() {
-        return util::fmt::format("tmp_{}", tmpIdentCounter++);
+        return util::fmt::format("__tmp_{}", tmpIdentCounter++);
     }
 };
 
@@ -164,41 +171,43 @@ private:
     void emitDebugLocation(const std::shared_ptr<ast::Node> &node);
     
     
+    //
+    // CODEGEN
+    //
     
-    // Codegen
     llvm::Value *codegen(std::shared_ptr<ast::TopLevelStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::LocalStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::Expr>, ValueKind = RValue); // TODO should this really default to rvalue?
     
+    // ast::TopLevelStmt
     llvm::Value *codegen(std::shared_ptr<ast::FunctionDecl>);
     llvm::Value *codegen(std::shared_ptr<ast::StructDecl>);
     llvm::Value *codegen(std::shared_ptr<ast::ImplBlock>);
     
+    // ast::LocalStmt
     llvm::Value *codegen(std::shared_ptr<ast::Composite>);
     llvm::Value *codegen(std::shared_ptr<ast::ReturnStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::VarDecl>);
-    llvm::Value *codegen(std::shared_ptr<ast::Assignment>);
+    llvm::Value *codegen(std::shared_ptr<ast::Assignment>, bool shouldDestructOldValue = true);
     llvm::Value *codegen(std::shared_ptr<ast::IfStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::WhileStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::ForLoop>);
     llvm::Value *codegen(std::shared_ptr<ast::BreakContStmt>);
     
+    // ast::Expr
     llvm::Value *codegen(std::shared_ptr<ast::NumberLiteral>);
-    llvm::Value *codegen(std::shared_ptr<ast::StringLiteral>);
-    
+    llvm::Value *codegen(std::shared_ptr<ast::StringLiteral>, ValueKind);
     llvm::Value *codegen(std::shared_ptr<ast::CastExpr>);
     llvm::Value *codegen(std::shared_ptr<ast::UnaryExpr>);
-    
     llvm::Value *codegen(std::shared_ptr<ast::Ident>, ValueKind);
     llvm::Value *codegen(std::shared_ptr<ast::RawLLVMValueExpr>);
-    
     llvm::Value *codegen(std::shared_ptr<ast::BinOp>);
-    
     llvm::Value *codegen(std::shared_ptr<ast::SubscriptExpr>, ValueKind);
     llvm::Value *codegen(std::shared_ptr<ast::MemberExpr>, ValueKind);
     llvm::Value *codegen(std::shared_ptr<ast::ExprStmt>);
-    llvm::Value *codegen(std::shared_ptr<ast::CallExpr>);
+    llvm::Value *codegen(std::shared_ptr<ast::CallExpr>, ValueKind);
     
+    // Intrinsics
     llvm::Value *codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionDecl>, std::shared_ptr<ast::CallExpr>);
     llvm::Value *codegen_HandleArithmeticIntrinsic(ast::Operator, std::shared_ptr<ast::CallExpr>);
     llvm::Value *codegen_HandleComparisonIntrinsic(ast::Operator, std::shared_ptr<ast::CallExpr>);
@@ -220,20 +229,32 @@ private:
     
     // Types
     Type* resolveTypeDesc(std::shared_ptr<ast::TypeDesc>, bool setInternalResolvedType = true);
-    llvm::Type *getLLVMType(Type *);
-    llvm::DIType *getDIType(Type *);
+    llvm::Type* getLLVMType(Type *);
+    llvm::DIType* getDIType(Type *);
+    llvm::DISubroutineType* toDISubroutineType(const ast::FunctionSignature&);
     uint8_t argumentOffsetForCallingConvention(CallingConvention cc);
     Type* resolvePrimitiveType(std::string_view name);
+    bool isTemporary(std::shared_ptr<ast::Expr>);
     
-    // TODO is this a good idea? Does it even make sense?
-    // TODO invert return value and rename to `isTemporary`
-    bool canBecomeLValue(std::shared_ptr<ast::Expr>);
+    llvm::Value* constructStruct(StructType *, std::shared_ptr<ast::CallExpr> ctorCall, bool putInLocalScope, ValueKind);
+    llvm::Value* constructCopyIfNecessary(Type *, std::shared_ptr<ast::Expr>, bool *didConstructCopy = nullptr);
     
-    llvm::Value* constructStruct(StructType *, std::shared_ptr<ast::CallExpr> ctorCall);
+    /// Destructs a value by invoking the type's `dealloc` method, if defined
+    /// value parameter should be the value's memory location
+    llvm::Value* destructValueIfNecessary(Type *, llvm::Value *, bool includeReferences);
+    
+    /// Creates a call to the type's `dealloc` function, if defined
+    /// Returns nullptr if the type does not have a `dealloc` method
+    std::shared_ptr<ast::LocalStmt> createDestructStmtIfDefined(Type *, std::shared_ptr<ast::Expr>, bool includeReferences);
+    std::shared_ptr<ast::LocalStmt> createDestructStmtIfDefined(Type *, llvm::Value *, bool includeReferences);
+    
+    /// Puts the value into the local scope (thus including it in stack cleanup destructor calls)
+    void markForDestruction(Type *, llvm::Value *);
+    
+    void destructLocalScopeUntilMarker(NamedScope<ValueBinding>::Marker M, bool removeFromLocalScope);
     
     
     
-    llvm::DISubroutineType *_toDISubroutineType(const ast::FunctionSignature&);
     
     // Applying trivial number literal casts
     
@@ -250,7 +271,9 @@ private:
     bool typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *lhs, std::shared_ptr<ast::Expr> *rhs, Type **lhsTy, Type **rhsTy);
     
     
-    llvm::Value *synthesizeDefaultMemberwiseInitializer(std::shared_ptr<ast::StructDecl> structDecl);
+    llvm::Value* synthesizeDefaultMemberwiseInitializer(std::shared_ptr<ast::StructDecl>);
+    llvm::Value* synthesizeDefaultCopyConstructor(std::shared_ptr<ast::StructDecl>);
+    llvm::Value* synthesizeDefaultDeallocMethod(std::shared_ptr<ast::StructDecl>);
     
     
     // Other stuff
