@@ -209,8 +209,8 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     }
     
     
-    if (sig.isTemplateFunction() || functionDecl->getAttributes().intrinsic || functionDecl->getAttributes().int_isCtor) {
-        if (sig.isTemplateFunction() && sig.templateArgumentNames.size() != sig.distinctTemplateArgumentNames().size()) {
+    if (sig.isTemplateDecl() || functionDecl->getAttributes().intrinsic || functionDecl->getAttributes().int_isCtor) {
+        if (sig.isTemplateDecl() && sig.templateArgumentNames.size() != sig.distinctTemplateArgumentNames().size()) {
             diagnostics::emitError(functionDecl->getSourceLocation(), "template argument types must be distinct");
         }
         
@@ -435,7 +435,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     const auto &sig = functionDecl->getSignature();
     const auto &attr = functionDecl->getAttributes();
     
-    if (attr.extern_ || attr.intrinsic || sig.isTemplateFunction()) {
+    if (attr.extern_ || attr.intrinsic || sig.isTemplateDecl()) {
         return nullptr;
     }
     
@@ -1806,7 +1806,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         
         auto nominalTypesScopeMarker = nominalTypes.getMarker();
         
-        if (sig.isTemplateFunction()) {
+        if (sig.isTemplateDecl()) {
             score += 2; // Add a small penalty to prefer a non-templated overload, if available
             
             if (auto mapping = attemptToResolveTemplateArgumentTypesForCall(decl, callExpr, argumentOffset)) {
@@ -1910,7 +1910,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     
     auto bestMatch = matches.front();
     
-    if (bestMatch.decl->getSignature().isTemplateFunction() && !bestMatch.llvmValue) {
+    if (bestMatch.decl->getSignature().isTemplateDecl() && !bestMatch.llvmValue) {
         return specializeTemplateFunctionForCall(bestMatch.decl, bestMatch.templateArgumentMapping);
     }
     return ResolvedCallable(bestMatch.decl, bestMatch.llvmValue, argumentOffset);

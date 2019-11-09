@@ -37,7 +37,7 @@ std::vector<std::string> FunctionSignature::distinctTemplateArgumentNames() cons
 #pragma mark - AST Printing
 
 std::ostream& ast::operator<<(std::ostream &OS, const ast::FunctionSignature &signature) {
-    if (signature.isTemplateFunction()) {
+    if (signature.isTemplateDecl()) {
         OS << "<";
         for (auto it = signature.templateArgumentNames.begin(); it != signature.templateArgumentNames.end(); it++) {
             OS << *it;

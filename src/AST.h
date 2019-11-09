@@ -154,7 +154,7 @@ public:
 
     FunctionSignature() : Node(Node::NodeKind::FunctionSignature) {}
     
-    bool isTemplateFunction() const { return !templateArgumentNames.empty(); }
+    bool isTemplateDecl() const { return !templateArgumentNames.empty(); }
     std::vector<std::string> distinctTemplateArgumentNames() const;
     uint64_t numberOfDistinctTemplateArgumentNames() const {
         return distinctTemplateArgumentNames().size();
@@ -224,7 +224,7 @@ public:
     
     StructDecl() : TopLevelStmt(Node::NodeKind::StructDecl) {}
     
-    bool isTemplateStruct() { return !templateArguments.empty(); }
+    bool isTemplateDecl() { return !templateArguments.empty(); }
 };
 
 class ImplBlock : public TopLevelStmt {
