@@ -248,8 +248,8 @@ private:
     std::shared_ptr<ast::LocalStmt> createDestructStmtIfDefined(Type *, std::shared_ptr<ast::Expr>, bool includeReferences);
     std::shared_ptr<ast::LocalStmt> createDestructStmtIfDefined(Type *, llvm::Value *, bool includeReferences);
     
-    /// Puts the value into the local scope (thus including it in stack cleanup destructor calls)
-    void markForDestruction(Type *, llvm::Value *);
+    /// Put the value into the local scope (thus including it in stack cleanup destructor calls)
+    void includeInStackDestruction(Type *, llvm::Value *);
     
     void destructLocalScopeUntilMarker(NamedScope<ValueBinding>::Marker M, bool removeFromLocalScope);
     

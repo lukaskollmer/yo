@@ -904,15 +904,28 @@ ok:
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::RawLLVMValueExpr> rawExpr) {
-    emitDebugLocation(rawExpr);
     return rawExpr->value;
 }
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ExprStmt> exprStmt) {
-    emitDebugLocation(exprStmt->expr);
-    // TODO insert value into localScope so that it is included in stack cleanup
-    return codegen(exprStmt->expr);
+    auto expr = exprStmt->expr;
+    auto type = getType(expr);
+    auto ident = currentFunction.getTmpIdent();
+    llvm::AllocaInst *alloca = nullptr;
+    
+    if (!type->isVoidTy()) {
+        alloca = builder.CreateAlloca(type->getLLVMType());
+        alloca->setName(ident);
+        includeInStackDestruction(type, alloca);
+    }
+    
+    auto value = codegen(expr);
+    
+    if (!type->isVoidTy()) {
+        builder.CreateStore(value, alloca);
+    }
+    return value;
 }
 
 
@@ -1114,7 +1127,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, V
     if (isTemporary(memberExpr->target)) {
         LKFatalError("TODO");
         // TODO should this come after the load below?
-        markForDestruction(targetTy, targetV);
+        includeInStackDestruction(targetTy, targetV);
     }
     
     if (needsLoad) {
@@ -2049,7 +2062,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind
         
         args[0] = selfVal;
         if (isTemporary(implicitSelfArg)) {
-            markForDestruction(selfTy, selfVal);
+            includeInStackDestruction(selfTy, selfVal);
         }
     } else if (resolvedTarget.argumentOffset != 0) {
         LKFatalError("ugh");
@@ -2754,7 +2767,7 @@ std::shared_ptr<ast::LocalStmt> IRGenerator::createDestructStmtIfDefined(Type *t
 }
 
 
-void IRGenerator::markForDestruction(Type *type, llvm::Value *value) {
+void IRGenerator::includeInStackDestruction(Type *type, llvm::Value *value) {
     auto ident = currentFunction.getTmpIdent();
     value->setName(ident);
     localScope.insert(ident, ValueBinding(type, value, nullptr, nullptr, ValueBinding::Flags::None));
