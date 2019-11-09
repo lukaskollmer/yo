@@ -20,20 +20,18 @@
 #include <vector>
 #include <map>
 
+
 namespace llvm { class Value; }
 namespace yo::irgen { class Type; }
+
 
 NS_START(yo::ast)
 
 
 class TopLevelStmt;
-
 using AST = std::vector<std::shared_ptr<TopLevelStmt>>;
 
-
-std::string description(const AST& ast);
-
-
+std::string description(const AST&);
 
 
 enum class Operator : uint8_t {
@@ -96,8 +94,8 @@ public:
     NodeKind getNodeKind() const { return kind; }
     bool isOfKind(NodeKind NK) const { return kind == NK; }
     
-    // TODO add a `str` function that prints the node, as it would look as source code
-    virtual std::string description() const;
+    // TODO add a `str` function that prints the node, as it would look as source code?
+    virtual std::string description() const; // TODO remove in favor of `ast::description`
     const parser::TokenSourceLocation& getSourceLocation() const {
         return sourceLocation;
     }
