@@ -111,6 +111,7 @@ std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specialize(std::shared_p
         return specializedFuncDecl;
     }
     
+    specializedFuncDecl->setImplType(decl->getImplType());
     specializedFuncDecl->setBody(specialize(decl->getBody()));
     return specializedFuncDecl;
 }

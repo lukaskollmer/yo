@@ -1029,7 +1029,7 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
         // A: We return from the loop when encountering something that doesn't belong to the current precedence group
         // The long term plan is splitting this up in a bunch of functions and having ParseExpression call them from the while loop, depending on which kind of expression seems most likely based on the current token
         
-//    parse_call_expr:
+    parse_call_expr:
         if (currentTokenKind() == TK::OpeningAngledBracket || currentTokenKind() == TK::OpeningParens) {
             if (auto callExpr = parseCallExpr(expr)) {
                 expr = callExpr;
@@ -1048,8 +1048,9 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
             auto memberName = parseIdentAsString();
             expr = std::make_shared<ast::MemberExpr>(expr, memberName);
             expr->setSourceLocation(loc);
-            // TODO goto parse_call_expr if the current token is `<` or `(`?
-            // member expressions are probably somewhat often also call targets?
+            if (currentTokenKind() == TK::OpeningAngledBracket || currentTokenKind() == TK::OpeningParens) {
+                goto parse_call_expr;
+            }
         }
         
         
