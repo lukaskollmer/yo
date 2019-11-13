@@ -340,7 +340,7 @@ fn add<T>(x: T, y: T) -> T {
 
 <h3 sectionId="yo.fn.operator">Operator declaration</h3>
 
-Since most [binary operators](yo.expr.operators) are implemented as functions, they can be overloaded for a specific signature.
+Since most [binary operators](#yo.expr.operators) are implemented as functions, they can be overloaded for a specific signature.
 An operator overload is declared as a function with the name `operator`, followed by the operator being overloaded.
 
 ```rust
@@ -473,7 +473,7 @@ Every expression evaluates to a value of a specific type, which must be known at
     | `|>`     | function pipeline     | n/a              | FunctionPipeline   |
     | `=`      | assignment            | n/a              | Assignment         |
 
-**Note** Since most of the binary operators above are implemented as functions, they can be overloaded (see [yo.decl.fn.operator](yo.decl.fn.operator))
+**Note** Since most of the binary operators above are implemented as functions, they can be overloaded (see [yo.decl.fn.operator](#yo.decl.fn.operator))
 
 
 
