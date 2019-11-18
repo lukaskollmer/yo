@@ -282,8 +282,8 @@ std::optional<ResolvedCallable> IRGenerator::getResolvedFunctionWithName(const s
 
 
 void IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl) {
-    if (structDecl->isTemplateStruct()) {
         LKFatalError("TODO");
+    if (structDecl->isTemplateDecl()) {
     }
     
     StructType *LKMetadataAccessor = nullptr;
