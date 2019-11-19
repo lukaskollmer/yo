@@ -659,11 +659,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
         diagnostics::emitError(varDecl->getSourceLocation(), "unable to infer type of variable");
     }
     
-    if (varDecl->declaresUntypedReference) {
-        if (!type->isReferenceTy()) {
-            type = type->getReferenceTo();
-        }
-    } else if (!varDecl->declaresUntypedReference && type->isReferenceTy()) {
+    if (varDecl->declaresUntypedReference && !type->isReferenceTy()) {
+        type = type->getReferenceTo();
+    } else if (type->isReferenceTy() && hasInferredType && !varDecl->declaresUntypedReference) {
         type = llvm::dyn_cast<ReferenceType>(type)->getReferencedType();
     }
     
