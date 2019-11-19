@@ -24,6 +24,7 @@ static NumericalType *_uint8Ty;
 static NumericalType *_uint16Ty;
 static NumericalType *_uint32Ty;
 static NumericalType *_uint64Ty;
+static NumericalType *_float32Ty;
 static NumericalType *_float64Ty;
 
 
@@ -38,6 +39,7 @@ void Type::initPrimitives() {
     _uint16Ty  = new NumericalType(NumericalType::NumericalTypeID::UInt16);
     _uint32Ty  = new NumericalType(NumericalType::NumericalTypeID::UInt32);
     _uint64Ty  = new NumericalType(NumericalType::NumericalTypeID::UInt64);
+    _float32Ty = new NumericalType(NumericalType::NumericalTypeID::Float32);
     _float64Ty = new NumericalType(NumericalType::NumericalTypeID::Float64);
 }
 
@@ -52,6 +54,7 @@ NumericalType* Type::getUInt8Type() { return _uint8Ty; }
 NumericalType* Type::getUInt16Type() { return _uint16Ty; }
 NumericalType* Type::getUInt32Type() { return _uint32Ty; }
 NumericalType* Type::getUInt64Type() { return _uint64Ty; }
+NumericalType* Type::getFloat32Type() { return _float32Ty; }
 NumericalType* Type::getFloat64Type() { return _float64Ty; }
 
 
@@ -92,7 +95,7 @@ bool NumericalType::isBoolTy() const {
 }
 
 bool NumericalType::isFloatTy() const {
-    return numericalTypeId == NumericalTypeID::Float64;
+    return numericalTypeId == NumericalTypeID::Float32 || numericalTypeId == NumericalTypeID::Float64;
 }
 
 bool NumericalType::isIntegerTy() const {
@@ -106,6 +109,7 @@ bool NumericalType::isIntegerTy() const {
         case NumericalTypeID::UInt32:
         case NumericalTypeID::UInt64:
             return true;
+        case NumericalTypeID::Float32:
         case NumericalTypeID::Float64:
         case NumericalTypeID::Bool:
             return false;
@@ -129,6 +133,7 @@ std::string NumericalType::getName() const {
         case NumericalTypeID::UInt16: return "u16";
         case NumericalTypeID::UInt32: return "u32";
         case NumericalTypeID::UInt64: return "u64";
+        case NumericalTypeID::Float32: return "f32";
         case NumericalTypeID::Float64: return "f64";
     }
 }
@@ -154,6 +159,7 @@ uint8_t NumericalType::getPrimitiveSizeInBits() const {
             return 16;
         case NumericalTypeID::Int32:
         case NumericalTypeID::UInt32:
+        case NumericalTypeID::Float32:
             return 32;
         case NumericalTypeID::Int64:
         case NumericalTypeID::UInt64:
@@ -174,6 +180,7 @@ bool NumericalType::isSigned() const {
         case NumericalTypeID::Int16:
         case NumericalTypeID::Int32:
         case NumericalTypeID::Int64:
+        case NumericalTypeID::Float32:
         case NumericalTypeID::Float64:
             return true;
     }

@@ -115,12 +115,12 @@ class IRGenerator {
     struct {
         struct {
             llvm::IntegerType *i8, *i16, *i32, *i64, *i1;
-            llvm::Type *Void, *Double;
+            llvm::Type *Void, *Float, *Double;
             llvm::PointerType *i8Ptr;
         } llvm;
         struct {
             NumericalType *u8, *u16, *u32, *u64;
-            NumericalType *i8, *i16, *i32, *i64, *Bool, *f64;
+            NumericalType *i8, *i16, *i32, *i64, *Bool, *f32, *f64;
             Type *Void;
             PointerType *i8Ptr;
         } yo;

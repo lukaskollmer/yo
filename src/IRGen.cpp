@@ -56,14 +56,15 @@ IRGenerator::IRGenerator(const std::string& translationUnitPath)
     CLIOptions(cl::get_options())
 {
     builtinTypes.llvm = {
-        llvm::Type::getInt8Ty(C),
-        llvm::Type::getInt16Ty(C),
-        llvm::Type::getInt32Ty(C),
-        llvm::Type::getInt64Ty(C),
-        llvm::Type::getInt1Ty(C),
-        llvm::Type::getVoidTy(C),
-        llvm::Type::getDoubleTy(C),
-        llvm::Type::getInt8PtrTy(C)
+        /*.i8    = */ llvm::Type::getInt8Ty(C),
+        /*.i16   = */ llvm::Type::getInt16Ty(C),
+        /*.i32   = */ llvm::Type::getInt32Ty(C),
+        /*.i64   = */ llvm::Type::getInt64Ty(C),
+        /*.i1    = */ llvm::Type::getInt1Ty(C),
+        /*.Void  = */ llvm::Type::getVoidTy(C),
+        /*.Float = */ llvm::Type::getFloatTy(C),
+        /*.Doble = */ llvm::Type::getDoubleTy(C),
+        /*.i8Ptr = */ llvm::Type::getInt8PtrTy(C)
     };
     
     // create all primitives' llvm::Type and llvm::DIType objects
@@ -76,18 +77,19 @@ IRGenerator::IRGenerator(const std::string& translationUnitPath)
         return type;
     };
     builtinTypes.yo = {
-        preflight_type(Type::getUInt8Type()),
-        preflight_type(Type::getUInt16Type()),
-        preflight_type(Type::getUInt32Type()),
-        preflight_type(Type::getUInt64Type()),
-        preflight_type(Type::getInt8Type()),
-        preflight_type(Type::getInt16Type()),
-        preflight_type(Type::getInt32Type()),
-        preflight_type(Type::getInt64Type()),
-        preflight_type(Type::getBoolType()),
-        preflight_type(Type::getFloat64Type()),
-        preflight_type(Type::getVoidType()),
-        preflight_type(Type::getInt8Type()->getPointerTo())
+        .u8    = preflight_type(Type::getUInt8Type()),
+        .u16   = preflight_type(Type::getUInt16Type()),
+        .u32   = preflight_type(Type::getUInt32Type()),
+        .u64   = preflight_type(Type::getUInt64Type()),
+        .i8    = preflight_type(Type::getInt8Type()),
+        .i16   = preflight_type(Type::getInt16Type()),
+        .i32   = preflight_type(Type::getInt32Type()),
+        .i64   = preflight_type(Type::getInt64Type()),
+        .Bool  = preflight_type(Type::getBoolType()),
+        .f32   = preflight_type(Type::getFloat32Type()),
+        .f64   = preflight_type(Type::getFloat64Type()),
+        .Void  = preflight_type(Type::getVoidType()),
+        .i8Ptr = preflight_type(Type::getInt8Type()->getPointerTo())
     };
     
     const auto [path, filename] = util::string::extractPathAndFilename(translationUnitPath);
@@ -2806,6 +2808,7 @@ Type* IRGenerator::resolvePrimitiveType(std::string_view name) {
     HANDLE("u16",  builtinTypes.yo.u16)
     HANDLE("u32",  builtinTypes.yo.u32)
     HANDLE("u64",  builtinTypes.yo.u64)
+    HANDLE("f32",  builtinTypes.yo.f32)
     HANDLE("f64",  builtinTypes.yo.f64)
 #undef HANDLE
     return nullptr;
@@ -2913,28 +2916,33 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
             return handle_llvm_type(builtinTypes.llvm.Void);
         
         case Type::TypeID::Numerical: {
+            using NTID = NumericalType::NumericalTypeID;
+            
             auto numTy = llvm::dyn_cast<NumericalType>(type);
             switch (numTy->getNumericalTypeID()) {
-                case NumericalType::NumericalTypeID::Bool:
+                case NTID::Bool:
                     return handle_llvm_type(builtinTypes.llvm.i1);
                 
-                case NumericalType::NumericalTypeID::Int8:
-                case NumericalType::NumericalTypeID::UInt8:
+                case NTID::Int8:
+                case NTID::UInt8:
                     return handle_llvm_type(builtinTypes.llvm.i8);
                 
-                case NumericalType::NumericalTypeID::Int16:
-                case NumericalType::NumericalTypeID::UInt16:
+                case NTID::Int16:
+                case NTID::UInt16:
                     return handle_llvm_type(builtinTypes.llvm.i16);
                 
-                case NumericalType::NumericalTypeID::Int32:
-                case NumericalType::NumericalTypeID::UInt32:
+                case NTID::Int32:
+                case NTID::UInt32:
                     return handle_llvm_type(builtinTypes.llvm.i32);
                 
-                case NumericalType::NumericalTypeID::Int64:
-                case NumericalType::NumericalTypeID::UInt64:
+                case NTID::Int64:
+                case NTID::UInt64:
                     return handle_llvm_type(builtinTypes.llvm.i64);
                 
-                case NumericalType::NumericalTypeID::Float64:
+                case NTID::Float32:
+                    return handle_llvm_type(builtinTypes.llvm.Float);
+                
+                case NTID::Float64:
                     return handle_llvm_type(builtinTypes.llvm.Double);
             }
         }

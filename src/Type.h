@@ -101,6 +101,7 @@ public:
     static NumericalType* getUInt16Type();
     static NumericalType* getUInt32Type();
     static NumericalType* getUInt64Type();
+    static NumericalType* getFloat32Type(); // An IEEE 754 binary64 floating point type
     static NumericalType* getFloat64Type(); // An IEEE 754 binary64 floating point type
     
     static bool classof(const Type *type) {
@@ -119,7 +120,7 @@ public:
     enum class NumericalTypeID {
         Int8, Int16, Int32, Int64,
         UInt8, UInt16, UInt32, UInt64,
-        Float64, Bool
+        Float32, Float64, Bool
     };
     
 private:
@@ -128,6 +129,8 @@ private:
     
 public:
     NumericalTypeID getNumericalTypeID() const { return numericalTypeId; }
+    
+    bool numericalTypeIdEquals(NumericalTypeID ID) const { return numericalTypeId == ID; }
     
     virtual std::string getName() const;
     virtual std::string str() const;
