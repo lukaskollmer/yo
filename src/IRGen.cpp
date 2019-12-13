@@ -1007,8 +1007,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Ident> ident, ValueKind r
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> castExpr) {
     using LLVMCastOp = llvm::Instruction::CastOps;
+    constexpr auto invalidCastOp = static_cast<LLVMCastOp>(-1); // TODO is -1 a good invalid value?
     
-    LLVMCastOp op = static_cast<LLVMCastOp>(-1); // TODO is -1 a good invalid value?
+    LLVMCastOp op = invalidCastOp;
     const auto srcTy = getType(castExpr->expr);
     const auto dstTy = resolveTypeDesc(castExpr->destType);
     const auto &DL = module->getDataLayout();
@@ -1076,7 +1077,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> castExpr) {
         }
     }
     
-    if (op == static_cast<LLVMCastOp>(-1)) {
+    if (op == invalidCastOp) {
         auto msg = util::fmt::format("unable to resolve cast from '{}' to '{}'", srcTy, dstTy);
         diagnostics::emitError(castExpr->getSourceLocation(), msg);
     }
