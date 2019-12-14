@@ -429,11 +429,16 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
         if (!fn->getSignature().paramTypes.empty()) {
             // TODO allow omitting the type of a self parameter, and set it here implicitly?
             // TODO don't call resolveTypeDesc on templated methods
-            bool isInstanceMethod =
-                fn->getParamNames().front()->value == "self"
-                && resolveTypeDesc(fn->getSignature().paramTypes.front()) == structTy->getReferenceTo();
             
-            if (isInstanceMethod) kind = FK::InstanceMethod;
+            if (fn->getParamNames()[0]->value == "self") {
+                auto T = fn->getSignature().paramTypes[0];
+                if (T->isReference() && T->getPointee()->isNominal() && T->getPointee()->getName() == "Self") {
+                    kind = FK::InstanceMethod;
+                    fn->getSignature().paramTypes[0] = ast::TypeDesc::makeResolved(structTy->getReferenceTo());
+                } else if (resolveTypeDesc(T) == structTy->getReferenceTo()) {
+                    kind = FK::InstanceMethod;
+                }
+            }
         }
         fn->setFunctionKind(kind);
         fn->setImplType(structTy);
