@@ -228,7 +228,17 @@ std::string FunctionType::getName() const {
 
 
 std::string StructType::str() const {
-    return name; // TODO add a bit more info here?
+    if (templateArguments.empty()) return name;
+    
+    std::ostringstream OS;
+    OS << name;
+    OS << '<';
+    util::vector::iterl(templateArguments, [&OS](Type *ty, bool isLast) {
+        OS << ty->str();
+        if (!isLast) OS << ", ";
+    });
+    OS << '>';
+    return OS.str();
 }
 
 std::string StructType::getName() const {
