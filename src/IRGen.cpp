@@ -1580,18 +1580,32 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
     
     const auto &sig = FD->getSignature();
     LKAssert(sig.isTemplateDecl());
+    
     if (sig.paramTypes.size() != call->arguments.size() + argumentOffset) {
         return std::nullopt;
     }
+    
+    
+    // There are two ways a template argument type is resolved here:
+    // 1. It was explicitly specified at the call site. Example: `foo<i32>();`
+    // 2. We deduce it by looking at the arguments that were passed to the function
+    //    In this case, there are two distinctions to be made: is the call argument a literal or a non-literal expression?
+    //    Literals are given less importance than non-literal expressions. Why is that the case? consider the following example:
+    //    We're calling a function with the signature `(T, T) -> T`. The arguments are `x` (of type i32) and `12` (of type i64 since it is a literal).
+    //    Since implicit conversions are allowed for literals, and 12 fits in an i32, there is no reason to reject this call and the compiler
+    //    needs to resolve `T` as i32, thus allowing an implicit conversion to take place later in function call codegen.
+    //    To take scenarios like this into account, non-literal function parameters are given more "weight" than literals, and they can override
+    //    a template argument type deduced from a literal expression.
     
     
     auto templateParamNames = util::vector::map(sig.templateParamsDecl->getParams(), [](auto &param) { return param.name; });
     
     
     enum class DeductionReason {
-        Expr,
-        Literal,
-        Explicit
+        Default,    // default value specified in decl
+        Expr,       // deduced from argument expr
+        Literal,    // deduced from argument expr that is a literal
+        Explicit    // explicitly specified in call expr
     };
     using DR = DeductionReason;
     
@@ -1604,14 +1618,11 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
     std::map<std::string, DeductionInfo> mapping;
     
     
-    
     // Handle explicitly specified types
-    
     for (uint64_t idx = 0; idx < std::min<uint64_t>(sig.templateParamsDecl->size(), call->numberOfExplicitTemplateArgs()); idx++) {
         auto &param = sig.templateParamsDecl->getParams()[idx];
         mapping[param.name] = { resolveTypeDesc(call->explicitTemplateArgs->elements[idx]), DeductionReason::Explicit };
     }
-    
     
     
     // Attempt to resolve template parameters from call arguments
@@ -1707,6 +1718,11 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
     for (uint64_t idx = argumentOffset; idx < call->arguments.size(); idx++) {
         auto sigTypeDesc = sig.paramTypes[idx];
         auto argTy = getType(call->arguments[idx]);
+        
+        if (llvm::isa<ReferenceType>(argTy)) {
+            argTy = llvm::dyn_cast<ReferenceType>(argTy)->getReferencedType();
+        }
+        
         if (!handle(sigTypeDesc, argTy, idx)) return std::nullopt;
     }
     
@@ -1717,7 +1733,16 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
         if (util::map::has_key(mapping, param.name)) continue;
         
         if (auto defaultTy = param.defaultType) {
-            mapping[param.name].type = resolveTypeDesc(defaultTy);
+            // TODO this resolves the default type in a different context than the one it was declared in!
+            // Fix by using the specializer to rewrite functions instead of temporarily introducing type mappings?
+            // Example:
+            // ```
+            // struct A {}
+            // fn foo<T = A>() {}
+            // fn bar<A>() { foo(); }
+            // ```
+            // In this case, even though foo's default type specified the global struct `A`, it'd get resolved to the locally shadowing template parameter
+            mapping[param.name] = { resolveTypeDesc(defaultTy), DR::Default };
         } else {
             // no entry for type, and no default value
             return std::nullopt;
@@ -3529,14 +3554,13 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
     
     auto resolvedName = mangling::mangleFullyResolved(instantiatedDecl);
     
-    
     if (auto ST = nominalTypes.get(resolvedName)) {
         return llvm::dyn_cast<StructType>(*ST);
     }
     
     StructType *structTy = registerStructDecl(instantiatedDecl);
     
-    // Instantiate `impl` blocks
+    // Instantiate & codegen impl blocks
     for (auto &implBlock : instantiatedDecl->implBlocks) {
         auto name = implBlock->typename_;
         implBlock->typename_ = mangling::mangleFullyResolved(instantiatedDecl);
