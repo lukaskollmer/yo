@@ -17,14 +17,10 @@
 #include <map>
 
 namespace yo::mangling {
-    std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl>);
     std::string mangleCanonicalName(std::shared_ptr<ast::FunctionDecl>);
     std::string mangleCanonicalName(std::string_view type, std::string_view method, ast::FunctionKind kind);
     
-    // TODO add a yo::irgen::Type equivalent
-    std::string mangleTemplateSpecialization(std::shared_ptr<ast::StructDecl>, std::map<std::string, irgen::Type *> templateParameterMapping);
-    std::string mangleTemplateInstantiation(std::shared_ptr<ast::TypeDesc>);
-    
+    std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl>);
     std::string mangleFullyResolved(std::shared_ptr<ast::StructDecl>);
     
     bool isCanonicalInstanceMethodName(std::string_view ident);
