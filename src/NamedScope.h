@@ -70,7 +70,6 @@ public:
     
     /// Remove the most recently added entry with the specified name
     void remove(const std::string &ident) {
-        util::fmt::print("removing {}", ident);
         auto it = std::find_if(entries.rbegin(), entries.rend(), [&ident](const auto &entry) -> bool {
             return std::get<0>(entry) == ident;
         });
@@ -86,7 +85,6 @@ public:
     void remove(ID id) {
         for (auto it = entries.rbegin(); it != entries.rend(); it++) {
             if (std::get<1>(*it) == id) {
-                util::fmt::print("removing {}", std::get<0>(*it));
                 entries.erase((it + 1).base());
                 return;
             }
@@ -103,9 +101,6 @@ public:
     
     /// Removes all entries *including* the marker
     void removeAllSinceMarker(Marker M) {
-        for (auto &[name, a, b] : getEntriesSinceMarker(M)) {
-            util::fmt::print("removing {}", name);
-        }
         entries.erase(entries.begin() + M, entries.end());
     }
     

@@ -2232,7 +2232,6 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         for (const auto &rejection : rejections) {
             diagnostics::emitNote(rejection.decl.getSourceLocation(), util::fmt::format("not viable: {}", rejection.reason));
         }
-        nominalTypes.dump();
         diagnostics::emitError(callExpr->getSourceLocation(), util::fmt::format("unable to resolve call to '{}'", targetName));
     }
 
