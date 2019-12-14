@@ -26,25 +26,18 @@ using namespace yo::ast;
 
 
 
-std::vector<std::string> FunctionSignature::distinctTemplateArgumentNames() const {
-    std::vector<std::string> names = templateArgumentNames;
-    auto last = std::unique(names.begin(), names.end());
-    names.erase(last, names.end());
-    return names;
-}
-
-
 #pragma mark - AST Printing
 
 std::ostream& ast::operator<<(std::ostream &OS, const ast::FunctionSignature &signature) {
     if (signature.isTemplateDecl()) {
         OS << "<";
-        for (auto it = signature.templateArgumentNames.begin(); it != signature.templateArgumentNames.end(); it++) {
-            OS << *it;
-            if (it + 1 != signature.templateArgumentNames.end()) {
-                OS << ", ";
+        util::vector::iterl(signature.templateParamsDecl->getParams(), [&OS](const TemplateParamDeclList::Param &P, bool isLast) {
+            OS << P.name;
+            if (auto defaultType = P.defaultType) {
+                OS << " = " << defaultType;
             }
-        }
+            if (!isLast) OS << ", ";
+        });
         OS << ">";
     }
     OS << "(";
@@ -405,12 +398,19 @@ Mirror Reflect(const MatchExpr::MatchExprBranch *branch) {
 Mirror Reflect(const ast::CallExpr *callExpr) {
     std::ostringstream OS;
     OS << "[ ";
-    for (auto it = callExpr->explicitTemplateArgumentTypes.begin(); it != callExpr->explicitTemplateArgumentTypes.end(); it++) {
-        OS << (*it)->str();
-        if (it + 1 != callExpr->explicitTemplateArgumentTypes.end()) {
-            OS << ", ";
-        }
+    if (callExpr->hasExplicitTemplateArgs()) {
+        util::vector::iterl(callExpr->explicitTemplateArgs->elements, [&OS](auto &param, bool isLast) {
+            OS << param->str();
+            if (!isLast) OS << ", ";
+        });
     }
+////    util::vector::iterl(callExpr->explicitTemplateParams, <#F &&fn#>)
+//    for (auto it = callExpr->explicitTemplateArgumentTypes.begin(); it != callExpr->explicitTemplateArgumentTypes.end(); it++) {
+//        OS << (*it)->str();
+//        if (it + 1 != callExpr->explicitTemplateArgumentTypes.end()) {
+//            OS << ", ";
+//        }
+//    }
     OS << " ]";
     
     return {

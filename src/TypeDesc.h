@@ -17,14 +17,16 @@
 #include <variant>
 #include <memory>
 #include <iostream>
+#include <utility>
 
 
 
 NS_START(yo::ast)
 
+using parser::TokenSourceLocation;
+
 class Expr;
 class TypeDesc;
-
 
 struct FunctionTypeInfo {
     yo::irgen::CallingConvention callingConvention;
@@ -35,65 +37,69 @@ struct FunctionTypeInfo {
 };
 
 
-
 /// Describes a type, as expressed in the AST
 class TypeDesc {
 public:
     enum class Kind {
         Nominal,
+        NominalTemplated,
         Pointer,
         Function,
         Reference,
         Decltype,
-        
         Resolved // Special case that simply wraps a fully resolved `yo::Type *`
     };
     
 private:
+    using NominalTemplatedDataT = std::pair<std::string, std::vector<std::shared_ptr<TypeDesc>>>;
+    
     Kind kind;
     std::variant<
-        std::string,
-        std::shared_ptr<TypeDesc>,
-        FunctionTypeInfo,
-        std::shared_ptr<Expr>
+        std::string,                // Kind::Nominal
+        NominalTemplatedDataT,      // Kind::NominalTemplated
+        std::shared_ptr<TypeDesc>,  // Kind::Pointer | Kind::Reference
+        FunctionTypeInfo,           // Kind::Function
+        std::shared_ptr<Expr>       // Kind::Decltype
     > data;
     yo::irgen::Type *resolvedType = nullptr;
-    parser::TokenSourceLocation srcLoc;
+    TokenSourceLocation srcLoc;
     
-    explicit TypeDesc(Kind kind, parser::TokenSourceLocation loc = parser::TokenSourceLocation())
+    explicit TypeDesc(Kind kind, TokenSourceLocation loc = TokenSourceLocation())
     : kind(kind), srcLoc(loc) {}
     
     template <typename T>
-    TypeDesc(Kind kind, T data, parser::TokenSourceLocation loc = parser::TokenSourceLocation())
+    TypeDesc(Kind kind, T data, TokenSourceLocation loc = TokenSourceLocation())
     : kind(kind), data(data), srcLoc(loc) {}
     
     
 public:
-    //TypeDesc(yo::irgen::Type *type) : kind(Kind::Resolved), resolvedType(type) {}
-    
-    static std::shared_ptr<TypeDesc> makeNominal(std::string name, parser::TokenSourceLocation loc = parser::TokenSourceLocation()) {
+    static std::shared_ptr<TypeDesc> makeNominal(std::string name, TokenSourceLocation loc = TokenSourceLocation()) {
         return std::shared_ptr<TypeDesc>(new TypeDesc(Kind::Nominal, name, loc));
     }
     
-    static std::shared_ptr<TypeDesc> makePointer(std::shared_ptr<TypeDesc> pointee, parser::TokenSourceLocation loc = parser::TokenSourceLocation()) {
+    static std::shared_ptr<TypeDesc> makeNominalTemplated(std::string name, std::vector<std::shared_ptr<TypeDesc>> Ts, TokenSourceLocation loc = TokenSourceLocation()) {
+        return std::shared_ptr<TypeDesc>(new TypeDesc(Kind::NominalTemplated, NominalTemplatedDataT(name, Ts), loc));
+    }
+    
+    static std::shared_ptr<TypeDesc> makePointer(std::shared_ptr<TypeDesc> pointee, TokenSourceLocation loc = TokenSourceLocation()) {
         return std::shared_ptr<TypeDesc>(new TypeDesc(Kind::Pointer, pointee, loc));
     }
     
-    static std::shared_ptr<TypeDesc> makeReference(std::shared_ptr<TypeDesc> pointee, parser::TokenSourceLocation loc = parser::TokenSourceLocation()) {
+    static std::shared_ptr<TypeDesc> makeReference(std::shared_ptr<TypeDesc> pointee, TokenSourceLocation loc = TokenSourceLocation()) {
         return std::shared_ptr<TypeDesc>(new TypeDesc(Kind::Reference, pointee, loc));
     }
     
-    static std::shared_ptr<TypeDesc> makeFunction(yo::irgen::CallingConvention cc, std::shared_ptr<TypeDesc> returnTy, std::vector<std::shared_ptr<TypeDesc>> parameterTypes, parser::TokenSourceLocation loc = parser::TokenSourceLocation()) {
+    static std::shared_ptr<TypeDesc> makeFunction(yo::irgen::CallingConvention cc, std::shared_ptr<TypeDesc> returnTy, std::vector<std::shared_ptr<TypeDesc>> parameterTypes, TokenSourceLocation loc = TokenSourceLocation()) {
         return std::shared_ptr<TypeDesc>(new TypeDesc(Kind::Function, FunctionTypeInfo(cc, returnTy, parameterTypes), loc));
     }
     
-    static std::shared_ptr<TypeDesc> makeResolved(yo::irgen::Type *type, parser::TokenSourceLocation loc = parser::TokenSourceLocation()) {
+    static std::shared_ptr<TypeDesc> makeResolved(yo::irgen::Type *type, TokenSourceLocation loc = TokenSourceLocation()) {
         auto typeDesc = std::shared_ptr<TypeDesc>(new TypeDesc(Kind::Resolved, loc));
         typeDesc->setResolvedType(type);
         return typeDesc;
     }
     
-    static std::shared_ptr<TypeDesc> makeDecltype(std::shared_ptr<ast::Expr> expr, parser::TokenSourceLocation loc = parser::TokenSourceLocation()) {
+    static std::shared_ptr<TypeDesc> makeDecltype(std::shared_ptr<ast::Expr> expr, TokenSourceLocation loc = TokenSourceLocation()) {
         return std::shared_ptr<TypeDesc>(new TypeDesc(Kind::Decltype, expr, loc));
     }
     
@@ -101,13 +107,18 @@ public:
     
     Kind getKind() const { return kind; }
     
-    bool isPointer() const { return kind == Kind::Pointer; }
-    bool isResolved() const { return resolvedType != nullptr; }
-    bool isReference() const { return kind == Kind::Reference; }
+    bool isOfKind(Kind K) const { return kind == K; }
+    
+    bool isNominal() const { return isOfKind(Kind::Nominal) || isOfKind(Kind::NominalTemplated); }
+    bool isPointer() const { return isOfKind(Kind::Pointer); }
+    bool isResolved() const { return isOfKind(Kind::Resolved); } // TODO should this also return true if resolvedType != nil ?
+    bool isReference() const { return isOfKind(Kind::Reference); }
     
     const std::string& getName() const {
-        LKAssert(kind == Kind::Nominal);
-        return std::get<std::string>(data);
+        LKAssert(isNominal());
+        return isOfKind(Kind::Nominal)
+            ? std::get<std::string>(data)
+            : std::get<NominalTemplatedDataT>(data).first;
     }
     
     /// Returns the referenced type, if this is a pointer or a reference
@@ -120,10 +131,15 @@ public:
         return std::get<FunctionTypeInfo>(data);
     }
     
+    const NominalTemplatedDataT::second_type& getTemplateArgs() const {
+        LKAssert(isOfKind(Kind::NominalTemplated));
+        return std::get<NominalTemplatedDataT>(data).second;
+    }
+    
     yo::irgen::Type* getResolvedType() const { return resolvedType; }
     void setResolvedType(yo::irgen::Type *type) { resolvedType = type; }
     
-    const parser::TokenSourceLocation& getSourceLocation() const { return srcLoc; }
+    const TokenSourceLocation& getSourceLocation() const { return srcLoc; }
     
     std::shared_ptr<Expr> getDecltypeExpr() const {
         return std::get<std::shared_ptr<Expr>>(data);

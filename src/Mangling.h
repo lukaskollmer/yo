@@ -8,10 +8,13 @@
 
 #pragma once
 
+#include "AST.h"
+#include "TypeDesc.h"
+#include "Type.h"
+
 #include <string>
 #include <memory>
-#include "AST.h"
-#include "Type.h"
+#include <map>
 
 namespace yo::mangling {
     std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl>);
@@ -19,7 +22,10 @@ namespace yo::mangling {
     std::string mangleCanonicalName(std::string_view type, std::string_view method, ast::FunctionKind kind);
     
     // TODO add a yo::irgen::Type equivalent
-    //std::string mangleTemplatedComplexType(TypeInfo *TI);
+    std::string mangleTemplateSpecialization(std::shared_ptr<ast::StructDecl>, std::map<std::string, irgen::Type *> templateParameterMapping);
+    std::string mangleTemplateInstantiation(std::shared_ptr<ast::TypeDesc>);
+    
+    std::string mangleFullyResolved(std::shared_ptr<ast::StructDecl>);
     
     bool isCanonicalInstanceMethodName(std::string_view ident);
     

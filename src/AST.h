@@ -72,6 +72,7 @@ class Ident;
 class VarDecl;
 class Composite;
 class StructDecl;
+class ImplBlock;
 
 
 class Node {
@@ -87,8 +88,7 @@ public:
         BinOp, CallExpr, CompOp, Ident, LogicalOp, MatchExpr, MemberExpr, NumberLiteral, RawLLVMValueExpr, StaticDeclRefExpr,
         StringLiteral, SubscriptExpr, CastExpr, UnaryExpr,
         
-        // Things that shouldn't inherit from Node, but do
-        FunctionSignature, IfStmtBranch, MatchExprBranch
+        TemplateParamDeclList, TemplateParamArgList, FunctionSignature, IfStmtBranch, MatchExprBranch
     };
     
     NodeKind getNodeKind() const { return kind; }
@@ -145,20 +145,62 @@ enum class FunctionKind {
 };
 
 
+
+/// A list of template parameters, for example for a struct or function declaration
+class TemplateParamDeclList : public Node {
+public:
+    struct Param {
+        std::string name;
+        std::shared_ptr<ast::TypeDesc> defaultType;
+        Param(std::string name, std::shared_ptr<ast::TypeDesc> defaultType = nullptr) : name(name), defaultType(defaultType) {}
+    };
+    
+private:
+    std::vector<Param> elements;
+    
+public:
+    TemplateParamDeclList() : Node(Node::NodeKind::TemplateParamDeclList) {}
+    
+    void addParam(Param P) { elements.push_back(P); }
+    void setParams(std::vector<Param> E) { elements = E; }
+    const std::vector<Param>& getParams() const { return elements; }
+    bool isEmpty() const { return elements.empty(); }
+    size_t size() const { return elements.size(); }
+};
+
+
+
+class TemplateParamArgList : public Node {
+public:
+    std::vector<std::shared_ptr<ast::TypeDesc>> elements;
+    
+    TemplateParamArgList() : Node(Node::NodeKind::TemplateParamArgList) {}
+    
+    size_t size() const {
+        return elements.size();
+    }
+    
+    bool isEmpty() const {
+        return size() == 0;
+    }
+    
+    std::shared_ptr<ast::TypeDesc> at(uint64_t idx) const {
+        return elements.at(idx);
+    }
+};
+
+
+
 class FunctionSignature : public Node {
 public:
     std::shared_ptr<TypeDesc> returnType;
     std::vector<std::shared_ptr<TypeDesc>> paramTypes;
-    std::vector<std::string> templateArgumentNames;
+    std::shared_ptr<TemplateParamDeclList> templateParamsDecl;
     bool isVariadic = false;
 
     FunctionSignature() : Node(Node::NodeKind::FunctionSignature) {}
     
-    bool isTemplateDecl() const { return !templateArgumentNames.empty(); }
-    std::vector<std::string> distinctTemplateArgumentNames() const;
-    uint64_t numberOfDistinctTemplateArgumentNames() const {
-        return distinctTemplateArgumentNames().size();
-    }
+    bool isTemplateDecl() const { return templateParamsDecl != nullptr; }
 };
 
 std::ostream& operator<<(std::ostream&, const ast::FunctionSignature&);
@@ -180,12 +222,13 @@ class FunctionDecl : public TopLevelStmt {
     
     // context
     irgen::StructType *implType = nullptr; // Only nonnull if this is a type member function
+    /// The template arguments this function was instantiated with
     std::vector<yo::irgen::Type *> resolvedTemplateArgTypes;
 
     
 public:
-    FunctionDecl(FunctionKind kind, std::string name, FunctionSignature sig, std::vector<std::shared_ptr<ast::Ident>> paramNames, attributes::FunctionAttributes attr)
-    : TopLevelStmt(Node::NodeKind::FunctionDecl), signature(sig), paramNames(paramNames), body(std::make_shared<Composite>()), attributes(attr), funcKind(kind), name(name) {}
+    FunctionDecl(FunctionKind kind, std::string name, FunctionSignature sig, attributes::FunctionAttributes attr)
+    : TopLevelStmt(Node::NodeKind::FunctionDecl), signature(sig), body(std::make_shared<Composite>()), attributes(attr), funcKind(kind), name(name) {}
     
     FunctionKind getFunctionKind() const { return funcKind; }
     void setFunctionKind(FunctionKind kind) { funcKind = kind; }
@@ -199,6 +242,7 @@ public:
     void setResolvedTemplateArgTypes(std::vector<yo::irgen::Type *> tys) { resolvedTemplateArgTypes = tys; }
     
     const std::vector<std::shared_ptr<Ident>>& getParamNames() const { return paramNames; }
+    void setParamNames(std::vector<std::shared_ptr<Ident>> names) { paramNames = names; }
     
     attributes::FunctionAttributes& getAttributes() { return attributes; }
     const attributes::FunctionAttributes& getAttributes() const { return attributes; }
@@ -214,26 +258,31 @@ public:
 
 
 
-
 class StructDecl : public TopLevelStmt {
 public:
     std::string name;
     std::vector<std::shared_ptr<VarDecl>> members;
-    std::vector<std::string> templateArguments;
+    std::shared_ptr<TemplateParamDeclList> templateParamsDecl;
     attributes::StructAttributes attributes;
+    
+    /// The template arguments this struct was instantiated with
+    std::vector<yo::irgen::Type *> resolvedTemplateArgTypes;
     
     StructDecl() : TopLevelStmt(Node::NodeKind::StructDecl) {}
     
-    bool isTemplateDecl() { return !templateArguments.empty(); }
+    bool isTemplateDecl() { return templateParamsDecl != nullptr; }
+    
+    const std::string& getName() const { return name; }
 };
+
 
 class ImplBlock : public TopLevelStmt {
 public:
-    std::string typename_;
+    std::string typename_; // TODO make this a TypeDesc instead?
     std::vector<std::shared_ptr<FunctionDecl>> methods;
-    
+    bool isNominalTemplateType = false;
+
     ImplBlock(std::string typename_) : TopLevelStmt(Node::NodeKind::ImplBlock), typename_(typename_) {}
-    ImplBlock(std::string typename_, std::vector<std::shared_ptr<FunctionDecl>> methods) : TopLevelStmt(Node::NodeKind::ImplBlock), typename_(typename_), methods(methods) {}
 };
 
 
@@ -435,12 +484,20 @@ class CallExpr : public Expr {
 public:
     std::shared_ptr<Expr> target;
     std::vector<std::shared_ptr<Expr>> arguments;
-    std::vector<std::shared_ptr<TypeDesc>> explicitTemplateArgumentTypes;
+    std::shared_ptr<ast::TemplateParamArgList> explicitTemplateArgs;
     
-    CallExpr(std::shared_ptr<Expr> target,
-             std::vector<std::shared_ptr<Expr>> arguments = {},
-             std::vector<std::shared_ptr<TypeDesc>> explicitTemplateArgumentTypes = {})
-    : Expr(Node::NodeKind::CallExpr), target(target), arguments(arguments), explicitTemplateArgumentTypes(explicitTemplateArgumentTypes) {}
+    CallExpr(std::shared_ptr<Expr> target, std::vector<std::shared_ptr<Expr>> arguments = {})
+    : Expr(Node::NodeKind::CallExpr), target(target), arguments(arguments) {}
+    
+    /// Whether the call has specifies explicit template arguments
+    bool hasExplicitTemplateArgs() const {
+        return explicitTemplateArgs != nullptr;
+    }
+    
+    uint64_t numberOfExplicitTemplateArgs() const {
+        if (!hasExplicitTemplateArgs()) return 0;
+        else return explicitTemplateArgs->size();
+    }
 };
 
 

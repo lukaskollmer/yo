@@ -230,10 +230,14 @@ public:
 private:
     std::string name;
     MembersT members;
+    std::vector<Type *> templateArguments;
     parser::TokenSourceLocation sourceLoc;
     
     StructType(std::string name, MembersT members, parser::TokenSourceLocation sourceLoc)
     : Type(Type::TypeID::Struct), name(name), members(members), sourceLoc(sourceLoc) {}
+    
+    StructType(std::string name, MembersT members, std::vector<Type *> templateArgs, parser::TokenSourceLocation SL)
+    : Type(Type::TypeID::Struct), name(name), members(members), templateArguments(templateArgs), sourceLoc(SL) {}
     
 public:
     
@@ -250,9 +254,15 @@ public:
     const MembersT& getMembers() const { return members; }
     const parser::TokenSourceLocation& getSourceLocation() const { return sourceLoc; }
     
+    const std::vector<Type *>& getTemplateArguments() const { return templateArguments; }
+    
     
     static StructType* create(std::string name, MembersT members, parser::TokenSourceLocation sourceLoc) {
         return new StructType(name, members, sourceLoc);
+    }
+    
+    static StructType* create(std::string name, MembersT members, std::vector<Type *> templateArgs, parser::TokenSourceLocation SL) {
+        return new StructType(name, members, templateArgs, SL);
     }
     
     static bool classof(const Type *type) {

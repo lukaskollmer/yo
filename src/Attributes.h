@@ -56,6 +56,7 @@ struct FunctionAttributes {
     bool startup = false;
     bool shutdown = false;
     bool int_isCtor = false;
+    bool int_isFwdDecl = false;
     std::string mangledName = "";
     std::vector<SideEffect> side_effects = { SideEffect::Unknown };
     

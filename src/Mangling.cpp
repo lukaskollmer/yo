@@ -21,14 +21,11 @@ namespace yo::mangling {
     inline constexpr char kPrefixStaticMethod   = 'S';
     inline constexpr char kPrefixOperatorOverload = 'O';
     
-    inline constexpr char kTemplatedTypePrefix = 'T';
-//    inline constexpr char kComplexTypePrefix = 'C';
-    
-    
     inline constexpr char kCanonicalPrefixInstanceMethod = '-';
     inline constexpr char kCanonicalPrefixStaticMethod = '+';
     inline constexpr char kCanonicalPrefixOperatorOverload = '~';
-
+    
+    inline constexpr char kTemplatedTypePrefix = 'T';
 }
 
 
@@ -225,6 +222,53 @@ std::string mangling::mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> fun
     return mangler.str();
 }
 
+
+
+
+//std::string mangling::mangleTemplateSpecialization(std::shared_ptr<ast::StructDecl> structDecl, std::map<std::string, irgen::Type *> templateParameterMapping) {
+//    ManglingStringBuilder mangler(kCommonPrefix);
+//    mangler.append(kTemplatedTypePrefix);
+//
+//    mangler.appendWithCount(structDecl->name);
+//    mangler.append(kTemplatedTypePrefix);
+//    for (auto &param : structDecl->templateParamsDecl->getParams()) {
+//        mangler.appendEncodedType(templateParameterMapping.at(param.name));
+//    }
+//
+//    return mangler.str();
+//}
+//
+//
+//
+//std::string mangling::mangleTemplateInstantiation(std::shared_ptr<ast::TypeDesc> TD) {
+//    LKAssert(TD->isOfKind(ast::TypeDesc::Kind::NominalTemplated));
+//
+//    ManglingStringBuilder mangler(kCommonPrefix);
+//    mangler.append(kTemplatedTypePrefix);
+//
+//    mangler.appendWithCount(TD->getName());
+//    mangler.append(kTemplatedTypePrefix);
+//    for (auto &argTy : TD->getTemplateArgs()) {
+//        mangler.appendEncodedType(argTy->getResolvedType()); // TODO what if this is another templated type, which's parameter is resolved?
+//    }
+//    return mangler.str();
+//}
+
+
+std::string mangling::mangleFullyResolved(std::shared_ptr<ast::StructDecl> SD) {
+    if (SD->resolvedTemplateArgTypes.empty()) {
+        return SD->name;
+    }
+    
+    ManglingStringBuilder mangler(kCommonPrefix);
+    mangler.append(kTemplatedTypePrefix);
+    mangler.appendWithCount(SD->name);
+    mangler.append(kTemplatedTypePrefix);
+    for (auto &ty : SD->resolvedTemplateArgTypes) {
+        mangler.appendEncodedType(ty);
+    }
+    return mangler.str();
+}
 
 
 

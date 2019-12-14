@@ -102,6 +102,14 @@ T abs(T value) {
 }
 
 
+template <typename R, typename T>
+R bitcast(const T value) {
+    static_assert(sizeof(T) == sizeof(R), "cannot bitcast between values of different types");
+    return *reinterpret_cast<R*>(&value);
+}
+
+
+
 template <typename F>
 class DeferHandle {
     F fn;
@@ -131,6 +139,8 @@ inline std::ostream& operator<<(std::ostream &OS, const _LKExitHandler &EH) {
 #define fatalError yo::util::_LKExitHandler([]() { raise(SIGABRT); });
 
 
+
+#pragma mark - typeinfo
 
 namespace typeinfo {
 
@@ -204,6 +214,10 @@ struct member_ptr<MemberT ClassT::*> {
 
 
 
+
+
+#pragma mark - vector
+
 namespace vector {
 
 template <typename T>
@@ -229,13 +243,22 @@ std::optional<T> first_where(const std::vector<T> &vector, F fn) {
     return std::nullopt;
 }
 
-
+/// Iterate over a vector, 2nd `F` parameter is the current index
 template <typename T, typename F>
 void iteri(const std::vector<T> &vec, F &&fn) {
     for (size_t i = 0; i < vec.size(); i++) {
         fn(i, vec[i]);
     }
 }
+
+/// Iterate over a vector, 2nd `F` parameter  indicates whether this is the last element
+template <typename T, typename F>
+void iterl(const std::vector<T> &vec, F &&fn) {
+    for (auto it = vec.begin(); it != vec.end(); it++) {
+        fn(*it, it + 1 == vec.end());
+    }
+}
+
 
 template <typename T, typename F>
 auto map(const std::vector<T>& vec, F&& fn) {
@@ -301,6 +324,7 @@ U reduce(const container<T> &input, U initialValue, F fn) {
 
 
 
+#pragma mark - map
 
 namespace map {
 
@@ -317,6 +341,10 @@ inline std::optional<V> get_opt(const std::map<K, V> &map, const K &key) {
 
 } // namespace map
 
+
+
+
+#pragma mark - string
 
 namespace string {
 
@@ -380,8 +408,6 @@ std::string getFilename(const std::string& path);
 #pragma mark - fmt
 
 namespace fmt {
-
-
 
 // TODO somehow allow overloading this to get custom formatting for custom types?
 template <typename T>

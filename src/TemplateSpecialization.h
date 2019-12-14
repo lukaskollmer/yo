@@ -20,19 +20,21 @@
 
 NS_START(yo::irgen)
 
+// TODO this should probably be renamed to TemplateInstantiation or something like that
 class TemplateSpecializer {
 public:
-    using TemplateTypeMapping = std::map<std::string, std::shared_ptr<ast::TypeDesc>>;
+    using TmplParamMapping = std::map<std::string, std::shared_ptr<ast::TypeDesc>>;
+    const TmplParamMapping templateArgumentMapping;
     
-    static std::shared_ptr<ast::FunctionDecl> specializeWithTemplateMapping(std::shared_ptr<ast::FunctionDecl>, TemplateTypeMapping);
+    template <typename T>
+    static std::shared_ptr<T> specializeWithMapping(std::shared_ptr<T> node, TmplParamMapping M) {
+        return TemplateSpecializer(M).specialize(node);
+    }
     
-private:
-    const TemplateTypeMapping templateArgumentMapping;
-    //const IRGenerator &irgen;
     
-    explicit TemplateSpecializer(/*const IRGenerator &irgen,*/ TemplateTypeMapping templateArgumentMapping) : /*irgen(irgen),*/ templateArgumentMapping(templateArgumentMapping) {}
+    explicit TemplateSpecializer(TmplParamMapping templateArgumentMapping) : templateArgumentMapping(templateArgumentMapping) {}
     
-    //TypeInfo *resolveType(TypeInfo *TI);
+    
     std::shared_ptr<ast::TypeDesc> resolveType(std::shared_ptr<ast::TypeDesc>);
     
     std::shared_ptr<ast::FunctionDecl> specialize(std::shared_ptr<ast::FunctionDecl>);
@@ -55,6 +57,9 @@ private:
     std::shared_ptr<ast::MemberExpr> specialize(std::shared_ptr<ast::MemberExpr>);
     std::shared_ptr<ast::BinOp> specialize(std::shared_ptr<ast::BinOp>);
     std::shared_ptr<ast::UnaryExpr> specialize(std::shared_ptr<ast::UnaryExpr>);
+    
+    std::shared_ptr<ast::TemplateParamArgList> specialize(std::shared_ptr<ast::TemplateParamArgList>);
+    std::shared_ptr<ast::TemplateParamDeclList> specialize(std::shared_ptr<ast::TemplateParamDeclList>);
 };
 
 NS_END

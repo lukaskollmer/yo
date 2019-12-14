@@ -27,9 +27,11 @@
 
 NS_START(yo::irgen)
 
+using TemplateTypeMapping = std::map<std::string, std::shared_ptr<ast::TypeDesc>>;
+
 enum class Intrinsic : uint8_t;
 
-enum ValueKind {
+enum ValueKind { // TODO rename to ValueCategory?
     LValue, RValue
 };
 
@@ -110,7 +112,6 @@ class IRGenerator {
         std::vector<llvm::DIScope *> lexicalBlocks;
     } debugInfo;
     
-    
     // Builtin Types
     struct {
         struct {
@@ -128,14 +129,18 @@ class IRGenerator {
     
     const cl::Options &CLIOptions;
     
+    /// The local scope
     NamedScope<ValueBinding> localScope;
     
     // Finalized nominal types
     // If the type is a template specialization, the key is the mangled name
     NamedScope<Type *> nominalTypes;
     
+    std::map<std::string, std::shared_ptr<ast::StructDecl>> templateStructs;
     std::map<std::string, std::vector<std::shared_ptr<ast::FunctionDecl>>> templateFunctions;
     
+    /// All registered non-template struct types
+    std::vector<std::shared_ptr<ast::StructDecl>> structs;
     
     // key: canonical function name
     std::map<std::string, std::vector<ResolvedCallable>> functions;
@@ -143,8 +148,7 @@ class IRGenerator {
     // key: fully resolved function name
     std::map<std::string, ResolvedCallable> resolvedFunctions;
     
-    
-    // The function currently being generated
+    /// The function currently being generated
     irgen::FunctionState currentFunction;
 
     
@@ -153,7 +157,7 @@ public:
     
     explicit IRGenerator(const std::string& translationUnitPath);
     
-    void codegen(const ast::AST& ast);
+    void codegen(const ast::AST&);
     
     std::unique_ptr<llvm::Module> getModule() {
         return std::move(module);
@@ -162,13 +166,14 @@ public:
     
     
 private:
-    void preflight(const ast::AST& ast);
-    void registerFunction(std::shared_ptr<ast::FunctionDecl> function);
-    void registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl);
-    void registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock);
+    void preflight(const ast::AST&);
+    void registerFunction(std::shared_ptr<ast::FunctionDecl>);
+    StructType* registerStructDecl(std::shared_ptr<ast::StructDecl>);
+    /// Register an `impl` block for a specific struct type
+    void registerImplBlock(std::shared_ptr<ast::ImplBlock>);
     
     // Debug Metadata
-    void emitDebugLocation(const std::shared_ptr<ast::Node> &node);
+    void emitDebugLocation(const std::shared_ptr<ast::Node>&);
     
     
     //
@@ -251,7 +256,7 @@ private:
     /// Put the value into the local scope (thus including it in stack cleanup destructor calls)
     void includeInStackDestruction(Type *, llvm::Value *);
     
-    void destructLocalScopeUntilMarker(NamedScope<ValueBinding>::Marker M, bool removeFromLocalScope);
+    void destructLocalScopeUntilMarker(NamedScope<ValueBinding>::Marker, bool removeFromLocalScope);
     
     
     
@@ -270,22 +275,31 @@ private:
     // `{Lhs|Rhs}Ty`: type of lhs/rhs, after applying typecasts, if casts were applied
     bool typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *lhs, std::shared_ptr<ast::Expr> *rhs, Type **lhsTy, Type **rhsTy);
     
-    
-    llvm::Value* synthesizeDefaultMemberwiseInitializer(std::shared_ptr<ast::StructDecl>);
-    llvm::Value* synthesizeDefaultCopyConstructor(std::shared_ptr<ast::StructDecl>);
-    llvm::Value* synthesizeDefaultDeallocMethod(std::shared_ptr<ast::StructDecl>);
+    bool isImplicitConversionAvailable(Type *src, Type *dst);
     
     
     // Other stuff
     std::optional<ResolvedCallable> getResolvedFunctionWithName(const std::string &name);
-    
-    Type *instantiateTemplatedType(std::shared_ptr<ast::TypeDesc>);
         
+    // Whether a function should skip actual codegen
+    enum SkipCodegenOption {
+        kRunCodegen,
+        kSkipCodegen
+    };
     
-    // set omitCodegen to true if you only care about the return type of the call
-    // for each callExpr, omitCodegen should be false exactly once!!!
-    ResolvedCallable resolveCall(std::shared_ptr<ast::CallExpr>, bool omitCodegen);
-    std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>> attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset);
+    ResolvedCallable specializeTemplateFunctionDeclForCallExpr(std::shared_ptr<ast::FunctionDecl>, TemplateTypeMapping, uint8_t argumentOffset, SkipCodegenOption);
+    ResolvedCallable resolveCall(std::shared_ptr<ast::CallExpr>, SkipCodegenOption);
+    
+    
+    TemplateTypeMapping resolveStructTemplateParametersFromExplicitTemplateArgumentList(std::shared_ptr<ast::StructDecl>, std::shared_ptr<ast::TemplateParamArgList>);
+    
+    std::optional<TemplateTypeMapping>
+    attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset);
+    
+    /// Instantiate a template struct, using a fully resolved typeDesc to resolve the template parameters
+    StructType* instantiateTemplateStruct(std::shared_ptr<ast::StructDecl>, std::shared_ptr<ast::TypeDesc>);
+    /// Instantiate a template struct from a type mapping
+    StructType* instantiateTemplateStruct(std::shared_ptr<ast::StructDecl>, const TemplateTypeMapping&);
     
     Type* getType(std::shared_ptr<ast::Expr>);
     
@@ -296,6 +310,13 @@ private:
     
     // Globals etc
     void handleStartupAndShutdownFunctions();
+    
+    
+    // Types
+    
+    llvm::Value* synthesizeDefaultMemberwiseInitializer(std::shared_ptr<ast::StructDecl>, SkipCodegenOption);
+    llvm::Value* synthesizeDefaultCopyConstructor(std::shared_ptr<ast::StructDecl>, SkipCodegenOption);
+    llvm::Value* synthesizeDefaultDeallocMethod(std::shared_ptr<ast::StructDecl>, SkipCodegenOption);
     
     
     

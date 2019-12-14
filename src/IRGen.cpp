@@ -121,8 +121,16 @@ void IRGenerator::emitDebugLocation(const std::shared_ptr<ast::Node> &node) {
 void IRGenerator::codegen(const ast::AST& ast) {
     preflight(ast);
     
-    for (const auto& node : ast) {
+    for (const auto &node : ast) {
         codegen(node);
+    }
+    
+    for (const auto &structDecl : structs) {
+        if (structDecl->attributes.no_init) continue;
+        
+        synthesizeDefaultMemberwiseInitializer(structDecl, kRunCodegen);
+        synthesizeDefaultCopyConstructor(structDecl, kRunCodegen);
+        synthesizeDefaultDeallocMethod(structDecl, kRunCodegen);
     }
     
     handleStartupAndShutdownFunctions();
@@ -185,6 +193,17 @@ void IRGenerator::preflight(const ast::AST& ast) {
 }
 
 
+void ensureTemplateParametersAreDistinct(const ast::TemplateParamDeclList &paramDeclList) {
+    std::vector<std::string> paramNames;
+    
+    for (auto &param : paramDeclList.getParams()) {
+        if (util::vector::contains(paramNames, param.name)) {
+            diagnostics::emitError(paramDeclList.getSourceLocation(), util::fmt::format("duplicate template parameter name '{}'", param.name));
+        }
+        paramNames.push_back(param.name);
+    }
+}
+
 
 void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDecl) {
     LKAssert(functionDecl->getParamNames().size() == functionDecl->getSignature().paramTypes.size());
@@ -212,11 +231,17 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     
     
     if (sig.isTemplateDecl() || functionDecl->getAttributes().intrinsic || functionDecl->getAttributes().int_isCtor) {
-        if (sig.isTemplateDecl() && sig.templateArgumentNames.size() != sig.distinctTemplateArgumentNames().size()) {
-            diagnostics::emitError(functionDecl->getSourceLocation(), "template argument types must be distinct");
+        if (sig.isTemplateDecl()) {
+            ensureTemplateParametersAreDistinct(*sig.templateParamsDecl);
         }
         
         auto canonicalName = mangling::mangleCanonicalName(functionDecl);
+        
+        if (functionDecl->getAttributes().int_isCtor && !functions[canonicalName].empty()) {
+            // Prevent multiple ambiguous (and unnecessary) overloads for template instantiations
+            return;
+        }
+        
         functions[canonicalName].push_back(ResolvedCallable(sig, functionDecl, nullptr, 0));
         return;
     }
@@ -234,9 +259,9 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
         auto name = functionDecl->getParamNames()[idx]->value;
         paramTypes[idx] = type->getLLVMType();
         localScope.insert(name, ValueBinding(type, nullptr, []() -> llvm::Value* {
-            LKFatalError("should never reach here");
+            LKFatalError("invalid operation");
         }, [](llvm::Value *) {
-            LKFatalError("should never reach here");
+            LKFatalError("invalid operation");
         }, ValueBinding::Flags::None));
     }
     
@@ -261,6 +286,10 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     }
     
     if (auto RC = util::map::get_opt(resolvedFunctions, resolvedName)) {
+        if (RC->funcDecl->getAttributes().int_isFwdDecl && equal(RC->signature, sig)) {
+            RC->funcDecl->getAttributes().int_isFwdDecl = false; // TODO this shouldn't be in here!!!!!
+            return;
+        }
         diagnostics::emitNote(RC->funcDecl->getSourceLocation(), "already declared here");
         diagnostics::emitError(functionDecl->getSourceLocation(), "multiple declarations w/ same signature");
     }
@@ -277,48 +306,64 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
 
 
 
+// TODO why does this function exist?
 std::optional<ResolvedCallable> IRGenerator::getResolvedFunctionWithName(const std::string &name) {
     return util::map::get_opt(resolvedFunctions, name);
 }
 
 
+StructType* UselessStructTypeForTemplateStructCtor(std::string name, const parser::TokenSourceLocation &SL) {
+    return StructType::create(name, {}, SL);
+}
 
-void IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl) {
-        LKFatalError("TODO");
+
+StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl) {
+    auto structName = structDecl->name;
+    
     if (structDecl->isTemplateDecl()) {
+        LKAssert(!structDecl->attributes.no_init && "template struct cannot have no_init attribute");
+        
+        templateStructs[structDecl->name] = structDecl;
+        
+        ast::FunctionSignature ctorSig;
+        std::vector<std::shared_ptr<ast::Ident>> ctorParamNames;
+        ctorSig.returnType = ast::TypeDesc::makeNominalTemplated(structName, util::vector::map(structDecl->templateParamsDecl->getParams(), [](auto &param) {
+            return ast::TypeDesc::makeNominal(param.name);
+        }));
+        ctorSig.templateParamsDecl = std::make_shared<ast::TemplateParamDeclList>(*structDecl->templateParamsDecl);
+
+        auto ctorFnDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::StaticMethod,
+                                                              structName, ctorSig,
+                                                              attributes::FunctionAttributes());
+        ctorFnDecl->setParamNames(ctorParamNames);
+        ctorFnDecl->setImplType(UselessStructTypeForTemplateStructCtor(structName, structDecl->getSourceLocation())); // TODO?
+        ctorFnDecl->setSourceLocation(structDecl->getSourceLocation());
+        ctorFnDecl->getAttributes().int_isCtor = true;
+
+        registerFunction(ctorFnDecl);
+        return nullptr;
     }
     
-    StructType *LKMetadataAccessor = nullptr;
-    if (auto ty = nominalTypes.get("LKMetadataAccessor")) {
-        LKMetadataAccessor = llvm::dyn_cast_or_null<StructType>(*ty);
+    if (structDecl->resolvedTemplateArgTypes.size() != 0) {
+        structName = mangling::mangleFullyResolved(structDecl);
     }
     
-    const auto& structName = structDecl->name;
     // TODO add a check somewhere here to make sure there are no duplicate struct members
-    
-    uint64_t memberCount = structDecl->members.size();
-    if (LKMetadataAccessor) memberCount += LKMetadataAccessor->getMembers().size();
-    
     StructType::MembersT structMembers;
-    structMembers.reserve(memberCount);
-    //LKAssert(LKMetadataAccessor->isStructTy()); // Should always be true
-    
-    if (CLIOptions.farc && structDecl->attributes.arc) {
-        for (const auto& member : LKMetadataAccessor->getMembers()) {
-            structMembers.push_back(member);
-        }
-    }
-    
-    
-    for (const auto& varDecl : structDecl->members) {
+    structMembers.reserve(structDecl->members.size());
+
+    for (const auto &varDecl : structDecl->members) {
         // Since the varDecls are pointers, the resolveTypeDecl call below also sets the structDecl's member's types,
         // meaning that we can simply use that as the initializer parameters
         auto type = resolveTypeDesc(varDecl->type);
         structMembers.push_back({varDecl->name, type});
     }
     
-    auto structTy = StructType::create(structName, structMembers, structDecl->getSourceLocation());
+    auto structTy = StructType::create(structName, structMembers, structDecl->resolvedTemplateArgTypes, structDecl->getSourceLocation());
     nominalTypes.insert(structName, structTy);
+    
+    LKAssert(!util::vector::contains_where(structs, [&structName](auto &SD) { return SD->name == structName; }));
+    structs.push_back(structDecl);
     
     if (!structDecl->attributes.no_init) {
         ast::FunctionSignature signature;
@@ -326,14 +371,22 @@ void IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl
         signature.returnType = ast::TypeDesc::makeResolved(structTy);
         
         auto ctorFnDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::StaticMethod,
-                                                              structName, signature, paramNames,
+                                                              structName, signature,
                                                               attributes::FunctionAttributes());
+        ctorFnDecl->setParamNames(paramNames);
         ctorFnDecl->setImplType(structTy);
         ctorFnDecl->setSourceLocation(structDecl->getSourceLocation());
         ctorFnDecl->getAttributes().int_isCtor = true;
         
         registerFunction(ctorFnDecl);
+        
+        // TODO instead of this, find custom implementations, if provided, and codegen them instead
+        synthesizeDefaultMemberwiseInitializer(structDecl, kSkipCodegen);
+        synthesizeDefaultCopyConstructor(structDecl, kSkipCodegen);
+        synthesizeDefaultDeallocMethod(structDecl, kSkipCodegen);
     }
+    
+    return structTy;
 }
 
 
@@ -341,11 +394,24 @@ void IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl
 void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
     using FK = ast::FunctionKind;
     
-    const auto& typename_ = implBlock->typename_;
-    auto type = nominalTypes.get(typename_).value();
-    LKAssert(type->isStructTy());
+    const auto &typename_ = implBlock->typename_;
+    auto implTy = nominalTypes.get(typename_);
     
-    for (auto& fn : implBlock->methods) {
+    if (auto templateDecl = util::map::get_opt(templateStructs, typename_)) {
+        if (implTy.has_value()) {
+            LKFatalError("multiple types w/ same name?");
+        }
+        
+        // TODO Queue impl block for later handling
+        implBlock->isNominalTemplateType = true;
+        
+        return;
+    }
+    
+    
+    auto structTy = llvm::dyn_cast<StructType>(implTy.value());
+    
+    for (auto &fn : implBlock->methods) {
         LKAssert(!fn->getAttributes().no_mangle && "invalid attribute for function in impl block: no_mangle");
         auto kind = FK::StaticMethod;
         if (!fn->getSignature().paramTypes.empty()) {
@@ -353,12 +419,12 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
             // TODO don't call resolveTypeDesc on templated methods
             bool isInstanceMethod =
                 fn->getParamNames().front()->value == "self"
-                && resolveTypeDesc(fn->getSignature().paramTypes.front()) == type->getReferenceTo();
+                && resolveTypeDesc(fn->getSignature().paramTypes.front()) == structTy->getReferenceTo();
             
             if (isInstanceMethod) kind = FK::InstanceMethod;
         }
         fn->setFunctionKind(kind);
-        fn->setImplType(llvm::dyn_cast<StructType>(type));
+        fn->setImplType(structTy);
         registerFunction(fn);
     }
 }
@@ -437,7 +503,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     const auto &sig = functionDecl->getSignature();
     const auto &attr = functionDecl->getAttributes();
     
-    if (attr.extern_ || attr.intrinsic || sig.isTemplateDecl()) {
+    if (attr.extern_ || attr.intrinsic || attr.int_isCtor || sig.isTemplateDecl()) {
         return nullptr;
     }
     
@@ -587,21 +653,31 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StructDecl> structDecl) {
-    if (!structDecl->attributes.no_init) { // TODO rename this attr since it now controls way more than just the default initializer
-        synthesizeDefaultMemberwiseInitializer(structDecl);
-        synthesizeDefaultCopyConstructor(structDecl);
-        synthesizeDefaultDeallocMethod(structDecl);
-    }
     return nullptr;
+//    if (structDecl->isTemplateDecl()) {
+//        return nullptr;
+//    }
+//
+////    if (!structDecl->attributes.no_init) { // TODO rename this attr since it now controls way more than just the default initializer
+////        synthesizeDefaultMemberwiseInitializer(structDecl);
+////        synthesizeDefaultCopyConstructor(structDecl);
+////        synthesizeDefaultDeallocMethod(structDecl);
+////    }
+//    return nullptr;
 }
 
 
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ImplBlock> implBlock) {
-    for (const auto& method : implBlock->methods) {
+    if (implBlock->isNominalTemplateType) {
+        return nullptr;
+    }
+    
+    for (const auto &method : implBlock->methods) {
         codegen(method);
     }
+    
     return nullptr;
 }
 
@@ -1010,9 +1086,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CastExpr> castExpr) {
     constexpr auto invalidCastOp = static_cast<LLVMCastOp>(-1); // TODO is -1 a good invalid value?
     
     LLVMCastOp op = invalidCastOp;
-    const auto srcTy = getType(castExpr->expr);
-    const auto dstTy = resolveTypeDesc(castExpr->destType);
-    const auto &DL = module->getDataLayout();
+    auto srcTy = getType(castExpr->expr);
+    auto dstTy = resolveTypeDesc(castExpr->destType);
+    auto &DL = module->getDataLayout();
     
     if (srcTy == dstTy) {
         return codegen(castExpr->expr);
@@ -1444,158 +1520,391 @@ bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
 #pragma mark - function calls
 
 
-uint8_t IRGenerator::argumentOffsetForCallingConvention(CallingConvention cc) {
-    switch (cc) {
-        case CallingConvention::C: return 0;
+
+// Resolve a struct's template parameters, using a constructor call
+// This only looks at the explicitly passed template arguments, not
+// This function returns fully resolved TypeDesc objects
+TemplateTypeMapping
+IRGenerator::resolveStructTemplateParametersFromExplicitTemplateArgumentList(std::shared_ptr<ast::StructDecl> SD, std::shared_ptr<ast::TemplateParamArgList> templateParamList) {
+    
+    TemplateTypeMapping mapping;
+    
+    const auto &explicitArgs = templateParamList->elements;
+    
+    auto &params = SD->templateParamsDecl->getParams();
+    auto numParams = params.size();
+    auto numArgs = explicitArgs.size();
+    
+    if (numParams != numArgs) {
+        LKFatalError("TODO");
     }
+    
+    // TODO:
+    // - take potential additional constructor params into account!
+    // - option to deduce type template params instead of requiring they be explicitly specified?
+    for (size_t i = 0; i < numParams; i++) {
+        auto &param = params[i];
+        if (i < numArgs) {
+            mapping[param.name] = ast::TypeDesc::makeResolved(resolveTypeDesc(explicitArgs[i]));
+        } else if (auto defaultType = param.defaultType) {
+            // TODO what if a default parameter depends on one of the previous params? (like what std::vector does?)
+            // TODO issue? this resolves the type desc in the wrong context (caller vs callee!)
+            mapping[param.name] = ast::TypeDesc::makeResolved(resolveTypeDesc(defaultType));
+        } else {
+            auto msg = util::fmt::format("unable to resolve template parameter '{}'", param.name);
+            diagnostics::emitError(templateParamList->getSourceLocation(), msg);
+        }
+    }
+    
+    return mapping;
 }
 
 
 
-// Q: Why does this return `std::shared_ptr<ast::TypeDesc>`, instead of `Type *`?
-// A: Because this map is then passed on to the template specialization instantiator, which simply creates a bunch of AST nodes, and therefore needs TypeDescs
-
-// Note that this function returns fully resolved ast::TypeDesc objects.
-std::optional<std::map<std::string, std::shared_ptr<ast::TypeDesc>>>
-IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset) {
-    // TODO properly take the argument offset into account when handling calls to templated instance methods, or other functions w/ an offset > 0
+uint8_t IRGenerator::argumentOffsetForCallingConvention(CallingConvention cc) {
+    switch (cc) {
+        case CallingConvention::C: return 0;
+    }
     
-    const auto &sig = templateFunction->getSignature();
-    // TODO this excludes variadic functions?
-    // Not a huge issue for the time being since only external functions can be variadic
+    LKFatalError("unknown calling convention (raw value: %i)", static_cast<int>(cc));
+}
+
+
+
+
+std::optional<TemplateTypeMapping>
+IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> FD, std::shared_ptr<ast::CallExpr> call, unsigned int argumentOffset) {
+    using TDK = ast::TypeDesc::Kind;
+    
+    const auto &sig = FD->getSignature();
+    LKAssert(sig.isTemplateDecl());
     if (sig.paramTypes.size() != call->arguments.size() + argumentOffset) {
         return std::nullopt;
     }
     
     
-    // There are two ways a template argument type is resolved here:
-    // 1. It was explicitly specified at the call site. Example: `foo<i32>();`
-    // 2. We deduce it by looking at the arguments that were passed to the function
-    //    In this case, there are two distinctions to be made: is the call argument a literal or a non-literal expression?
-    //    Literals are given less importance than non-literal expressions. Why is that the case? consider the following example:
-    //    We're calling a function with the signature `(T, T) -> T`. The arguments are `x` (of type i32) and `12` (of type i64 since it is a literal).
-    //    Since implicit conversions are allowed for literals, and 12 fits in an i32, there is no reason to reject this call and the compiler
-    //    needs to resolve `T` as i32, thus allowing an implicit conversion to take place later in function call codegen.
-    //    To take scenarios like this into account, non-literal function parameters are given more "weight" than literals, and they can override
-    //    a template argument type deduced from a literal expression.
+    auto templateParamNames = util::vector::map(sig.templateParamsDecl->getParams(), [](auto &param) { return param.name; });
+    
     
     enum class DeductionReason {
-        Expr,       // deduced from argument expr
-        Literal,    // deduced from argument expr that is a literal
-        Explicit    // explicitly set (ie `foo<i32, i64>();`)
+        Expr,
+        Literal,
+        Explicit
     };
+    using DR = DeductionReason;
     
-    struct TemplateArgumentDeductionInfo {
+    struct DeductionInfo {
         Type *type;
         DeductionReason reason;
     };
     
-    std::map<std::string, std::optional<TemplateArgumentDeductionInfo>> templateArgumentMapping;
     
-    // Fill the map, taking explicitly passed template argument types into account
-    // Template aguments not explicitly passed as part of the call are set to null
-    for (size_t i = 0; i < sig.templateArgumentNames.size(); i++) {
-        auto name = sig.templateArgumentNames[i];
-        if (i < call->explicitTemplateArgumentTypes.size()) {
-            auto ty = resolveTypeDesc(call->explicitTemplateArgumentTypes[i]);
-            if (auto mapping = util::map::get_opt(templateArgumentMapping, name)) {
-                if (mapping.value().value().type != ty) return std::nullopt;
-            } else {
-                templateArgumentMapping[name] = { ty, DeductionReason::Explicit };
-            }
-        } else {
-            templateArgumentMapping[name] = std::nullopt;
-        }
+    std::map<std::string, DeductionInfo> mapping;
+    
+    
+    
+    // Handle explicitly specified types
+    
+    for (uint64_t idx = 0; idx < std::min<uint64_t>(sig.templateParamsDecl->size(), call->numberOfExplicitTemplateArgs()); idx++) {
+        auto &param = sig.templateParamsDecl->getParams()[idx];
+        mapping[param.name] = { resolveTypeDesc(call->explicitTemplateArgs->elements[idx]), DeductionReason::Explicit };
     }
     
-    // TODO this needs a fundamental rewrite to support more than just nominal types and pointers to (pointers to) nominal types!
-    // What about a pointer to a function, or a function that takes another functuin, etc etc etc
     
     
-    /*
-     for now:
-     - T
-     - *T
-     - &*T
-     
-     in the future (hopefully):
-     - Foo<T>
-     - Foo<T, U>
-     - Foo<Foo<T>>
-     - Foo<*T>
-     - Foo<&T>
-     - ...
-     
-     */
+    // Attempt to resolve template parameters from call arguments
     
     
-    for (uint64_t i = argumentOffset; i < call->arguments.size(); i++) {
-        // We have to keep working w/ the ast::TypeDesc object as long as possible since calling resolveTypeDesc might resolve a typename shadowed by a template w/ some other type declared in the parent scope
-        // TODO example in which circumstances this might happen?
+    // retval: true -> success, false -> failure
+    auto imp = [&](std::string name, Type *ty, uint64_t argIdx) -> bool {
+        auto reason = call->arguments[argIdx]->isOfKind(NK::NumberLiteral) ? DR::Literal : DR::Expr;
         
-        std::string paramTypename;
-        auto sigParamTypeDesc = sig.paramTypes[i];
-        uint64_t sigParamTypeDescPointerIndirectionCount = 0;
-        bool isReference = sigParamTypeDesc->isReference();
-        if (isReference) {
-            sigParamTypeDesc = sigParamTypeDesc->getPointee();
+        if (!util::map::has_key(mapping, name)) {
+            mapping[name] = { ty, reason };
+            return true;
         }
-
-        if (sigParamTypeDesc->isPointer()) {
-            auto ty = sigParamTypeDesc;
-            while (ty->isPointer()) {
-                sigParamTypeDescPointerIndirectionCount += 1;
-                ty = ty->getPointee();
-            }
-            paramTypename = ty->getName();
+        
+        auto &prevDeduction = mapping.at(name);
+        
+        if (prevDeduction.type == ty) {
+            return true;
+        } else if (prevDeduction.reason != reason && reason == DeductionReason::Literal) {
+            // Prev wasn't a literal, but current is
+            
+            auto argExpr = std::static_pointer_cast<ast::NumberLiteral>(call->arguments[argIdx]);
+            return valueIsTriviallyConvertible(argExpr, prevDeduction.type);
+        } else if (prevDeduction.reason == DeductionReason::Literal && reason != prevDeduction.reason) {
+            // Prev was a literal, but current isn't
+            
+            // The issue here is that we don't have the previous expression object anymore,
+            // and therefore can't check whether its value would fit in `argTy`
+            // The current workaround is to simply not perform bounds/conversion checks for the previous match at all.
+            // This will actually still work, since there are additional type checks (with the actual implicit conversions)
+            // performed when running call codegen.
+            // The downside is that only calls to functions where a literal argument follows a non-literal argument will
+            // get the does-the-value-actually-fit handling at this stage of codegen
+            // TODO Fix!
+            mapping[name] = { ty, reason };
+            return true;
         } else {
-            paramTypename = sigParamTypeDesc->getName();
+            return false;
         }
-
-        if (auto mapping = templateArgumentMapping.find(paramTypename); mapping != templateArgumentMapping.end()) {
-            auto argTy = getType(call->arguments[i]);
-            if (auto argTyRef = llvm::dyn_cast_or_null<ReferenceType>(argTy)) {
-                // Calling a function `<T>(T)` with `&T` will deduce `T` as `T` and drop the reference
-                // TODO probably gonna need a better explanation here
-                argTy = argTyRef->getReferencedType();
+    };
+    
+    
+    std::function<bool(std::shared_ptr<ast::TypeDesc>, Type *, uint64_t)> handle;
+    handle = [&](std::shared_ptr<ast::TypeDesc> typeDesc, Type *ty, uint64_t argIdx) -> bool {
+        switch (typeDesc->getKind()) {
+            case TDK::Nominal: {
+                if (!util::vector::contains(templateParamNames, typeDesc->getName())) {
+                    // A nominal type that is not shadowed by a template parameter
+                    return true;
+                } else {
+                    // A nominal type which is shadowed by a template parameter
+                    return imp(typeDesc->getName(), ty, argIdx);
+                }
             }
             
-            auto isLiteral = call->arguments[i]->getNodeKind() == NK::NumberLiteral;
-            auto reason = isLiteral ? DeductionReason::Literal : DeductionReason::Expr;
-            if (!mapping->second.has_value()) {
-                while (sigParamTypeDescPointerIndirectionCount-- > 0) {
-                    if (!argTy->isPointerTy()) return std::nullopt;
-                    argTy = llvm::dyn_cast<PointerType>(argTy)->getPointee();
-                }
-                if (auto argTyRef = llvm::dyn_cast_or_null<ReferenceType>(argTy); argTyRef && isReference) {
-                    argTy = argTyRef->getReferencedType();
-                }
-                mapping->second = { argTy, reason };
-            } else {
-                if (mapping->second->reason == DeductionReason::Literal) {
-                    mapping->second = { argTy, reason };
-                } else if (!isLiteral && mapping->second->type != argTy) {
-                    return std::nullopt;
+            case TDK::Pointer: {
+                if (auto tyPtrT = llvm::dyn_cast_or_null<PointerType>(ty)) {
+                    return handle(typeDesc->getPointee(), tyPtrT->getPointee(), argIdx);
+                } else {
+                    return false;
                 }
             }
+            
+            case TDK::Reference: {
+                if (auto tyRefT = llvm::dyn_cast_or_null<ReferenceType>(ty)) {
+                    return handle(typeDesc->getPointee(), tyRefT->getReferencedType(), argIdx);
+                } else {
+                    // Calling a function `<T>(&T)` with an argument of type `T` ?
+                    return handle(typeDesc->getPointee(), ty, argIdx);
+                }
+            }
+            
+            case TDK::NominalTemplated: {
+                auto tyStructT = llvm::dyn_cast_or_null<StructType>(ty);
+                if (!tyStructT) return false;
+                
+                for (uint64_t idx = 0; idx < typeDesc->getTemplateArgs().size(); idx++) {
+                    if (!handle(typeDesc->getTemplateArgs().at(idx), tyStructT->getTemplateArguments().at(idx), argIdx)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            
+            case TDK::Function:
+            case TDK::Decltype:
+            case TDK::Resolved:
+                LKFatalError("TODO");
+        }
+    };
+    
+    
+    for (uint64_t idx = argumentOffset; idx < call->arguments.size(); idx++) {
+        auto sigTypeDesc = sig.paramTypes[idx];
+        auto argTy = getType(call->arguments[idx]);
+        if (!handle(sigTypeDesc, argTy, idx)) return std::nullopt;
+    }
+    
+    
+    // Make sure all parameters were resolved, apply default values where necessary
+    
+    for (auto &param : sig.templateParamsDecl->getParams()) {
+        if (util::map::has_key(mapping, param.name)) continue;
+        
+        if (auto defaultTy = param.defaultType) {
+            mapping[param.name].type = resolveTypeDesc(defaultTy);
         } else {
-            // `paramTyename` is not in the template parameter type list (ie, a regular, non-overloaded nominal type)
+            // no entry for type, and no default value
+            return std::nullopt;
         }
     }
     
     
-    std::map<std::string, std::shared_ptr<ast::TypeDesc>> retvalMap;
-    for (const auto& [name, deductionInfo] : templateArgumentMapping) {
-        if (deductionInfo.has_value()) {
-            retvalMap[name] = ast::TypeDesc::makeResolved(deductionInfo->type);
-        } else {
-            // TODO should this judt return std::nullopt instead of throwing an error?
-            // TODO also print the location of the call! this is pretty useless without proper context
-            diagnostics::emitError(templateFunction->getSourceLocation(), util::fmt::format("unable to deduce template argument '{}", name));
-        }
+    TemplateTypeMapping retval;
+    for (auto &[name, deduction] : mapping) {
+        retval[name] = ast::TypeDesc::makeResolved(deduction.type);
     }
-    return retvalMap;
+    return retval;
 }
+
+
+
+
+//// Q: Why does this return `std::shared_ptr<ast::TypeDesc>`, instead of `Type *`?
+//// A: Because this map is then passed on to the template specialization instantiator, which simply creates a bunch of AST nodes, and therefore needs TypeDescs
+//
+//
+//// Note that this function returns fully resolved ast::TypeDesc objects.
+//std::optional<TemplateTypeMapping>
+//IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset) {
+//    return NEW_attemptToResolveTemplateArgumentTypesForCall(templateFunction, call, argumentOffset);
+//    // TODO properly take the argument offset into account when handling calls to templated instance methods, or other functions w/ an offset > 0
+//
+//    const auto &sig = templateFunction->getSignature();
+//
+//    if (templateFunction->getAttributes().int_isCtor) {
+//        // Call to the constructor of a template struct
+//        LKFatalError("TODO");
+//    }
+//
+//
+//    // TODO this excludes variadic functions?
+//    // Not a huge issue for the time being since only external functions can be variadic
+//    if (sig.paramTypes.size() != call->arguments.size() + argumentOffset) {
+//        return std::nullopt;
+//    }
+//
+//
+//    // There are two ways a template argument type is resolved here:
+//    // 1. It was explicitly specified at the call site. Example: `foo<i32>();`
+//    // 2. We deduce it by looking at the arguments that were passed to the function
+//    //    In this case, there are two distinctions to be made: is the call argument a literal or a non-literal expression?
+//    //    Literals are given less importance than non-literal expressions. Why is that the case? consider the following example:
+//    //    We're calling a function with the signature `(T, T) -> T`. The arguments are `x` (of type i32) and `12` (of type i64 since it is a literal).
+//    //    Since implicit conversions are allowed for literals, and 12 fits in an i32, there is no reason to reject this call and the compiler
+//    //    needs to resolve `T` as i32, thus allowing an implicit conversion to take place later in function call codegen.
+//    //    To take scenarios like this into account, non-literal function parameters are given more "weight" than literals, and they can override
+//    //    a template argument type deduced from a literal expression.
+//
+//    enum class DeductionReason {
+//        Default,    // default value specified in decl
+//        Expr,       // deduced from argument expr
+//        Literal,    // deduced from argument expr that is a literal
+//        Explicit    // explicitly set (ie `foo<i32, i64>();`)
+//    };
+//
+//    struct TemplateArgumentDeductionInfo {
+//        Type *type;
+//        DeductionReason reason;
+//    };
+//
+//    // TODO get rid of the optionals in the map!
+//    std::map<std::string, std::optional<TemplateArgumentDeductionInfo>> templateArgumentMapping;
+//
+//    // Fill the map, taking explicitly passed template argument types into account
+//    // Template aguments not explicitly passed as part of the call are set to their default value, or std::nullopt
+//    for (size_t i = 0; i < sig.templateParamsDecl->size(); i++) {
+//        auto &param = sig.templateParamsDecl->getParams()[i];
+//        auto &name = param.name;
+//
+//        // Not explicitly set
+//        if (i >= call->numberOfExplicitTemplateArgs()) {
+//            if (param.defaultType) {
+//                templateArgumentMapping[name] = { resolveTypeDesc(param.defaultType), DeductionReason::Default };
+//            } else {
+//                templateArgumentMapping[name] = std::nullopt;
+//            }
+//        } else {
+//            // Handle explicitly set template argument type
+//            auto ty = resolveTypeDesc(call->explicitTemplateArgs->at(i));
+//            if (auto mapping_ = util::map::get_opt(templateArgumentMapping, name)) {
+//                auto mapping = *mapping_;
+//                if (mapping->reason == DeductionReason::Default) {
+//                    // Explicit args outrank default ones
+//                    templateArgumentMapping[name] = { ty, DeductionReason::Explicit };
+//                } else {
+//                    // mapping already contains the param name being resolved
+//                    // TODO do we ever end up here?
+//                    return std::nullopt;
+//                }
+//            } else {
+//                templateArgumentMapping[name] = { ty, DeductionReason::Explicit };
+//            }
+//        }
+//    }
+//
+//    // TODO this needs a fundamental rewrite to support more than just nominal types and pointers to (pointers to) nominal types!
+//    // What about a pointer to a function, or a function that takes another functuin, etc etc etc
+//
+//
+//    /*
+//     for now:
+//     - T
+//     - *T
+//     - &*T
+//
+//     in the future (hopefully):
+//     - Foo<T>
+//     - Foo<T, U>
+//     - Foo<Foo<T>>
+//     - Foo<*T>
+//     - Foo<&T>
+//     - ...
+//
+//     */
+//
+//    for (uint64_t i = argumentOffset; i < call->arguments.size(); i++) {
+//        // We have to keep working w/ the ast::TypeDesc object as long as possible since calling resolveTypeDesc might resolve a typename shadowed by a template w/ some other type declared in the parent scope
+//        // TODO example in which circumstances this might happen?
+//
+//        std::string paramTypename;
+//        auto sigParamTypeDesc = sig.paramTypes[i];
+//        uint64_t sigParamTypeDescPointerIndirectionCount = 0;
+//        bool isReference = sigParamTypeDesc->isReference();
+//        if (isReference) {
+//            sigParamTypeDesc = sigParamTypeDesc->getPointee();
+//        }
+//
+//        if (sigParamTypeDesc->isPointer()) {
+//            auto ty = sigParamTypeDesc;
+//            while (ty->isPointer()) {
+//                sigParamTypeDescPointerIndirectionCount += 1;
+//                ty = ty->getPointee();
+//            }
+//            paramTypename = ty->getName();
+//        } else {
+//            paramTypename = sigParamTypeDesc->getName();
+//        }
+//
+//        if (auto mapping = templateArgumentMapping.find(paramTypename); mapping != templateArgumentMapping.end()) {
+//            auto argTy = getType(call->arguments[i]);
+//            if (auto argTyRef = llvm::dyn_cast_or_null<ReferenceType>(argTy)) {
+//                // Calling a function `<T>(T)` with `&T` will deduce `T` as `T` and drop the reference
+//                // TODO probably gonna need a better explanation here
+//                argTy = argTyRef->getReferencedType();
+//            }
+//
+//            auto isLiteral = call->arguments[i]->getNodeKind() == NK::NumberLiteral;
+//            auto reason = isLiteral ? DeductionReason::Literal : DeductionReason::Expr;
+//            if (!mapping->second.has_value()) {
+//                while (sigParamTypeDescPointerIndirectionCount-- > 0) {
+//                    if (!argTy->isPointerTy()) return std::nullopt;
+//                    argTy = llvm::dyn_cast<PointerType>(argTy)->getPointee();
+//                }
+//                if (auto argTyRef = llvm::dyn_cast_or_null<ReferenceType>(argTy); argTyRef && isReference) {
+//                    argTy = argTyRef->getReferencedType();
+//                }
+//                mapping->second = { argTy, reason };
+//            } else {
+//                if (mapping->second->reason == DeductionReason::Literal) {
+//                    mapping->second = { argTy, reason };
+//                } else if (!isLiteral && mapping->second->type != argTy) {
+//                    return std::nullopt;
+//                }
+//            }
+//        } else {
+//            // `paramTyename` is not in the template parameter type list (ie, a regular, non-overloaded nominal type)
+//        }
+//
+//        util::fmt::print("[{}|{}] paramTypename: {}, sigParamTypeDesc: {}", mangling::mangleCanonicalName(templateFunction), i, paramTypename, sigParamTypeDesc);
+//    }
+//
+//
+//    TemplateTypeMapping retvalMap;
+//    for (const auto& [name, deductionInfo] : templateArgumentMapping) {
+//        if (deductionInfo.has_value()) {
+//            retvalMap[name] = ast::TypeDesc::makeResolved(deductionInfo->type);
+//        } else {
+//            // TODO should this judt return std::nullopt instead of throwing an error?
+//            // TODO also print the location of the call! this is pretty useless without proper context
+//            diagnostics::emitError(templateFunction->getSourceLocation(), util::fmt::format("unable to deduce template argument '{}", name));
+//        }
+//    }
+//    return retvalMap;
+//}
 
 
 
@@ -1620,13 +1929,71 @@ ast::FunctionSignature makeFunctionSignatureFromFunctionTypeInfo(const FunctionT
 
 
 
-bool isImplicitConversionAvailable(Type *src, Type *dst) {
+
+ResolvedCallable IRGenerator::specializeTemplateFunctionDeclForCallExpr(std::shared_ptr<ast::FunctionDecl> funcDecl, TemplateTypeMapping templateArgMapping, uint8_t argumentOffset, SkipCodegenOption codegenOption) {
+    auto specializedDecl = TemplateSpecializer::specializeWithMapping(funcDecl, templateArgMapping);
+    
+    std::vector<Type *> templateArgTypes;
+    for (const auto &param : funcDecl->getSignature().templateParamsDecl->getParams()) {
+        // TODO does this take default arg values into account?
+        templateArgTypes.push_back(resolveTypeDesc(templateArgMapping.at(param.name)));
+    }
+    // TODO use this assert to check whether all params (incl defaults) are taken into account here!!!!
+    LKAssert(templateArgTypes.size() == funcDecl->getSignature().templateParamsDecl->size());
+    specializedDecl->setResolvedTemplateArgTypes(templateArgTypes);
+    
+    
+    // Avoid generating the same specialization multiple times
+    // In theory, we should never end up here since the call target resolution code should prefer the already-specialized version
+    // over re-instantiating the template. However, the code is not very good and cannot (yet?) do that
+    
+    // We need the function's types fully resolved for the `mangleFullyResolved` call below
+    // TODO is withCleanSlate overkill here? we really just need the local scope to be empty so that we can insert the parameters
+    // Not entirely true though, we also call resolveTypeDesc which otherwise might include local types defined only for the the scope of the current function
+    withCleanSlate([&]() -> void {
+        for (size_t i = 0; i < specializedDecl->getSignature().paramTypes.size(); i++) {
+            auto type = resolveTypeDesc(specializedDecl->getSignature().paramTypes[i]);
+            auto name = specializedDecl->getParamNames()[i]->value;
+            localScope.insert(name, ValueBinding(type, nullptr, []() -> llvm::Value* {
+                LKFatalError("Value cannot be read");
+            }, [](llvm::Value *) {
+                LKFatalError("Value cannot be written to");
+            }, ValueBinding::Flags::None));
+        }
+        resolveTypeDesc(specializedDecl->getSignature().returnType);
+    });
+    
+    
+    auto mangled = mangleFullyResolved(specializedDecl);
+    if (auto decl = getResolvedFunctionWithName(mangled)) {
+        if (this->equal(specializedDecl->getSignature(), decl->funcDecl->getSignature())) {
+            return decl.value();
+        }
+    }
+    
+    llvm::Function *llvmFunction = nullptr;
+    if (codegenOption == kRunCodegen && !specializedDecl->getAttributes().intrinsic) {
+        llvmFunction = withCleanSlate([&]() {
+            registerFunction(specializedDecl);
+            return llvm::dyn_cast_or_null<llvm::Function>(codegen(specializedDecl));
+        });
+    }
+    return ResolvedCallable(specializedDecl, llvmFunction, argumentOffset);
+}
+
+
+
+
+
+bool IRGenerator::isImplicitConversionAvailable(Type *src, Type *dst) {
     LKFatalError("implement");
 }
 
 
 // This function will only return if the call can be resolved
-ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExpr, bool omitCodegen) {
+ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExpr, SkipCodegenOption codegenOption) {
+    const bool skipCodegen = codegenOption == kSkipCodegen;
+    
     std::string targetName;
     uint8_t argumentOffset = 0;
     
@@ -1639,7 +2006,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             LKAssert(ty->isFunctionTy() && "cannot call a non-function variable");
             auto fnTy = llvm::dyn_cast<FunctionType>(ty);
             return ResolvedCallable(makeFunctionSignatureFromFunctionTypeInfo(fnTy), nullptr,
-                                    omitCodegen ? nullptr : codegen(ident),
+                                    skipCodegen ? nullptr : codegen(ident),
                                     argumentOffsetForCallingConvention(fnTy->getCallingConvention()));
         }
         
@@ -1679,7 +2046,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             // struct properties cannot be overloaded, simply return what we found
             auto fnTy = llvm::dyn_cast<FunctionType>(memberTy);
             return ResolvedCallable(makeFunctionSignatureFromFunctionTypeInfo(fnTy), nullptr,
-                                    omitCodegen ? nullptr : codegen(memberExpr),
+                                    skipCodegen ? nullptr : codegen(memberExpr),
                                     argumentOffsetForCallingConvention(fnTy->getCallingConvention()));
             
         } else {
@@ -1690,70 +2057,27 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         diagnostics::emitError(callExpr->getSourceLocation(), "unable to resolve call target");
     }
     
+    
     // TODO does this mean we might miss another potential target
     // Not if the compiler disallows free functions w/ the same name as a defined type
-    if (auto ty_ = nominalTypes.get(targetName)) {
-        targetName = mangling::mangleCanonicalName(targetName, targetName, ast::FunctionKind::StaticMethod);
+    if (nominalTypes.get(targetName) || util::map::has_key(templateStructs, targetName)) {
+        auto mangledTargetName = mangling::mangleCanonicalName(targetName, targetName, ast::FunctionKind::StaticMethod);
         
-        const auto &targets = functions[targetName];
+        const auto &targets = functions[mangledTargetName];
         if (targets.size() != 1) {
             diagnostics::emitError(callExpr->getSourceLocation(), "umable to resolve struct constructor");
         }
-        auto &target = targets.front();
+        auto target = targets.front();
         LKAssert(target.funcDecl->getAttributes().int_isCtor);
+        
+        if (target.funcDecl->getSignature().isTemplateDecl()) {
+            auto templateDecl = templateStructs.at(targetName);
+            // TODO what about initializer-based type deduction here?
+            auto mapping = resolveStructTemplateParametersFromExplicitTemplateArgumentList(templateDecl, callExpr->explicitTemplateArgs);
+            return specializeTemplateFunctionDeclForCallExpr(target.funcDecl, mapping, argumentOffset, codegenOption);
+        }
         return target;
     }
-    
-
-    auto specializeTemplateFunctionForCall = [this, argumentOffset, omitCodegen] (std::shared_ptr<ast::FunctionDecl> functionDecl, std::map<std::string, std::shared_ptr<ast::TypeDesc>> templateArgumentMapping) -> ResolvedCallable {
-        auto specializedDecl = TemplateSpecializer::specializeWithTemplateMapping(functionDecl, templateArgumentMapping);
-        
-        std::vector<Type *> templateArgTypes;
-        for (const auto &templateArgName : functionDecl->getSignature().templateArgumentNames) {
-            templateArgTypes.push_back(resolveTypeDesc(templateArgumentMapping.at(templateArgName)));
-        }
-        specializedDecl->setResolvedTemplateArgTypes(templateArgTypes);
-        
-        if (functionDecl->getName() == "static_cast") { // TODO is this necessary?
-            LKAssert(!functionDecl->getSignature().paramTypes[0]->isResolved());
-        }
-        
-        // Avoid generating the same specialization multiple times
-        // In theory, we should never end up here since the call target resolution code should prefer the already-specialized version
-        // over re-instantiating the template. However, the code is not very good and cannot (yet?) do that
-        
-        // We need the function's types fully resolved for the `mangleFullyResolved` call below
-        // TODO is withCleanSlate overkill here? we really just need the local scope to be empty so that we can insert the parameters
-        // Not entirely true though, we also call resolveTypeDesc which otherwise might include local types defined only for the the scope of the current function
-        withCleanSlate([&]() -> void {
-            for (size_t i = 0; i < specializedDecl->getSignature().paramTypes.size(); i++) {
-                auto type = resolveTypeDesc(specializedDecl->getSignature().paramTypes[i]);
-                auto name = specializedDecl->getParamNames()[i]->value;
-                localScope.insert(name, ValueBinding(type, nullptr, []() -> llvm::Value* {
-                    LKFatalError("Value cannot be read");
-                }, [](llvm::Value *) {
-                    LKFatalError("Value cannot be written to");
-                }, ValueBinding::Flags::None));
-            }
-            resolveTypeDesc(specializedDecl->getSignature().returnType);
-        });
-        
-        auto mangled = mangleFullyResolved(specializedDecl);
-        if (auto decl = getResolvedFunctionWithName(mangled)) {
-            if (this->equal(specializedDecl->getSignature(), decl->funcDecl->getSignature())) {
-                return decl.value();
-            }
-        }
-        
-        llvm::Function *llvmFunction = nullptr;
-        if (!omitCodegen && !specializedDecl->getAttributes().intrinsic) {
-            llvmFunction = withCleanSlate([&]() {
-                registerFunction(specializedDecl);
-                return llvm::dyn_cast<llvm::Function>(codegen(specializedDecl));
-            });
-        }
-        return ResolvedCallable(specializedDecl, llvmFunction, argumentOffset);
-    };
     
     
     // find a matching target
@@ -1769,7 +2093,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         uint32_t score; // lower is better
         std::shared_ptr<ast::FunctionDecl> decl;
         llvm::Value *llvmValue; // nullptr if this is a yet to be instantiated template function
-        std::map<std::string, std::shared_ptr<ast::TypeDesc>> templateArgumentMapping; // fully resolved ast::TypeDescs!
+        TemplateTypeMapping templateArgumentMapping; // fully resolved ast::TypeDescs!
     };
     
     struct TargetRejectionInfo {
@@ -1803,7 +2127,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
 
         uint32_t score = 0;
         size_t lastTypecheckedArgument = isVariadicWithCLinkage ? sig.paramTypes.size() : callExpr->arguments.size();
-        std::map<std::string, std::shared_ptr<ast::TypeDesc>> templateArgTypeMapping;
+        TemplateTypeMapping templateArgTypeMapping;
         
         auto nominalTypesScopeMarker = nominalTypes.getMarker();
         
@@ -1821,7 +2145,8 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
                 LKAssert(typeDesc->isResolved());
                 nominalTypes.insert(name, typeDesc->getResolvedType());
             }
-        } else if (sig.templateArgumentNames.empty() != decl->getResolvedTemplateArgTypes().empty()) {
+        //} else if (sig.templateArgumentNames.empty() != decl->getResolvedTemplateArgTypes().empty()) {
+        } else if (sig.isTemplateDecl() != decl->getSignature().isTemplateDecl()) {
             // Discard already instantiated template functions. Not necessarily necessary,
             // but also not a huge issue since it'll just resolve to the already instantiated version
             //util::fmt::print("[{}] discarding {} bc already instantiated", targetName, decl->getName());
@@ -1912,7 +2237,8 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     auto bestMatch = matches.front();
     
     if (bestMatch.decl->getSignature().isTemplateDecl() && !bestMatch.llvmValue) {
-        return specializeTemplateFunctionForCall(bestMatch.decl, bestMatch.templateArgumentMapping);
+        return specializeTemplateFunctionDeclForCallExpr(bestMatch.decl, bestMatch.templateArgumentMapping, argumentOffset, codegenOption);
+//        return specializeTemplateFunctionForCall(bestMatch.decl, bestMatch.templateArgumentMapping);
     }
     return ResolvedCallable(bestMatch.decl, bestMatch.llvmValue, argumentOffset);
 }
@@ -1941,7 +2267,7 @@ bool callerCalleeSideEffectsCompatible(const std::vector<yo::attributes::SideEff
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind VK) {
     emitDebugLocation(call);
     
-    auto resolvedTarget = resolveCall(call, false);
+    auto resolvedTarget = resolveCall(call, kRunCodegen);
     
     if (resolvedTarget.funcDecl->getAttributes().int_isCtor) {
         auto structTy = llvm::dyn_cast<StructType>(resolvedTarget.funcDecl->getImplType());
@@ -2070,9 +2396,23 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind
     }
     
     if (isVariadic && getResolvedFunctionWithName(llvmFunction->getName().str())->funcDecl->getAttributes().extern_) {
-        // TOODO extract references if possible, disallow otherwise, promote types as expected by C
+        // TODO extract references if possible, disallow otherwise, promote types as expected by C
         for (auto it = call->arguments.begin() + numFixedArgs; it != call->arguments.end(); it++) {
-            args.push_back(codegen(*it));
+            auto arg = *it;
+            auto argTy = getType(arg);
+            
+            auto V = codegen(arg, RValue);
+            
+            if (auto refTy = llvm::dyn_cast_or_null<ReferenceType>(argTy)) {
+                argTy = refTy->getReferencedType();
+                V = builder.CreateLoad(V);
+            }
+            
+            if (argTy == builtinTypes.yo.f32) {
+                V = builder.CreateFPCast(V, builtinTypes.llvm.Double);
+            }
+            
+            args.push_back(V);
         }
     } else if (isVariadic) {
         LKFatalError("TODO: implement");
@@ -2176,7 +2516,11 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
     switch (intrinsic) {
         case Intrinsic::StaticCast:
         case Intrinsic::ReinterpretCast: {
-            auto dstTy = call->explicitTemplateArgumentTypes[0];
+            if (call->numberOfExplicitTemplateArgs() != 1) {
+                auto msg = util::fmt::format("invalid number of explicit template arguments. expected 1, got {}", call->numberOfExplicitTemplateArgs());
+                diagnostics::emitError(call->getSourceLocation(), msg);
+            }
+            auto dstTy = call->explicitTemplateArgs->at(0);
             auto arg = call->arguments[0];
             auto castKind = intrinsic == Intrinsic::StaticCast
                 ? ast::CastExpr::CastKind::StaticCast
@@ -2187,7 +2531,7 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
         }
         
         case Intrinsic::Sizeof: {
-            auto ty = resolveTypeDesc(call->explicitTemplateArgumentTypes[0])->getLLVMType();
+            auto ty = resolveTypeDesc(call->explicitTemplateArgs->at(0))->getLLVMType();
             return llvm::ConstantInt::get(builtinTypes.llvm.i64, module->getDataLayout().getTypeAllocSize(ty));
         }
         
@@ -2195,18 +2539,18 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
             return builder.CreateIntrinsic(llvm::Intrinsic::ID::trap, {}, {});
         
         case Intrinsic::Typename: {
-            auto ty = resolveTypeDesc(call->explicitTemplateArgumentTypes[0]);
-            return builder.CreateGlobalStringPtr(ty->getName()); // TODO is getName the right choice here?
+            auto ty = resolveTypeDesc(call->explicitTemplateArgs->at(0));
+            return builder.CreateGlobalStringPtr(ty->str()); // TODO is str the right choice here?
         }
         
         case Intrinsic::IsSame: {
-            auto ty1 = resolveTypeDesc(call->explicitTemplateArgumentTypes[0]);
-            auto ty2 = resolveTypeDesc(call->explicitTemplateArgumentTypes[1]);
+            auto ty1 = resolveTypeDesc(call->explicitTemplateArgs->at(0));
+            auto ty2 = resolveTypeDesc(call->explicitTemplateArgs->at(1));
             return llvm::ConstantInt::get(builtinTypes.llvm.i1, ty1 == ty2);
         }
         
         case Intrinsic::IsPointer:
-            return llvm::ConstantInt::get(builtinTypes.llvm.i1, resolveTypeDesc(call->explicitTemplateArgumentTypes[0])->isPointerTy());
+            return llvm::ConstantInt::get(builtinTypes.llvm.i1, resolveTypeDesc(call->explicitTemplateArgs->at(0))->isPointerTy());
         
         case Intrinsic::LAnd:
         case Intrinsic::LOr:
@@ -2432,8 +2776,8 @@ llvm::Value* IRGenerator::codegen_HandleLogOpIntrinsic(Intrinsic I, std::shared_
     LKAssert(call->arguments.size() == 2);
     LKAssert(I == Intrinsic::LAnd || I == Intrinsic::LOr);
     
-    const auto lhs = call->arguments.at(0);
-    const auto rhs = call->arguments.at(1);
+    const auto lhs = call->arguments[0];
+    const auto rhs = call->arguments[1];
     
     LKAssert(getType(lhs) == builtinTypes.yo.Bool && getType(rhs) == builtinTypes.yo.Bool);
     
@@ -2687,6 +3031,15 @@ void IRGenerator::handleStartupAndShutdownFunctions() {
 
 
 llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<ast::CallExpr> call, bool putInLocalScope, ValueKind VK) {
+    if (auto SD = util::map::get_opt(templateStructs, structTy->getName())) {
+        if (!call->explicitTemplateArgs) {
+            LKFatalError("needs explicit args for instantiating template");
+        }
+        auto mapping = resolveStructTemplateParametersFromExplicitTemplateArgumentList(*SD, call->explicitTemplateArgs);
+        structTy = instantiateTemplateStruct(*SD, mapping);
+    }
+    
+    emitDebugLocation(call);
     auto alloca = builder.CreateAlloca(getLLVMType(structTy));
     auto ident = currentFunction.getTmpIdent();
     alloca->setName(ident);
@@ -2700,7 +3053,7 @@ llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<
     auto callTarget = std::make_shared<ast::MemberExpr>(makeIdent(ident), kInitializerMethodName);
     auto callExpr = std::make_shared<ast::CallExpr>(callTarget);
     callExpr->arguments = call->arguments;
-    callExpr->explicitTemplateArgumentTypes = call->explicitTemplateArgumentTypes;
+    callExpr->explicitTemplateArgs = call->explicitTemplateArgs; // TODO should this be a copy?
     callExpr->setSourceLocation(call->getSourceLocation());
     
     codegen(callExpr);
@@ -2709,6 +3062,7 @@ llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<
         localScope.remove(ident);
     }
     
+    // TODO should this even be allowed to return anything but an LValue?
     switch (VK) {
         case LValue: return alloca;
         case RValue: return builder.CreateLoad(alloca);
@@ -2838,7 +3192,7 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
     }
     
     if (typeDesc->isReference() && typeDesc->getPointee()->isReference()) {
-        diagnostics::emitError(typeDesc->getSourceLocation(), "teference type cannot have indirection count > 1");
+        diagnostics::emitError(typeDesc->getSourceLocation(), "reference type cannot have indirection count > 1");
     }
     
     switch (typeDesc->getKind()) {
@@ -2870,13 +3224,20 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
             
         
         case TDK::Function: {
-            const auto& FTI = typeDesc->getFunctionTypeInfo();
-            const auto paramTypes = util::vector::map(FTI.parameterTypes, [this](const auto& typeDesc) { return resolveTypeDesc(typeDesc); });
+            const auto &FTI = typeDesc->getFunctionTypeInfo();
+            const auto paramTypes = util::vector::map(FTI.parameterTypes, [this](const auto &TD) { return resolveTypeDesc(TD); });
             return handleResolvedTy(FunctionType::create(resolveTypeDesc(FTI.returnType), paramTypes, FTI.callingConvention));
         }
         
         case TDK::Decltype:
             return handleResolvedTy(getType(typeDesc->getDecltypeExpr()));
+        
+        case TDK::NominalTemplated: {
+            auto structDecl = util::map::get_opt(templateStructs, typeDesc->getName());
+            if (!structDecl) diagnostics::emitError(typeDesc->getSourceLocation(), "unable to resolve type");
+            
+            return handleResolvedTy(instantiateTemplateStruct(*structDecl, typeDesc));
+        }
     }
     
     LKFatalError("unhandled type desc: %s", typeDesc->str().c_str());
@@ -2894,7 +3255,8 @@ bool IRGenerator::equal(const ast::FunctionSignature &lhs, const ast::FunctionSi
         if (resolveTypeDesc(lhs.paramTypes[i], false) != resolveTypeDesc(rhs.paramTypes[i], false)) return false;
     }
     
-    if (lhs.templateArgumentNames != rhs.templateArgumentNames) return false;
+    // TODO this only compares address equality. too relaxed?
+    if (lhs.templateParamsDecl != rhs.templateParamsDecl) return false;
     
     return true;
 }
@@ -2957,7 +3319,7 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
         case Type::TypeID::Struct: {
             auto structTy = llvm::dyn_cast<StructType>(type);
             auto llvmStructTy = llvm::StructType::create(C, structTy->getName());
-            llvmStructTy->setBody(util::vector::map(structTy->getMembers(), [this](const auto& member) -> llvm::Type* {
+            llvmStructTy->setBody(util::vector::map(structTy->getMembers(), [this](const auto &member) -> llvm::Type* {
                 return getLLVMType(member.second);
             }));
             return handle_llvm_type(llvmStructTy);
@@ -3168,7 +3530,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             return resolveTypeDesc(static_cast<ast::CastExpr *>(expr.get())->destType);
         
         case NK::CallExpr:
-            return resolveTypeDesc(resolveCall(std::static_pointer_cast<ast::CallExpr>(expr), true).signature.returnType);
+            return resolveTypeDesc(resolveCall(std::static_pointer_cast<ast::CallExpr>(expr), kSkipCodegen).signature.returnType);
         
         case NK::MatchExpr:
             return getType(static_cast<ast::MatchExpr *>(expr.get())->branches.front().expression); // TODO add a check somewhere to make sure all branches return the same type
@@ -3233,7 +3595,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             auto tempCallExpr = std::make_shared<ast::CallExpr>(makeIdent(mangledCanonicalName),
                                                                 std::vector<std::shared_ptr<ast::Expr>>{ binopExpr->getLhs(), binopExpr->getRhs() });
             tempCallExpr->setSourceLocation(binopExpr->getSourceLocation());
-            return resolveTypeDesc(resolveCall(tempCallExpr, true).signature.returnType);
+            return resolveTypeDesc(resolveCall(tempCallExpr, kSkipCodegen).signature.returnType);
         }
         
         default:
@@ -3267,31 +3629,73 @@ bool IRGenerator::isTemporary(std::shared_ptr<ast::Expr> expr) {
 
 
 
-
-
-
-
-Type *IRGenerator::instantiateTemplatedType(std::shared_ptr<ast::TypeDesc> typeDesc) {
-    LKFatalError("TODO");
+StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDecl> SD, std::shared_ptr<ast::TypeDesc> TD) {
+    LKAssert(SD->isTemplateDecl() && TD->isOfKind(ast::TypeDesc::Kind::NominalTemplated));
+    LKAssert(SD->getName() == TD->getName());
     
-//    if (!TI->isTemplatedType()) return TI;
-//
-//    auto templateStructDecl = typeCache.getStruct(TI->getName());
-//    LKAssert(templateStructDecl->isTemplateStruct());
-//    std::map<std::string, TypeInfo *> mapping;
-//
-//    for (size_t i = 0; i < templateStructDecl->templateArguments.size(); i++) {
-//        mapping[templateStructDecl->templateArguments[i]] = TI->getTemplateParameterTypes()[i];
-//    }
-//
-//    auto mangledName = mangling::mangleTemplatedComplexType(TI);
-//
-//
-//
-//    LKFatalError("TODO");
+    // Build a mapping for all explicitly specified types and forward that to the actual implementation
+    
+    TemplateTypeMapping mapping;
+    auto &explicitArgs = TD->getTemplateArgs();
+    
+    for (uint64_t idx = 0; idx < SD->templateParamsDecl->size(); idx++) {
+        if (idx < explicitArgs.size()) {
+            mapping[SD->templateParamsDecl->getParams()[idx].name] = explicitArgs[idx];
+        }
+    }
+    
+    return instantiateTemplateStruct(SD, mapping);
 }
 
 
+
+// TODO add a SourceLocation parameter?
+StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDecl> SD, const TemplateTypeMapping &mapping) {
+    LKAssert(SD->isTemplateDecl());
+    
+    auto instantiatedDecl = std::make_shared<ast::StructDecl>();
+    instantiatedDecl->setSourceLocation(SD->getSourceLocation());
+    instantiatedDecl->name = SD->getName();
+    instantiatedDecl->attributes = SD->attributes;
+    instantiatedDecl->members.reserve(SD->members.size());
+    
+    // Build up the type scope w/ the template argument types
+    
+    auto typeScopeMarker = nominalTypes.getMarker();
+    
+    for (uint64_t idx = 0; idx < SD->templateParamsDecl->size(); idx++) {
+        Type *ty = nullptr;
+        auto &param = SD->templateParamsDecl->getParams()[idx];
+        
+        if (auto TD = util::map::get_opt(mapping, param.name)) {
+            ty = resolveTypeDesc(*TD);
+        } else if (auto defaultType = param.defaultType) {
+            ty = resolveTypeDesc(defaultType);
+        } else {
+            diagnostics::emitError(util::fmt::format("unable to resolve template parameter {}", param.name));
+        }
+        nominalTypes.insert(param.name, ty);
+        instantiatedDecl->resolvedTemplateArgTypes.push_back(ty);
+    }
+    
+    // Specialize all members
+    for (auto &member : SD->members) {
+        auto ty = ast::TypeDesc::makeResolved(resolveTypeDesc(member->type));
+        auto specialized = std::make_shared<ast::VarDecl>(member->name, ty);
+        specialized->setSourceLocation(member->getSourceLocation());
+        instantiatedDecl->members.push_back(specialized);
+    }
+    
+    nominalTypes.removeAllSinceMarker(typeScopeMarker);
+    
+    // TODO we probably can move this check further up, since the mangled name only depends on the template parameters
+    // meaning that there's no need to specialize members etc in order to return an already instantiated struct
+    if (auto ST = nominalTypes.get(mangling::mangleFullyResolved(instantiatedDecl))) {
+        return llvm::dyn_cast<StructType>(*ST);
+    }
+    return registerStructDecl(instantiatedDecl);
+    
+}
 
 
 
@@ -3300,21 +3704,24 @@ Type *IRGenerator::instantiateTemplatedType(std::shared_ptr<ast::TypeDesc> typeD
 
 #pragma mark - Synthesized Functions
 
+// TODO for all 3 functions below, the kSkipCodegen option is implemented really bad, mainly since we still create the ast, only to then not run kt through codegen
+// TODO there's a lot of duplicate code in the functions below!
 
-llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr<ast::StructDecl> structDecl) {
+
+llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr<ast::StructDecl> structDecl, SkipCodegenOption codegenOption) {
     // TODO set the source location for all nodes generated in here!
+        
+    auto &SL = structDecl->getSourceLocation();
+    auto ST = llvm::dyn_cast<StructType>(*nominalTypes.get(mangling::mangleFullyResolved(structDecl)));
+    auto &SM = ST->getMembers();
     
-    const auto &SL = structDecl->getSourceLocation();
-    const auto &SN = structDecl->name;
-    const auto ST = llvm::dyn_cast<StructType>(nominalTypes.get(SN).value());
-    const auto &SM = ST->getMembers();
-    
-    const auto selfIdent = makeIdent("self");
+    auto selfIdent = makeIdent("self");
     
     ast::FunctionSignature sig;
     std::vector<std::shared_ptr<ast::Ident>> paramNames;
     attributes::FunctionAttributes attr;
     
+    attr.int_isFwdDecl = true;
     sig.setSourceLocation(SL);
     sig.returnType = ast::TypeDesc::makeResolved(builtinTypes.yo.Void);
     sig.paramTypes.reserve(ST->memberCount() + 1);
@@ -3328,14 +3735,21 @@ llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
         paramNames.push_back(makeIdent(util::fmt::format("__arg{}", idx)));
     });
     
-    auto FD = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod, kInitializerMethodName, sig, paramNames, attr);
+    auto FD = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod, kInitializerMethodName, sig, attr);
+    FD->setParamNames(paramNames);
     FD->setSourceLocation(SL);
     FD->setImplType(ST);
     
     auto mangledName = mangleFullyResolved(FD);
-    if (auto F = module->getFunction(mangledName)) {
-        // Only generate an initializer if there is no existing overload
-        return F;
+//    if (auto F = module->getFunction(mangledName)) {
+//        // Only generate an initializer if there is no existing overload
+//        return F;
+//    }
+    
+    if (auto F = getResolvedFunctionWithName(mangledName)) {
+        //auto &F = resolvedFunctions.at(mangledName);
+        if (!F->funcDecl->getAttributes().int_isFwdDecl) return F->llvmValue;
+//        else F->funcDecl->getAttributes().int_isFwdDecl = false;
     }
     
     auto body = std::make_shared<ast::Composite>();
@@ -3350,20 +3764,23 @@ llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
     FD->setBody(body);
     
     registerFunction(FD);
-    return codegen(FD);
+    
+    if (codegenOption == kSkipCodegen) return nullptr;
+    else return codegen(FD);
 }
 
 
 
-llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::StructDecl> structDecl) {
-    const auto &SL = structDecl->getSourceLocation();
-    const auto ST = llvm::dyn_cast<StructType>(nominalTypes.get(structDecl->name).value());
-    const auto &SM = ST->getMembers();
+llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::StructDecl> structDecl, SkipCodegenOption codegenOption) {
+    auto &SL = structDecl->getSourceLocation();
+    auto ST = llvm::dyn_cast<StructType>(*nominalTypes.get(mangling::mangleFullyResolved(structDecl)));
+    auto &SM = ST->getMembers();
     
     ast::FunctionSignature sig;
     std::vector<std::shared_ptr<ast::Ident>> paramNames;
     attributes::FunctionAttributes attr;
     
+    attr.int_isFwdDecl = true;
     sig.setSourceLocation(SL);
     sig.returnType = ast::TypeDesc::makeResolved(builtinTypes.yo.Void);
     sig.paramTypes.push_back(ast::TypeDesc::makeResolved(ST->getReferenceTo()));
@@ -3375,14 +3792,21 @@ llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::
     paramNames.push_back(selfIdent);
     paramNames.push_back(arg0Ident);
     
-    auto FD = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod, kInitializerMethodName, sig, paramNames, attr);
+    auto FD = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod, kInitializerMethodName, sig, attr);
+    FD->setParamNames(paramNames);
     FD->setSourceLocation(SL);
     FD->setImplType(ST);
     
     auto mangledName = mangleFullyResolved(FD);
-    if (auto F = module->getFunction(mangledName)) {
-        // type already has a user-defined copy constructor
-        return F;
+//    if (auto F = module->getFunction(mangledName)) {
+//        // type already has a user-defined copy constructor
+//        return F;
+//    }
+    
+    if (auto F = getResolvedFunctionWithName(mangledName)) {
+        //auto &F = resolvedFunctions.at(mangledName);
+        if (!F->funcDecl->getAttributes().int_isFwdDecl) return F->llvmValue;
+//        else F->funcDecl->getAttributes().int_isFwdDecl = false;
     }
     
     auto body = std::make_shared<ast::Composite>();
@@ -3398,15 +3822,17 @@ llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::
     FD->setBody(body);
     
     registerFunction(FD);
-    return codegen(FD);
+    
+    if (codegenOption == kSkipCodegen) return nullptr;
+    else return codegen(FD);
 }
 
 
 
-llvm::Value* IRGenerator::synthesizeDefaultDeallocMethod(std::shared_ptr<ast::StructDecl> structDecl) {
-    const auto &SL = structDecl->getSourceLocation();
-    const auto ST = llvm::dyn_cast<StructType>(nominalTypes.get(structDecl->name).value());
-    const auto &SM = ST->getMembers();
+llvm::Value* IRGenerator::synthesizeDefaultDeallocMethod(std::shared_ptr<ast::StructDecl> structDecl, SkipCodegenOption codegenOption) {
+    auto &SL = structDecl->getSourceLocation();
+    auto ST = llvm::dyn_cast<StructType>(*nominalTypes.get(mangling::mangleFullyResolved(structDecl)));
+    auto &SM = ST->getMembers();
     
     auto selfIdent = makeIdent("self");
     
@@ -3414,10 +3840,12 @@ llvm::Value* IRGenerator::synthesizeDefaultDeallocMethod(std::shared_ptr<ast::St
     attributes::FunctionAttributes attr;
     std::vector<std::shared_ptr<ast::Ident>> paramNames = { selfIdent };
     
+    attr.int_isFwdDecl = true;
     sig.returnType = ast::TypeDesc::makeResolved(builtinTypes.yo.Void);
     sig.paramTypes = { ast::TypeDesc::makeResolved(ST->getReferenceTo()) };
     
-    auto FD = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod, kSynthesizedDeallocMethodName, sig, paramNames, attr);
+    auto FD = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod, kSynthesizedDeallocMethodName, sig, attr);
+    FD->setParamNames(paramNames);
     FD->setSourceLocation(SL);
     FD->setImplType(ST);
     
@@ -3445,5 +3873,7 @@ llvm::Value* IRGenerator::synthesizeDefaultDeallocMethod(std::shared_ptr<ast::St
     FD->setBody(body);
     
     registerFunction(FD);
-    return codegen(FD);
+    
+    if (codegenOption == kSkipCodegen) return nullptr;
+    else return codegen(FD);
 }

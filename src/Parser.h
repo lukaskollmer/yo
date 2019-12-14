@@ -100,6 +100,7 @@ private:
     
     std::shared_ptr<ast::FunctionDecl> parseFunctionDecl(attributes::FunctionAttributes);
     std::shared_ptr<ast::ImplBlock> parseImplBlock();
+    std::shared_ptr<ast::TemplateParamDeclList> parseTemplateParamDeclList();
     std::shared_ptr<ast::StructDecl> parseStructDecl(attributes::StructAttributes);
     std::shared_ptr<ast::TypealiasDecl> parseTypealias();
     
@@ -129,6 +130,10 @@ private:
     // Precondition: The current token most be either a less than sign or opening parentheses
     // If the current token is a less than sign and ParseCallExpr fails to parse a list of type expressions, it returns nullptr, with the parser's position reset to the less than sign
     std::shared_ptr<ast::CallExpr> parseCallExpr(std::shared_ptr<ast::Expr> target);
+    
+    /// Parse an explicit template argument list
+    /// For example everything between the target name and the first parentheses in `foo<i8, i8, i8>(<args>)`
+    std::shared_ptr<ast::TemplateParamArgList> parseTemplateArgumentList();
     
     
     std::vector<std::shared_ptr<ast::Expr>> parseExpressionList(Token::TokenKind delimiter);

@@ -40,7 +40,6 @@ struct Options {
     std::vector<OutputFileType> emit;
     std::vector<std::string> runArgs;
     bool int_trapOnFatalError;
-    bool farc;
     bool fzeroInitialize;
     bool fnoInline;
 };

@@ -217,7 +217,7 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
         }
             
         case TK::Ampersand: {
-            const auto &loc = getCurrentSourceLocation();
+            const auto loc = getCurrentSourceLocation();
             consume();
             return TypeDesc::makeReference(parseType(), loc);
         }
@@ -261,8 +261,8 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
                     restore_pos(fallback);
                     return nullptr;
                 }
-                unhandledToken(currentToken());
-                LKFatalError("TODO implement!");
+                
+                return TypeDesc::makeNominalTemplated(name, paramTys, loc);
             }
             
             return TypeDesc::makeNominal(name, loc);
@@ -337,23 +337,51 @@ std::shared_ptr<TopLevelStmt> Parser::parseTopLevelStmt() {
 }
 
 
+
+std::shared_ptr<ast::TemplateParamDeclList> Parser::parseTemplateParamDeclList() {
+    if (currentTokenKind() != TK::OpeningAngledBracket) return nullptr;
+    
+    auto paramList = std::make_shared<ast::TemplateParamDeclList>();
+    paramList->setSourceLocation(getCurrentSourceLocation());
+    consume();
+    
+    while (true) {
+        auto name = parseIdentAsString();
+        std::shared_ptr<TypeDesc> initialValue = nullptr;
+        if (currentTokenKind() == TK::EqualsSign) {
+            consume();
+            initialValue = parseType();
+        }
+        paramList->addParam(ast::TemplateParamDeclList::Param(name, initialValue));
+        
+        if (currentTokenKind() == TK::Comma) {
+            consume();
+            continue;
+        } else if (currentTokenKind() == TK::ClosingAngledBracket) {
+            break;
+        } else {
+            diagnostics::emitError(getCurrentSourceLocation(), "expected either ',' or '>'");
+        }
+    }
+    
+    if (paramList->isEmpty()) {
+        diagnostics::emitError(paramList->getSourceLocation(), "template parameter list cannot be empty");
+    }
+    
+    assertTkAndConsume(TK::ClosingAngledBracket);
+    return paramList;
+}
+
+
 std::shared_ptr<StructDecl> Parser::parseStructDecl(attributes::StructAttributes attributes) {
     assertTkAndConsume(TK::Struct);
     
     auto decl = std::make_shared<StructDecl>();
     decl->name = parseIdentAsString();
     decl->attributes = attributes;
+    decl->templateParamsDecl = parseTemplateParamDeclList();
     
-    if (currentTokenKind() == TK::OpeningAngledBracket) {
-        consume();
-        while (currentTokenKind() != TK::ClosingAngledBracket) {
-            decl->templateArguments.push_back(parseIdentAsString());
-            if (currentTokenKind() == TK::Comma) consume();
-        }
-        assertTkAndConsume(TK::ClosingAngledBracket);
-    }
     assertTkAndConsume(TK::OpeningCurlyBraces);
-    
     decl->members = parseStructPropertyDeclList();
     assertTkAndConsume(TK::ClosingCurlyBraces);
     return decl;
@@ -459,7 +487,7 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
     auto functionKind = FunctionKind::GlobalFunction; // initial assumption
     
     assertTk(TK::Fn);
-    const auto& loc = getCurrentSourceLocation();
+    const auto loc = getCurrentSourceLocation();
     consume();
     
     FunctionSignature signature;
@@ -475,22 +503,23 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
         name = mangling::encodeOperator(op.value());
     }
     
+    signature.templateParamsDecl = parseTemplateParamDeclList();
     
-    if (currentTokenKind() == TK::OpeningAngledBracket) { // template list
-        consume();
-        while (currentTokenKind() != TK::ClosingAngledBracket) {
-            signature.templateArgumentNames.push_back(parseIdentAsString());
-            if (currentTokenKind() == TK::Comma) {
-                consume();
-            } else {
-                assertTkAndConsume(TK::ClosingAngledBracket);
-                break;
-            }
-        }
-        if (signature.templateArgumentNames.empty()) {
-            diagnostics::emitError(loc, "Function template parameter list cannot be empty");
-        }
-    }
+//    if (currentTokenKind() == TK::OpeningAngledBracket) { // template list
+//        consume();
+//        while (currentTokenKind() != TK::ClosingAngledBracket) {
+//            signature.templateArgumentNames.push_back(parseIdentAsString());
+//            if (currentTokenKind() == TK::Comma) {
+//                consume();
+//            } else {
+//                assertTkAndConsume(TK::ClosingAngledBracket);
+//                break;
+//            }
+//        }
+//        if (signature.templateArgumentNames.empty()) {
+//            diagnostics::emitError(loc, "Function template parameter list cannot be empty");
+//        }
+//    }
     
     
     assertTkAndConsume(TK::OpeningParens);
@@ -507,8 +536,9 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
         signature.returnType = TypeDesc::makeNominal("void");
     }
     
-    auto fnDecl = std::make_shared<FunctionDecl>(functionKind, name, signature, paramNames, attributes);
+    auto fnDecl = std::make_shared<FunctionDecl>(functionKind, name, signature, attributes);
     fnDecl->setSourceLocation(loc);
+    fnDecl->setParamNames(paramNames);
     
     if (currentTokenKind() == TK::Semicolon) {
         // forward declaration
@@ -570,7 +600,7 @@ static const TokenSet functionParameterInitialTokens = {
 
 // TODO why is this a separate function? re-inline!
 void Parser::parseFunctionParameterList(FunctionSignature &signature, std::vector<std::shared_ptr<ast::Ident>> &paramNames) {
-    constexpr auto delimiter = TK::ClosingParens;
+    const auto delimiter = TK::ClosingParens;
     
     uint64_t pos_lastEntry = UINT64_MAX;
     for (uint64_t index = 0; currentTokenKind() != delimiter; index++) {
@@ -1043,7 +1073,7 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
         
 //    parse_member_expr:
         if (currentTokenKind() == TK::Period) { // member expr
-            const auto& loc = getCurrentSourceLocation();
+            const auto loc = getCurrentSourceLocation();
             consume();
             auto memberName = parseIdentAsString();
             expr = std::make_shared<ast::MemberExpr>(expr, memberName);
@@ -1225,41 +1255,56 @@ std::optional<ast::Operator> Parser::parseOperator() {
 
 
 std::shared_ptr<ast::CallExpr> Parser::parseCallExpr(std::shared_ptr<ast::Expr> target) {
-    std::vector<std::shared_ptr<TypeDesc>> explicitTemplateArgumentTypes;
+    auto templateArgs = parseTemplateArgumentList();
     
-    if (currentTokenKind() == TK::OpeningAngledBracket) {
-        save_pos(pos_of_less_than_sign);
-        consume();
-        while (currentTokenKind() != TK::ClosingAngledBracket) { // TODO this might become a problem if there is an `<>` operator?
-            auto type = parseType();
-            if (!type) {
-                restore_pos(pos_of_less_than_sign);
-                return nullptr;
-            }
-            explicitTemplateArgumentTypes.push_back(type);
-            
-            if (currentTokenKind() == TK::Comma) {
-                consume(); continue;
-            } else if (currentTokenKind() == TK::ClosingAngledBracket) {
-                break;
-            } else {
-                // If we end up here, the less than sign is probably part of a comparison or bit shift
-                restore_pos(pos_of_less_than_sign);
-                return nullptr;
-            }
-        }
-        assertTkAndConsume(TK::ClosingAngledBracket);
-        LKAssert(!explicitTemplateArgumentTypes.empty()); // TODO allow empty explicit template lists?
+    if (!templateArgs && currentTokenKind() != TK::OpeningParens) {
+        return nullptr;
     }
+    
     assertTkAndConsume(TK::OpeningParens);
     
     auto callArguments = parseExpressionList(TK::ClosingParens);
     assertTkAndConsume(TK::ClosingParens);
-    auto callExpr = std::make_shared<ast::CallExpr>(target, callArguments, explicitTemplateArgumentTypes);
+    auto callExpr = std::make_shared<ast::CallExpr>(target, callArguments);
     callExpr->setSourceLocation(target->getSourceLocation());
+    callExpr->explicitTemplateArgs = templateArgs;
     return callExpr;
 }
 
+
+
+std::shared_ptr<ast::TemplateParamArgList> Parser::parseTemplateArgumentList() {
+    if (currentTokenKind() != TK::OpeningAngledBracket) return nullptr;
+    
+    auto argList = std::make_shared<ast::TemplateParamArgList>();
+    argList->setSourceLocation(getCurrentSourceLocation());
+    
+    save_pos(pos_of_less_than_sign);
+    consume();
+    
+    while (currentTokenKind() != TK::ClosingAngledBracket) { // TODO this might become a problem if there is an `<>` operator?
+        auto type = parseType();
+        if (!type) {
+            restore_pos(pos_of_less_than_sign);
+            return nullptr;
+        }
+        argList->elements.push_back(type);
+                    
+        if (currentTokenKind() == TK::Comma) {
+            consume(); continue;
+        } else if (currentTokenKind() == TK::ClosingAngledBracket) {
+            break;
+        } else {
+            // If we end up here, the less than sign is probably part of a comparison or bit shift
+            restore_pos(pos_of_less_than_sign);
+            return nullptr;
+        }
+    }
+    assertTkAndConsume(TK::ClosingAngledBracket);
+    
+    LKAssert(!argList->isEmpty()); // TODO allow empty explicit template lists?
+    return argList;
+}
 
 
 

@@ -21,12 +21,6 @@ using namespace yo;
 using namespace irgen;
 
 
-
-std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specializeWithTemplateMapping(std::shared_ptr<ast::FunctionDecl> decl, TemplateTypeMapping templateArgumentsMapping) {
-    return TemplateSpecializer(templateArgumentsMapping).specialize(decl);
-}
-
-
 std::shared_ptr<ast::TypeDesc> TemplateSpecializer::resolveType(std::shared_ptr<ast::TypeDesc> typeDesc) {
     if (!typeDesc) return nullptr;
     using TDK = ast::TypeDesc::Kind;
@@ -53,6 +47,11 @@ std::shared_ptr<ast::TypeDesc> TemplateSpecializer::resolveType(std::shared_ptr<
         case TDK::Decltype:
             return ast::TypeDesc::makeDecltype(specialize(typeDesc->getDecltypeExpr()), loc);
         
+        case TDK::NominalTemplated: {
+            auto resolvedTemplateArgs = util::vector::map(typeDesc->getTemplateArgs(), [this](auto &ty) { return resolveType(ty); });
+            return ast::TypeDesc::makeNominalTemplated(typeDesc->getName(), resolvedTemplateArgs);
+        }
+        
         case TDK::Function:
             LKFatalError("TODO");
         
@@ -61,19 +60,7 @@ std::shared_ptr<ast::TypeDesc> TemplateSpecializer::resolveType(std::shared_ptr<
 
 
 std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specialize(std::shared_ptr<ast::FunctionDecl> decl) {
-#if 0
-    for (auto& [name, type] : templateArgumentsMapping) {
-        std::cout << name << ": " << type->Str() << std::endl;
-    }
-#endif
-    
     auto signature = decl->getSignature();
-    
-    // Substitute in signature (params & return type)
-//    for (auto &paramTy: signature.paramTypes) {
-//        // TODO util::vec::map?
-//        paramTy = resolveType(paramTy);
-//    }
     
     signature.paramTypes = util::vector::map(decl->getSignature().paramTypes, [&](auto paramTy) {
         auto resolved = resolveType(paramTy);
@@ -82,29 +69,19 @@ std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specialize(std::shared_p
     });
     signature.returnType = resolveType(signature.returnType);
     
-//    for (const auto& [name, type] : templateArgumentMapping) {
-//        if (type) {
-//            auto it = std::find(signature.templateArgumentNames.begin(),
-//                                signature.templateArgumentNames.end(), name);
-//            signature.templateArgumentNames.erase(it);
-//        } else {
-//            LKFatalError("Unresolved argument type in template function: %s (%s)", name.c_str(), mangling::mangleCanonicalName(decl).c_str());
-//        }
-//    }
-    
     // TODO instead of replacig this here, simply add the mapping to the FuncDecl and insert implicit typealiases during function codegen!
-    for (const auto &templateArgTypename : signature.templateArgumentNames) {
-        LKAssert(util::map::has_key(templateArgumentMapping, templateArgTypename));
+//    for (const auto &templateArgTypename : signature.templateArgumentNames) {
+    for (auto &param : signature.templateParamsDecl->getParams()) {
+        LKAssert(util::map::has_key(templateArgumentMapping, param.name));
     }
-    signature.templateArgumentNames = {};
-    
+    signature.templateParamsDecl = nullptr;
     
     auto specializedFuncDecl = std::make_shared<ast::FunctionDecl>(decl->getFunctionKind(),
                                                                    decl->getName(),
                                                                    signature,
-                                                                   decl->getParamNames(),
                                                                    decl->getAttributes());
     specializedFuncDecl->setSourceLocation(decl->getSourceLocation());
+    specializedFuncDecl->setParamNames(decl->getParamNames());
     
     if (decl->getAttributes().intrinsic) {
         LKAssert(decl->getBody()->isEmpty());
@@ -115,6 +92,7 @@ std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specialize(std::shared_p
     specializedFuncDecl->setBody(specialize(decl->getBody()));
     return specializedFuncDecl;
 }
+
 
 
 #define HANDLE(node, T) if (auto X = std::dynamic_pointer_cast<ast::T>(node)) return specialize(X);
@@ -213,8 +191,7 @@ std::shared_ptr<ast::ExprStmt> TemplateSpecializer::specialize(std::shared_ptr<a
 std::shared_ptr<ast::CallExpr> TemplateSpecializer::specialize(std::shared_ptr<ast::CallExpr> call) {
     auto instantiatedCall = std::make_shared<ast::CallExpr>(*call);
     instantiatedCall->arguments = util::vector::map(call->arguments, [this](auto& expr) { return specialize(expr); });
-    instantiatedCall->explicitTemplateArgumentTypes = util::vector::map(call->explicitTemplateArgumentTypes,
-                                                                        [this](auto& T) { return resolveType(T); });
+    instantiatedCall->explicitTemplateArgs = specialize(call->explicitTemplateArgs);
     instantiatedCall->setSourceLocation(call->getSourceLocation());
     return instantiatedCall;
 }
@@ -270,4 +247,21 @@ std::shared_ptr<ast::UnaryExpr> TemplateSpecializer::specialize(std::shared_ptr<
     auto X = std::make_shared<ast::UnaryExpr>(expr->op, specialize(expr->expr));
     X->setSourceLocation(expr->getSourceLocation());
     return X;
+}
+
+
+std::shared_ptr<ast::TemplateParamDeclList> TemplateSpecializer::specialize(std::shared_ptr<ast::TemplateParamDeclList> templateDecls) {
+    if (!templateDecls) return nullptr;
+    LKFatalError("TODO");
+}
+
+
+
+std::shared_ptr<ast::TemplateParamArgList> TemplateSpecializer::specialize(std::shared_ptr<ast::TemplateParamArgList> argList) {
+    if (!argList) return nullptr;
+    
+    auto spec = std::make_shared<ast::TemplateParamArgList>();
+    spec->setSourceLocation(argList->getSourceLocation());
+    spec->elements = util::vector::map(argList->elements, [&](const auto &elem) { return resolveType(elem); });
+    return spec;
 }

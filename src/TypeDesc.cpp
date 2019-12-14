@@ -52,5 +52,20 @@ std::string TypeDesc::str() const {
         
         case Kind::Decltype:
             return util::fmt::format("decltype({})", getDecltypeExpr()->description());
+        
+        case Kind::NominalTemplated: {
+            auto &[name, types] = std::get<NominalTemplatedDataT>(this->data);
+            std::ostringstream OS;
+            OS << name;
+            OS << "<";
+            for (auto it = types.begin(); it != types.end(); it++) {
+                OS << (*it)->str();
+                if (it + 1 != types.end()) {
+                    OS << ", ";
+                }
+            }
+            OS << ">";
+            return OS.str();
+        }
     }
 }
