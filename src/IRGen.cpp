@@ -795,7 +795,8 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
         if (!type->isReferenceTy()) {
             auto assignment = std::make_shared<ast::Assignment>(makeIdent(varDecl->name), initialValueExpr);
             assignment->setSourceLocation(varDecl->getSourceLocation());
-            codegen(assignment, /*shouldDestructOldValue*/ false);
+            assignment->shouldDestructOldValue = false;
+            codegen(assignment);
         } else {
             auto V = codegen(initialValueExpr, LValue);
             if (initialValueType->isReferenceTy()) {
@@ -903,13 +904,16 @@ bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
 
 
 // TODO should assignments return something?
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment, bool shouldDestructOldValue) {
+llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
     llvm::Value *llvmTargetLValue = nullptr;
     llvm::Value *llvmRhsVal = nullptr;
     auto rhsExpr = assignment->value;
     auto lhsTy = getType(assignment->target);
     auto rhsTy = getType(assignment->value);
     
+    if (assignment->target->isOfKind(NK::SubscriptExpr)) {
+        assignment->shouldDestructOldValue = false;
+    }
     
     if (rhsExpr->isOfKind(NK::BinOp) && static_cast<ast::BinOp *>(rhsExpr.get())->isInPlaceBinop()) {
         // <lhs> <op>= <rhs>
@@ -957,7 +961,7 @@ ok:
     
     if (lhsTy->isReferenceTy()) llvmTargetLValue = builder.CreateLoad(llvmTargetLValue);
     
-    if (shouldDestructOldValue) {
+    if (assignment->shouldDestructOldValue) {
         auto destructStmt = createDestructStmtIfDefined(lhsTy, llvmTargetLValue, /*includeReferences*/ true);
         if (destructStmt) {
             codegen(destructStmt);

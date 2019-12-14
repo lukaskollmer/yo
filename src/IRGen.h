@@ -193,7 +193,7 @@ private:
     llvm::Value *codegen(std::shared_ptr<ast::Composite>);
     llvm::Value *codegen(std::shared_ptr<ast::ReturnStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::VarDecl>);
-    llvm::Value *codegen(std::shared_ptr<ast::Assignment>, bool shouldDestructOldValue = true);
+    llvm::Value *codegen(std::shared_ptr<ast::Assignment>);
     llvm::Value *codegen(std::shared_ptr<ast::IfStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::WhileStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::ForLoop>);

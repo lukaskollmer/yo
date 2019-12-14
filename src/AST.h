@@ -30,6 +30,7 @@ NS_START(yo::ast)
 
 class TopLevelStmt;
 using AST = std::vector<std::shared_ptr<TopLevelStmt>>;
+using parser::TokenSourceLocation;
 
 std::string description(const AST&);
 
@@ -96,11 +97,11 @@ public:
     
     // TODO add a `str` function that prints the node, as it would look as source code?
     virtual std::string description() const; // TODO remove in favor of `ast::description`
-    const parser::TokenSourceLocation& getSourceLocation() const {
+    const TokenSourceLocation& getSourceLocation() const {
         return sourceLocation;
     }
     
-    void setSourceLocation(const parser::TokenSourceLocation &sourceLoc) {
+    void setSourceLocation(const TokenSourceLocation &sourceLoc) {
         this->sourceLocation = sourceLoc;
     }
     
@@ -110,7 +111,7 @@ protected:
     
 private:
     NodeKind kind;
-    parser::TokenSourceLocation sourceLocation;
+    TokenSourceLocation sourceLocation;
 };
 
 
@@ -352,6 +353,8 @@ class Assignment : public LocalStmt {
 public:
     std::shared_ptr<Expr> target;
     std::shared_ptr<Expr> value;
+    
+    bool shouldDestructOldValue = true;
     
     Assignment(std::shared_ptr<Expr> target, std::shared_ptr<Expr> value) : LocalStmt(Node::NodeKind::Assignment), target(target), value(value) {}
 };
