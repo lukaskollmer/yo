@@ -23,7 +23,12 @@ namespace yo {
 
 template <typename T>
 class NamedScope {
-    using Entry = std::pair<std::string, T>;
+public:
+    using ID = uint64_t;
+    using Entry = std::tuple<std::string, ID, T>;
+    
+private:
+    ID id = 0;
     std::vector<Entry> entries;
     
 public:
@@ -32,20 +37,21 @@ public:
     bool isEmpty() const { return entries.empty(); }
     uint64_t size() const { return entries.size(); }
     
-    void insert(const std::string &ident, const T entry) {
-        entries.emplace_back(ident, entry);
+    ID insert(const std::string &ident, const T entry) {
+        entries.emplace_back(ident, ++id, entry);
+        return id;
     }
     
     bool contains(const std::string &ident) const {
         return util::vector::contains_where(entries, [&ident](const auto &entry) {
-            return entry.first == ident;
+            return std::get<0>(entry) == ident;
         });
     }
     
     std::optional<T> get(const std::string &ident) const {
         for (auto it = entries.rbegin(); it != entries.rend(); it++) {
-            if (it->first == ident) {
-                return it->second;
+            if (std::get<0>(*it) == ident) {
+                return std::get<2>(*it);
             }
         }
         return std::nullopt;
@@ -62,9 +68,11 @@ public:
         return std::vector<Entry>(entries.begin() + M, entries.end());
     }
     
+    /// Remove the most recently added entry with the specified name
     void remove(const std::string &ident) {
+        util::fmt::print("removing {}", ident);
         auto it = std::find_if(entries.rbegin(), entries.rend(), [&ident](const auto &entry) -> bool {
-            return entry.first == ident;
+            return std::get<0>(entry) == ident;
         });
         
         if (it == entries.rend()) {
@@ -74,13 +82,42 @@ public:
         }
     }
     
+    /// Remove an entry by id
+    void remove(ID id) {
+        for (auto it = entries.rbegin(); it != entries.rend(); it++) {
+            if (std::get<1>(*it) == id) {
+                util::fmt::print("removing {}", std::get<0>(*it));
+                entries.erase((it + 1).base());
+                return;
+            }
+        }
+    }
+    
+    /// Remove multiple entries by ids
+    void removeAll(const std::vector<ID> &ids) {
+        // TODO surely this can be implemented better?
+        for (auto id : ids) {
+            remove(id);
+        }
+    }
+    
     /// Removes all entries *including* the marker
     void removeAllSinceMarker(Marker M) {
+        for (auto &[name, a, b] : getEntriesSinceMarker(M)) {
+            util::fmt::print("removing {}", name);
+        }
         entries.erase(entries.begin() + M, entries.end());
     }
     
     void removeAll() {
         entries = {};
+    }
+    
+    
+    void dump() const {
+        for (auto &[name, id, elem] : entries) {
+            util::fmt::print("[{}] {}: {}", id, name, elem);
+        }
     }
 };
 

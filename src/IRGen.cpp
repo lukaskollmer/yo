@@ -2129,7 +2129,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         size_t lastTypecheckedArgument = isVariadicWithCLinkage ? sig.paramTypes.size() : callExpr->arguments.size();
         TemplateTypeMapping templateArgTypeMapping;
         
-        auto nominalTypesScopeMarker = nominalTypes.getMarker();
+        std::vector<decltype(nominalTypes)::ID> tempTypeIds;
         
         if (sig.isTemplateDecl()) {
             score += 2; // Add a small penalty to prefer a non-templated overload, if available
@@ -2143,7 +2143,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             
             for (const auto &[name, typeDesc] : templateArgTypeMapping) {
                 LKAssert(typeDesc->isResolved());
-                nominalTypes.insert(name, typeDesc->getResolvedType());
+                tempTypeIds.push_back(nominalTypes.insert(name, typeDesc->getResolvedType()));
             }
         //} else if (sig.templateArgumentNames.empty() != decl->getResolvedTemplateArgTypes().empty()) {
         } else if (sig.isTemplateDecl() != decl->getSignature().isTemplateDecl()) {
@@ -2199,7 +2199,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         matches.push_back({score, decl, target.llvmValue, templateArgTypeMapping});
         
     discard_potential_match:
-        nominalTypes.removeAllSinceMarker(nominalTypesScopeMarker);
+        nominalTypes.removeAll(tempTypeIds);
     }
     
     std::sort(matches.begin(), matches.end(), [](auto &arg0, auto &arg1) { return arg0.score < arg1.score; });
@@ -3133,7 +3133,7 @@ void IRGenerator::destructLocalScopeUntilMarker(NamedScope<ValueBinding>::Marker
     auto entries = localScope.getEntriesSinceMarker(M);
     
     for (auto it = entries.rbegin(); it != entries.rend(); it++) {
-        const auto &[name, binding] = *it;
+        const auto &[name, id, binding] = *it;
         if (!binding.hasFlag(ValueBinding::Flags::DontDestroy)) {
             destructValueIfNecessary(binding.type, binding.value, /*includeReferences*/ false);
         }
@@ -3661,7 +3661,7 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
     
     // Build up the type scope w/ the template argument types
     
-    auto typeScopeMarker = nominalTypes.getMarker();
+    std::vector<decltype(nominalTypes)::ID> tmplParamsIds;
     
     for (uint64_t idx = 0; idx < SD->templateParamsDecl->size(); idx++) {
         Type *ty = nullptr;
@@ -3674,7 +3674,7 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
         } else {
             diagnostics::emitError(util::fmt::format("unable to resolve template parameter {}", param.name));
         }
-        nominalTypes.insert(param.name, ty);
+        tmplParamsIds.push_back(nominalTypes.insert(param.name, ty));
         instantiatedDecl->resolvedTemplateArgTypes.push_back(ty);
     }
     
@@ -3686,7 +3686,6 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
         instantiatedDecl->members.push_back(specialized);
     }
     
-    nominalTypes.removeAllSinceMarker(typeScopeMarker);
     
     // TODO we probably can move this check further up, since the mangled name only depends on the template parameters
     // meaning that there's no need to specialize members etc in order to return an already instantiated struct
@@ -3695,6 +3694,7 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
     }
     return registerStructDecl(instantiatedDecl);
     
+    nominalTypes.removeAll(tmplParamsIds);
 }
 
 
