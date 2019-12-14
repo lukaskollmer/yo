@@ -2111,15 +2111,27 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     std::vector<TargetRejectionInfo> rejections;
     
     for (const auto &target : possibleTargets) {
-        const auto &decl = target.funcDecl;
-        const auto &sig = decl->getSignature();
-        const bool isVariadicWithCLinkage = sig.isVariadic && target.funcDecl->getAttributes().extern_;
+        auto &decl = target.funcDecl;
+        auto &sig = decl->getSignature();
+        bool isVariadicWithCLinkage = sig.isVariadic && target.funcDecl->getAttributes().extern_;
         
         if (!sig.isVariadic && callExpr->arguments.size() != sig.paramTypes.size() - argumentOffset) {
             rejections.emplace_back("argument count mismatch", *decl);
             continue;
-        } else if (sig.isVariadic && (callExpr->arguments.size() < sig.paramTypes.size() - argumentOffset - !isVariadicWithCLinkage)) {
+        }
+        if (sig.isVariadic && (callExpr->arguments.size() < sig.paramTypes.size() - argumentOffset - !isVariadicWithCLinkage)) {
             rejections.emplace_back("variadic arguments count mismatch", *decl);
+            continue;
+        }
+        if (decl->getName() != kInitializerMethodName && !decl->getSignature().isTemplateDecl() && callExpr->numberOfExplicitTemplateArgs() > 0) {
+            // Reject a non-template target if the call expression contains explicit template arguments.
+            // The sole exception here are calls to initializers, since in this case the call expression
+            // has being reused by the compiler, with the original target (the ctor) replaced w/ the initializer
+            rejections.emplace_back("cannot pass explicit template arguments to non-template target", *decl);
+            continue;
+        }
+        if (decl->isTemplateInstantiation()) {
+            rejections.emplace_back("template instantiation", *decl);
             continue;
         }
         

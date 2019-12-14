@@ -210,7 +210,7 @@ std::ostream& operator<<(std::ostream&, const ast::FunctionSignature&);
 
 
 
-
+/// A Function Declaration
 class FunctionDecl : public TopLevelStmt {
     FunctionSignature signature;
     std::vector<std::shared_ptr<ast::Ident>> paramNames;
@@ -234,10 +234,13 @@ public:
     void setFunctionKind(FunctionKind kind) { funcKind = kind; }
     
     const std::string& getName() const { return name; }
+    
     FunctionSignature& getSignature() { return signature; }
     const FunctionSignature& getSignature() const { return signature; }
+    
     irgen::StructType* getImplType() const { return implType; }
     void setImplType(irgen::StructType *ty) { implType = ty; }
+    
     const auto& getResolvedTemplateArgTypes() const { return resolvedTemplateArgTypes; }
     void setResolvedTemplateArgTypes(std::vector<yo::irgen::Type *> tys) { resolvedTemplateArgTypes = tys; }
     
@@ -250,8 +253,14 @@ public:
     const std::shared_ptr<ast::Composite>& getBody() const { return body; }
     void setBody(std::shared_ptr<ast::Composite> B) { body = B; }
     
+    bool isOfFunctionKind(FunctionKind kind) const {
+        return funcKind == kind;
+    }
     
-    bool isOfFunctionKind(FunctionKind kind) const { return funcKind == kind; }
+    /// Whether the function is a compiler-generated instantiation of a function template
+    bool isTemplateInstantiation() const {
+        return !resolvedTemplateArgTypes.empty();
+    }
 };
 
 
