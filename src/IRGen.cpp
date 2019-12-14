@@ -125,12 +125,12 @@ void IRGenerator::codegen(const ast::AST& ast) {
         codegen(node);
     }
     
-    for (const auto &structDecl : structs) {
-        if (structDecl->attributes.no_init) continue;
+    for (const auto &[name, decl] : structDecls) {
+        if (decl->attributes.no_init) continue;
         
-        synthesizeDefaultMemberwiseInitializer(structDecl, kRunCodegen);
-        synthesizeDefaultCopyConstructor(structDecl, kRunCodegen);
-        synthesizeDefaultDeallocMethod(structDecl, kRunCodegen);
+        synthesizeDefaultMemberwiseInitializer(decl, kRunCodegen);
+        synthesizeDefaultCopyConstructor(decl, kRunCodegen);
+        synthesizeDefaultDeallocMethod(decl, kRunCodegen);
     }
     
     handleStartupAndShutdownFunctions();
@@ -189,6 +189,19 @@ void IRGenerator::preflight(const ast::AST& ast) {
     
     for (const auto& implBlock : implBlocks) {
         registerImplBlock(implBlock);
+        
+        auto insert = [&](std::map<std::string, std::shared_ptr<ast::StructDecl>> &decls) {
+            if (!util::map::has_key(decls, implBlock->typename_)) {
+                diagnostics::emitError(implBlock->getSourceLocation(), "unable to find corresponding type");
+            }
+            decls[implBlock->typename_]->implBlocks.push_back(implBlock);
+        };
+        
+        if (implBlock->isNominalTemplateType) {
+            insert(templateStructs);
+        } else {
+            insert(this->structDecls);
+        }
     }
 }
 
@@ -362,8 +375,8 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
     auto structTy = StructType::create(structName, structMembers, structDecl->resolvedTemplateArgTypes, structDecl->getSourceLocation());
     nominalTypes.insert(structName, structTy);
     
-    LKAssert(!util::vector::contains_where(structs, [&structName](auto &SD) { return SD->name == structName; }));
-    structs.push_back(structDecl);
+    LKAssert(!util::map::has_key(structDecls, structName));
+    structDecls[structName] = structDecl;
     
     if (!structDecl->attributes.no_init) {
         ast::FunctionSignature signature;
@@ -401,10 +414,9 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
         if (implTy.has_value()) {
             LKFatalError("multiple types w/ same name?");
         }
-        
-        // TODO Queue impl block for later handling
         implBlock->isNominalTemplateType = true;
         
+        // impl blocks for templated types are registered when their respective type is instantiated
         return;
     }
     
@@ -653,31 +665,21 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StructDecl> structDecl) {
+    if (structDecl->isTemplateDecl()) return nullptr;
+    
+    for (auto &implBlock : structDecl->implBlocks) {
+        for (auto &FD : implBlock->methods) {
+            codegen(FD);
+        }
+    }
+    
     return nullptr;
-//    if (structDecl->isTemplateDecl()) {
-//        return nullptr;
-//    }
-//
-////    if (!structDecl->attributes.no_init) { // TODO rename this attr since it now controls way more than just the default initializer
-////        synthesizeDefaultMemberwiseInitializer(structDecl);
-////        synthesizeDefaultCopyConstructor(structDecl);
-////        synthesizeDefaultDeallocMethod(structDecl);
-////    }
-//    return nullptr;
 }
 
 
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ImplBlock> implBlock) {
-    if (implBlock->isNominalTemplateType) {
-        return nullptr;
-    }
-    
-    for (const auto &method : implBlock->methods) {
-        codegen(method);
-    }
-    
     return nullptr;
 }
 
@@ -2230,6 +2232,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         for (const auto &rejection : rejections) {
             diagnostics::emitNote(rejection.decl.getSourceLocation(), util::fmt::format("not viable: {}", rejection.reason));
         }
+        nominalTypes.dump();
         diagnostics::emitError(callExpr->getSourceLocation(), util::fmt::format("unable to resolve call to '{}'", targetName));
     }
 
@@ -3658,6 +3661,7 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
     instantiatedDecl->name = SD->getName();
     instantiatedDecl->attributes = SD->attributes;
     instantiatedDecl->members.reserve(SD->members.size());
+    instantiatedDecl->implBlocks = SD->implBlocks;
     
     // Build up the type scope w/ the template argument types
     
@@ -3686,15 +3690,30 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
         instantiatedDecl->members.push_back(specialized);
     }
     
+    auto resolvedName = mangling::mangleFullyResolved(instantiatedDecl);
     
-    // TODO we probably can move this check further up, since the mangled name only depends on the template parameters
-    // meaning that there's no need to specialize members etc in order to return an already instantiated struct
-    if (auto ST = nominalTypes.get(mangling::mangleFullyResolved(instantiatedDecl))) {
+    
+    if (auto ST = nominalTypes.get(resolvedName)) {
         return llvm::dyn_cast<StructType>(*ST);
     }
-    return registerStructDecl(instantiatedDecl);
+    
+    StructType *structTy = registerStructDecl(instantiatedDecl);
+    
+    // Instantiate `impl` blocks
+    for (auto &implBlock : instantiatedDecl->implBlocks) {
+        auto name = implBlock->typename_;
+        implBlock->typename_ = mangling::mangleFullyResolved(instantiatedDecl);
+        registerImplBlock(implBlock);
+        implBlock->typename_ = name;
+    }
+    for (auto &implBlock : instantiatedDecl->implBlocks) {
+        for (auto &FD : implBlock->methods) {
+            codegen(FD);
+        }
+    }
     
     nominalTypes.removeAll(tmplParamsIds);
+    return structTy;
 }
 
 

@@ -140,7 +140,7 @@ class IRGenerator {
     std::map<std::string, std::vector<std::shared_ptr<ast::FunctionDecl>>> templateFunctions;
     
     /// All registered non-template struct types
-    std::vector<std::shared_ptr<ast::StructDecl>> structs;
+    std::map<std::string, std::shared_ptr<ast::StructDecl>> structDecls;
     
     // key: canonical function name
     std::map<std::string, std::vector<ResolvedCallable>> functions;

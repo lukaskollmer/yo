@@ -268,6 +268,9 @@ public:
     /// The template arguments this struct was instantiated with
     std::vector<yo::irgen::Type *> resolvedTemplateArgTypes;
     
+    /// The `impl` blocks belonging to this struct
+    std::vector<std::shared_ptr<ImplBlock>> implBlocks;
+    
     StructDecl() : TopLevelStmt(Node::NodeKind::StructDecl) {}
     
     bool isTemplateDecl() { return templateParamsDecl != nullptr; }
