@@ -2344,8 +2344,8 @@ static const std::map<std::string, Intrinsic> intrinsics = {
     { mangling::mangleCanonicalName(ast::Operator::LAnd), Intrinsic::LAnd },
     { mangling::mangleCanonicalName(ast::Operator::LOr),  Intrinsic::LOr  },
     
-    { "static_cast", Intrinsic::StaticCast },
-    { "reinterpret_cast", Intrinsic::ReinterpretCast },
+    { "cast", Intrinsic::StaticCast },
+    { "bitcast", Intrinsic::ReinterpretCast },
     { "sizeof", Intrinsic::Sizeof },
     { "__trap", Intrinsic::Trap },
     { "__typename", Intrinsic::Typename },

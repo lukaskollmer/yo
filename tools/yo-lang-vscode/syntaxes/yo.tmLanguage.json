@@ -67,7 +67,7 @@
                 "3": {
                     "name":"entity.name.function.yo",
                     "patterns": [{
-                        "match": "static_cast|reinterpret_cast",
+                        "match": "cast|bitcast",
                         "name":"keyword.control.other.cast.yo"
                     }]
                 },

@@ -89,10 +89,10 @@ fn operator >= <T>(lhs: T, rhs: T) -> bool {
 
 #[always_inline]
 fn operator + <T> (lhs: *T, rhs: size_t) -> *T {
-    return reinterpret_cast<*T>(reinterpret_cast<uintptr_t>(lhs) + sizeof<T>() * rhs);
+    return bitcast<*T>(bitcast<uintptr_t>(lhs) + sizeof<T>() * rhs);
 }
 
 #[always_inline]
 fn operator - <T> (lhs: *T, rhs: size_t) -> *T {
-    return reinterpret_cast<*T>(reinterpret_cast<uintptr_t>(lhs) - sizeof<T>() * rhs);
+    return bitcast<*T>(bitcast<uintptr_t>(lhs) - sizeof<T>() * rhs);
 }
