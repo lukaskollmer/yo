@@ -39,8 +39,10 @@ throw; }
 
 
 
-std::shared_ptr<ast::Ident> makeIdent(const std::string& str) {
-    return std::make_shared<ast::Ident>(str);
+std::shared_ptr<ast::Ident> makeIdent(const std::string& str, ast::TokenSourceLocation SL = ast::TokenSourceLocation()) {
+    auto ident = std::make_shared<ast::Ident>(str);
+    ident->setSourceLocation(SL);
+    return ident;
 }
 
 
@@ -959,7 +961,10 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
     
 ok:
     
-    if (lhsTy->isReferenceTy()) llvmTargetLValue = builder.CreateLoad(llvmTargetLValue);
+    if (lhsTy->isReferenceTy()) {
+        emitDebugLocation(assignment);
+        llvmTargetLValue = builder.CreateLoad(llvmTargetLValue);
+    }
     
     if (assignment->shouldDestructOldValue) {
         auto destructStmt = createDestructStmtIfDefined(lhsTy, llvmTargetLValue, /*includeReferences*/ true);
@@ -971,6 +976,7 @@ ok:
     bool didConstructCopy;
     llvmRhsVal = constructCopyIfNecessary(rhsTy, rhsExpr, &didConstructCopy);
     if (!didConstructCopy && rhsTy->isReferenceTy()) {
+        emitDebugLocation(assignment);
         llvmRhsVal = builder.CreateLoad(llvmRhsVal);
     }
     
@@ -2919,6 +2925,7 @@ llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<
     alloca->setName(ident);
     
     localScope.insert(ident, ValueBinding(structTy, alloca, [=]() {
+        emitDebugLocation(call);
         return builder.CreateLoad(alloca);
     }, [=](llvm::Value *V) {
         LKFatalError("use references to write to object?");
@@ -2992,7 +2999,6 @@ std::shared_ptr<ast::LocalStmt> IRGenerator::createDestructStmtIfDefined(Type *t
     auto stmt = std::make_shared<ast::ExprStmt>(callExpr);
     stmt->setSourceLocation(callExpr->getSourceLocation());
     return stmt;
-    
 }
 
 
@@ -3604,7 +3610,7 @@ llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
     auto ST = llvm::dyn_cast<StructType>(*nominalTypes.get(mangling::mangleFullyResolved(structDecl)));
     auto &SM = ST->getMembers();
     
-    auto selfIdent = makeIdent("self");
+    auto selfIdent = makeIdent("self", SL);
     
     ast::FunctionSignature sig;
     std::vector<std::shared_ptr<ast::Ident>> paramNames;
@@ -3620,8 +3626,8 @@ llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
     paramNames.push_back(selfIdent);
     
     util::vector::iteri(SM, [&](uint64_t idx, const std::pair<std::string, Type *> &elem) -> void {
-        sig.paramTypes.push_back(ast::TypeDesc::makeResolved(elem.second));
-        paramNames.push_back(makeIdent(util::fmt::format("__arg{}", idx)));
+        sig.paramTypes.push_back(ast::TypeDesc::makeResolved(elem.second, SL));
+        paramNames.push_back(makeIdent(util::fmt::format("__arg{}", idx), SL));
     });
     
     auto FD = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod, kInitializerMethodName, sig, attr);
@@ -3646,7 +3652,10 @@ llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
     
     for (uint64_t idx = 0; idx < SM.size(); idx++) {
         auto target = std::make_shared<ast::MemberExpr>(selfIdent, SM.at(idx).first);
+        target->setSourceLocation(SL);
         auto A = std::make_shared<ast::Assignment>(target, paramNames.at(idx + 1));
+        A->shouldDestructOldValue = false;
+        A->setSourceLocation(SL);
         body->statements.push_back(A);
     }
     
@@ -3675,8 +3684,8 @@ llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::
     sig.paramTypes.push_back(ast::TypeDesc::makeResolved(ST->getReferenceTo()));
     sig.paramTypes.push_back(ast::TypeDesc::makeResolved(ST->getReferenceTo()));
     
-    auto selfIdent = makeIdent("self");
-    auto arg0Ident = makeIdent("__arg0");
+    auto selfIdent = makeIdent("self", SL);
+    auto arg0Ident = makeIdent("__arg0", SL);
     
     paramNames.push_back(selfIdent);
     paramNames.push_back(arg0Ident);
@@ -3700,11 +3709,16 @@ llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::
     
     auto body = std::make_shared<ast::Composite>();
     body->setSourceLocation(SL);
+    
     for (uint64_t idx = 0; idx < SM.size(); idx++) {
         auto &memberName = SM.at(idx).first;
         auto lhs = std::make_shared<ast::MemberExpr>(selfIdent, memberName);
+        lhs->setSourceLocation(SL);
         auto rhs = std::make_shared<ast::MemberExpr>(arg0Ident, memberName);
+        rhs->setSourceLocation(SL);
         auto ass = std::make_shared<ast::Assignment>(lhs, rhs);
+        ass->setSourceLocation(SL);
+        ass->shouldDestructOldValue = false;
         body->statements.push_back(ass);
     }
     
@@ -3723,7 +3737,7 @@ llvm::Value* IRGenerator::synthesizeDefaultDeallocMethod(std::shared_ptr<ast::St
     auto ST = llvm::dyn_cast<StructType>(*nominalTypes.get(mangling::mangleFullyResolved(structDecl)));
     auto &SM = ST->getMembers();
     
-    auto selfIdent = makeIdent("self");
+    auto selfIdent = makeIdent("self", SL);
     
     ast::FunctionSignature sig;
     attributes::FunctionAttributes attr;
