@@ -3128,7 +3128,8 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
             auto structDecl = util::map::get_opt(templateStructs, typeDesc->getName());
             if (!structDecl) diagnostics::emitError(typeDesc->getSourceLocation(), "unable to resolve type");
             
-            return handleResolvedTy(instantiateTemplateStruct(*structDecl, typeDesc));
+            StructType *ST = withCleanSlate([&]() { return instantiateTemplateStruct(*structDecl, typeDesc); });
+            return handleResolvedTy(ST);
         }
     }
     
@@ -3777,6 +3778,9 @@ llvm::Value* IRGenerator::synthesizeDefaultDeallocMethod(std::shared_ptr<ast::St
         body->statements.push_back(stmt);
     }
     
+    auto prevDecl = currentFunction.decl;
+    currentFunction.decl = FD;
+    
     // Destruct all members
     for (const auto &[name, type] : SM) {
         auto memberAccess = std::make_shared<ast::MemberExpr>(selfIdent, name);
@@ -3784,6 +3788,8 @@ llvm::Value* IRGenerator::synthesizeDefaultDeallocMethod(std::shared_ptr<ast::St
             body->statements.push_back(stmt);
         }
     }
+    
+    currentFunction.decl = prevDecl;
     
     FD->setBody(body);
     
