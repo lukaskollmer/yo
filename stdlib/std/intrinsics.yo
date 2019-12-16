@@ -1,12 +1,10 @@
 // Casts between related types
 // Fails if there is no known conversion from T to R
-#[intrinsic]
-fn cast<R, T>(T) -> R;
+#[intrinsic] fn cast<R, T>(T) -> R;
 
 // Returns `arg`, with the bit pattern reinterpreted as R
 // Requires T and R to have the exact same bit width
-#[intrinsic]
-fn bitcast<R, T>(T) -> R;
+#[intrinsic] fn bitcast<R, T>(T) -> R;
 
 
 // Calls the `llvm.trap` intrinsic
@@ -36,6 +34,10 @@ fn sizeof<T>() -> size_t;
 
 // Returns true if `T` is a pointer type
 #[intrinsic] fn __is_pointer<T>() -> bool;
+
+// Whether the type is destructible
+#[intrinsic] fn __is_destructible<T>() -> bool;
+
 
 // Arithmetic intrinsics
 #[intrinsic] fn __add<T>(T, T) -> T;

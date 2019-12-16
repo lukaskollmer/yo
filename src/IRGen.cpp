@@ -2336,6 +2336,7 @@ enum class irgen::Intrinsic : uint8_t {
     Sizeof,
     Trap, Typename,
     IsSame, IsPointer,
+    IsDestructible,
     Func, PrettyFunc, MangledFunc
 };
 
@@ -2366,6 +2367,7 @@ static const std::map<std::string, Intrinsic> intrinsics = {
     { "__typename", Intrinsic::Typename },
     { "__is_same", Intrinsic::IsSame },
     { "__is_pointer", Intrinsic::IsPointer },
+    { "__is_destructible", Intrinsic::IsDestructible },
     { "__func", Intrinsic::Func },
     { "__pretty_func", Intrinsic::PrettyFunc },
     { "__mangled_func", Intrinsic::MangledFunc }
@@ -2431,6 +2433,11 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
         
         case Intrinsic::IsPointer:
             return llvm::ConstantInt::get(builtinTypes.llvm.i1, resolveTypeDesc(call->explicitTemplateArgs->at(0))->isPointerTy());
+        
+        case Intrinsic::IsDestructible: {
+            auto T = resolveTypeDesc(call->explicitTemplateArgs->at(0));
+            return llvm::ConstantInt::get(builtinTypes.llvm.i1, isDestructible(T));
+        }
         
         case Intrinsic::LAnd:
         case Intrinsic::LOr:
@@ -2977,6 +2984,11 @@ llvm::Value* IRGenerator::destructValueIfNecessary(Type *type, llvm::Value *valu
     }
 }
 
+
+bool IRGenerator::isDestructible(Type *ty) {
+    // TODO write a proper implementation and use that in the other functions
+    return createDestructStmtIfDefined(ty, nullptr, ty->isReferenceTy()) != nullptr;
+}
 
 std::shared_ptr<ast::LocalStmt> IRGenerator::createDestructStmtIfDefined(Type *type, llvm::Value *value, bool includeReferences) {
     auto expr = std::make_shared<ast::RawLLVMValueExpr>(value, type->isReferenceTy() ? type : type->getReferenceTo());
