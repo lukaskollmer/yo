@@ -101,6 +101,10 @@ T abs(T value) {
     return value >= 0 ? value : -value;
 }
 
+inline bool isDigit(char c) {
+    return c >= '0' && c <= '9';
+}
+
 
 template <typename R, typename T>
 R bitcast(const T value) {
@@ -337,6 +341,14 @@ template <typename K, typename V>
 inline std::optional<V> get_opt(const std::map<K, V> &map, const K &key) {
     if (has_key(map, key)) return map.at(key);
     else return std::nullopt;
+}
+
+template <typename K, typename V>
+std::optional<K> reverse_lookup(const std::map<K, V> &map, const V &value) {
+    for (auto &[key, val] : map) {
+        if (val == value) return key;
+    }
+    return std::nullopt;
 }
 
 } // namespace map

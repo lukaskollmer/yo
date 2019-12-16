@@ -144,6 +144,8 @@ public:
     static bool classof(const Type *type) {
         return type->getTypeId() == TypeID::Numerical;
     }
+    
+    static NumericalType* get(NumericalTypeID);
 };
 
 
@@ -241,7 +243,9 @@ private:
     
 public:
     
-    virtual std::string getName() const;
+    virtual std::string getName() const {
+        return name;
+    }
     virtual std::string str() const;
     
     bool hasMember(const std::string &name) const;

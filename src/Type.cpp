@@ -7,6 +7,7 @@
 //
 
 #include "Type.h"
+#include "Mangling.h"
 
 using namespace yo;
 using namespace yo::irgen;
@@ -88,6 +89,26 @@ ReferenceType* Type::getReferenceTo() {
 
 
 #pragma mark - NumericalType
+
+
+NumericalType* NumericalType::get(NumericalTypeID id) {
+#define CASE(name) case NumericalTypeID::name: return Type::get##name##Type();
+    switch (id) {
+    CASE(Bool)
+    CASE(Int8)
+    CASE(Int16)
+    CASE(Int32)
+    CASE(Int64)
+    CASE(UInt8)
+    CASE(UInt16)
+    CASE(UInt32)
+    CASE(UInt64)
+    CASE(Float32)
+    CASE(Float64)
+    }
+#undef CASE
+    LKFatalError("unknown type id");
+}
 
 
 bool NumericalType::isBoolTy() const {
@@ -226,24 +247,10 @@ std::string FunctionType::getName() const {
 
 #pragma mark - StructType
 
-
 std::string StructType::str() const {
-    if (templateArguments.empty()) return name;
-    
-    std::ostringstream OS;
-    OS << name;
-    OS << '<';
-    util::vector::iterl(templateArguments, [&OS](Type *ty, bool isLast) {
-        OS << ty->str();
-        if (!isLast) OS << ", ";
-    });
-    OS << '>';
-    return OS.str();
+    return mangling::demangle(name);
 }
 
-std::string StructType::getName() const {
-    return name;
-}
 
 // TODO add an option to calculate a member's offset
 std::pair<uint64_t, Type *> StructType::getMember(const std::string &name) const {

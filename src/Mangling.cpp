@@ -10,26 +10,30 @@
 #include "util.h"
 #include <map>
 #include <charconv>
+#include <optional>
+#include "Type.h"
+
+#include "llvm/Support/Casting.h"
 
 using namespace yo;
 
-
-namespace yo::mangling {
-    inline constexpr char kCommonPrefix = '_';
-    inline constexpr char kPrefixGlobalFunction = 'F';
-    inline constexpr char kPrefixInstanceMethod = 'I';
-    inline constexpr char kPrefixStaticMethod   = 'S';
-    inline constexpr char kPrefixOperatorOverload = 'O';
-    
-    inline constexpr char kCanonicalPrefixInstanceMethod = '-';
-    inline constexpr char kCanonicalPrefixStaticMethod = '+';
-    inline constexpr char kCanonicalPrefixOperatorOverload = '~';
-    
-    inline constexpr char kTemplatedTypePrefix = 'T';
-}
+NS_START(yo::mangling)
 
 
-bool yo::mangling::isCanonicalInstanceMethodName(std::string_view ident) {
+inline constexpr char kCommonPrefix = '_';
+inline constexpr char kPrefixGlobalFunction = 'F';
+inline constexpr char kPrefixInstanceMethod = 'I';
+inline constexpr char kPrefixStaticMethod   = 'S';
+inline constexpr char kPrefixOperatorOverload = 'O';
+
+inline constexpr char kCanonicalPrefixInstanceMethod = '-';
+inline constexpr char kCanonicalPrefixStaticMethod = '+';
+inline constexpr char kCanonicalPrefixOperatorOverload = '~';
+
+inline constexpr char kTemplatedTypePrefix = 'T';
+
+
+bool isCanonicalInstanceMethodName(std::string_view ident) {
     return ident[0] == '-';
 }
 
@@ -58,7 +62,7 @@ public:
         return *this;
     }
     
-    ManglingStringBuilder& appendEncodedType(yo::irgen::Type *ty);
+    ManglingStringBuilder& appendEncodedType(irgen::Type *ty);
     
     std::string str() const { return OS.str(); }
 };
@@ -67,7 +71,7 @@ public:
 
 
 
-std::string mangling::mangleCanonicalName(std::string_view type, std::string_view method, ast::FunctionKind kind) {
+std::string mangleCanonicalName(std::string_view type, std::string_view method, ast::FunctionKind kind) {
     using FK = ast::FunctionKind;
     
     ManglingStringBuilder mangler;
@@ -98,7 +102,7 @@ std::string mangling::mangleCanonicalName(std::string_view type, std::string_vie
 
 
 
-std::string mangling::mangleCanonicalName(std::shared_ptr<ast::FunctionDecl> funcDecl) {
+std::string mangleCanonicalName(std::shared_ptr<ast::FunctionDecl> funcDecl) {
     if (!funcDecl->getAttributes().mangledName.empty()) {
         return funcDecl->getAttributes().mangledName;
     }
@@ -126,41 +130,41 @@ std::string mangling::mangleCanonicalName(std::shared_ptr<ast::FunctionDecl> fun
  */
 
 
-static const std::map<yo::irgen::NumericalType::NumericalTypeID, std::string_view> numericalTypeEncodings = {
-    { yo::irgen::NumericalType::NumericalTypeID::Bool,    "b" },
-    { yo::irgen::NumericalType::NumericalTypeID::Float64, "f" },
+static const std::map<irgen::NumericalType::NumericalTypeID, std::string_view> numericalTypeEncodings = {
+    { irgen::NumericalType::NumericalTypeID::Bool,    "b" },
+    { irgen::NumericalType::NumericalTypeID::Float64, "f" },
     
-    { yo::irgen::NumericalType::NumericalTypeID::Int8,  "c" },
-    { yo::irgen::NumericalType::NumericalTypeID::Int16, "s" },
-    { yo::irgen::NumericalType::NumericalTypeID::Int32, "i" },
-    { yo::irgen::NumericalType::NumericalTypeID::Int64, "q" },
+    { irgen::NumericalType::NumericalTypeID::Int8,  "c" },
+    { irgen::NumericalType::NumericalTypeID::Int16, "s" },
+    { irgen::NumericalType::NumericalTypeID::Int32, "i" },
+    { irgen::NumericalType::NumericalTypeID::Int64, "q" },
     
-    { yo::irgen::NumericalType::NumericalTypeID::UInt8,  "C" },
-    { yo::irgen::NumericalType::NumericalTypeID::UInt16, "S" },
-    { yo::irgen::NumericalType::NumericalTypeID::UInt32, "I" },
-    { yo::irgen::NumericalType::NumericalTypeID::UInt64, "Q" },
+    { irgen::NumericalType::NumericalTypeID::UInt8,  "C" },
+    { irgen::NumericalType::NumericalTypeID::UInt16, "S" },
+    { irgen::NumericalType::NumericalTypeID::UInt32, "I" },
+    { irgen::NumericalType::NumericalTypeID::UInt64, "Q" },
 };
 
 
 
-ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(yo::irgen::Type *ty) {
-    using TypeID = yo::irgen::Type::TypeID;
+ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(irgen::Type *ty) {
+    using TypeID = irgen::Type::TypeID;
     switch (ty->getTypeId()) {
         case TypeID::Void:
             return append("v");
         
         case TypeID::Numerical: {
-            auto *numTy = static_cast<yo::irgen::NumericalType *>(ty);
+            auto *numTy = static_cast<irgen::NumericalType *>(ty);
             return append(numericalTypeEncodings.at(numTy->getNumericalTypeID()));
         }
         
         case TypeID::Pointer: {
-            auto *pointerTy = static_cast<yo::irgen::PointerType *>(ty);
+            auto *pointerTy = static_cast<irgen::PointerType *>(ty);
             return append("P").appendEncodedType(pointerTy->getPointee());
         }
         
         case TypeID::Reference: {
-            auto refTy = static_cast<yo::irgen::ReferenceType *>(ty);
+            auto refTy = static_cast<irgen::ReferenceType *>(ty);
             return append("R").appendEncodedType(refTy->getReferencedType());
         }
         
@@ -178,7 +182,7 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(yo::irgen::Type 
 
 
 // Mangled name includes type encodings for return- & parameter types
-std::string mangling::mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> funcDecl) {
+std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> funcDecl) {
     if (!funcDecl->getAttributes().mangledName.empty()) {
         return funcDecl->getAttributes().mangledName;
     }
@@ -223,13 +227,12 @@ std::string mangling::mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> fun
 }
 
 
-std::string mangling::mangleFullyResolved(std::shared_ptr<ast::StructDecl> SD) {
+std::string mangleFullyResolved(std::shared_ptr<ast::StructDecl> SD) {
     if (SD->resolvedTemplateArgTypes.empty()) {
         return SD->name;
     }
     
-    ManglingStringBuilder mangler(kCommonPrefix);
-    mangler.append(kTemplatedTypePrefix);
+    ManglingStringBuilder mangler(kTemplatedTypePrefix);
     mangler.appendWithCount(SD->name);
     mangler.append(kTemplatedTypePrefix);
     for (auto &ty : SD->resolvedTemplateArgTypes) {
@@ -241,12 +244,12 @@ std::string mangling::mangleFullyResolved(std::shared_ptr<ast::StructDecl> SD) {
 
 
 
-std::string mangling::encodeOperator(ast::Operator op) {
+std::string encodeOperator(ast::Operator op) {
     return std::to_string(static_cast<uint8_t>(op));
 }
 
 
-std::string mangling::mangleCanonicalName(ast::Operator op) {
+std::string mangleCanonicalName(ast::Operator op) {
     std::string str;
     str.push_back(kCanonicalPrefixOperatorOverload);
     str.append(encodeOperator(op));
@@ -254,7 +257,7 @@ std::string mangling::mangleCanonicalName(ast::Operator op) {
 }
 
 
-ast::Operator mangling::demangleCanonicalOperatorEncoding(std::string_view sv) {
+ast::Operator demangleCanonicalOperatorEncoding(std::string_view sv) {
     uint8_t value;
     std::from_chars(sv.data() + 1, sv.data() + sv.size(), value);
     return static_cast<ast::Operator>(value);
@@ -267,25 +270,214 @@ ast::Operator mangling::demangleCanonicalOperatorEncoding(std::string_view sv) {
 #pragma mark - Demangling
 
 
-std::string demangleGlobalFunction(std::string_view name) {
+std::string_view demangleOperatorIntoSymbol(ast::Operator op) {
+#define CASE(c, n) case ast::Operator::c: return n;
+    switch (op) {
+        CASE(Add, "+")
+        CASE(Sub, "-")
+        CASE(Mul, "*")
+        CASE(Div, "/")
+        CASE(Mod, "%")
+        CASE(And, "&")
+        CASE(Or,  "|")
+        CASE(Xor, "^")
+        CASE(Shl, "<<")
+        CASE(Shr, ">>")
+        CASE(Neg, "-")
+        CASE(BNot, "~")
+        CASE(BNeg, "!")
+        CASE(LAnd, "&&")
+        CASE(LOr, "||")
+        CASE(EQ, "==")
+        CASE(NE, "!=")
+        CASE(LT, "<")
+        CASE(LE, "<=")
+        CASE(GT, ">")
+        CASE(GE, ">=")
+        CASE(FnPipe, "|>")
+        CASE(Assign, "=")
+    }
+#undef CASE
+}
+
+
+
+
+class Demangler {
+    std::string_view input;
+    
+public:
+    explicit Demangler(std::string_view sv) : input(sv) {}
+    
+    std::string demangle();
+    
+private:
+    std::string demangleFunction();
+    std::string demangleType();
+    
+    std::string demangleTypeList();
+    
+    std::pair<uint64_t, uint64_t> readInt() {
+        uint64_t value = 0;
+        size_t count = 0;
+        while (util::isDigit(input[count])) {
+            count += 1;
+        }
+        if (count == 0) LKFatalError("unable to parse integer");
+        
+        for (size_t idx = 0; idx < count; idx++) {
+            int charval = input[idx] - '0';
+            value += pow<int>(10, count - idx - 1) * charval;
+        }
+        return { value, count };
+    }
+    
+    uint64_t extractInt() {
+        auto [length, count] = readInt();
+        input.remove_prefix(count);
+        return length;
+    }
+    
+    std::string extractString() {
+        auto [length, count] = readInt();
+        auto string = std::string(input.substr(count, length));
+        input.remove_prefix(count + length);
+        return string;
+    }
+};
+
+
+std::string Demangler::demangle() {
+    switch (input[0]) {
+        case kCommonPrefix:
+            return demangleFunction();
+        
+        case kTemplatedTypePrefix:
+            return demangleType();
+    }
+    
+    return std::string(input);
+}
+
+
+std::string Demangler::demangleFunction() {
+    LKAssert(input[0] == kCommonPrefix);
+    
+    std::ostringstream OS;
+    
+    auto functionKindChar = input[1];
+    input.remove_prefix(2);
+    
+    switch (functionKindChar) {
+        case kPrefixGlobalFunction:
+            OS << extractString();
+            break;
+        
+        case kPrefixStaticMethod:
+        case kPrefixInstanceMethod:
+            OS << Demangler(extractString()).demangle();
+            OS << (functionKindChar == kPrefixStaticMethod ? "::" : ".");
+            OS << extractString();
+            break;
+        
+        case kPrefixOperatorOverload: {
+            auto opCanon = util::fmt::format("~{}", extractInt());
+            auto op = demangleCanonicalOperatorEncoding(opCanon);
+            OS << demangleOperatorIntoSymbol(op);
+            break;
+        }
+        
+        default:
+            LKFatalError("");
+    }
+    
+    auto returnType = demangleType();
+    auto paramTys = demangleTypeList();
+    std::string templateArgs;
+    
+    if (input[0] == kTemplatedTypePrefix) {
+        input.remove_prefix(1);
+        templateArgs = demangleTypeList();
+    }
+    
+    LKAssert(input.empty());
+    
+    if (!templateArgs.empty()) {
+        OS << '<' << templateArgs << '>';
+    }
+    
+    OS << '(' << paramTys << ") -> " << returnType;
+    return OS.str();
+}
+
+
+
+std::string Demangler::demangleType() {
+    switch (input[0]) {
+        case 'T': {
+            input.remove_prefix(1);
+            std::ostringstream OS;
+            OS << extractString();
+            LKAssert(input[0] == 'T');
+            input.remove_prefix(1);
+            OS << '<';
+            OS << demangleTypeList();
+            OS << '>';
+            return OS.str();
+        }
+        
+        case 'v':
+            input.remove_prefix(1);
+            return "void";
+        
+        case 'P':
+            input.remove_prefix(1);
+            return std::string("*").append(demangleType());
+        
+        case 'R':
+            input.remove_prefix(1);
+            return std::string("&").append(demangleType());
+        
+        default:
+            break;
+    }
+    
+    if (util::isDigit(input[0])) {
+        auto str = extractString();
+        return Demangler(str).demangle();
+    } else {
+        if (auto numTyId = util::map::reverse_lookup(numericalTypeEncodings, input.substr(0, 1))) {
+            input.remove_prefix(1);
+            irgen::Type::initPrimitives();
+            return irgen::NumericalType::get(*numTyId)->getName();
+        }
+    }
+    
     LKFatalError("TODO");
 }
 
 
-std::string mangling::demangle(std::string_view name) {
-    // TODO if this is false, attempt to demangle as canonical symbol?
-    LKAssert(name[0] == kCommonPrefix);
+
+std::string Demangler::demangleTypeList() {
+    if (input.empty()) return "";
     
-    switch (name[1]) {
-        case kPrefixGlobalFunction:
-            return demangleGlobalFunction(name.substr(2));
-        default:
-            goto fail;
+    std::ostringstream OS;
+    while (true) {
+        OS << demangleType();
+        if (input.empty() || input[0] == kTemplatedTypePrefix) {
+            break;
+        } else {
+            OS << ", ";
+        }
     }
-    
-fail:
-    std::cout << "Unable to demangle symbol '" << name << "'" << std::endl;
-    LKFatalError("");
+    return OS.str();
 }
 
 
+
+
+std::string demangle(std::string_view name) {
+    return Demangler{name}.demangle();
+}
+
+NS_END
