@@ -2931,6 +2931,11 @@ llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<
     auto ident = currentFunction.getTmpIdent();
     alloca->setName(ident);
     
+    builder.CreateMemSet(alloca,
+                         llvm::ConstantInt::get(builtinTypes.llvm.i8, 0),
+                         module->getDataLayout().getTypeAllocSize(alloca->getAllocatedType()),
+                         alloca->getAlignment());
+    
     localScope.insert(ident, ValueBinding(structTy, alloca, [=]() {
         emitDebugLocation(call);
         return builder.CreateLoad(alloca);
