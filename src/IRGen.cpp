@@ -514,8 +514,6 @@ llvm::DIFile* DIFileForSourceLocation(llvm::DIBuilder& builder, const parser::To
 }
 
 
-
-
 #pragma mark - Top Level Statements
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDecl) {
@@ -801,7 +799,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
             codegen(assignment);
         } else {
             auto V = codegen(initialValueExpr, LValue);
-            if (initialValueType->isReferenceTy()) {
+            if (initialValueType->isReferenceTy() && llvm::isa<llvm::AllocaInst>(V)) {
                 V = builder.CreateLoad(V);
             }
             emitDebugLocation(varDecl);
@@ -835,18 +833,48 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ReturnStmt> returnStmt) {
     const auto returnType = resolveTypeDesc(currentFunction.decl->getSignature().returnType);
-    
+
     if (auto expr = returnStmt->expr) {
-        Type *T;
-        if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, returnType, &T)) {
+        auto retvalTy = getType(expr);
+        
+        auto typeMismatch = [&]() {
             auto msg = util::fmt::format("expression evaluates to type '{}', which is incompatible with the expected return type '{}'",
-                                         T, returnType);
-            diagnostics::emitError(expr->getSourceLocation(), msg);
+                                        retvalTy, returnType);
+            diagnostics::emitError(returnStmt->getSourceLocation(), msg);
+        };
+        
+        if (retvalTy == returnType) {
+            goto handle;
         }
         
-        auto retvalAss = std::make_shared<ast::Assignment>(makeIdent(kRetvalAllocaIdentifier), expr);
-        retvalAss->setSourceLocation(returnStmt->getSourceLocation());
-        codegen(retvalAss, /*shouldDestructOldValue*/ false);
+        if (returnType->isReferenceTy()) {
+            if (isTemporary(expr)) {
+                diagnostics::emitError(returnStmt->getSourceLocation(), "cannot return reference to temporary");
+            } else if (!retvalTy->isReferenceTy() && retvalTy->getReferenceTo() == returnType) {
+                goto handle;
+            } else {
+                typeMismatch();
+            }
+        } else {
+            if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, retvalTy)) {
+                typeMismatch();
+            }
+        }
+        
+    handle:
+        if (returnType->isReferenceTy() && retvalTy->isReferenceTy()) {
+            auto V = codegen(expr, LValue);
+            if (llvm::isa<llvm::AllocaInst>(V)) {
+                V = builder.CreateLoad(V);
+            }
+            emitDebugLocation(returnStmt);
+            builder.CreateStore(V, currentFunction.retvalAlloca);
+        } else {
+            auto assignment = std::make_shared<ast::Assignment>(makeIdent(kRetvalAllocaIdentifier), expr);
+            assignment->setSourceLocation(returnStmt->getSourceLocation());
+            assignment->shouldDestructOldValue = false;
+            codegen(assignment);
+        }
     } else {
         LKAssert(returnType->isVoidTy());
     }
@@ -961,7 +989,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
     
 ok:
     
-    if (lhsTy->isReferenceTy()) {
+    if (lhsTy->isReferenceTy() && llvm::isa<llvm::AllocaInst>(llvmTargetLValue)) {
         emitDebugLocation(assignment);
         llvmTargetLValue = builder.CreateLoad(llvmTargetLValue);
     }
@@ -1989,7 +2017,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             rejections.emplace_back("variadic arguments count mismatch", *decl);
             continue;
         }
-        if (decl->getName() != kInitializerMethodName && !decl->getSignature().isTemplateDecl() && callExpr->numberOfExplicitTemplateArgs() > 0) {
+        if (decl->getName() != kInitializerMethodName && !sig.isTemplateDecl() && callExpr->numberOfExplicitTemplateArgs() > 0) {
             // Reject a non-template target if the call expression contains explicit template arguments.
             // The sole exception here are calls to initializers, since in this case the call expression
             // has being reused by the compiler, with the original target (the ctor) replaced w/ the initializer
@@ -2237,7 +2265,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind
         auto V = constructCopyIfNecessary(argTy, expr, &didConstructCopy);
         if (policy == ArgumentHandlingPolicy::PassByValue_ExtractReference) {
             LKAssert(argTy->isReferenceTy());
-            V = builder.CreateLoad(V); // TODO only insert this load if no copy was made? (otherwise, the copy constructor already returns a non-reference object)
+            if (!didConstructCopy) {
+                V = builder.CreateLoad(V); // TODO only insert this load if no copy was made? (otherwise, the copy constructor already returns a non-reference object)
+            }
         }
         args.push_back(V);
     }
@@ -2253,19 +2283,30 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind
         auto expectedSelfTy = resolveTypeDesc(resolvedTarget.signature.paramTypes[0]);
         auto implicitSelfArg = memberExpr->target;
         Type *selfTy = getType(implicitSelfArg);
-        llvm::Value *selfVal = nullptr;
+        llvm::Value *selfVal = codegen(implicitSelfArg, LValue);
         
         // We know that the self target is either `T`, `&T` or `*T`, since these are the only cases
         // handled by the call target resolution code (when extracting the underlying struct)
         
-        if (expectedSelfTy->isReferenceTy() && (selfTy->isPointerTy() || selfTy->isReferenceTy())) {
-            // Note: this is the only case where an implicit pointer-to-reference conversion takes place
-            selfVal = codegen(implicitSelfArg, RValue);
-        } else if ((expectedSelfTy->isPointerTy() || expectedSelfTy->isReferenceTy()) && selfTy->isStructTy()) {
-            selfVal = codegen(implicitSelfArg, LValue);
-        } else {
-            LKFatalError("unhandled self param case (exp: %s, act: %s)", expectedSelfTy->str().c_str(), selfTy->str().c_str());
+        if (!expectedSelfTy->isReferenceTy()) {
+            LKFatalError("self parameter not a reference!");
         }
+        
+        if (selfTy->isReferenceTy() && llvm::isa<llvm::AllocaInst>(selfVal)) {
+            selfVal = builder.CreateLoad(selfVal);
+        }
+        
+//        if (expectedSelfTy->isReferenceTy() && (selfTy->isPointerTy() || selfTy->isReferenceTy())) {
+//        //if (expectedSelfTy->isReferenceTy() && selfTy->isPointerTy()) {
+//            // Note: this is the only case where an implicit pointer-to-reference conversion takes place
+//            selfVal = codegen(implicitSelfArg, RValue);
+//        //} else if (expectedSelfTy->isReferenceTy() && selfTy->isReferenceTy()) {
+//        //    selfVal = codegen(implicitSelfArg, LValue);
+//        } else if ((expectedSelfTy->isPointerTy() || expectedSelfTy->isReferenceTy()) && selfTy->isStructTy()) {
+//            selfVal = codegen(implicitSelfArg, LValue);
+//        } else {
+//            LKFatalError("unhandled self param case (exp: %s, act: %s)", expectedSelfTy->str().c_str(), selfTy->str().c_str());
+//        }
         
         args[0] = selfVal;
         if (isTemporary(implicitSelfArg)) {
@@ -3045,7 +3086,6 @@ void IRGenerator::destructLocalScopeUntilMarker(NamedScope<ValueBinding>::Marker
 #pragma mark - Types
 
 
-
 Type* IRGenerator::resolvePrimitiveType(std::string_view name) {
 #define HANDLE(_name, ty) if (name == _name) return ty;
     HANDLE("void", builtinTypes.yo.Void)
@@ -3440,7 +3480,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             // TODO allow non-pointer subscripting
             auto targetTy = getType(static_cast<ast::SubscriptExpr *>(expr.get())->target);
             LKAssert(targetTy->isPointerTy());
-            return llvm::dyn_cast<PointerType>(targetTy)->getPointee();
+            return llvm::dyn_cast<PointerType>(targetTy)->getPointee()->getReferenceTo();
         }
         
         // <target>.<member>
