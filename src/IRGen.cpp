@@ -46,7 +46,6 @@ std::shared_ptr<ast::Ident> makeIdent(const std::string& str, ast::TokenSourceLo
 }
 
 
-
 // IRGen
 
 llvm::LLVMContext IRGenerator::C;
@@ -457,14 +456,14 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
 
 
 #define CASE(node, kind, ...) case NK::kind: return codegen(std::static_pointer_cast<ast::kind>(node), ## __VA_ARGS__);
-#define SKIP(node, kind) case NK::kind: return nullptr;
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
     switch (TLS->getNodeKind()) {
     CASE(TLS, FunctionDecl)
     CASE(TLS, StructDecl)
     CASE(TLS, ImplBlock)
-    SKIP(TLS, TypealiasDecl)
+    case NK::TypealiasDecl:
+        return nullptr;
     default: unhandled_node(TLS);
     }
 }
@@ -485,27 +484,39 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::LocalStmt> localStmt) {
     }
 }
 
+#undef CASE
 
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Expr> expr, ValueKind VK) {
+
+llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Expr> expr, ValueKind VK, bool insertImplicitLoadInst) {
+#define CASE(T, ...) case NK::T: V = codegen(std::static_pointer_cast<ast::T>(expr), ## __VA_ARGS__); break;
+    
+    llvm::Value *V = nullptr;
+    
     switch (expr->getNodeKind()) {
-    CASE(expr, NumberLiteral)
-    CASE(expr, Ident, VK)
-    CASE(expr, CastExpr)
-    CASE(expr, StringLiteral, VK)
-    CASE(expr, UnaryExpr)
-    CASE(expr, MatchExpr)
-    CASE(expr, RawLLVMValueExpr)
-    CASE(expr, MemberExpr, VK)
-    CASE(expr, SubscriptExpr, VK)
-    CASE(expr, CallExpr, VK)
-    CASE(expr, BinOp)
+    CASE(NumberLiteral)
+    CASE(Ident, VK)
+    CASE(CastExpr)
+    CASE(StringLiteral, VK)
+    CASE(UnaryExpr)
+    CASE(MatchExpr)
+    CASE(RawLLVMValueExpr)
+    CASE(MemberExpr, VK)
+    CASE(SubscriptExpr, VK)
+    CASE(CallExpr, VK)
+    CASE(BinOp)
     default: unhandled_node(expr)
     }
-}
-
-#undef SKIP
 #undef CASE
-#undef CASE2
+    
+    if (
+        insertImplicitLoadInst && V && VK == LValue && getType(expr)->isReferenceTy()
+        && (llvm::isa<llvm::AllocaInst>(V) || llvm::isa<llvm::GetElementPtrInst>(V)) // TODO this line isn't really needed, right?
+        && V->getType()->isPointerTy() && V->getType()->getPointerElementType() == getType(expr)->getLLVMType()
+    ) {
+        V = builder.CreateLoad(V);
+    }
+    return V;
+}
 
 
 llvm::DIFile* DIFileForSourceLocation(llvm::DIBuilder& builder, const parser::TokenSourceLocation& loc) {
@@ -799,9 +810,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
             codegen(assignment);
         } else {
             auto V = codegen(initialValueExpr, LValue);
-            if (initialValueType->isReferenceTy() && llvm::isa<llvm::AllocaInst>(V)) {
-                V = builder.CreateLoad(V);
-            }
             emitDebugLocation(varDecl);
             builder.CreateStore(V, alloca);
         }
@@ -864,9 +872,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ReturnStmt> returnStmt) {
     handle:
         if (returnType->isReferenceTy() && retvalTy->isReferenceTy()) {
             auto V = codegen(expr, LValue);
-            if (llvm::isa<llvm::AllocaInst>(V)) {
-                V = builder.CreateLoad(V);
-            }
             emitDebugLocation(returnStmt);
             builder.CreateStore(V, currentFunction.retvalAlloca);
         } else {
@@ -951,7 +956,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
         auto binop = std::static_pointer_cast<ast::BinOp>(rhsExpr);
         LKAssert(assignment->target == binop->getLhs());
         
-        auto lhsLValue = codegen(binop->getLhs(), LValue);
+        auto lhsLValue = codegen(binop->getLhs(), LValue, /*insertImplicitLoadInst*/ false);
         llvmTargetLValue = lhsLValue;
         auto lhsRValue = builder.CreateLoad(lhsLValue);
         
@@ -966,7 +971,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
         if (isTemporary(assignment->target)) {
             diagnostics::emitError(assignment->target->getSourceLocation(), "cannot assign to temporary value");
         }
-        llvmTargetLValue = codegen(assignment->target, LValue);
+        llvmTargetLValue = codegen(assignment->target, LValue, /*insertImplicitLoadInst*/ false);
         
         if (lhsTy == rhsTy) goto ok;
         
@@ -989,9 +994,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
     
 ok:
     
-    if (lhsTy->isReferenceTy() && llvm::isa<llvm::AllocaInst>(llvmTargetLValue)) {
+    if (lhsTy->isReferenceTy() && !assignment->overwriteReferences && llvm::isa<llvm::AllocaInst>(llvmTargetLValue)) {
         emitDebugLocation(assignment);
-        llvmTargetLValue = builder.CreateLoad(llvmTargetLValue);
+        llvmTargetLValue = builder.CreateLoad(llvmTargetLValue, "L0");
     }
     
     if (assignment->shouldDestructOldValue) {
@@ -1001,11 +1006,16 @@ ok:
         }
     }
     
-    bool didConstructCopy;
-    llvmRhsVal = constructCopyIfNecessary(rhsTy, rhsExpr, &didConstructCopy);
-    if (!didConstructCopy && rhsTy->isReferenceTy()) {
-        emitDebugLocation(assignment);
-        llvmRhsVal = builder.CreateLoad(llvmRhsVal);
+    if (lhsTy->isReferenceTy() && assignment->overwriteReferences) {
+        llvmRhsVal = codegen(rhsExpr, LValue, /*insertImplicitLoadInst*/ false);
+        llvmRhsVal = builder.CreateLoad(llvmRhsVal, "L1");
+    } else {
+        bool didConstructCopy;
+        llvmRhsVal = constructCopyIfNecessary(rhsTy, rhsExpr, &didConstructCopy);
+        if (!didConstructCopy && rhsTy->isReferenceTy()) {
+            emitDebugLocation(assignment);
+            llvmRhsVal = builder.CreateLoad(llvmRhsVal, "L2");
+        }
     }
     
     emitDebugLocation(assignment);
@@ -1217,7 +1227,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, V
     const auto targetTy = getType(memberExpr->target);
     
     StructType *structTy = nullptr;
-    const bool needsLoad = targetTy->isReferenceTy() || targetTy->isPointerTy();
+    const bool needsLoad = targetTy->isPointerTy() || targetTy->isReferenceTy();
     
     auto struct_or_error = [&](Type *ty) -> StructType* {
         if (ty->isStructTy()) return static_cast<StructType *>(ty);
@@ -1244,7 +1254,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, V
         llvm::ConstantInt::get(builtinTypes.llvm.i32, memberIndex)
     };
     
-    auto targetV = codegen(memberExpr->target, LValue);
+    auto targetV = codegen(memberExpr->target, LValue, /*insertImplicitLoadInst*/ false);
     
     if (isTemporary(memberExpr->target)) {
         LKFatalError("TODO");
@@ -1252,17 +1262,17 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, V
         includeInStackDestruction(targetTy, targetV);
     }
     
+    emitDebugLocation(memberExpr);
     if (needsLoad) {
         targetV = builder.CreateLoad(targetV);
     }
-    emitDebugLocation(memberExpr);
+    
     auto V = builder.CreateGEP(targetV, offsets);
     
     switch (returnValueKind) {
         case LValue:
             return V;
         case RValue:
-            emitDebugLocation(memberExpr); // TODO is this redundant?
             return builder.CreateLoad(V);
     }
 }
@@ -2291,22 +2301,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind
         if (!expectedSelfTy->isReferenceTy()) {
             LKFatalError("self parameter not a reference!");
         }
-        
-        if (selfTy->isReferenceTy() && llvm::isa<llvm::AllocaInst>(selfVal)) {
-            selfVal = builder.CreateLoad(selfVal);
-        }
-        
-//        if (expectedSelfTy->isReferenceTy() && (selfTy->isPointerTy() || selfTy->isReferenceTy())) {
-//        //if (expectedSelfTy->isReferenceTy() && selfTy->isPointerTy()) {
-//            // Note: this is the only case where an implicit pointer-to-reference conversion takes place
-//            selfVal = codegen(implicitSelfArg, RValue);
-//        //} else if (expectedSelfTy->isReferenceTy() && selfTy->isReferenceTy()) {
-//        //    selfVal = codegen(implicitSelfArg, LValue);
-//        } else if ((expectedSelfTy->isPointerTy() || expectedSelfTy->isReferenceTy()) && selfTy->isStructTy()) {
-//            selfVal = codegen(implicitSelfArg, LValue);
-//        } else {
-//            LKFatalError("unhandled self param case (exp: %s, act: %s)", expectedSelfTy->str().c_str(), selfTy->str().c_str());
-//        }
         
         args[0] = selfVal;
         if (isTemporary(implicitSelfArg)) {
@@ -3713,6 +3707,7 @@ llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
         target->setSourceLocation(SL);
         auto A = std::make_shared<ast::Assignment>(target, paramNames.at(idx + 1));
         A->shouldDestructOldValue = false;
+        A->overwriteReferences = true;
         A->setSourceLocation(SL);
         body->statements.push_back(A);
     }
@@ -3777,6 +3772,7 @@ llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::
         auto ass = std::make_shared<ast::Assignment>(lhs, rhs);
         ass->setSourceLocation(SL);
         ass->shouldDestructOldValue = false;
+        ass->overwriteReferences = true;
         body->statements.push_back(ass);
     }
     

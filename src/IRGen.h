@@ -182,7 +182,7 @@ private:
     
     llvm::Value *codegen(std::shared_ptr<ast::TopLevelStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::LocalStmt>);
-    llvm::Value *codegen(std::shared_ptr<ast::Expr>, ValueKind = RValue); // TODO should this really default to rvalue?
+    llvm::Value *codegen(std::shared_ptr<ast::Expr>, ValueKind = RValue, bool insertImplicitLoadInst = true); // TODO should this really default to rvalue?
     
     // ast::TopLevelStmt
     llvm::Value *codegen(std::shared_ptr<ast::FunctionDecl>);

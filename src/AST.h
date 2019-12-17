@@ -355,6 +355,7 @@ public:
     std::shared_ptr<Expr> value;
     
     bool shouldDestructOldValue = true;
+    bool overwriteReferences = false;
     
     Assignment(std::shared_ptr<Expr> target, std::shared_ptr<Expr> value) : LocalStmt(Node::NodeKind::Assignment), target(target), value(value) {}
 };
