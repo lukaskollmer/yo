@@ -63,16 +63,15 @@ std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specialize(std::shared_p
     auto signature = decl->getSignature();
     
     signature.paramTypes = util::vector::map(decl->getSignature().paramTypes, [&](auto paramTy) {
-        auto resolved = resolveType(paramTy);
-        //util::fmt::print("{} -> {}", reinterpret_cast<uintptr_t>(paramTy.get()), reinterpret_cast<uintptr_t>(resolved.get()));
-        return resolved;
+        return resolveType(paramTy);
     });
     signature.returnType = resolveType(signature.returnType);
     
     // TODO instead of replacig this here, simply add the mapping to the FuncDecl and insert implicit typealiases during function codegen!
-//    for (const auto &templateArgTypename : signature.templateArgumentNames) {
-    for (auto &param : signature.templateParamsDecl->getParams()) {
-        LKAssert(util::map::has_key(templateArgumentMapping, param.name));
+    if (signature.numberOfTemplateParameters() > 0) {
+        for (auto &param : signature.templateParamsDecl->getParams()) {
+            LKAssert(util::map::has_key(templateArgumentMapping, param.name));
+        }
     }
     signature.templateParamsDecl = nullptr;
     
@@ -92,6 +91,40 @@ std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specialize(std::shared_p
     specializedFuncDecl->setBody(specialize(decl->getBody()));
     return specializedFuncDecl;
 }
+
+
+
+
+
+std::shared_ptr<ast::StructDecl> TemplateSpecializer::specialize(std::shared_ptr<ast::StructDecl> SD) {
+    auto specDecl = std::make_shared<ast::StructDecl>();
+    specDecl->setSourceLocation(SD->getSourceLocation());
+    specDecl->name = SD->getName();
+    specDecl->attributes = SD->attributes;
+    specDecl->members.reserve(SD->members.size());
+    specDecl->implBlocks.reserve(SD->implBlocks.size());
+    
+    for (auto member : SD->members) {
+        specDecl->members.push_back(specialize(member));
+    }
+    
+    for (auto implBlock : SD->implBlocks) {
+        specDecl->implBlocks.push_back(specialize(implBlock));
+    }
+    
+    return specDecl;
+}
+
+
+
+std::shared_ptr<ast::ImplBlock> TemplateSpecializer::specialize(std::shared_ptr<ast::ImplBlock> implBlock) {
+    auto decl = std::make_shared<ast::ImplBlock>(implBlock->typename_);
+    decl->setSourceLocation(implBlock->getSourceLocation());
+    decl->methods = util::vector::map(implBlock->methods, [&](auto M) { return specialize(M); });
+    decl->isNominalTemplateType = implBlock->isNominalTemplateType;
+    return decl;
+}
+
 
 
 
@@ -229,10 +262,11 @@ std::shared_ptr<ast::MatchExpr> TemplateSpecializer::specialize(std::shared_ptr<
 }
 
 
-std::shared_ptr<ast::VarDecl> TemplateSpecializer::specialize(std::shared_ptr<ast::VarDecl> decl) {
-    auto X = std::make_shared<ast::VarDecl>(decl->name, resolveType(decl->type), specialize(decl->initialValue));
-    X->setSourceLocation(decl->getSourceLocation());
-    return X;
+std::shared_ptr<ast::VarDecl> TemplateSpecializer::specialize(std::shared_ptr<ast::VarDecl> varDecl) {
+    auto specDecl = std::make_shared<ast::VarDecl>(*varDecl);
+    specDecl->type = resolveType(varDecl->type);
+    specDecl->initialValue = specialize(varDecl->initialValue);
+    return specDecl;
 }
 
 

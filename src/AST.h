@@ -202,6 +202,10 @@ public:
     FunctionSignature() : Node(Node::NodeKind::FunctionSignature) {}
     
     bool isTemplateDecl() const { return templateParamsDecl != nullptr; }
+    uint64_t numberOfTemplateParameters() const {
+        if (!templateParamsDecl) return 0;
+        else return templateParamsDecl->size();
+    }
 };
 
 std::ostream& operator<<(std::ostream&, const ast::FunctionSignature&);
@@ -296,6 +300,10 @@ public:
     bool isNominalTemplateType = false;
 
     ImplBlock(std::string typename_) : TopLevelStmt(Node::NodeKind::ImplBlock), typename_(typename_) {}
+    
+    const std::string& getName() const {
+        return typename_;
+    }
 };
 
 

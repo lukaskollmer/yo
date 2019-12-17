@@ -38,6 +38,8 @@ public:
     std::shared_ptr<ast::TypeDesc> resolveType(std::shared_ptr<ast::TypeDesc>);
     
     std::shared_ptr<ast::FunctionDecl> specialize(std::shared_ptr<ast::FunctionDecl>);
+    std::shared_ptr<ast::StructDecl> specialize(std::shared_ptr<ast::StructDecl>);
+    std::shared_ptr<ast::ImplBlock> specialize(std::shared_ptr<ast::ImplBlock>);
     
     std::shared_ptr<ast::LocalStmt> specialize(std::shared_ptr<ast::LocalStmt>);
     std::shared_ptr<ast::Expr> specialize(std::shared_ptr<ast::Expr>);

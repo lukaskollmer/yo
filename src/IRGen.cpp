@@ -3584,16 +3584,7 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
 StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDecl> SD, const TemplateTypeMapping &mapping) {
     LKAssert(SD->isTemplateDecl());
     
-    auto instantiatedDecl = std::make_shared<ast::StructDecl>();
-    instantiatedDecl->setSourceLocation(SD->getSourceLocation());
-    instantiatedDecl->name = SD->getName();
-    instantiatedDecl->attributes = SD->attributes;
-    instantiatedDecl->members.reserve(SD->members.size());
-    instantiatedDecl->implBlocks = SD->implBlocks;
-    
-    // Build up the type scope w/ the template argument types
-    
-    std::vector<decltype(nominalTypes)::ID> tmplParamsIds;
+    TemplateTypeMapping fullMapping;
     
     for (uint64_t idx = 0; idx < SD->templateParamsDecl->size(); idx++) {
         Type *ty = nullptr;
@@ -3601,45 +3592,43 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
         
         if (auto TD = util::map::get_opt(mapping, param.name)) {
             ty = resolveTypeDesc(*TD);
-        } else if (auto defaultType = param.defaultType) {
-            ty = resolveTypeDesc(defaultType);
+        } else if (auto defaultTD = param.defaultType) {
+            ty = resolveTypeDesc(defaultTD);
         } else {
             diagnostics::emitError(util::fmt::format("unable to resolve template parameter {}", param.name));
         }
-        tmplParamsIds.push_back(nominalTypes.insert(param.name, ty));
-        instantiatedDecl->resolvedTemplateArgTypes.push_back(ty);
+        
+        fullMapping[param.name] = ast::TypeDesc::makeResolved(ty);
     }
     
-    // Specialize all members
-    for (auto &member : SD->members) {
-        auto ty = ast::TypeDesc::makeResolved(resolveTypeDesc(member->type));
-        auto specialized = std::make_shared<ast::VarDecl>(member->name, ty);
-        specialized->setSourceLocation(member->getSourceLocation());
-        instantiatedDecl->members.push_back(specialized);
+    auto specializedDecl = TemplateSpecializer::specializeWithMapping(SD, fullMapping);
+    
+    for (uint64_t idx = 0; idx < SD->templateParamsDecl->size(); idx++) {
+        auto &name = SD->templateParamsDecl->getParams()[idx].name;
+        specializedDecl->resolvedTemplateArgTypes.push_back(fullMapping.at(name)->getResolvedType());
     }
     
-    auto resolvedName = mangling::mangleFullyResolved(instantiatedDecl);
+    auto mangledName = mangling::mangleFullyResolved(specializedDecl);
     
-    if (auto ST = nominalTypes.get(resolvedName)) {
+    if (auto ST = nominalTypes.get(mangledName)) {
         return llvm::dyn_cast<StructType>(*ST);
     }
     
-    StructType *structTy = registerStructDecl(instantiatedDecl);
+    StructType *structTy = registerStructDecl(specializedDecl);
     
     // Instantiate & codegen impl blocks
-    for (auto &implBlock : instantiatedDecl->implBlocks) {
-        auto name = implBlock->typename_;
-        implBlock->typename_ = mangling::mangleFullyResolved(instantiatedDecl);
+    for (auto &implBlock : specializedDecl->implBlocks) {
+        auto name = implBlock->getName();
+        implBlock->typename_ = mangledName;
         registerImplBlock(implBlock);
         implBlock->typename_ = name;
     }
-    for (auto &implBlock : instantiatedDecl->implBlocks) {
+    for (auto &implBlock : specializedDecl->implBlocks) {
         for (auto &FD : implBlock->methods) {
             codegen(FD);
         }
     }
     
-    nominalTypes.removeAll(tmplParamsIds);
     return structTy;
 }
 
