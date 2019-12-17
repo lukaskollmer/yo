@@ -35,6 +35,9 @@ fn sizeof<T>() -> size_t;
 // Returns true if `T` is a pointer type
 #[intrinsic] fn __is_pointer<T>() -> bool;
 
+// Whether the type is constructible
+#[intrinsic] fn __is_constructible<T>() -> bool;
+
 // Whether the type is destructible
 #[intrinsic] fn __is_destructible<T>() -> bool;
 

@@ -946,10 +946,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
     auto lhsTy = getType(assignment->target);
     auto rhsTy = getType(assignment->value);
     
-    if (assignment->target->isOfKind(NK::SubscriptExpr)) {
-        assignment->shouldDestructOldValue = false;
-    }
-    
     if (rhsExpr->isOfKind(NK::BinOp) && static_cast<ast::BinOp *>(rhsExpr.get())->isInPlaceBinop()) {
         // <lhs> <op>= <rhs>
         // The issue here is that we have to make sure not to evaluate lhs twice
@@ -1961,6 +1957,8 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
                 diagnostics::emitError(memberExpr->getSourceLocation(), "invalid call target member expr target type");
         }
         
+        LKAssert(structTy);
+        
         auto structName = structTy->getName();
         
         if (auto [memberIndex, memberTy] = structTy->getMember(memberExpr->memberName); memberTy != nullptr) {
@@ -2387,7 +2385,7 @@ enum class irgen::Intrinsic : uint8_t {
     Sizeof,
     Trap, Typename,
     IsSame, IsPointer,
-    IsDestructible,
+    IsConstructible, IsDestructible,
     Func, PrettyFunc, MangledFunc
 };
 
@@ -2418,6 +2416,7 @@ static const std::map<std::string, Intrinsic> intrinsics = {
     { "__typename", Intrinsic::Typename },
     { "__is_same", Intrinsic::IsSame },
     { "__is_pointer", Intrinsic::IsPointer },
+    { "__is_constructible", Intrinsic::IsConstructible },
     { "__is_destructible", Intrinsic::IsDestructible },
     { "__func", Intrinsic::Func },
     { "__pretty_func", Intrinsic::PrettyFunc },
@@ -2485,9 +2484,14 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
         case Intrinsic::IsPointer:
             return llvm::ConstantInt::get(builtinTypes.llvm.i1, resolveTypeDesc(call->explicitTemplateArgs->at(0))->isPointerTy());
         
+        case Intrinsic::IsConstructible: {
+            auto ty = resolveTypeDesc(call->explicitTemplateArgs->at(0));
+            return llvm::ConstantInt::get(builtinTypes.llvm.i1, typeIsConstructible(ty));
+        }
+        
         case Intrinsic::IsDestructible: {
-            auto T = resolveTypeDesc(call->explicitTemplateArgs->at(0));
-            return llvm::ConstantInt::get(builtinTypes.llvm.i1, typeIsDestructible(T));
+            auto ty = resolveTypeDesc(call->explicitTemplateArgs->at(0));
+            return llvm::ConstantInt::get(builtinTypes.llvm.i1, typeIsDestructible(ty));
         }
         
         case Intrinsic::LAnd:
@@ -2789,30 +2793,89 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::IfStmt> ifStmt) {
         branchConditionBlocks.back() = mergeBB;
     }
     
+    enum class ConstevalResult {
+        None,           // no consteval going on
+        FirstBranch,    // the first branch evaluated to true
+        SecondBranch,   // the second branch evaluated to true
+        NoBranch        // no branch evaluated to true
+    };
+    auto constevalResult = ConstevalResult::None;
     
     for (size_t i = 0; i < ifStmt->branches.size(); i++) {
-        if (ifStmt->branches[i]->kind == BK::Else) break;
+        const auto &branch = ifStmt->branches[i];
+        
+        if (branch->kind == BK::Else) break;
         if (i > 0) {
             auto BB = branchConditionBlocks[i];
             F->getBasicBlockList().push_back(BB);
             builder.SetInsertPoint(BB);
         }
-        auto condV = codegen(ifStmt->branches[i]->condition);
-        builder.CreateCondBr(condV, branchBodyBlocks[i], branchConditionBlocks[i + 1]);
+        
+        auto condTy = getType(branch->condition);
+        
+        if (auto BoolTy = builtinTypes.yo.Bool; condTy != BoolTy && condTy != BoolTy->getReferenceTo()) {
+            auto msg = util::fmt::format("type of expression ('{}') incompatible with expected type '{}'", condTy, BoolTy);
+            diagnostics::emitError(branch->getSourceLocation(), msg);
+        }
+        
+        auto condV = codegen(branch->condition);
+        if (condTy == builtinTypes.yo.Bool->getReferenceTo()) {
+            condV = builder.CreateLoad(condV);
+        }
+        
+        if (i == 0 && llvm::isa<llvm::ConstantInt>(condV) && condV->getType() == builtinTypes.llvm.i1
+            && branch->kind == BK::If && (ifStmt->branches.size() == 1 || ifStmt->branches[1]->kind == BK::Else)
+        ) {
+            auto value = llvm::dyn_cast<llvm::ConstantInt>(condV)->getLimitedValue();
+            if (value == 1) {
+                constevalResult = ConstevalResult::FirstBranch;
+                builder.CreateBr(branchBodyBlocks[i]);
+            } else if (ifStmt->branches.size() == 2) {
+                constevalResult = ConstevalResult::SecondBranch;
+                builder.CreateBr(branchBodyBlocks[i+1]);
+            } else {
+                constevalResult = ConstevalResult::NoBranch;
+                builder.CreateBr(mergeBB);
+            }
+            break;
+        } else {
+            builder.CreateCondBr(condV, branchBodyBlocks[i], branchConditionBlocks[i + 1]);
+        }
     }
     
-    
-    for (size_t i = 0; i < ifStmt->branches.size(); i++) {
-        auto BB = branchBodyBlocks[i];
+    auto codegenBodyBranch = [&](uint64_t index) {
+        auto BB = branchBodyBlocks[index];
         F->getBasicBlockList().push_back(BB);
         builder.SetInsertPoint(BB);
         
-        codegen(ifStmt->branches[i]->body);
+        codegen(ifStmt->branches[index]->body);
         if (!builder.GetInsertBlock()->back().isTerminator()) {
             needsMergeBB = true;
             builder.CreateBr(mergeBB);
         }
+    };
+    
+    
+    switch (constevalResult) {
+        case ConstevalResult::None:
+            for (size_t i = 0; i < ifStmt->branches.size(); i++) {
+                codegenBodyBranch(i);
+            }
+            break;
+        
+        case ConstevalResult::FirstBranch:
+            codegenBodyBranch(0);
+            break;
+        
+        case ConstevalResult::SecondBranch:
+            codegenBodyBranch(1);
+            break;
+        
+        case ConstevalResult::NoBranch:
+            needsMergeBB = true;
+            break;
     }
+    
     
     if (needsMergeBB) {
         F->getBasicBlockList().push_back(mergeBB);
@@ -3158,16 +3221,16 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
             break;
         }
         case TDK::Pointer:
-            return handleResolvedTy(resolveTypeDesc(typeDesc->getPointee())->getPointerTo());
+            return handleResolvedTy(resolveTypeDesc(typeDesc->getPointee(), setInternalResolvedType)->getPointerTo());
         
         case TDK::Reference:
-            return handleResolvedTy(resolveTypeDesc(typeDesc->getPointee())->getReferenceTo());
+            return handleResolvedTy(resolveTypeDesc(typeDesc->getPointee(), setInternalResolvedType)->getReferenceTo());
             
         
         case TDK::Function: {
             const auto &FTI = typeDesc->getFunctionTypeInfo();
-            const auto paramTypes = util::vector::map(FTI.parameterTypes, [this](const auto &TD) { return resolveTypeDesc(TD); });
-            return handleResolvedTy(FunctionType::create(resolveTypeDesc(FTI.returnType), paramTypes, FTI.callingConvention));
+            const auto paramTypes = util::vector::map(FTI.parameterTypes, [&](const auto &TD) { return resolveTypeDesc(TD, setInternalResolvedType); });
+            return handleResolvedTy(FunctionType::create(resolveTypeDesc(FTI.returnType, setInternalResolvedType), paramTypes, FTI.callingConvention));
         }
         
         case TDK::Decltype:
@@ -3579,11 +3642,13 @@ bool IRGenerator::isTemporary(std::shared_ptr<ast::Expr> expr) {
 
 
 
+bool IRGenerator::typeIsConstructible(Type *ty) {
+    return implementsInstanceMethod(ty, kInitializerMethodName);
+}
 
 bool IRGenerator::typeIsDestructible(Type *ty) {
     return implementsInstanceMethod(ty, kSynthesizedDeallocMethodName);
 }
-
 
 bool IRGenerator::typeIsSubscriptable(Type *ty) {
     return ty->isPointerTy() || implementsInstanceMethod(ty, kSubscriptMethodName);

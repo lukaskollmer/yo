@@ -242,6 +242,7 @@ private:
     
     bool isTemporary(std::shared_ptr<ast::Expr>);
     
+    bool typeIsConstructible(Type *);
     bool typeIsDestructible(Type *);
     bool typeIsSubscriptable(Type *);
     

@@ -676,6 +676,7 @@ std::shared_ptr<LocalStmt> Parser::parseLocalStmt() {
     std::shared_ptr<Expr> expr; // A partially-parsed part of a local statement
     
     expr = parseExpression();
+    LKAssert(expr);
     expr->setSourceLocation(sourceLoc);
     
     if (currentTokenKind() == TK::EqualsSign) { // Assignment

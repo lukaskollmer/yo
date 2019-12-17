@@ -80,7 +80,7 @@ std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specialize(std::shared_p
                                                                    signature,
                                                                    decl->getAttributes());
     specializedFuncDecl->setSourceLocation(decl->getSourceLocation());
-    specializedFuncDecl->setParamNames(decl->getParamNames());
+    specializedFuncDecl->setParamNames(decl->getParamNames()); // TODO make copies here!
     
     if (decl->getAttributes().intrinsic) {
         LKAssert(decl->getBody()->isEmpty());
