@@ -239,12 +239,17 @@ private:
     llvm::DISubroutineType* toDISubroutineType(const ast::FunctionSignature&);
     uint8_t argumentOffsetForCallingConvention(CallingConvention cc);
     Type* resolvePrimitiveType(std::string_view name);
+    
     bool isTemporary(std::shared_ptr<ast::Expr>);
+    
+    bool typeIsDestructible(Type *);
+    bool typeIsSubscriptable(Type *);
+    
+    /// Whether a specific instance method can be invoked on a value of a type
+    bool implementsInstanceMethod(Type *, std::string_view);
     
     llvm::Value* constructStruct(StructType *, std::shared_ptr<ast::CallExpr> ctorCall, bool putInLocalScope, ValueKind);
     llvm::Value* constructCopyIfNecessary(Type *, std::shared_ptr<ast::Expr>, bool *didConstructCopy = nullptr);
-    
-    bool isDestructible(Type *);
     
     /// Destructs a value by invoking the type's `dealloc` method, if defined
     /// value parameter should be the value's memory location

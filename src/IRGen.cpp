@@ -31,6 +31,7 @@ inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
 static const std::string kInitializerMethodName = "init";
 static const std::string kSynthesizedDeallocMethodName = "__dealloc";
 static const std::string kRetvalAllocaIdentifier = "__retval";
+static const std::string kSubscriptMethodName = "subscript";
 
 #define unhandled_node(node) \
 { std::cout << __PRETTY_FUNCTION__ << ": Unhandled Node: " << util::typeinfo::getTypename(*(node)) << std::endl; \
@@ -1279,15 +1280,31 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, V
 
 
 
+std::shared_ptr<ast::CallExpr> subscriptExprToCall(std::shared_ptr<ast::SubscriptExpr> subscriptExpr) {
+    auto callTarget = std::make_shared<ast::MemberExpr>(subscriptExpr->target, kSubscriptMethodName);
+    callTarget->setSourceLocation(subscriptExpr->target->getSourceLocation());
+    
+    auto callExpr = std::make_shared<ast::CallExpr>(callTarget);
+    callExpr->setSourceLocation(subscriptExpr->getSourceLocation());
+    callExpr->arguments = { subscriptExpr->offset };
+    
+    return callExpr;
+}
+
+
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::SubscriptExpr> subscript, ValueKind returnValueKind) {
     auto TT = getType(subscript->target);
+    auto OT = getType(subscript->offset);
+    
     if (!TT->isPointerTy()) {
+        if (typeIsSubscriptable(TT)) {
+            return codegen(subscriptExprToCall(subscript), returnValueKind);
+        }
         auto msg = util::fmt::format("cannot subscript value of type '{}'", TT);
         diagnostics::emitError(subscript->target->getSourceLocation(), msg);
     }
     
-    auto OT = getType(subscript->offset);
-    if (!OT->isNumericalTy() || !llvm::dyn_cast<NumericalType>(OT)->isIntegerTy()) {
+    if (TT->isPointerTy() && (!OT->isNumericalTy() || !llvm::dyn_cast<NumericalType>(OT)->isIntegerTy())) {
         auto msg = util::fmt::format("expected integral type, got '{}'", OT);
         diagnostics::emitError(subscript->offset->getSourceLocation(), msg);
     }
@@ -2470,7 +2487,7 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
         
         case Intrinsic::IsDestructible: {
             auto T = resolveTypeDesc(call->explicitTemplateArgs->at(0));
-            return llvm::ConstantInt::get(builtinTypes.llvm.i1, isDestructible(T));
+            return llvm::ConstantInt::get(builtinTypes.llvm.i1, typeIsDestructible(T));
         }
         
         case Intrinsic::LAnd:
@@ -3023,12 +3040,6 @@ llvm::Value* IRGenerator::destructValueIfNecessary(Type *type, llvm::Value *valu
     }
 }
 
-
-bool IRGenerator::isDestructible(Type *ty) {
-    // TODO write a proper implementation and use that in the other functions
-    return createDestructStmtIfDefined(ty, nullptr, ty->isReferenceTy()) != nullptr;
-}
-
 std::shared_ptr<ast::LocalStmt> IRGenerator::createDestructStmtIfDefined(Type *type, llvm::Value *value, bool includeReferences) {
     auto expr = std::make_shared<ast::RawLLVMValueExpr>(value, type->isReferenceTy() ? type : type->getReferenceTo());
     return createDestructStmtIfDefined(type, expr, includeReferences);
@@ -3470,10 +3481,18 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             return static_cast<ast::RawLLVMValueExpr *>(expr.get())->type;
         
         case NK::SubscriptExpr: {
-            // TODO allow non-pointer subscripting
-            auto targetTy = getType(static_cast<ast::SubscriptExpr *>(expr.get())->target);
-            LKAssert(targetTy->isPointerTy());
-            return llvm::dyn_cast<PointerType>(targetTy)->getPointee()->getReferenceTo();
+            auto subscriptExpr = std::static_pointer_cast<ast::SubscriptExpr>(expr);
+            auto targetTy = getType(subscriptExpr->target);
+            
+            if (targetTy->isPointerTy()) {
+                return llvm::dyn_cast<PointerType>(targetTy)->getPointee()->getReferenceTo();
+            } else if (typeIsSubscriptable(targetTy)) {
+                auto callExpr = subscriptExprToCall(subscriptExpr);
+                return resolveTypeDesc(resolveCall(callExpr, kSkipCodegen).signature.returnType);
+            } else {
+                auto msg = util::fmt::format("type '{}' is not subscriptable", targetTy);
+                diagnostics::emitError(subscriptExpr->getSourceLocation(), msg);
+            }
         }
         
         // <target>.<member>
@@ -3556,6 +3575,50 @@ bool IRGenerator::isTemporary(std::shared_ptr<ast::Expr> expr) {
             return true;
     }
 }
+
+
+
+
+
+bool IRGenerator::typeIsDestructible(Type *ty) {
+    return implementsInstanceMethod(ty, kSynthesizedDeallocMethodName);
+}
+
+
+bool IRGenerator::typeIsSubscriptable(Type *ty) {
+    return ty->isPointerTy() || implementsInstanceMethod(ty, kSubscriptMethodName);
+}
+
+
+
+bool IRGenerator::implementsInstanceMethod(Type *ty, std::string_view methodName) {
+    StructType *underlyingStruct = nullptr;
+    
+    if (auto PT = llvm::dyn_cast_or_null<PointerType>(ty)) {
+        if (auto ST = llvm::dyn_cast_or_null<StructType>(PT->getPointee())) {
+            underlyingStruct = ST;
+        } else {
+            return false;
+        }
+    } else if (auto ST = llvm::dyn_cast_or_null<StructType>(ty)) {
+        underlyingStruct = ST;
+    } else if (auto refTy = llvm::dyn_cast_or_null<ReferenceType>(ty)) {
+        if (auto ST = llvm::dyn_cast_or_null<StructType>(refTy->getReferencedType())) {
+            underlyingStruct = ST;
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+    
+    LKAssert(underlyingStruct);
+    
+    auto canonicalName = mangling::mangleCanonicalName(underlyingStruct->getName(), methodName, ast::FunctionKind::InstanceMethod);
+    return util::map::has_key(functions, canonicalName);
+}
+
+
 
 
 

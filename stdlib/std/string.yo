@@ -43,6 +43,10 @@ impl String {
         self.len = newLength;
     }
 
+    fn subscript(self: &Self, index: i64) -> &i8 {
+        return self.ptr[index];
+    }
+
     fn print_desc(self: &String) {
         printf(b"[String ptr: %p len: %lli text: %s]\n", self.ptr, self.len, self.ptr);
     }

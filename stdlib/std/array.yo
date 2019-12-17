@@ -11,7 +11,7 @@ impl ArrayIterator {
     }
 
     fn next(self: &Self) -> &T {
-        let &elem = self.array.get(self.idx);
+        let &elem = self.array[self.idx];
         self.idx += 1;
         return elem;
     }
@@ -35,7 +35,7 @@ impl Array {
         self.allocSize = other.allocSize;
         self.data = alloc<T>(cast<size_t>(self.allocSize));
         while self.size < other.size {
-            self.data[self.size] = other.get(self.size);
+            self.data[self.size] = other[self.size];
             self.size += 1;
         }
     }
@@ -50,7 +50,7 @@ impl Array {
         self.size += 1;
     }
 
-    fn get(self: &Self, index: i64) -> &T {
+    fn subscript(self: &Self, index: i64) -> &T {
         return self.data[index];
     }
 
