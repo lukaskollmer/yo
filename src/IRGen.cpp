@@ -800,7 +800,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
     ));
     
     if (auto initialValueExpr = varDecl->initialValue) {
-        auto initialValueType = getType(initialValueExpr);
         // Q: Why create and handle an assignment to set the initial value, instead of just calling Binding.Write?
         // A: The Assignment codegen also includes the trivial type transformations, whish we'd otherwise have to implement again in here
         if (!type->isReferenceTy()) {
