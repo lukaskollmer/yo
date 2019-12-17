@@ -9,3 +9,8 @@ fn swap<T>(x: &T, y: &T) {
     x = y;
     y = tmp;
 }
+
+fn fatalError(message: String) {
+    printf(b"Fatal Error: %s\n", message.c_str());
+    __trap();
+}

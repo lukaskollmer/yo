@@ -1,0 +1,68 @@
+use ":std/memory";
+
+struct ArrayIterator<T> {
+    array: &Array<T>,
+    idx: i64
+}
+
+impl ArrayIterator {
+    fn hasNext(self: &Self) -> bool {
+        return self.idx < self.array.size;
+    }
+
+    fn next(self: &Self) -> &T {
+        let &elem = self.array.get(self.idx);
+        self.idx += 1;
+        return elem;
+    }
+}
+
+
+
+struct Array<T> {
+    data: *T,
+    size: i64,
+    allocSize: i64
+}
+
+impl Array {
+    fn init(self: &Self) {
+        self.data = alloc<T>(10);
+        self.allocSize = 10;
+    }
+
+    fn init(self: &Self, other: &Array<T>) {
+        self.allocSize = other.allocSize;
+        self.data = alloc<T>(cast<size_t>(self.allocSize));
+        while self.size < other.size {
+            self.data[self.size] = other.get(self.size);
+            self.size += 1;
+        }
+    }
+
+
+    fn append(self: &Self, element: T) {
+        if self.size == self.allocSize {
+            fatalError("TODO: Resize");
+        }
+
+        self.data[self.size] = element;
+        self.size += 1;
+    }
+
+    fn get(self: &Self, index: i64) -> &T {
+        return self.data[index];
+    }
+
+    fn iterator(self: &Self) -> ArrayIterator<T> {
+        return ArrayIterator<T>(self, 0);
+    }
+
+    fn dealloc(self: &Self) {
+        let idx = 0;
+        while idx < self.size {
+            self.data[idx].__dealloc();
+            idx += 1;
+        }
+    }
+}
