@@ -12,32 +12,26 @@
 #include "stdlib_sources.h"
 
 #include <map>
-#include <dlfcn.h>
 
 
-// It works, but I'm not sure if the dlopen/dlsym approach is a good idea
+#define MODULE(_0, _1) { _0, std::string_view(reinterpret_cast<const char *>(stdlib_##_1##_yo), stdlib_##_1##_yo_len) }
 
-static std::map<std::string, std::string_view> stdlibModules;
+static const std::map<std::string_view, std::string_view> stdlibModules = {
+    MODULE(":C/stdio", C_stdio),
+    MODULE(":C/stdlib", C_stdlib),
+    MODULE(":C/string", C_string),
+    MODULE(":std/array", std_array),
+    MODULE(":std/core", std_core),
+    MODULE(":std/intrinsics", std_intrinsics),
+    MODULE(":std/math", std_math),
+    MODULE(":std/memory", std_memory),
+    MODULE(":std/operators", std_operators),
+    MODULE(":std/string", std_string)
+};
 
-std::optional<std::string_view> yo::stdlib_resolution::getContentsOfModuleWithName(const std::string &name) {
-    if (auto module = util::map::get_opt(stdlibModules, name)) {
-        return *module;
-    }
-    
-    std::string symbolName = "stdlib_";
-    symbolName.append(name.substr(1));
-    symbolName = util::string::replace_all(symbolName, "/", "_");
-    symbolName.append("_yo");
-    
-    static void *handle = dlopen(nullptr, RTLD_LAZY); // TODO is it safe to just keep this open?
-    auto stringPtr = reinterpret_cast<unsigned char *>(dlsym(handle, symbolName.c_str()));
-    symbolName.append("_len");
-    auto stringLenPtr = reinterpret_cast<unsigned int *>(dlsym(handle, symbolName.c_str()));
-    
-    if (!stringPtr || !stringLenPtr) {
-        return std::nullopt;
-    }
-    
-    auto SV = std::string_view(reinterpret_cast<const char *>(stringPtr), *stringLenPtr);
-    return stdlibModules[name] = SV;
+#undef MODULE
+
+
+std::optional<std::string_view> yo::stdlib_resolution::getContentsOfModuleWithName(std::string_view name) {
+    return util::map::get_opt(stdlibModules, name);
 }
