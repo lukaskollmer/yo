@@ -32,6 +32,9 @@ static const std::string kInitializerMethodName = "init";
 static const std::string kSynthesizedDeallocMethodName = "__dealloc";
 static const std::string kRetvalAllocaIdentifier = "__retval";
 static const std::string kSubscriptMethodName = "subscript";
+static const std::string kIteratorMethodName = "iterator";
+static const std::string kIteratorHasNextMethodName = "hasNext";
+static const std::string kIteratorNextMethodName = "next";
 
 #define unhandled_node(node) \
 { std::cout << __PRETTY_FUNCTION__ << ": Unhandled Node: " << util::typeinfo::getTypename(*(node)) << std::endl; \
@@ -2921,43 +2924,65 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::WhileStmt> whileStmt) {
 }
 
 
-// TODO move to utils!
-template <typename T>
-void vec_append(std::vector<T> &dest, const std::vector<T> &src) {
-    dest.insert(dest.end(), src.begin(), src.end());
+
+std::shared_ptr<ast::CallExpr> makeInstanceMethodCallExpr(std::shared_ptr<ast::Expr> target, std::string methodName) {
+    auto callTarget = std::make_shared<ast::MemberExpr>(target, methodName);
+    callTarget->setSourceLocation(target->getSourceLocation());
+    
+    auto call = std::make_shared<ast::CallExpr>(callTarget);
+    call->setSourceLocation(target->getSourceLocation());
+    
+    return call;
 }
+
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ForLoop> forLoop) {
-    emitDebugLocation(forLoop);
+    auto targetTy = getType(forLoop->expr);
     
-    // TODO the code below is pretty bad
+    if (!implementsInstanceMethod(targetTy, kIteratorMethodName)) {
+        auto msg = util::fmt::format("expression of type '{}' is not iterable", targetTy);
+        diagnostics::emitError(forLoop->expr->getSourceLocation(), msg);
+    }
     
-    LKFatalError("TODO");
     
-//    auto T = getType(forLoop->expr);
-//    LKAssert(T->isPointer() && T->getPointee()->isComplex());
-//    auto iteratorCallTarget = mangling::mangleCanonicalName(T->getPointee()->getName(), "iterator", ast::FunctionSignature::FunctionKind::InstanceMethod);
-//
-//    auto call = std::make_shared<ast::CallExpr>(std::make_shared<ast::Ident>(iteratorCallTarget),
-//                                                std::vector<std::shared_ptr<ast::Expr>>{ forLoop->expr });
-//
-//
-//    auto forStmtScope = std::make_shared<ast::Composite>();
-//    auto it_ident = std::make_shared<ast::Ident>("$it");
-//    forStmtScope->statements.push_back(std::make_shared<ast::VarDecl>(it_ident, TypeInfo::Unresolved, call));
-//
-//    // while loop
-//    auto callInstanceMethod = [](const std::shared_ptr<ast::Ident> &target, const std::string &methodName) {
-//        return std::make_shared<ast::CallExpr>(std::make_shared<ast::MemberExpr>(target, methodName));
-//    };
-//
-//    auto whileBody = std::make_shared<ast::Composite>();
-//    whileBody->statements.push_back(std::make_shared<ast::VarDecl>(forLoop->ident, TypeInfo::Unresolved, callInstanceMethod(it_ident, "next")));
-//    vec_append(whileBody->statements, forLoop->body->statements);
-//    forStmtScope->statements.push_back(std::make_shared<ast::WhileStmt>(callInstanceMethod(it_ident, "hasNext"), whileBody));
-//    return codegen(forStmtScope);
+    auto iteratorIdent = makeIdent(currentFunction.getTmpIdent(), forLoop->getSourceLocation());
+    
+    auto iteratorCallExpr = makeInstanceMethodCallExpr(forLoop->expr, kIteratorMethodName);
+    iteratorCallExpr->setSourceLocation(forLoop->getSourceLocation());
+    
+    // let it = <target>.iterator();
+    auto iteratorVarDecl = std::make_shared<ast::VarDecl>(iteratorIdent->value, nullptr, iteratorCallExpr);
+    iteratorVarDecl->setSourceLocation(forLoop->getSourceLocation());
+    
+    
+    // while it.hasNext()
+    auto whileCond = makeInstanceMethodCallExpr(iteratorIdent, kIteratorHasNextMethodName);
+    auto whileBody = std::make_shared<ast::Composite>();
+    whileBody->setSourceLocation(forLoop->body->getSourceLocation());
+    
+    // let [&]<ident> = it.next();
+    auto nextElemCall = makeInstanceMethodCallExpr(iteratorIdent, kIteratorNextMethodName);
+    nextElemCall->setSourceLocation(forLoop->expr->getSourceLocation());
+    auto elemDecl = std::make_shared<ast::VarDecl>(forLoop->ident->value, nullptr, nextElemCall);
+    elemDecl->declaresUntypedReference = forLoop->capturesByReference;
+    elemDecl->setSourceLocation(forLoop->ident->getSourceLocation());
+    
+    whileBody->statements.push_back(elemDecl);
+    util::vector::append(whileBody->statements, forLoop->body->statements);
+    
+    auto whileStmt = std::make_shared<ast::WhileStmt>(whileCond, whileBody);
+    whileStmt->setSourceLocation(forLoop->getSourceLocation());
+    
+    // Wrap in a compound to make sure the iterator gets deallocated immediately after the loop exits
+    auto stmt = std::make_shared<ast::Composite>();
+    stmt->setSourceLocation(forLoop->getSourceLocation());
+    stmt->statements.push_back(iteratorVarDecl);
+    stmt->statements.push_back(whileStmt);
+    return codegen(stmt);
 }
+
+
 
 
 llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::BreakContStmt> stmt) {

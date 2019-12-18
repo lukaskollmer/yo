@@ -323,8 +323,13 @@ U reduce(const container<T> &input, U initialValue, F fn) {
     return accumulator;
 }
 
-} // namespace vector
 
+template <typename T>
+void append(std::vector<T> &dest, const std::vector<T> &src) {
+    dest.insert(dest.end(), src.begin(), src.end());
+}
+
+} // namespace vector
 
 
 

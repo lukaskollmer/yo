@@ -853,12 +853,23 @@ std::shared_ptr<ast::WhileStmt> Parser::parseWhileStmt() {
 std::shared_ptr<ForLoop> Parser::parseForLoop() {
     auto sourceLoc = getCurrentSourceLocation();
     assertTkAndConsume(TK::For);
+    
+    bool capturesByReference;
+    if (currentTokenKind() == TK::Ampersand) {
+        capturesByReference = true;
+        consume();
+    } else {
+        capturesByReference = false;
+    }
+    
     auto ident = parseIdent();
     assertTkAndConsume(TK::In);
     auto expr = parseExpression();
     assertTk(TK::OpeningCurlyBraces);
     auto body = parseComposite();
+    
     auto stmt = std::make_shared<ForLoop>(ident, expr, body);
+    stmt->capturesByReference = capturesByReference;
     stmt->setSourceLocation(sourceLoc);
     return stmt;
 }

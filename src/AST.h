@@ -403,6 +403,7 @@ public:
 
 class ForLoop : public LocalStmt {
 public:
+    bool capturesByReference = false;
     std::shared_ptr<ast::Ident> ident;
     std::shared_ptr<ast::Expr> expr;
     std::shared_ptr<ast::Composite> body;
