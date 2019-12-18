@@ -67,13 +67,22 @@ std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specialize(std::shared_p
     });
     signature.returnType = resolveType(signature.returnType);
     
-    // TODO instead of replacig this here, simply add the mapping to the FuncDecl and insert implicit typealiases during function codegen!
+    
     if (signature.numberOfTemplateParameters() > 0) {
-        for (auto &param : signature.templateParamsDecl->getParams()) {
-            LKAssert(util::map::has_key(templateArgumentMapping, param.name));
+        signature.templateParamsDecl = std::make_shared<ast::TemplateParamDeclList>();
+        signature.templateParamsDecl->setSourceLocation(decl->getSignature().templateParamsDecl->getSourceLocation());
+
+        for (auto &param : decl->getSignature().templateParamsDecl->getParams()) {
+            if (!util::map::has_key(templateArgumentMapping, param.name)) {
+                signature.templateParamsDecl->addParam({ param.name, resolveType(param.defaultType) });
+            }
         }
     }
-    signature.templateParamsDecl = nullptr;
+    
+    if (signature.templateParamsDecl && signature.templateParamsDecl->size() == 0) {
+        signature.templateParamsDecl = nullptr;
+    }
+    
     
     auto specializedFuncDecl = std::make_shared<ast::FunctionDecl>(decl->getFunctionKind(),
                                                                    decl->getName(),
