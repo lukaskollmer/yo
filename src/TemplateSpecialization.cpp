@@ -166,9 +166,9 @@ std::shared_ptr<ast::Expr> TemplateSpecializer::specialize(std::shared_ptr<ast::
 #pragma mark - Local Statements
 
 
-std::shared_ptr<ast::Composite> TemplateSpecializer::specialize(std::shared_ptr<ast::Composite> composite) {
-    auto X = std::make_shared<ast::Composite>(specialize(composite->statements));
-    X->setSourceLocation(composite->getSourceLocation());
+std::shared_ptr<ast::CompoundStmt> TemplateSpecializer::specialize(std::shared_ptr<ast::CompoundStmt> stmt) {
+    auto X = std::make_shared<ast::CompoundStmt>(specialize(stmt->statements));
+    X->setSourceLocation(stmt->getSourceLocation());
     return X;
 }
 

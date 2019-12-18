@@ -475,7 +475,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::LocalStmt> localStmt) {
     switch (localStmt->getNodeKind()) {
-    CASE(localStmt, Composite)
+    CASE(localStmt, CompoundStmt)
     CASE(localStmt, VarDecl)
     CASE(localStmt, IfStmt)
     CASE(localStmt, Assignment)
@@ -712,8 +712,8 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ImplBlock> implBlock) {
 
 
 
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Composite> composite) {
-    const auto &stmts = composite->statements;
+llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CompoundStmt> compoundStmt) {
+    const auto &stmts = compoundStmt->statements;
     
     auto marker = localScope.getMarker();
     bool didReturn = false;
@@ -2958,7 +2958,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ForLoop> forLoop) {
     
     // while it.hasNext()
     auto whileCond = makeInstanceMethodCallExpr(iteratorIdent, kIteratorHasNextMethodName);
-    auto whileBody = std::make_shared<ast::Composite>();
+    auto whileBody = std::make_shared<ast::CompoundStmt>();
     whileBody->setSourceLocation(forLoop->body->getSourceLocation());
     
     // let [&]<ident> = it.next();
@@ -2975,7 +2975,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ForLoop> forLoop) {
     whileStmt->setSourceLocation(forLoop->getSourceLocation());
     
     // Wrap in a compound to make sure the iterator gets deallocated immediately after the loop exits
-    auto stmt = std::make_shared<ast::Composite>();
+    auto stmt = std::make_shared<ast::CompoundStmt>();
     stmt->setSourceLocation(forLoop->getSourceLocation());
     stmt->statements.push_back(iteratorVarDecl);
     stmt->statements.push_back(whileStmt);
@@ -3840,7 +3840,7 @@ llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
 //        else F->funcDecl->getAttributes().int_isFwdDecl = false;
     }
     
-    auto body = std::make_shared<ast::Composite>();
+    auto body = std::make_shared<ast::CompoundStmt>();
     body->setSourceLocation(SL);
     
     for (uint64_t idx = 0; idx < SM.size(); idx++) {
@@ -3901,7 +3901,7 @@ llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::
 //        else F->funcDecl->getAttributes().int_isFwdDecl = false;
     }
     
-    auto body = std::make_shared<ast::Composite>();
+    auto body = std::make_shared<ast::CompoundStmt>();
     body->setSourceLocation(SL);
     
     for (uint64_t idx = 0; idx < SM.size(); idx++) {
@@ -3947,7 +3947,7 @@ llvm::Value* IRGenerator::synthesizeDefaultDeallocMethod(std::shared_ptr<ast::St
     FD->setSourceLocation(SL);
     FD->setImplType(ST);
     
-    auto body = std::make_shared<ast::Composite>();
+    auto body = std::make_shared<ast::CompoundStmt>();
     body->setSourceLocation(SL);
     
     // Invoke custom destructor if defined

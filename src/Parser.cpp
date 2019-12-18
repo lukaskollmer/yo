@@ -546,7 +546,7 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
         return fnDecl;
     }
     
-    auto body = parseComposite();
+    auto body = parseCompoundStmt();
     fnDecl->setBody(body);
     
     return fnDecl;
@@ -725,11 +725,11 @@ std::shared_ptr<LocalStmt> Parser::parseLocalStmt() {
 }
 
 
-std::shared_ptr<Composite> Parser::parseComposite() {
+std::shared_ptr<CompoundStmt> Parser::parseCompoundStmt() {
     auto sourceLoc = getCurrentSourceLocation();
     assertTkAndConsume(TK::OpeningCurlyBraces);
     
-    auto stmt = std::make_shared<Composite>();
+    auto stmt = std::make_shared<CompoundStmt>();
     stmt->setSourceLocation(sourceLoc);
     while (currentTokenKind() != TK::ClosingCurlyBraces) {
         stmt->statements.push_back(parseLocalStmt());
@@ -813,19 +813,19 @@ std::shared_ptr<IfStmt> Parser::parseIfStmt() {
     auto mainExpr = parseExpression();
     assertTk(TK::OpeningCurlyBraces);
     
-    branches.push_back(std::make_shared<IfStmt::Branch>(Kind::If, mainExpr, parseComposite()));
+    branches.push_back(std::make_shared<IfStmt::Branch>(Kind::If, mainExpr, parseCompoundStmt()));
     
     while (currentTokenKind() == TK::Else && peekKind() == TK::If) {
         consume(2);
         auto expr = parseExpression();
         assertTk(TK::OpeningCurlyBraces);
-        auto body = parseComposite();
+        auto body = parseCompoundStmt();
         branches.push_back(std::make_shared<IfStmt::Branch>(Kind::ElseIf, expr, body));
     }
     
     if (currentTokenKind() == TK::Else && peekKind() == TK::OpeningCurlyBraces) {
         consume();
-        branches.push_back(std::make_shared<IfStmt::Branch>(Kind::Else, nullptr, parseComposite()));
+        branches.push_back(std::make_shared<IfStmt::Branch>(Kind::Else, nullptr, parseCompoundStmt()));
     }
     
     auto ifStmt = std::make_shared<ast::IfStmt>(branches);
@@ -843,7 +843,7 @@ std::shared_ptr<ast::WhileStmt> Parser::parseWhileStmt() {
     auto condition = parseExpression();
     assertTk(TK::OpeningCurlyBraces);
     
-    auto stmt = std::make_shared<ast::WhileStmt>(condition, parseComposite());
+    auto stmt = std::make_shared<ast::WhileStmt>(condition, parseCompoundStmt());
     stmt->setSourceLocation(sourceLoc);
     return stmt;
 }
@@ -866,7 +866,7 @@ std::shared_ptr<ForLoop> Parser::parseForLoop() {
     assertTkAndConsume(TK::In);
     auto expr = parseExpression();
     assertTk(TK::OpeningCurlyBraces);
-    auto body = parseComposite();
+    auto body = parseCompoundStmt();
     
     auto stmt = std::make_shared<ForLoop>(ident, expr, body);
     stmt->capturesByReference = capturesByReference;

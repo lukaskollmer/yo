@@ -291,7 +291,7 @@ Mirror Reflect(const FunctionDecl *FD) {
     };
 }
 
-Mirror Reflect(const Composite *C) {
+Mirror Reflect(const CompoundStmt *C) {
     return {
         { "body", C->statements }
     };
@@ -484,7 +484,7 @@ Mirror Reflect(const Node *node) {
     
     switch (node->getNodeKind()) {
         CASE(FunctionDecl)
-        CASE(Composite)
+        CASE(CompoundStmt)
         CASE(ReturnStmt)
         CASE(NumberLiteral)
         CASE(Ident)

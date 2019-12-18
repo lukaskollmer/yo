@@ -190,7 +190,7 @@ private:
     llvm::Value *codegen(std::shared_ptr<ast::ImplBlock>);
     
     // ast::LocalStmt
-    llvm::Value *codegen(std::shared_ptr<ast::Composite>);
+    llvm::Value *codegen(std::shared_ptr<ast::CompoundStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::ReturnStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::VarDecl>);
     llvm::Value *codegen(std::shared_ptr<ast::Assignment>);

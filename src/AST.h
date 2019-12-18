@@ -71,7 +71,7 @@ enum class Operator : uint8_t {
 class Expr;
 class Ident;
 class VarDecl;
-class Composite;
+class CompoundStmt;
 class StructDecl;
 class ImplBlock;
 
@@ -83,7 +83,7 @@ public:
         FunctionDecl, ImplBlock, StructDecl, TypealiasDecl,
         
         // Local Statements
-        Assignment, Composite, ExprStmt, ForLoop, IfStmt, ReturnStmt, VarDecl, WhileStmt, BreakContStmt,
+        Assignment, CompoundStmt, ExprStmt, ForLoop, IfStmt, ReturnStmt, VarDecl, WhileStmt, BreakContStmt,
         
         // Expressions
         BinOp, CallExpr, CompOp, Ident, LogicalOp, MatchExpr, MemberExpr, NumberLiteral, RawLLVMValueExpr, StaticDeclRefExpr,
@@ -219,7 +219,7 @@ std::ostream& operator<<(std::ostream&, const ast::FunctionSignature&);
 class FunctionDecl : public TopLevelStmt {
     FunctionSignature signature;
     std::vector<std::shared_ptr<ast::Ident>> paramNames;
-    std::shared_ptr<ast::Composite> body;
+    std::shared_ptr<ast::CompoundStmt> body;
     attributes::FunctionAttributes attributes;
     
     FunctionKind funcKind;
@@ -233,7 +233,7 @@ class FunctionDecl : public TopLevelStmt {
     
 public:
     FunctionDecl(FunctionKind kind, std::string name, FunctionSignature sig, attributes::FunctionAttributes attr)
-    : TopLevelStmt(Node::NodeKind::FunctionDecl), signature(sig), body(std::make_shared<Composite>()), attributes(attr), funcKind(kind), name(name) {}
+    : TopLevelStmt(Node::NodeKind::FunctionDecl), signature(sig), body(std::make_shared<CompoundStmt>()), attributes(attr), funcKind(kind), name(name) {}
     
     FunctionKind getFunctionKind() const { return funcKind; }
     void setFunctionKind(FunctionKind kind) { funcKind = kind; }
@@ -255,8 +255,8 @@ public:
     attributes::FunctionAttributes& getAttributes() { return attributes; }
     const attributes::FunctionAttributes& getAttributes() const { return attributes; }
     
-    const std::shared_ptr<ast::Composite>& getBody() const { return body; }
-    void setBody(std::shared_ptr<ast::Composite> B) { body = B; }
+    const std::shared_ptr<ast::CompoundStmt>& getBody() const { return body; }
+    void setBody(std::shared_ptr<ast::CompoundStmt> B) { body = B; }
     
     bool isOfFunctionKind(FunctionKind kind) const {
         return funcKind == kind;
@@ -319,12 +319,13 @@ public:
 # pragma mark - Local Statements
 
 
-class Composite : public LocalStmt {
+// TOOD rename to CompoundStmt?
+class CompoundStmt : public LocalStmt {
 public:
     std::vector<std::shared_ptr<LocalStmt>> statements;
     
-    Composite() : LocalStmt(Node::NodeKind::Composite) {}
-    Composite(std::vector<std::shared_ptr<LocalStmt>> statements) : LocalStmt(Node::NodeKind::Composite), statements(statements) {}
+    CompoundStmt() : LocalStmt(Node::NodeKind::CompoundStmt) {}
+    CompoundStmt(std::vector<std::shared_ptr<LocalStmt>> statements) : LocalStmt(Node::NodeKind::CompoundStmt), statements(statements) {}
     
     bool isEmpty() const {
         return statements.empty();
@@ -380,9 +381,9 @@ public:
         
         BranchKind kind;
         std::shared_ptr<Expr> condition; // nullptr if Kind == BranchKind::Else
-        std::shared_ptr<Composite> body;
+        std::shared_ptr<CompoundStmt> body;
         
-        Branch(BranchKind kind, std::shared_ptr<Expr> condition, std::shared_ptr<Composite> body)
+        Branch(BranchKind kind, std::shared_ptr<Expr> condition, std::shared_ptr<CompoundStmt> body)
         : Node(Node::NodeKind::IfStmtBranch), kind(kind), condition(condition), body(body) {}
     };
     
@@ -395,9 +396,9 @@ public:
 class WhileStmt : public LocalStmt {
 public:
     std::shared_ptr<ast::Expr> condition;
-    std::shared_ptr<ast::Composite> body;
+    std::shared_ptr<ast::CompoundStmt> body;
     
-    WhileStmt(std::shared_ptr<Expr> condition, std::shared_ptr<Composite> body) : LocalStmt(Node::NodeKind::WhileStmt), condition(condition), body(body) {}
+    WhileStmt(std::shared_ptr<Expr> condition, std::shared_ptr<CompoundStmt> body) : LocalStmt(Node::NodeKind::WhileStmt), condition(condition), body(body) {}
 };
 
 
@@ -406,9 +407,9 @@ public:
     bool capturesByReference = false;
     std::shared_ptr<ast::Ident> ident;
     std::shared_ptr<ast::Expr> expr;
-    std::shared_ptr<ast::Composite> body;
+    std::shared_ptr<ast::CompoundStmt> body;
     
-    ForLoop(std::shared_ptr<ast::Ident> ident, std::shared_ptr<ast::Expr> expr, std::shared_ptr<ast::Composite> body)
+    ForLoop(std::shared_ptr<ast::Ident> ident, std::shared_ptr<ast::Expr> expr, std::shared_ptr<ast::CompoundStmt> body)
     : LocalStmt(Node::NodeKind::ForLoop), ident(ident), expr(expr), body(body) {}
 };
 

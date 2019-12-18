@@ -50,7 +50,7 @@ public:
     std::shared_ptr<ast::WhileStmt> specialize(std::shared_ptr<ast::WhileStmt>);
     std::shared_ptr<ast::IfStmt> specialize(std::shared_ptr<ast::IfStmt>);
     std::vector<std::shared_ptr<ast::LocalStmt>> specialize(std::vector<std::shared_ptr<ast::LocalStmt>>);
-    std::shared_ptr<ast::Composite> specialize(std::shared_ptr<ast::Composite>);
+    std::shared_ptr<ast::CompoundStmt> specialize(std::shared_ptr<ast::CompoundStmt>);
     std::shared_ptr<ast::ExprStmt> specialize(std::shared_ptr<ast::ExprStmt>);
     std::shared_ptr<ast::MatchExpr> specialize(std::shared_ptr<ast::MatchExpr>);
     

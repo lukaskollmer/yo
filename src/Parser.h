@@ -110,7 +110,7 @@ private:
     
     std::shared_ptr<ast::TypeDesc> parseType();
     
-    std::shared_ptr<ast::Composite> parseComposite();
+    std::shared_ptr<ast::CompoundStmt> parseCompoundStmt();
     
     std::shared_ptr<ast::LocalStmt> parseLocalStmt();
     std::shared_ptr<ast::ReturnStmt> parseReturnStmt();
