@@ -994,7 +994,7 @@ ok:
     
     if (lhsTy->isReferenceTy() && !assignment->overwriteReferences && llvm::isa<llvm::AllocaInst>(llvmTargetLValue)) {
         emitDebugLocation(assignment);
-        llvmTargetLValue = builder.CreateLoad(llvmTargetLValue, "L0");
+        llvmTargetLValue = builder.CreateLoad(llvmTargetLValue);
     }
     
     if (assignment->shouldDestructOldValue) {
@@ -1006,13 +1006,13 @@ ok:
     
     if (lhsTy->isReferenceTy() && assignment->overwriteReferences) {
         llvmRhsVal = codegen(rhsExpr, LValue, /*insertImplicitLoadInst*/ false);
-        llvmRhsVal = builder.CreateLoad(llvmRhsVal, "L1");
+        llvmRhsVal = builder.CreateLoad(llvmRhsVal);
     } else {
         bool didConstructCopy;
         llvmRhsVal = constructCopyIfNecessary(rhsTy, rhsExpr, &didConstructCopy);
         if (!didConstructCopy && rhsTy->isReferenceTy()) {
             emitDebugLocation(assignment);
-            llvmRhsVal = builder.CreateLoad(llvmRhsVal, "L2");
+            llvmRhsVal = builder.CreateLoad(llvmRhsVal);
         }
     }
     
@@ -1353,6 +1353,10 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::UnaryExpr> unaryExpr) {
             auto V = codegen(expr);
             emitDebugLocation(unaryExpr);
             return builder.CreateIsNull(V); // TODO this seems like a cop-out answer?
+        }
+        
+        case ast::UnaryExpr::Operation::AddressOf: {
+            return codegen(expr, LValue);
         }
     }
 }
@@ -3632,7 +3636,26 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
         }
         
         case NK::UnaryExpr: {
-            return getType(static_cast<ast::UnaryExpr *>(expr.get())->expr);
+            using Op = ast::UnaryExpr::Operation;
+            
+            auto unaryExpr = std::static_pointer_cast<ast::UnaryExpr>(expr);
+            switch (unaryExpr->op) {
+                case Op::LogicalNegation:
+                    return builtinTypes.yo.Bool;
+                
+                case Op::Negate:
+                case Op::BitwiseNot:
+                    return getType(unaryExpr->expr);
+                
+                case Op::AddressOf: {
+                    auto targetTy = getType(unaryExpr->expr);
+                    if (auto refTy = llvm::dyn_cast_or_null<ReferenceType>(targetTy)) {
+                        return refTy->getReferencedType()->getPointerTo();
+                    } else {
+                        return targetTy->getPointerTo();
+                    }
+                }
+            }
         }
         
         case NK::CompOp:

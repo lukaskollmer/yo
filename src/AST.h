@@ -632,7 +632,7 @@ public:
         Negate,
         BitwiseNot,
         LogicalNegation,
-//        AddressOf
+        AddressOf
     };
     
     Operation op;
