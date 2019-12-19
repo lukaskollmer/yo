@@ -6,6 +6,10 @@ struct ArrayIterator<T> {
 }
 
 impl ArrayIterator {
+    fn init(self: &Self, array: &Array<T>) {
+        self.init(array, 0);
+    }
+
     fn hasNext(self: &Self) -> bool {
         return self.idx < self.array.size;
     }
@@ -63,7 +67,7 @@ impl Array {
     }
 
     fn iterator(self: &Self) -> ArrayIterator<T> {
-        return ArrayIterator<T>(self, 0);
+        return ArrayIterator<T>(self);
     }
 
     fn dealloc(self: &Self) {
