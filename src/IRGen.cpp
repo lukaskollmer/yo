@@ -1918,33 +1918,42 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     std::string targetName;
     uint8_t argumentOffset = 0;
     
+    
     if (auto ident = std::dynamic_pointer_cast<ast::Ident>(callExpr->target)) {
         targetName = ident->value;
         
         // this is in here because at this point targetName is still just an identifier
         if (auto valueBinding = localScope.get(targetName)) {
             auto ty = valueBinding->type;
-            LKAssert(ty->isFunctionTy() && "cannot call a non-function variable");
-            auto fnTy = llvm::dyn_cast<FunctionType>(ty);
-            return ResolvedCallable(makeFunctionSignatureFromFunctionTypeInfo(fnTy), nullptr,
-                                    skipCodegen ? nullptr : codegen(ident),
-                                    argumentOffsetForCallingConvention(fnTy->getCallingConvention()));
+            if (ty->isFunctionTy()) {
+                auto fnTy = llvm::dyn_cast<FunctionType>(ty);
+                return ResolvedCallable(makeFunctionSignatureFromFunctionTypeInfo(fnTy), nullptr,
+                                        skipCodegen ? nullptr : codegen(ident),
+                                        argumentOffsetForCallingConvention(fnTy->getCallingConvention()));
+            } else if (implementsInstanceMethod(ty, mangling::encodeOperator(ast::Operator::FnCall))) {
+                // calling a local variable of a type which happens to overload the `()` operator
+                targetName = mangling::mangleCanonicalName(ty->getName(), mangling::encodeOperator(ast::Operator::FnCall), ast::FunctionKind::InstanceMethod);
+                argumentOffset = kInstanceMethodCallArgumentOffset;
+            } else {
+                diagnostics::emitError(callExpr->getSourceLocation(), "unable to resolve call target");
+            }
         }
         
     } else if (auto staticDeclRefExpr = std::dynamic_pointer_cast<ast::StaticDeclRefExpr>(callExpr->target)) {
         // <typename>::<methodname>()
         targetName = mangling::mangleCanonicalName(staticDeclRefExpr->typeName, staticDeclRefExpr->memberName, ast::FunctionKind::StaticMethod);
         
-    } else if (auto memberExpr = std::dynamic_pointer_cast<ast::MemberExpr>(callExpr->target)) {
+    } else if (callExpr->target->isOfKind(NK::MemberExpr)) {
+        auto memberExpr = std::static_pointer_cast<ast::MemberExpr>(callExpr->target);
         // TODO does this take overloaded instance methods into account?
-        
+
         // <memberExpr>()
         // two options:
         // - calling a method
         // - calling a property that happens to be a function
-        
+
         auto targetTy = getType(memberExpr->target);
-        
+
         StructType *structTy = nullptr;
         switch (targetTy->getTypeId()) {
             case Type::TypeID::Struct:
@@ -1959,20 +1968,30 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             default:
                 diagnostics::emitError(memberExpr->getSourceLocation(), "invalid call target member expr target type");
         }
-        
+
         LKAssert(structTy);
         
         auto structName = structTy->getName();
-        
+
         if (auto [memberIndex, memberTy] = structTy->getMember(memberExpr->memberName); memberTy != nullptr) {
-            LKAssert(memberTy->isFunctionTy() && "cannot call a non-function struct member");
-            // struct properties cannot be overloaded, simply return what we found
-            auto fnTy = llvm::dyn_cast<FunctionType>(memberTy);
-            return ResolvedCallable(makeFunctionSignatureFromFunctionTypeInfo(fnTy), nullptr,
-                                    skipCodegen ? nullptr : codegen(memberExpr),
-                                    argumentOffsetForCallingConvention(fnTy->getCallingConvention()));
-            
+            if (implementsInstanceMethod(structTy, memberExpr->memberName)) {
+                // TODO prevent this when registering instance methods!
+                diagnostics::emitError(callExpr->getSourceLocation(), "call target ambiguous");
+            }
+            if (memberTy->isFunctionTy()) {
+                // calling a struct property, which is a function pointer
+                // struct properties cannot be overloaded, simply return what we found
+                auto fnTy = llvm::dyn_cast<FunctionType>(memberTy);
+                return ResolvedCallable(makeFunctionSignatureFromFunctionTypeInfo(fnTy), nullptr,
+                                        skipCodegen ? nullptr : codegen(memberExpr),
+                                        argumentOffsetForCallingConvention(fnTy->getCallingConvention()));
+            } else {
+                // calling a struct property of a type which overloads the `()` operator
+                targetName = mangling::mangleCanonicalName(memberTy->getName(), mangling::encodeOperator(ast::Operator::FnCall), ast::FunctionKind::InstanceMethod);
+                argumentOffset = kInstanceMethodCallArgumentOffset;
+            }
         } else {
+            // calling an instance method
             targetName = mangling::mangleCanonicalName(structName, memberExpr->memberName, ast::FunctionKind::InstanceMethod);
             argumentOffset = kInstanceMethodCallArgumentOffset;
         }
@@ -2299,33 +2318,27 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind
         args.push_back(V);
     }
     
-    
-    if (auto memberExpr = std::dynamic_pointer_cast<ast::MemberExpr>(call->target); memberExpr != nullptr && resolvedTarget.argumentOffset == kInstanceMethodCallArgumentOffset) {
-        // TODO this is a pretty bad assumption to make.
-        // what if in the future there are more situations other than member function calls that require special argument offsets
-        // maybe a better idea: get rid of the argumentOffset thing, introduce more granular calling conventions (yo.globalFunction, yo.staticmember, yo.instancemember, yo.lambda, etc) and make implicit argument insertion dependent on that!
-        
-        // TODO make sure this doesn't codegen the target twice!
-        
+    if (resolvedTarget.argumentOffset == kInstanceMethodCallArgumentOffset) {
         auto expectedSelfTy = resolveTypeDesc(resolvedTarget.signature.paramTypes[0]);
-        auto implicitSelfArg = memberExpr->target;
-        Type *selfTy = getType(implicitSelfArg);
-        llvm::Value *selfVal = codegen(implicitSelfArg, LValue);
+        std::shared_ptr<ast::Expr> implicitSelfArg;
         
-        // We know that the self target is either `T`, `&T` or `*T`, since these are the only cases
-        // handled by the call target resolution code (when extracting the underlying struct)
-        
-        if (!expectedSelfTy->isReferenceTy()) {
-            LKFatalError("self parameter not a reference!");
+        if (call->target->isOfKind(NK::MemberExpr) && !resolvedTarget.funcDecl->isCallOperatorOverload()) {
+            implicitSelfArg = std::static_pointer_cast<ast::MemberExpr>(call->target)->target;
+        } else {
+            implicitSelfArg = call->target;
         }
         
+        // TODO this is missing checks to make sure selfTy actually matches / is convertible to the expected argument type !?
+        auto selfTy = getType(implicitSelfArg);
+        auto selfVal = codegen(implicitSelfArg, LValue);
+        
         args[0] = selfVal;
+        
         if (isTemporary(implicitSelfArg)) {
             includeInStackDestruction(selfTy, selfVal);
         }
-    } else if (resolvedTarget.argumentOffset != 0) {
-        LKFatalError("ugh");
     }
+    
     
     if (isVariadic && getResolvedFunctionWithName(llvmFunction->getName().str())->funcDecl->getAttributes().extern_) {
         // TODO extract references if possible, disallow otherwise, promote types as expected by C

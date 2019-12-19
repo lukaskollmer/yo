@@ -62,6 +62,8 @@ enum class Operator : uint8_t {
     
     /* |> */ FnPipe,
     
+    /* () */ FnCall,
+    
     
     /* =  */ Assign,
 };
@@ -261,6 +263,8 @@ public:
     bool isOfFunctionKind(FunctionKind kind) const {
         return funcKind == kind;
     }
+    
+    bool isCallOperatorOverload() const;
     
     /// Whether the function is a compiler-generated instantiation of a function template
     bool isTemplateInstantiation() const {

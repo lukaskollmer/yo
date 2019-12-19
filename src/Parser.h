@@ -38,7 +38,8 @@ enum class PrecedenceGroup : uint8_t {
     Multiplication,
     Bitshift,
     
-    PrefixOperator
+    PrefixOperator,
+    FunctionCall
 };
 
 
@@ -123,7 +124,8 @@ private:
     
     std::shared_ptr<ast::Expr> parseExpression(PrecedenceGroup currentPrecedenceGroup = PrecedenceGroup::Initial);
     
-    std::optional<ast::Operator> parseOperator();
+    /// includeFunctionDeclOperators controls whether operators that usually take arguments, like `[]` or `()` should be treated as valid operators, or not
+    std::optional<ast::Operator> parseOperator(bool includeFunctionDeclOperators = false);
     
     
     // Parses a CallExpr

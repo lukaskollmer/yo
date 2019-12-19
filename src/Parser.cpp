@@ -494,7 +494,7 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
     
     auto name = parseIdentAsString();
     if (name == "operator") {
-        auto op = parseOperator();
+        auto op = parseOperator(true);
         if (!op.has_value()) {
             diagnostics::emitError(loc, "Unable to parse operator");
         }
@@ -941,6 +941,9 @@ std::shared_ptr<Ident> Parser::parseIdent() {
 
 PrecedenceGroup getOperatorPrecedenceGroup(Operator op) {
     switch (op) {
+        case Operator::FnCall:
+            return PrecedenceGroup::FunctionCall;
+        
         case Operator::Add:
         case Operator::Sub:
         case Operator::Or:
@@ -1007,7 +1010,6 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
         consume();
         expr = parseExpression();
         assertTkAndConsume(TK::ClosingParens);
-    
     }
     
     if (!expr && currentTokenKind() == TK::Match) {
@@ -1160,7 +1162,7 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
 
 
 
-std::optional<ast::Operator> Parser::parseOperator() {
+std::optional<ast::Operator> Parser::parseOperator(bool includeFunctionDeclOperators) {
     switch (currentTokenKind()) {
         case TK::Plus:
             consume();
@@ -1258,6 +1260,21 @@ std::optional<ast::Operator> Parser::parseOperator() {
                 return Operator::Or;
             }
         }
+        
+        case TK::OpeningParens:
+            if (peekKind() == TK::ClosingParens) {
+                if (!includeFunctionDeclOperators) return std::nullopt;
+                consume(2);
+                return Operator::FnCall;
+            }
+        
+//        case TK::OpeningSquareBrackets:
+//            if (peekKind() == TK::ClosingSquareBrackets) {
+//                if (!includeFunctionDeclOperators) return std::nullopt;
+//                consume(2);
+//                return Operator::Subscript;
+//            }
+        
         default:
             return std::nullopt;
     }

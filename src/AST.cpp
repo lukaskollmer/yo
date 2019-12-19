@@ -7,6 +7,7 @@
 //
 
 #include "AST.h"
+#include "Mangling.h"
 
 #include <string>
 #include <iostream>
@@ -23,6 +24,12 @@
 
 using namespace yo;
 using namespace yo::ast;
+
+
+
+bool ast::FunctionDecl::isCallOperatorOverload() const {
+    return name == mangling::encodeOperator(Operator::FnCall);
+}
 
 
 
@@ -132,6 +139,7 @@ std::string operatorToString(ast::Operator op) {
         CASE(GT)
         CASE(GE)
         CASE(FnPipe)
+        CASE(FnCall)
         CASE(Assign)
     }
 }
