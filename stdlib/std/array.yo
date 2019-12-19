@@ -58,7 +58,7 @@ impl Array {
         self.size += 1;
     }
 
-    fn subscript(self: &Self, index: i64) -> &T {
+    fn operator [] (self: &Self, index: i64) -> &T {
         return self.data[index];
     }
 

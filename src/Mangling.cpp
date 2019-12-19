@@ -296,6 +296,7 @@ std::string_view demangleOperatorIntoSymbol(ast::Operator op) {
         CASE(GE, ">=")
         CASE(FnPipe, "|>")
         CASE(FnCall, "()")
+        CASE(Subscript, "[]")
         CASE(Assign, "=")
     }
 #undef CASE

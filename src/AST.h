@@ -63,6 +63,7 @@ enum class Operator : uint8_t {
     /* |> */ FnPipe,
     
     /* () */ FnCall,
+    /* [] */ Subscript,
     
     
     /* =  */ Assign,
@@ -264,7 +265,15 @@ public:
         return funcKind == kind;
     }
     
-    bool isCallOperatorOverload() const;
+    bool isOperatorOverloadFor(Operator) const;
+    
+    bool isCallOperatorOverload() const {
+        return isOperatorOverloadFor(Operator::FnCall);
+    }
+    
+    bool isSubscriptOperatorOverload() const {
+        return isOperatorOverloadFor(Operator::Subscript);
+    }
     
     /// Whether the function is a compiler-generated instantiation of a function template
     bool isTemplateInstantiation() const {

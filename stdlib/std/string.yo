@@ -43,7 +43,7 @@ impl String {
         self.len = newLength;
     }
 
-    fn subscript(self: &Self, index: i64) -> &i8 {
+    fn operator [] (self: &Self, index: i64) -> &i8 {
         return self.ptr[index];
     }
 

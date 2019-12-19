@@ -27,8 +27,8 @@ using namespace yo::ast;
 
 
 
-bool ast::FunctionDecl::isCallOperatorOverload() const {
-    return name == mangling::encodeOperator(Operator::FnCall);
+bool ast::FunctionDecl::isOperatorOverloadFor(Operator op) const {
+    return name == mangling::encodeOperator(op);
 }
 
 
@@ -140,6 +140,7 @@ std::string operatorToString(ast::Operator op) {
         CASE(GE)
         CASE(FnPipe)
         CASE(FnCall)
+        CASE(Subscript)
         CASE(Assign)
     }
 }

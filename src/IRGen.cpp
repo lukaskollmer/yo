@@ -31,7 +31,6 @@ inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
 static const std::string kInitializerMethodName = "init";
 static const std::string kSynthesizedDeallocMethodName = "__dealloc";
 static const std::string kRetvalAllocaIdentifier = "__retval";
-static const std::string kSubscriptMethodName = "subscript";
 static const std::string kIteratorMethodName = "iterator";
 static const std::string kIteratorHasNextMethodName = "hasNext";
 static const std::string kIteratorNextMethodName = "next";
@@ -1280,7 +1279,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, V
 
 
 std::shared_ptr<ast::CallExpr> subscriptExprToCall(std::shared_ptr<ast::SubscriptExpr> subscriptExpr) {
-    auto callTarget = std::make_shared<ast::MemberExpr>(subscriptExpr->target, kSubscriptMethodName);
+    auto callTarget = std::make_shared<ast::MemberExpr>(subscriptExpr->target, mangling::encodeOperator(ast::Operator::Subscript));
     callTarget->setSourceLocation(subscriptExpr->target->getSourceLocation());
     
     auto callExpr = std::make_shared<ast::CallExpr>(callTarget);
@@ -3689,7 +3688,7 @@ bool IRGenerator::typeIsDestructible(Type *ty) {
 }
 
 bool IRGenerator::typeIsSubscriptable(Type *ty) {
-    return ty->isPointerTy() || implementsInstanceMethod(ty, kSubscriptMethodName);
+    return ty->isPointerTy() || implementsInstanceMethod(ty, mangling::encodeOperator(ast::Operator::Subscript));
 }
 
 

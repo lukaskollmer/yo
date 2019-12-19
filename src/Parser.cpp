@@ -942,6 +942,7 @@ std::shared_ptr<Ident> Parser::parseIdent() {
 PrecedenceGroup getOperatorPrecedenceGroup(Operator op) {
     switch (op) {
         case Operator::FnCall:
+        case Operator::Subscript:
             return PrecedenceGroup::FunctionCall;
         
         case Operator::Add:
@@ -1268,12 +1269,12 @@ std::optional<ast::Operator> Parser::parseOperator(bool includeFunctionDeclOpera
                 return Operator::FnCall;
             }
         
-//        case TK::OpeningSquareBrackets:
-//            if (peekKind() == TK::ClosingSquareBrackets) {
-//                if (!includeFunctionDeclOperators) return std::nullopt;
-//                consume(2);
-//                return Operator::Subscript;
-//            }
+        case TK::OpeningSquareBrackets:
+            if (peekKind() == TK::ClosingSquareBrackets) {
+                if (!includeFunctionDeclOperators) return std::nullopt;
+                consume(2);
+                return Operator::Subscript;
+            }
         
         default:
             return std::nullopt;
