@@ -1,5 +1,7 @@
+use ":C/stdio";
 use ":std/intrinsics";
 use ":std/operators";
+use ":std/string";
 
 use size_t = u64;
 use uintptr_t = u64;
