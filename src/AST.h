@@ -358,7 +358,7 @@ public:
 // TODO rename to VarDecl?
 class VarDecl : public LocalStmt {
 public:
-    std::string name;
+    std::shared_ptr<Ident> ident;
     std::shared_ptr<TypeDesc> type;
     std::shared_ptr<Expr> initialValue;
     
@@ -366,8 +366,10 @@ public:
     // Requires `type` to be nil
     bool declaresUntypedReference = false;
     
-    VarDecl(std::string name, std::shared_ptr<TypeDesc> type, std::shared_ptr<Expr> initialValue = nullptr)
-    : LocalStmt(Node::NodeKind::VarDecl), name(name), type(type), initialValue(initialValue) {}
+    VarDecl(std::shared_ptr<Ident> ident, std::shared_ptr<TypeDesc> type, std::shared_ptr<Expr> initialValue = nullptr)
+    : LocalStmt(Node::NodeKind::VarDecl), ident(ident), type(type), initialValue(initialValue) {}
+    
+    const std::string& getName() const;
 };
 
 

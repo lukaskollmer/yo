@@ -373,7 +373,7 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         // Since the varDecls are pointers, the resolveTypeDecl call below also sets the structDecl's member's types,
         // meaning that we can simply use that as the initializer parameters
         auto type = resolveTypeDesc(varDecl->type);
-        structMembers.push_back({varDecl->name, type});
+        structMembers.push_back({ varDecl->getName(), type });
     }
     
     auto structTy = StructType::create(structName, structMembers, structDecl->resolvedTemplateArgTypes, structDecl->getSourceLocation());
@@ -739,6 +739,13 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CompoundStmt> compoundStm
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
+    if (localScope.contains(varDecl->getName())) {
+        // TODO is there a good reason why this shouldn't be allowed?
+        auto msg = util::fmt::format("redeclaration of '{}'", varDecl->getName());
+        diagnostics::emitError(varDecl->ident->getSourceLocation(), msg);
+    }
+    
+    
     Type *type = nullptr;
     bool hasInferredType = false;
     
@@ -777,12 +784,12 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
     
     emitDebugLocation(varDecl);
     auto alloca = builder.CreateAlloca(getLLVMType(type));
-    alloca->setName(varDecl->name);
+    alloca->setName(varDecl->getName());
     
     // Create Debug Metadata
     if (CLIOptions.emitDebugMetadata) {
         auto D = debugInfo.builder.createAutoVariable(currentFunction.llvmFunction->getSubprogram(),
-                                                      varDecl->name,
+                                                      varDecl->getName(),
                                                       debugInfo.lexicalBlocks.back()->getFile(),
                                                       varDecl->getSourceLocation().line,
                                                       getDIType(type));
@@ -792,7 +799,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
                                         builder.GetInsertBlock());
     }
     
-    localScope.insert(varDecl->name, ValueBinding(
+    localScope.insert(varDecl->getName(), ValueBinding(
         type, alloca, [=]() -> llvm::Value* {
             return builder.CreateLoad(alloca);
         }, [=](llvm::Value *V) {
@@ -806,7 +813,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
         // Q: Why create and handle an assignment to set the initial value, instead of just calling Binding.Write?
         // A: The Assignment codegen also includes the trivial type transformations, whish we'd otherwise have to implement again in here
         if (!type->isReferenceTy()) {
-            auto assignment = std::make_shared<ast::Assignment>(makeIdent(varDecl->name), initialValueExpr);
+            auto assignment = std::make_shared<ast::Assignment>(varDecl->ident, initialValueExpr);
             assignment->setSourceLocation(varDecl->getSourceLocation());
             assignment->shouldDestructOldValue = false;
             codegen(assignment);
@@ -2968,7 +2975,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ForLoop> forLoop) {
     iteratorCallExpr->setSourceLocation(forLoop->getSourceLocation());
     
     // let it = <target>.iterator();
-    auto iteratorVarDecl = std::make_shared<ast::VarDecl>(iteratorIdent->value, nullptr, iteratorCallExpr);
+    auto iteratorVarDecl = std::make_shared<ast::VarDecl>(iteratorIdent, nullptr, iteratorCallExpr);
     iteratorVarDecl->setSourceLocation(forLoop->getSourceLocation());
     
     
@@ -2980,7 +2987,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ForLoop> forLoop) {
     // let [&]<ident> = it.next();
     auto nextElemCall = makeInstanceMethodCallExpr(iteratorIdent, kIteratorNextMethodName);
     nextElemCall->setSourceLocation(forLoop->expr->getSourceLocation());
-    auto elemDecl = std::make_shared<ast::VarDecl>(forLoop->ident->value, nullptr, nextElemCall);
+    auto elemDecl = std::make_shared<ast::VarDecl>(forLoop->ident, nullptr, nextElemCall);
     elemDecl->declaresUntypedReference = forLoop->capturesByReference;
     elemDecl->setSourceLocation(forLoop->ident->getSourceLocation());
     

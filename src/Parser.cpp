@@ -491,6 +491,7 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
     consume();
     
     FunctionSignature signature;
+    std::vector<std::shared_ptr<Ident>> paramNames;
     
     auto name = parseIdentAsString();
     if (name == "operator") {
@@ -503,38 +504,7 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
         name = mangling::encodeOperator(op.value());
     }
     
-    signature.templateParamsDecl = parseTemplateParamDeclList();
-    
-//    if (currentTokenKind() == TK::OpeningAngledBracket) { // template list
-//        consume();
-//        while (currentTokenKind() != TK::ClosingAngledBracket) {
-//            signature.templateArgumentNames.push_back(parseIdentAsString());
-//            if (currentTokenKind() == TK::Comma) {
-//                consume();
-//            } else {
-//                assertTkAndConsume(TK::ClosingAngledBracket);
-//                break;
-//            }
-//        }
-//        if (signature.templateArgumentNames.empty()) {
-//            diagnostics::emitError(loc, "Function template parameter list cannot be empty");
-//        }
-//    }
-    
-    
-    assertTkAndConsume(TK::OpeningParens);
-    
-    std::vector<std::shared_ptr<Ident>> paramNames;
-    
-    parseFunctionParameterList(signature, paramNames);
-    assertTkAndConsume(TK::ClosingParens);
-    
-    if (currentTokenKind() == TK::Minus && peekKind() == TK::ClosingAngledBracket) {
-        consume(2);
-        signature.returnType = parseType();
-    } else {
-        signature.returnType = TypeDesc::makeNominal("void");
-    }
+    parseFunctionSignatureAndParamNames(signature, paramNames);
     
     auto fnDecl = std::make_shared<FunctionDecl>(functionKind, name, signature, attributes);
     fnDecl->setSourceLocation(loc);
@@ -570,7 +540,7 @@ std::vector<std::shared_ptr<ast::VarDecl>> Parser::parseStructPropertyDeclList()
         //    auto attributes = ParseAttributes();
         //}
         auto loc = getCurrentSourceLocation();
-        auto ident = parseIdentAsString();
+        auto ident = parseIdent();
         assertTkAndConsume(TK::Colon);
         auto type = parseType();
         
@@ -598,9 +568,16 @@ static const TokenSet functionParameterInitialTokens = {
 };
 
 
-// TODO why is this a separate function? re-inline!
-void Parser::parseFunctionParameterList(FunctionSignature &signature, std::vector<std::shared_ptr<ast::Ident>> &paramNames) {
-    const auto delimiter = TK::ClosingParens;
+
+/// Parses a functions signature, and its parameter names
+void Parser::parseFunctionSignatureAndParamNames(FunctionSignature &signature, std::vector<std::shared_ptr<ast::Ident>> &paramNames) {
+    constexpr auto delimiter = TK::ClosingParens;
+    
+    if (currentTokenKind() == TK::OpeningAngledBracket) {
+        signature.templateParamsDecl = parseTemplateParamDeclList();
+    }
+    
+    assertTkAndConsume(TK::OpeningParens);
     
     uint64_t pos_lastEntry = UINT64_MAX;
     for (uint64_t index = 0; currentTokenKind() != delimiter; index++) {
@@ -636,6 +613,19 @@ void Parser::parseFunctionParameterList(FunctionSignature &signature, std::vecto
             }
             consume();
         }
+    }
+    
+    assertTkAndConsume(TK::ClosingParens);
+    
+    if (currentTokenKind() == TK::Minus) {
+        if (peekKind() == TK::ClosingAngledBracket) {
+            consume(2);
+            signature.returnType = parseType();
+        } else {
+            diagnostics::emitError(getSourceLocation(1), "expected '->' following function signature");
+        }
+    } else {
+        signature.returnType = TypeDesc::makeNominal("void");
     }
 }
 
@@ -768,7 +758,7 @@ std::shared_ptr<VarDecl> Parser::parseVariableDecl() {
         consume();
     }
     
-    auto ident = parseIdentAsString();
+    auto ident = parseIdent();
     std::shared_ptr<TypeDesc> type;
     std::shared_ptr<Expr> initialValue;
     

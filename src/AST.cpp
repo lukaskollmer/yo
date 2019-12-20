@@ -18,8 +18,7 @@
 #include <algorithm>
 
 
-// TODO
-// Some node kinds always fit on a single line (identifiers, numbers, maybe some other literals?). Implement that!
+// TODO make the printed ast output look better / nicer / more readable. maybe like what clang is doing?
 
 
 using namespace yo;
@@ -27,10 +26,13 @@ using namespace yo::ast;
 
 
 
-bool ast::FunctionDecl::isOperatorOverloadFor(Operator op) const {
+bool FunctionDecl::isOperatorOverloadFor(Operator op) const {
     return name == mangling::encodeOperator(op);
 }
 
+const std::string& VarDecl::getName() const {
+    return ident->value;
+}
 
 
 #pragma mark - AST Printing
@@ -110,6 +112,7 @@ std::string UnaryExprOpToString(UnaryExpr::Operation op) {
         CASE(Negate)
         CASE(BitwiseNot)
         CASE(LogicalNegation)
+        CASE(AddressOf)
     }
 }
 
@@ -327,7 +330,7 @@ Mirror Reflect(const Ident *ident) {
 
 Mirror Reflect(const VarDecl *decl) {
     return {
-        { "name", decl->name },
+        { "ident", decl->ident },
         { "type", decl->type },
         { "initial value", decl->initialValue }
     };

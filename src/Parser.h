@@ -57,7 +57,7 @@ public:
     
 private:
     std::vector<Token> tokens;
-    uint64_t position;
+    int64_t position;
     std::vector<std::string> importedFiles;
     std::optional<std::string> customStdlibRoot;
     
@@ -69,16 +69,20 @@ private:
     Token::TokenKind currentTokenKind() {
         return currentToken().getKind();
     }
-    const Token& peek(uint64_t offset = 1) {
+    const Token& peek(int64_t offset = 1) {
         return tokens[position + offset];
     }
-    Token::TokenKind peekKind(uint64_t offset = 1) {
+    Token::TokenKind peekKind(int64_t offset = 1) {
         return peek(offset).getKind();
     }
-    void consume(uint64_t count = 1) { position += count; }
+    void consume(int64_t count = 1) { position += count; }
     
     const TokenSourceLocation& getCurrentSourceLocation() {
         return currentToken().getSourceLocation();
+    }
+    
+    const TokenSourceLocation& getSourceLocation(int64_t offset = 0) {
+        return tokens[position + offset].getSourceLocation();
     }
     
     
@@ -105,7 +109,7 @@ private:
     std::shared_ptr<ast::StructDecl> parseStructDecl(attributes::StructAttributes);
     std::shared_ptr<ast::TypealiasDecl> parseTypealias();
     
-    void parseFunctionParameterList(ast::FunctionSignature&, std::vector<std::shared_ptr<ast::Ident>>&);
+    void parseFunctionSignatureAndParamNames(ast::FunctionSignature&, std::vector<std::shared_ptr<ast::Ident>>&);
     
     std::vector<std::shared_ptr<ast::VarDecl>> parseStructPropertyDeclList();
     
