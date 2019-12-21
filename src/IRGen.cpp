@@ -936,6 +936,10 @@ bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
     
     // at this point, both are numeric? TODO how do we know this?
     if (auto numberLiteral = std::dynamic_pointer_cast<ast::NumberLiteral>(*expr)) {
+        if (expectedType->isReferenceTy()) {
+            expectedType = llvm::dyn_cast<ReferenceType>(expectedType)->getReferencedType();
+        }
+        
         if (!valueIsTriviallyConvertible(numberLiteral, expectedType)) return false;
         
         auto loc = (*expr)->getSourceLocation();
