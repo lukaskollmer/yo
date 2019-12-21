@@ -2875,7 +2875,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::IfStmt> ifStmt) {
         builder.SetInsertPoint(BB);
         
         codegen(ifStmt->branches[index]->body);
-        if (!builder.GetInsertBlock()->back().isTerminator()) {
+        if (builder.GetInsertBlock()->empty() || !builder.GetInsertBlock()->back().isTerminator()) {
             needsMergeBB = true;
             builder.CreateBr(mergeBB);
         }
