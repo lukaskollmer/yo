@@ -97,6 +97,10 @@ struct FunctionState {
     std::string getTmpIdent() {
         return util::fmt::format("__tmp_{}", tmpIdentCounter++);
     }
+    
+    uint64_t getCounter() {
+        return tmpIdentCounter++;
+    }
 };
 
 
@@ -211,6 +215,7 @@ private:
     llvm::Value *codegen(std::shared_ptr<ast::MemberExpr>, ValueKind);
     llvm::Value *codegen(std::shared_ptr<ast::ExprStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::CallExpr>, ValueKind);
+    llvm::Value *codegen(std::shared_ptr<ast::LambdaExpr>, ValueKind);
     
     // Intrinsics
     llvm::Value *codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionDecl>, std::shared_ptr<ast::CallExpr>);
@@ -325,6 +330,8 @@ private:
     llvm::Value* synthesizeDefaultMemberwiseInitializer(std::shared_ptr<ast::StructDecl>, SkipCodegenOption);
     llvm::Value* synthesizeDefaultCopyConstructor(std::shared_ptr<ast::StructDecl>, SkipCodegenOption);
     llvm::Value* synthesizeDefaultDeallocMethod(std::shared_ptr<ast::StructDecl>, SkipCodegenOption);
+    
+    StructType* synthesizeLambdaExpr(std::shared_ptr<ast::LambdaExpr>);
     
     
     

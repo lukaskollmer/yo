@@ -49,6 +49,7 @@ public:
     std::shared_ptr<ast::ReturnStmt> specialize(std::shared_ptr<ast::ReturnStmt>);
     std::shared_ptr<ast::WhileStmt> specialize(std::shared_ptr<ast::WhileStmt>);
     std::shared_ptr<ast::IfStmt> specialize(std::shared_ptr<ast::IfStmt>);
+    std::shared_ptr<ast::ForLoop> specialize(std::shared_ptr<ast::ForLoop>);
     std::vector<std::shared_ptr<ast::LocalStmt>> specialize(std::vector<std::shared_ptr<ast::LocalStmt>>);
     std::shared_ptr<ast::CompoundStmt> specialize(std::shared_ptr<ast::CompoundStmt>);
     std::shared_ptr<ast::ExprStmt> specialize(std::shared_ptr<ast::ExprStmt>);
@@ -59,6 +60,7 @@ public:
     std::shared_ptr<ast::MemberExpr> specialize(std::shared_ptr<ast::MemberExpr>);
     std::shared_ptr<ast::BinOp> specialize(std::shared_ptr<ast::BinOp>);
     std::shared_ptr<ast::UnaryExpr> specialize(std::shared_ptr<ast::UnaryExpr>);
+    std::shared_ptr<ast::LambdaExpr> specialize(std::shared_ptr<ast::LambdaExpr>);
     
     std::shared_ptr<ast::TemplateParamArgList> specialize(std::shared_ptr<ast::TemplateParamArgList>);
     std::shared_ptr<ast::TemplateParamDeclList> specialize(std::shared_ptr<ast::TemplateParamDeclList>);

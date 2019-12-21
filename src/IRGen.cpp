@@ -507,6 +507,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Expr> expr, ValueKind VK,
     CASE(SubscriptExpr, VK)
     CASE(CallExpr, VK)
     CASE(BinOp)
+    CASE(LambdaExpr, VK)
     default: unhandled_node(expr)
     }
 #undef CASE
@@ -999,7 +1000,11 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
     
 ok:
     
-    if (lhsTy->isReferenceTy() && !assignment->overwriteReferences && llvm::isa<llvm::AllocaInst>(llvmTargetLValue)) {
+    if (lhsTy->isReferenceTy() && !assignment->overwriteReferences
+        && (llvm::isa<llvm::AllocaInst>(llvmTargetLValue)
+            || (llvm::isa<llvm::GetElementPtrInst>(llvmTargetLValue) && assignment->target->isOfKind(NK::MemberExpr))
+            ))
+    {
         emitDebugLocation(assignment);
         llvmTargetLValue = builder.CreateLoad(llvmTargetLValue);
     }
@@ -1596,6 +1601,83 @@ bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
 
 
 
+#pragma mark - lambdas
+
+
+llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::LambdaExpr> lambdaExpr, ValueKind VK) {
+    if (VK != RValue) {
+        LKFatalError("TODO?");
+    }
+    
+    auto lambdaST = synthesizeLambdaExpr(lambdaExpr);
+    
+    
+    auto callExpr = std::make_shared<ast::CallExpr>(nullptr);
+    callExpr->setSourceLocation(lambdaExpr->getSourceLocation());
+    
+    for (const auto &captureElem : lambdaExpr->captureList) {
+        if (auto E = captureElem.expr) {
+            callExpr->arguments.push_back(E);
+        }
+    }
+    
+    return constructStruct(lambdaST, callExpr, /*putInLocalScope*/ false, VK);
+}
+
+
+StructType* IRGenerator::synthesizeLambdaExpr(std::shared_ptr<ast::LambdaExpr> lambdaExpr) {
+    if (auto ST = lambdaExpr->_structType) {
+        return ST;
+    }
+    
+    auto &SL = lambdaExpr->getSourceLocation();
+    
+    auto SD = std::make_shared<ast::StructDecl>();
+    SD->setSourceLocation(SL);
+    SD->name = util::fmt::format("__{}_lambda_{}", currentFunction.decl->getName(), currentFunction.getCounter());;
+    
+    for (const auto &captureElem : lambdaExpr->captureList) {
+        auto capturedTy = getType(captureElem.expr);
+        if (captureElem.isReference && !capturedTy->isReferenceTy()) {
+            capturedTy = capturedTy->getReferenceTo();
+        }
+        
+        auto decl = std::make_shared<ast::VarDecl>(captureElem.ident, ast::TypeDesc::makeResolved(capturedTy));
+        decl->setSourceLocation(SL);
+        SD->members.push_back(decl);
+    }
+    
+    auto ST = withCleanSlate([&] { return registerStructDecl(SD); });
+    lambdaExpr->_structType = ST;
+    
+    auto &sig = lambdaExpr->signature;
+//    resolveTypeDesc(sig.returnType);
+//    for (auto &TD : sig.paramTypes) {
+//        resolveTypeDesc(TD);
+//    }
+    
+    sig.paramTypes.insert(sig.paramTypes.begin(), ast::TypeDesc::makeReference(ast::TypeDesc::makeNominal(SD->getName())));
+    lambdaExpr->paramNames.insert(lambdaExpr->paramNames.begin(), makeIdent("self", SL));
+    
+    auto imp = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod,
+                                                   mangling::encodeOperator(ast::Operator::FnCall),
+                                                   sig, attributes::FunctionAttributes());
+    imp->setBody(lambdaExpr->body);
+    imp->setParamNames(lambdaExpr->paramNames);
+    imp->setImplType(ST);
+    imp->setSourceLocation(SL);
+    
+    withCleanSlate([&] {
+        registerFunction(imp);
+        codegen(imp);
+    });
+    
+    return ST;
+}
+
+
+
+
 
 #pragma mark - function calls
 
@@ -1793,15 +1875,17 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
     };
     
     
-    for (uint64_t idx = argumentOffset; idx < call->arguments.size(); idx++) {
-        auto sigTypeDesc = sig.paramTypes[idx];
+    for (size_t idx = 0; idx < call->arguments.size(); idx++) {
+        auto sigTypeDesc = sig.paramTypes[idx + argumentOffset];
         auto argTy = getType(call->arguments[idx]);
         
         if (llvm::isa<ReferenceType>(argTy)) {
             argTy = llvm::dyn_cast<ReferenceType>(argTy)->getReferencedType();
         }
         
-        if (!handle(sigTypeDesc, argTy, idx)) return std::nullopt;
+        if (!handle(sigTypeDesc, argTy, idx)) {
+            return std::nullopt;
+        }
     }
     
     
@@ -2077,7 +2161,9 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             // Reject a non-template target if the call expression contains explicit template arguments.
             // The sole exception here are calls to initializers, since in this case the call expression
             // has being reused by the compiler, with the original target (the ctor) replaced w/ the initializer
-            rejections.emplace_back("cannot pass explicit template arguments to non-template target", *decl);
+            if (!decl->isTemplateInstantiation()) {
+                rejections.emplace_back("cannot pass explicit template arguments to non-template target", *decl);
+            }
             continue;
         }
         if (decl->isTemplateInstantiation()) {
@@ -2329,7 +2415,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind
     }
     
     if (resolvedTarget.argumentOffset == kInstanceMethodCallArgumentOffset) {
-        auto expectedSelfTy = resolveTypeDesc(resolvedTarget.signature.paramTypes[0]);
         std::shared_ptr<ast::Expr> implicitSelfArg;
         
         if (call->target->isOfKind(NK::MemberExpr) && !resolvedTarget.funcDecl->isCallOperatorOverload()) {
@@ -2861,6 +2946,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::IfStmt> ifStmt) {
                 builder.CreateBr(branchBodyBlocks[i+1]);
             } else {
                 constevalResult = ConstevalResult::NoBranch;
+                needsMergeBB = true;
                 builder.CreateBr(mergeBB);
             }
             break;
@@ -2898,7 +2984,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::IfStmt> ifStmt) {
             break;
         
         case ConstevalResult::NoBranch:
-            needsMergeBB = true;
             break;
     }
     
@@ -3276,6 +3361,7 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
             
         
         case TDK::Function: {
+            LKFatalError("TODO: rewrite to return application handlers or whatever its called");
             const auto &FTI = typeDesc->getFunctionTypeInfo();
             const auto paramTypes = util::vector::map(FTI.parameterTypes, [&](const auto &TD) { return resolveTypeDesc(TD, setInternalResolvedType); });
             return handleResolvedTy(FunctionType::create(resolveTypeDesc(FTI.returnType, setInternalResolvedType), paramTypes, FTI.callingConvention));
@@ -3678,12 +3764,16 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             return resolveTypeDesc(resolveCall(tempCallExpr, kSkipCodegen).signature.returnType);
         }
         
+        case NK::LambdaExpr: {
+            auto lambdaExpr = std::static_pointer_cast<ast::LambdaExpr>(expr);
+            return synthesizeLambdaExpr(lambdaExpr);
+        }
+        
         default:
             unhandled_node(expr);
             LKFatalError("TODO");
     }
 }
-
 
 
 

@@ -21,8 +21,14 @@
 #include <map>
 
 
-namespace llvm { class Value; }
-namespace yo::irgen { class Type; }
+namespace llvm {
+class Value;
+}
+
+namespace yo::irgen {
+class Type;
+class StructType;
+}
 
 
 NS_START(yo::ast)
@@ -90,7 +96,7 @@ public:
         
         // Expressions
         BinOp, CallExpr, CompOp, Ident, LogicalOp, MatchExpr, MemberExpr, NumberLiteral, RawLLVMValueExpr, StaticDeclRefExpr,
-        StringLiteral, SubscriptExpr, CastExpr, UnaryExpr,
+        StringLiteral, SubscriptExpr, CastExpr, UnaryExpr, LambdaExpr,
         
         TemplateParamDeclList, TemplateParamArgList, FunctionSignature, IfStmtBranch, MatchExprBranch
     };
@@ -643,5 +649,32 @@ public:
     UnaryExpr(Operation op, std::shared_ptr<ast::Expr> expr) : Expr(Node::NodeKind::UnaryExpr), op(op), expr(expr) {}
 };
 
+
+
+/// A lambda is an anonymous function
+class LambdaExpr : public Expr {
+public:
+    /// An element in a lambda expression's capture list
+    /// This can be either of the following:
+    /// - `x` capture x by value
+    /// - `&x` capture x by reference
+    /// - `x = <expr>` captures an expression by value
+    /// - `&x = <expr>` captures an expression by reference
+    struct CaptureListElement {
+        bool isReference = false; // TODO rename to capturesByReference or hasReferenceSemantics
+        std::shared_ptr<Ident> ident;
+        std::shared_ptr<Expr> expr;
+    };
+    
+    std::vector<CaptureListElement> captureList;
+    FunctionSignature signature;
+    std::vector<std::shared_ptr<Ident>> paramNames;
+    std::shared_ptr<CompoundStmt> body;
+    
+    // the struct generated for this lambda expression
+    irgen::StructType *_structType = nullptr;
+    
+    LambdaExpr() : Expr(Node::NodeKind::LambdaExpr) {}
+};
 
 NS_END

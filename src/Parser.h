@@ -148,6 +148,7 @@ private:
     std::shared_ptr<ast::Ident> parseIdent();
     
     std::shared_ptr<ast::MatchExpr> parseMatchExpr();
+    std::shared_ptr<ast::LambdaExpr> parseLambdaExpr();
     
     std::shared_ptr<ast::NumberLiteral> parseNumberLiteral();
     std::shared_ptr<ast::StringLiteral> parseStringLiteral();

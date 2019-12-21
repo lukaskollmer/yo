@@ -350,6 +350,10 @@ private:
 
 
 std::string Demangler::demangle() {
+    if (input.length() >= 2 && input[0] == '_' && input[1] == '_') {
+        return std::string(input);
+    }
+    
     switch (input[0]) {
         case kCommonPrefix:
             return demangleFunction();

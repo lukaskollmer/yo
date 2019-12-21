@@ -20,6 +20,8 @@
 using namespace yo;
 using namespace irgen;
 
+using NK = ast::Node::NodeKind;
+
 
 std::shared_ptr<ast::TypeDesc> TemplateSpecializer::resolveType(std::shared_ptr<ast::TypeDesc> typeDesc) {
     if (!typeDesc) return nullptr;
@@ -137,40 +139,53 @@ std::shared_ptr<ast::ImplBlock> TemplateSpecializer::specialize(std::shared_ptr<
 
 
 
-#define HANDLE(node, T) if (auto X = std::dynamic_pointer_cast<ast::T>(node)) return specialize(X);
+//#define HANDLE(node, T) if (auto X = std::dynamic_pointer_cast<ast::T>(node)) return specialize(X);
 
-#define IGNORE(node, T) if (std::dynamic_pointer_cast<ast::T>(node)) return (node);
+#define CASE(T) case NK::T: return specialize(std::static_pointer_cast<ast::T>(node));
 
 #define unhandled_node(node) \
 { std::cout << "[TemplateSpecializer::specialize] Unhandled Node: " << util::typeinfo::getTypename(*(node)) << std::endl; \
 throw; }
 
-std::shared_ptr<ast::LocalStmt> TemplateSpecializer::specialize(std::shared_ptr<ast::LocalStmt> stmt) {
-    HANDLE(stmt, ReturnStmt)
-    HANDLE(stmt, Assignment)
-    HANDLE(stmt, VarDecl)
-    HANDLE(stmt, WhileStmt)
-    HANDLE(stmt, IfStmt)
-    HANDLE(stmt, ExprStmt)
-    unhandled_node(stmt)
+std::shared_ptr<ast::LocalStmt> TemplateSpecializer::specialize(std::shared_ptr<ast::LocalStmt> node) {
+    switch (node->getNodeKind()) {
+        CASE(ReturnStmt)
+        CASE(Assignment)
+        CASE(VarDecl)
+        CASE(WhileStmt)
+        CASE(IfStmt)
+        CASE(ExprStmt)
+        CASE(ForLoop)
+        default:
+            unhandled_node(node)
+    }
 }
 
-std::shared_ptr<ast::Expr> TemplateSpecializer::specialize(std::shared_ptr<ast::Expr> expr) {
-    if (!expr) return expr;
-    IGNORE(expr, NumberLiteral)
-    IGNORE(expr, Ident)
-    IGNORE(expr, StringLiteral)
-    HANDLE(expr, MatchExpr)
-    HANDLE(expr, CallExpr)
-    HANDLE(expr, SubscriptExpr)
-    HANDLE(expr, MemberExpr)
-    HANDLE(expr, BinOp)
-    HANDLE(expr, UnaryExpr)
-    unhandled_node(expr)
+std::shared_ptr<ast::Expr> TemplateSpecializer::specialize(std::shared_ptr<ast::Expr> node) {
+    if (!node) return node;
+    
+    switch (node->getNodeKind()) {
+        // ignored nodes
+        case NK::Ident:
+        case NK::NumberLiteral:
+        case NK::StringLiteral:
+            return node;
+        
+        CASE(MatchExpr)
+        CASE(CallExpr)
+        CASE(SubscriptExpr)
+        CASE(MemberExpr)
+        CASE(BinOp)
+        CASE(UnaryExpr)
+        CASE(LambdaExpr)
+        
+        default:
+            unhandled_node(node)
+    }
 }
 
-#undef HANDLE
-
+#undef CASE
+#undef unhandled_node
 
 #pragma mark - Local Statements
 
@@ -218,6 +233,13 @@ std::shared_ptr<ast::IfStmt> TemplateSpecializer::specialize(std::shared_ptr<ast
     return X;
 }
 
+
+std::shared_ptr<ast::ForLoop> TemplateSpecializer::specialize(std::shared_ptr<ast::ForLoop> forLoop) {
+    auto X = std::make_shared<ast::ForLoop>(forLoop->ident, specialize(forLoop->expr), specialize(forLoop->body));
+    X->capturesByReference = forLoop->capturesByReference;
+    X->setSourceLocation(forLoop->getSourceLocation());
+    return X;
+}
 
 
 std::shared_ptr<ast::ExprStmt> TemplateSpecializer::specialize(std::shared_ptr<ast::ExprStmt> exprStmt) {
@@ -291,6 +313,19 @@ std::shared_ptr<ast::UnaryExpr> TemplateSpecializer::specialize(std::shared_ptr<
     X->setSourceLocation(expr->getSourceLocation());
     return X;
 }
+
+
+
+std::shared_ptr<ast::LambdaExpr> TemplateSpecializer::specialize(std::shared_ptr<ast::LambdaExpr> lambdaExpr) {
+    LKFatalError("TODO: implement!");
+    auto specExpr = std::make_shared<ast::LambdaExpr>();
+    specExpr->setSourceLocation(lambdaExpr->getSourceLocation());
+//    specExpr->
+    return specExpr;
+}
+
+
+
 
 
 std::shared_ptr<ast::TemplateParamDeclList> TemplateSpecializer::specialize(std::shared_ptr<ast::TemplateParamDeclList> templateDecls) {

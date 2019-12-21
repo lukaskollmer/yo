@@ -1020,6 +1020,10 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
     }
     
     if (!expr) {
+        expr = parseLambdaExpr();
+    }
+    
+    if (!expr) {
         expr = parseIdent();
         
         if (currentTokenKind() == TK::Colon && peekKind() == TK::Colon) {
@@ -1365,6 +1369,54 @@ ret:
 }
 
 
+
+
+
+std::shared_ptr<ast::LambdaExpr> Parser::parseLambdaExpr() {
+    if (currentTokenKind() != TK::OpeningSquareBrackets) return nullptr;
+    
+    auto lambdaExpr = std::make_shared<ast::LambdaExpr>();
+    lambdaExpr->setSourceLocation(getSourceLocation());
+    consume();
+    
+    while (currentTokenKind() != TK::ClosingSquareBrackets) {
+        LambdaExpr::CaptureListElement captureElement;
+        if (currentTokenKind() == TK::Ampersand) {
+            captureElement.isReference = true;
+            consume();
+        }
+        
+        if (!(captureElement.ident = parseIdent())) {
+            diagnostics::emitError(getCurrentSourceLocation(), "expected identifier");
+        }
+        
+        if (currentTokenKind() == TK::EqualsSign) {
+            consume();
+            if (!(captureElement.expr = parseExpression())) {
+                diagnostics::emitError(getCurrentSourceLocation(), "expected expression");
+            }
+        } else {
+            captureElement.expr = captureElement.ident;
+        }
+        
+        if (currentTokenKind() == TK::Comma) {
+            consume();
+        }
+        
+        lambdaExpr->captureList.push_back(captureElement);
+    }
+    assertTkAndConsume(TK::ClosingSquareBrackets);
+    
+    parseFunctionSignatureAndParamNames(lambdaExpr->signature, lambdaExpr->paramNames);
+    
+    if (currentTokenKind() == TK::OpeningCurlyBraces) {
+        lambdaExpr->body = parseCompoundStmt();
+    } else {
+        LKFatalError("TODO?"); // maybe if there are alternate lambda syntaxes?
+    }
+    
+    return lambdaExpr;
+}
 
 
 
