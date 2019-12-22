@@ -47,11 +47,37 @@ impl String {
         return self.ptr[index];
     }
 
-    fn print_desc(self: &String) {
-        printf(b"[String ptr: %p len: %lli text: %s]\n", self.ptr, self.len, self.ptr);
-    }
-
     fn dealloc(self: &String) {
         free(self.ptr);
+    }
+}
+
+
+// MARK: Comparisons
+
+fn operator == (lhs: &String, rhs: &String) -> bool {
+    if lhs.length() != rhs.length() {
+        return false;
+    }
+    if lhs.ptr == rhs.ptr {
+        return true;
+    }
+    return strcmp(lhs.ptr, rhs.ptr) == 0;
+}
+
+fn operator == (lhs: *i8, rhs: &String) -> bool {
+    return lhs == rhs.ptr || strcmp(lhs, rhs.ptr) == 0;
+}
+
+fn operator == (lhs: &String, rhs: *i8) -> bool {
+    return rhs == lhs;
+}
+
+
+// MARK: Debugging
+
+impl String {
+    fn print_desc(self: &String) {
+        printf(b"[String ptr: %p len: %lli text: %s]\n", self.ptr, self.len, self.ptr);
     }
 }

@@ -1,72 +1,84 @@
-// Casts between related types
-// Fails if there is no known conversion from T to R
+// MARK: Typecasts
+
+/// Casts between related types
+/// Fails if there is no known conversion from T to R
 #[intrinsic] fn cast<R, T>(T) -> R;
 
-// Returns `arg`, with the bit pattern reinterpreted as R
-// Requires T and R to have the exact same bit width
+/// Returns `arg`, with the bit pattern reinterpreted as R
+/// Requires T and R to have the exact same bit width
 #[intrinsic] fn bitcast<R, T>(T) -> R;
 
 
-// Calls the `llvm.trap` intrinsic
-#[intrinsic] fn __trap();
 
+// MARK: Function Names
 
-// Name of the current function
+/// Name of the current function
 #[intrinsic] fn __func() -> *i8;
 
-// Name of the current function, including the full signature
+/// Name of the current function, including the full signature
 #[intrinsic] fn __pretty_func() -> *i8;
 
-// Mangled name of the current function
+/// Mangled name of the current function
 #[intrinsic] fn __mangled_func() -> *i8;
 
 
-// Returns the size of `T`, in bytes.
-// For example, `sizeof<i64>()` would return 8.
-#[intrinsic]
-fn sizeof<T>() -> size_t;
 
-// Returns a string describing the name of the template parameter `T`
+// MARK: Type Information
+
+/// Returns the size of `T`, in bytes.
+/// For example, `sizeof<i64>()` would return 8.
+#[intrinsic] fn sizeof<T>() -> size_t;
+
+/// Returns a string describing the name of the template parameter `T`
 #[intrinsic] fn __typename<T>() -> *i8;
 
-// Returns true if `T` and `U` are the same type, otherwise false
+/// Returns true if `T` and `U` are the same type, otherwise false
 #[intrinsic] fn __is_same<T, U>() -> bool;
 
-// Returns true if `T` is a pointer type
+/// Returns true if `T` is a pointer type
 #[intrinsic] fn __is_pointer<T>() -> bool;
 
-// Whether the type is constructible
+/// Whether the type is constructible
 #[intrinsic] fn __is_constructible<T>() -> bool;
 
-// Whether the type is destructible
+/// Whether the type is destructible
 #[intrinsic] fn __is_destructible<T>() -> bool;
 
 
-// Arithmetic intrinsics
+
+// MARK: Arithmetic Intrinsics
+
 #[intrinsic] fn __add<T>(T, T) -> T;
 #[intrinsic] fn __sub<T>(T, T) -> T;
 #[intrinsic] fn __mul<T>(T, T) -> T;
 #[intrinsic] fn __div<T>(T, T) -> T;
 #[intrinsic] fn __mod<T>(T, T) -> T;
 
-// bitwise AND
+/// bitwise AND
 #[intrinsic] fn __and<T>(T, T) -> T;
-// bitwise OR
+/// bitwise OR
 #[intrinsic] fn __or<T>(T, T) -> T;
 
 #[intrinsic] fn __xor<T>(T, T) -> T;
 #[intrinsic] fn __shl<T>(T, T) -> T;
 #[intrinsic] fn __shr<T>(T, T) -> T;
 
-// Equality / Comparison for builtin types
+/// Equality / Comparison for builtin types
 #[intrinsic] fn __eq<T>(T, T) -> bool;
 #[intrinsic] fn __lt<T>(T, T) -> bool;
 
 
-// short-circuited logical AND
+/// short-circuited logical AND
 #[intrinsic] fn __land(bool, bool) -> bool;
 #[intrinsic] fn operator && (bool, bool) -> bool;
 
-// short-circuited logical OR
+/// short-circuited logical OR
 #[intrinsic] fn __lor(bool, bool) -> bool;
 #[intrinsic] fn operator || (bool, bool) -> bool;
+
+
+
+// MARK: Other
+
+/// Calls the `llvm.trap` intrinsic
+#[intrinsic] fn __trap();

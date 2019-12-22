@@ -2,6 +2,7 @@
 
 #[extern] fn strlen(*i8) -> size_t;
 #[extern] fn strdup(*i8) -> *i8;
+#[extern] fn strcmp(*i8, *i8) -> i32;
 
 #[extern] fn memcpy(/*dest*/ *i8, /*src*/ *i8, /*count*/ size_t);
 #[extern] fn memset(*i8, i32, size_t) -> *i8;
