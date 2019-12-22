@@ -1442,8 +1442,7 @@ std::shared_ptr<NumberLiteral> Parser::parseNumberLiteral() {
             break;
         
         case TK::DoubleLiteral: {
-            auto floatValue = currentToken().getData<double>();
-            value = *reinterpret_cast<uint64_t *>(&floatValue);
+            value = util::bitcast<uint64_t>(currentToken().getData<double>());
             type = NumberLiteral::NumberType::Double;
             break;
         }

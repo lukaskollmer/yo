@@ -107,8 +107,8 @@ inline bool isDigit(char c) {
 
 
 template <typename R, typename T>
-R bitcast(const T value) {
-    static_assert(sizeof(T) == sizeof(R), "cannot bitcast between values of different types");
+R bitcast(T value) {
+    static_assert(sizeof(T) == sizeof(R), "cannot bitcast types of different size");
     return *reinterpret_cast<R*>(&value);
 }
 

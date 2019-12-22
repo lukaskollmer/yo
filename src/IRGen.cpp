@@ -1091,8 +1091,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::NumberLiteral> numberLite
             return llvm::ConstantInt::get(builtinTypes.llvm.i64, numberLiteral->value);
         }
         case NT::Double: {
-            uint64_t bitPattern = numberLiteral->value;
-            double value = *reinterpret_cast<double *>(&bitPattern);
+            auto value = util::bitcast<double>(numberLiteral->value);
             return llvm::ConstantFP::get(builtinTypes.llvm.Double, value);
         }
     }
