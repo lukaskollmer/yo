@@ -121,7 +121,6 @@ impl Array {
         return false;
     }
 
-    }
 
 
     fn dealloc(self: &Self) {
