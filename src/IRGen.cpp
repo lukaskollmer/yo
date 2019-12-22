@@ -2766,36 +2766,57 @@ llvm::CmpInst::Predicate getMatchingLLVMCmpInstPredicateForComparisonOperator_Fl
 llvm::Value* IRGenerator::codegen_HandleComparisonIntrinsic(ast::Operator op, std::shared_ptr<ast::CallExpr> call) {
     LKAssert(call->arguments.size() == 2);
     
-    const auto lhs = call->arguments.at(0);
-    const auto rhs = call->arguments.at(1);
+    auto lhsExpr = call->arguments.at(0);
+    auto rhsExpr = call->arguments.at(1);
     
-    const auto lhsTy = getType(lhs);
-    const auto rhsTy = getType(rhs);
+    auto lhsTy = getType(lhsExpr);
+    auto rhsTy = getType(rhsExpr);
     
-    llvm::CmpInst::Predicate pred;
-    llvm::Value *lhsVal, *rhsVal;
+    
+    // Pointers?
+    if (lhsTy->isPointerTy() && rhsTy->isPointerTy()) {
+        if (lhsTy != rhsTy) {
+            auto msg = util::fmt::format("cannot compare pointers to unrelated types '{}' and '{}'", lhsTy, rhsTy);
+            diagnostics::emitError(call->getSourceLocation(), msg);
+        }
+        auto lhs = codegen(lhsExpr);
+        auto rhs = codegen(rhsExpr);
+        
+        emitDebugLocation(call);
+        return builder.CreateICmpEQ(lhs, rhs);
+    }
     
     // Floats?
     if (lhsTy == rhsTy && lhsTy == builtinTypes.yo.f64) {
-        lhsVal = codegen(lhs);
-        rhsVal = codegen(rhs);
-        pred = getMatchingLLVMCmpInstPredicateForComparisonOperator_Float(op);
+        auto lhs = codegen(lhsExpr);
+        auto rhs = codegen(rhsExpr);
+        auto pred = getMatchingLLVMCmpInstPredicateForComparisonOperator_Float(op);
+        
         emitDebugLocation(call);
-        return builder.CreateFCmp(pred, lhsVal, rhsVal);
+        return builder.CreateFCmp(pred, lhs, rhs);
     }
     
-    // Are both integers?
+    
     if (!(lhsTy->isNumericalTy() && rhsTy->isNumericalTy())) {
-        LKFatalError("Cannot compare unrelated types '%s' and '%s'", rhsTy->str().c_str(), rhsTy->str().c_str());
+        auto msg = util::fmt::format("no known comparison for unrelated types '{}' and '{}'", lhsTy, rhsTy);
+        diagnostics::emitError(call->getSourceLocation(), msg);
     }
+    
+    
+    // From here onwards, we assume that we're comparing two numeric values
+    
+    LKAssert(lhsTy->isNumericalTy() && rhsTy->isNumericalTy());
+    
+    llvm::CmpInst::Predicate pred;
+    llvm::Value *lhsVal, *rhsVal;
     
     auto numTyLhs = llvm::dyn_cast<NumericalType>(lhsTy);
     auto numTyRhs = llvm::dyn_cast<NumericalType>(rhsTy);
     
     if (numTyLhs == numTyRhs) {
         pred = getMatchingLLVMCmpInstPredicateForComparisonOperator_Int(op, numTyLhs->isSigned());
-        lhsVal = codegen(lhs);
-        rhsVal = codegen(rhs);
+        lhsVal = codegen(lhsExpr);
+        rhsVal = codegen(rhsExpr);
     } else {
         // Both are integers, but different types
         
@@ -2809,10 +2830,10 @@ llvm::Value* IRGenerator::codegen_HandleComparisonIntrinsic(ast::Operator op, st
             castDestTy = builtinTypes.yo.i64;
         }
         
-        auto lhsCast = std::make_shared<ast::CastExpr>(lhs, ast::TypeDesc::makeResolved(castDestTy), ast::CastExpr::CastKind::StaticCast);
-        lhsCast->setSourceLocation(lhs->getSourceLocation());
-        auto rhsCast = std::make_shared<ast::CastExpr>(rhs, ast::TypeDesc::makeResolved(castDestTy), ast::CastExpr::CastKind::StaticCast);
-        rhsCast->setSourceLocation(rhs->getSourceLocation());
+        auto lhsCast = std::make_shared<ast::CastExpr>(lhsExpr, ast::TypeDesc::makeResolved(castDestTy), ast::CastExpr::CastKind::StaticCast);
+        lhsCast->setSourceLocation(lhsExpr->getSourceLocation());
+        auto rhsCast = std::make_shared<ast::CastExpr>(rhsExpr, ast::TypeDesc::makeResolved(castDestTy), ast::CastExpr::CastKind::StaticCast);
+        rhsCast->setSourceLocation(rhsExpr->getSourceLocation());
         
         lhsVal = codegen(lhsCast);
         rhsVal = codegen(rhsCast);
