@@ -222,11 +222,24 @@ void ensureTemplateParametersAreDistinct(const ast::TemplateParamDeclList &param
 }
 
 
+uint8_t argumentOffsetForFunctionKind(ast::FunctionKind kind) {
+    switch (kind) {
+        case yo::ast::FunctionKind::GlobalFunction:
+        case yo::ast::FunctionKind::StaticMethod:
+        case yo::ast::FunctionKind::OperatorOverload:
+            return 0;
+        case yo::ast::FunctionKind::InstanceMethod:
+            return kInstanceMethodCallArgumentOffset;
+    }
+}
+
 void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDecl) {
     LKAssert(functionDecl->getParamNames().size() == functionDecl->getSignature().paramTypes.size());
     
     const auto &sig = functionDecl->getSignature();
     const bool isMain = functionDecl->isOfFunctionKind(ast::FunctionKind::GlobalFunction) && functionDecl->getName() == "main";
+    
+    const auto argumentOffset = argumentOffsetForFunctionKind(functionDecl->getFunctionKind());
     
     if (isMain) {
         functionDecl->getAttributes().no_mangle = true;
@@ -259,7 +272,7 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
             return;
         }
         
-        functions[canonicalName].push_back(ResolvedCallable(sig, functionDecl, nullptr, 0));
+        functions[canonicalName].push_back(ResolvedCallable(sig, functionDecl, nullptr, argumentOffset));
         return;
     }
     
@@ -315,7 +328,7 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, resolvedName, *module);
     F->setDSOLocal(!functionDecl->getAttributes().extern_);
     
-    ResolvedCallable RC(functionDecl, F, 0); // TODO set the correct argument offset here ?!
+    ResolvedCallable RC(functionDecl, F, argumentOffset); // TODO set the correct argument offset here ?!
     LKAssert(!util::map::has_key(resolvedFunctions, resolvedName));
     resolvedFunctions.emplace(resolvedName, RC);
     functions[canonicalName].push_back(RC);
@@ -2263,7 +2276,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         for (auto expr : callExpr->arguments) {
             OS << getType(expr) << ", ";
         }
-        util::fmt::print("Matching overloads for call to '{}'({}):", targetName, OS.str());
+        util::fmt::print("Matching overloads for call to '{}'({}) [argOffset={}]:", targetName, OS.str(), argumentOffset);
         for (auto& match : matches) {
             util::fmt::print("- {}: {}", match.score, match.decl->getSignature());
         }
@@ -2291,7 +2304,6 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     
     if (bestMatch.decl->getSignature().isTemplateDecl() && !bestMatch.llvmValue) {
         return specializeTemplateFunctionDeclForCallExpr(bestMatch.decl, bestMatch.templateArgumentMapping, argumentOffset, codegenOption);
-//        return specializeTemplateFunctionForCall(bestMatch.decl, bestMatch.templateArgumentMapping);
     }
     return ResolvedCallable(bestMatch.decl, bestMatch.llvmValue, argumentOffset);
 }
