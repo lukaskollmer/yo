@@ -96,7 +96,7 @@ public:
         
         // Expressions
         BinOp, CallExpr, CompOp, Ident, LogicalOp, MatchExpr, MemberExpr, NumberLiteral, RawLLVMValueExpr, StaticDeclRefExpr,
-        StringLiteral, SubscriptExpr, CastExpr, UnaryExpr, LambdaExpr,
+        StringLiteral, SubscriptExpr, CastExpr, UnaryExpr, LambdaExpr, ArrayLiteralExpr,
         
         TemplateParamDeclList, TemplateParamArgList, FunctionSignature, IfStmtBranch, MatchExprBranch
     };
@@ -675,6 +675,16 @@ public:
     irgen::StructType *_structType = nullptr;
     
     LambdaExpr() : Expr(Node::NodeKind::LambdaExpr) {}
+};
+
+
+
+class ArrayLiteralExpr : public Expr {
+public:
+    std::vector<std::shared_ptr<Expr>> elements;
+    
+    explicit ArrayLiteralExpr(std::vector<std::shared_ptr<Expr>> elements)
+    : Expr(Node::NodeKind::ArrayLiteralExpr), elements(elements) {}
 };
 
 NS_END

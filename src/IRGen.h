@@ -216,6 +216,7 @@ private:
     llvm::Value *codegen(std::shared_ptr<ast::ExprStmt>);
     llvm::Value *codegen(std::shared_ptr<ast::CallExpr>, ValueKind);
     llvm::Value *codegen(std::shared_ptr<ast::LambdaExpr>, ValueKind);
+    llvm::Value *codegen(std::shared_ptr<ast::ArrayLiteralExpr>, ValueKind);
     
     // Intrinsics
     llvm::Value *codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionDecl>, std::shared_ptr<ast::CallExpr>);

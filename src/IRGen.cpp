@@ -521,6 +521,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Expr> expr, ValueKind VK,
     CASE(CallExpr, VK)
     CASE(BinOp)
     CASE(LambdaExpr, VK)
+    CASE(ArrayLiteralExpr, VK)
     default: unhandled_node(expr)
     }
 #undef CASE
@@ -1527,6 +1528,16 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MatchExpr> matchExpr) {
     return PHI;
 }
 
+
+
+
+llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::ArrayLiteralExpr> arrayLiteral, ValueKind VK) {
+    if (arrayLiteral->elements.empty()) {
+        LKFatalError(""); // this needs special handling to deduce the expected type!
+    }
+    
+    LKFatalError("TODO implement");
+}
 
 
 
@@ -3699,6 +3710,14 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             } else {
                 diagnostics::emitError(identExpr->getSourceLocation(), util::fmt::format("unable to resolve identifier '{}'", identExpr->value));
             }
+        }
+        
+        case NK::ArrayLiteralExpr: {
+            auto literal = std::static_pointer_cast<ast::ArrayLiteralExpr>(expr);
+            if (literal->elements.empty()) {
+                diagnostics::emitError(literal->getSourceLocation(), "unable to deduce type from empty array literal");
+            }
+            return getType(literal->elements.front());
         }
         
         case NK::CastExpr:

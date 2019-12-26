@@ -143,6 +143,7 @@ private:
     
     
     std::vector<std::shared_ptr<ast::Expr>> parseExpressionList(Token::TokenKind delimiter);
+    std::shared_ptr<ast::ArrayLiteralExpr> parseArrayLiteral();
     
     std::string parseIdentAsString();
     std::shared_ptr<ast::Ident> parseIdent();

@@ -928,6 +928,21 @@ std::shared_ptr<Ident> Parser::parseIdent() {
 
 
 
+// Problem: the array literal syntax introduces ambiguity w/ the lambda syntax, more specifically the capture list.
+std::shared_ptr<ArrayLiteralExpr> Parser::parseArrayLiteral() {
+    LKFatalError("TODO: handle potential ambiguities");
+    auto SL = getCurrentSourceLocation();
+    assertTkAndConsume(TK::OpeningSquareBrackets);
+    
+    auto elements = parseExpressionList(TK::ClosingSquareBrackets);
+    assertTkAndConsume(TK::ClosingSquareBrackets);
+    
+    auto expr = std::make_shared<ArrayLiteralExpr>(elements);
+    expr->setSourceLocation(SL);
+    return expr;
+}
+
+
 
 PrecedenceGroup getOperatorPrecedenceGroup(Operator op) {
     switch (op) {
