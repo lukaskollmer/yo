@@ -1,12 +1,12 @@
 use ":std/memory";
 
-struct ArrayIterator<T> {
+struct ArrayIterator<Element> {
     array: &Array<T>,
     idx: i64
 }
 
 impl ArrayIterator {
-    fn init(self: &Self, array: &Array<T>) {
+    fn init(self: &Self, array: &Array<Element>) {
         self.init(array, 0);
     }
 
@@ -14,7 +14,7 @@ impl ArrayIterator {
         return self.idx < self.array.size;
     }
 
-    fn next(self: &Self) -> &T {
+    fn next(self: &Self) -> &Element {
         let &elem = self.array[self.idx];
         self.idx += 1;
         return elem;
@@ -23,37 +23,37 @@ impl ArrayIterator {
 
 
 
-struct Array<T> {
-    data: *T,
+struct Array<Element> {
+    data: *Element,
     size: i64,
     allocSize: i64
 }
 
 impl Array {
     fn init(self: &Self) {
-        self.data = alloc<T>(10);
+        self.data = alloc<Element>(10);
         self.allocSize = 10;
     }
 
-    fn init(self: &Self, other: &Array<T>) {
+    fn init(self: &Self, other: &Array<Element>) {
         self.allocSize = other.allocSize;
-        self.data = alloc<T>(cast<size_t>(self.allocSize));
+        self.data = alloc<Element>(cast<size_t>(self.allocSize));
         while self.size < other.size {
             self._constructInPlace(self.size, other[self.size]);
             self.size += 1;
         }
     }
 
-    fn operator [] (self: &Self, index: i64) -> &T {
+    fn operator [] (self: &Self, index: i64) -> &Element {
         return self.data[index];
     }
 
-    fn iterator(self: &Self) -> ArrayIterator<T> {
-        return ArrayIterator<T>(self);
+    fn iterator(self: &Self) -> ArrayIterator<Element> {
+        return ArrayIterator<Element>(self);
     }
 
 
-    fn append(self: &Self, element: T) {
+    fn append(self: &Self, element: Element) {
         if self.size >= self.allocSize - 2 {
             self._resize(25); // TODO dynamically calculate growth factor!
         }
@@ -68,8 +68,8 @@ impl Array {
 
 
     // Inserts a new element, invoking the copy constructor if necessary
-    fn _constructInPlace(self: &Self, index: i64, element: &T) {
-        if __is_constructible<T>() {
+    fn _constructInPlace(self: &Self, index: i64, element: &Element) {
+        if __is_constructible<Element>() {
             self.data[index].init(element);
         } else {
             self.data[index] = element;
@@ -78,8 +78,8 @@ impl Array {
 
     
     fn _resize(self: &Self, diff: i64) {
-        let ptr = alloc<T>(cast<size_t>(self.allocSize + diff));
-        memcpy(bitcast<*i8>(ptr), bitcast<*i8>(self.data), cast<size_t>(self.size) * sizeof<T>());
+        let ptr = alloc<Element>(cast<size_t>(self.allocSize + diff));
+        memcpy(bitcast<*i8>(ptr), bitcast<*i8>(self.data), cast<size_t>(self.size) * sizeof<Element>());
         dealloc(self.data);
         self.data = ptr;
     }
@@ -87,8 +87,8 @@ impl Array {
 
 
 
-    fn filtered<F>(self: &Self, f: F) -> Array<T> {
-        let matched = Array<T>();
+    fn filtered<F>(self: &Self, f: F) -> Array<Element> {
+        let matched = Array<Element>();
         for &elem in self {
             if f(elem) {
                 matched.append(elem);
@@ -99,9 +99,7 @@ impl Array {
 
 
     /// Returns true if the array contains the element
-    //#[enable_if(T: Equatable)]
-    fn contains<E>(self: &Self, element: E) -> bool {
-        // TODO drop the additional template parameter
+    fn contains(self: &Self, element: Element) -> bool {
         for &elem in self {
             if elem == element {
                 return true;
@@ -124,7 +122,7 @@ impl Array {
 
 
     fn dealloc(self: &Self) {
-        if __is_destructible<T>() {
+        if __is_destructible<Element>() {
             for &elem in self {
                 elem.__dealloc();
             }
