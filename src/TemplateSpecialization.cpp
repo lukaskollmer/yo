@@ -20,7 +20,7 @@
 using namespace yo;
 using namespace irgen;
 
-using NK = ast::Node::NodeKind;
+using NK = ast::Node::Kind;
 
 
 std::shared_ptr<ast::TypeDesc> TemplateSpecializer::resolveType(std::shared_ptr<ast::TypeDesc> typeDesc) {
@@ -139,8 +139,6 @@ std::shared_ptr<ast::ImplBlock> TemplateSpecializer::specialize(std::shared_ptr<
 
 
 
-//#define HANDLE(node, T) if (auto X = std::dynamic_pointer_cast<ast::T>(node)) return specialize(X);
-
 #define CASE(T) case NK::T: return specialize(std::static_pointer_cast<ast::T>(node));
 
 #define unhandled_node(node) \
@@ -148,7 +146,7 @@ std::shared_ptr<ast::ImplBlock> TemplateSpecializer::specialize(std::shared_ptr<
 throw; }
 
 std::shared_ptr<ast::LocalStmt> TemplateSpecializer::specialize(std::shared_ptr<ast::LocalStmt> node) {
-    switch (node->getNodeKind()) {
+    switch (node->getKind()) {
         CASE(ReturnStmt)
         CASE(Assignment)
         CASE(VarDecl)
@@ -164,7 +162,7 @@ std::shared_ptr<ast::LocalStmt> TemplateSpecializer::specialize(std::shared_ptr<
 std::shared_ptr<ast::Expr> TemplateSpecializer::specialize(std::shared_ptr<ast::Expr> node) {
     if (!node) return node;
     
-    switch (node->getNodeKind()) {
+    switch (node->getKind()) {
         // ignored nodes
         case NK::Ident:
         case NK::NumberLiteral:

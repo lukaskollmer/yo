@@ -492,9 +492,9 @@ Mirror Reflect(const ast::RawLLVMValueExpr *rawLLVMExpr) {
 Mirror Reflect(const Node *node) {
 #define CASE(ty) case NK::ty: return Reflect(static_cast<const ty *>(node));
 #define CASE2(c, ty) case NK::c: return Reflect(static_cast<const ty *>(node));
-    using NK = Node::NodeKind;
+    using NK = Node::Kind;
     
-    switch (node->getNodeKind()) {
+    switch (node->getKind()) {
         CASE(FunctionDecl)
         CASE(CompoundStmt)
         CASE(ReturnStmt)

@@ -23,7 +23,7 @@ using namespace yo;
 using namespace yo::irgen;
 using namespace yo::util::llvm_utils;
 
-using NK = ast::Node::NodeKind;
+using NK = ast::Node::Kind;
 
 
 inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
@@ -162,9 +162,9 @@ void IRGenerator::preflight(const ast::AST& ast) {
     std::vector<std::shared_ptr<ast::StructDecl>> structDecls;
     std::vector<std::shared_ptr<ast::ImplBlock>> implBlocks;
     
-#define CASE(node, kind, dest) case NK::kind: { dest.push_back(std::static_pointer_cast<ast::kind>(node)); continue; }
+#define CASE(node, kind, dest) case NK::kind: { dest.push_back(llvm::dyn_cast<ast::kind>(node)); continue; }
     for (const auto& node : ast) {
-        switch(node->getNodeKind()) {
+        switch(node->getKind()) {
             CASE(node, TypealiasDecl, typealiases)
             CASE(node, FunctionDecl, functionDecls)
             CASE(node, StructDecl, structDecls)
@@ -471,10 +471,10 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
 
 
 
-#define CASE(node, kind, ...) case NK::kind: return codegen(std::static_pointer_cast<ast::kind>(node), ## __VA_ARGS__);
+#define CASE(node, kind, ...) case NK::kind: return codegen(llvm::dyn_cast<ast::kind>(node), ## __VA_ARGS__);
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
-    switch (TLS->getNodeKind()) {
+    switch (TLS->getKind()) {
     CASE(TLS, FunctionDecl)
     CASE(TLS, StructDecl)
     CASE(TLS, ImplBlock)
@@ -486,7 +486,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::LocalStmt> localStmt) {
-    switch (localStmt->getNodeKind()) {
+    switch (localStmt->getKind()) {
     CASE(localStmt, CompoundStmt)
     CASE(localStmt, VarDecl)
     CASE(localStmt, IfStmt)
@@ -504,11 +504,11 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::LocalStmt> localStmt) {
 
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Expr> expr, ValueKind VK, bool insertImplicitLoadInst) {
-#define CASE(T, ...) case NK::T: V = codegen(std::static_pointer_cast<ast::T>(expr), ## __VA_ARGS__); break;
+#define CASE(T, ...) case NK::T: V = codegen(llvm::dyn_cast<ast::T>(expr), ## __VA_ARGS__); break;
     
     llvm::Value *V = nullptr;
     
-    switch (expr->getNodeKind()) {
+    switch (expr->getKind()) {
     CASE(NumberLiteral)
     CASE(Ident, VK)
     CASE(CastExpr)
@@ -949,7 +949,7 @@ bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
     if (type == expectedType) return true;
     
     // at this point, both are numeric? TODO how do we know this?
-    if (auto numberLiteral = std::dynamic_pointer_cast<ast::NumberLiteral>(*expr)) {
+    if (auto numberLiteral = llvm::dyn_cast<ast::NumberLiteral>(*expr)) {
         if (expectedType->isReferenceTy()) {
             expectedType = llvm::dyn_cast<ReferenceType>(expectedType)->getReferencedType();
         }
@@ -977,7 +977,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Assignment> assignment) {
     if (rhsExpr->isOfKind(NK::BinOp) && static_cast<ast::BinOp *>(rhsExpr.get())->isInPlaceBinop()) {
         // <lhs> <op>= <rhs>
         // The issue here is that we have to make sure not to evaluate lhs twice
-        auto binop = std::static_pointer_cast<ast::BinOp>(rhsExpr);
+        auto binop = llvm::dyn_cast<ast::BinOp>(rhsExpr);
         LKAssert(assignment->target == binop->getLhs());
         
         auto lhsLValue = codegen(binop->getLhs(), LValue, /*insertImplicitLoadInst*/ false);
@@ -1262,11 +1262,11 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, V
         diagnostics::emitError(memberExpr->getSourceLocation(), msg);
     };
     
-    if (auto ST = llvm::dyn_cast_or_null<StructType>(targetTy)) {
+    if (auto ST = llvm::dyn_cast<StructType>(targetTy)) {
         structTy = ST;
-    } else if (auto ptrTy = llvm::dyn_cast_or_null<PointerType>(targetTy)) {
+    } else if (auto ptrTy = llvm::dyn_cast<PointerType>(targetTy)) {
         structTy = struct_or_error(ptrTy->getPointee());
-    } else if (auto refTy = llvm::dyn_cast_or_null<ReferenceType>(targetTy)) {
+    } else if (auto refTy = llvm::dyn_cast<ReferenceType>(targetTy)) {
         structTy = struct_or_error(refTy->getReferencedType());
     } else {
         auto msg = util::fmt::format("invalid member expr base type: '{}'", targetTy);
@@ -1397,15 +1397,15 @@ bool isValidMatchPatternForMatchedExprType(std::shared_ptr<ast::Expr> patternExp
     // Only patterns that are trivially and can be matched w/out side effects are allowed
     // TODO add the side effect checking
     
-    if (patternExpr->getNodeKind() == NK::Ident) {
+    if (patternExpr->getKind() == NK::Ident) {
         LKFatalError("TODO");
         return true;
     }
     
     if (matchedExprType->isNumericalTy()) {
-        return std::dynamic_pointer_cast<ast::NumberLiteral>(patternExpr) != nullptr;
+        return llvm::isa<ast::NumberLiteral>(patternExpr);
     } else if (matchedExprType == Type::getBoolType()) {
-        auto numberExpr = std::dynamic_pointer_cast<ast::NumberLiteral>(patternExpr);
+        auto numberExpr = llvm::dyn_cast<ast::NumberLiteral>(patternExpr);
         return numberExpr && numberExpr->type == ast::NumberLiteral::NumberType::Boolean;
     } else {
         return false;
@@ -1421,7 +1421,7 @@ llvm::Value *IRGenerator::codegen_HandleMatchPatternExpr(MatchExprPatternCodegen
     auto PT = getType(PE);
     
     if (TT->isNumericalTy()) {
-        if (auto numberLiteral = std::dynamic_pointer_cast<ast::NumberLiteral>(PE)) {
+        if (auto numberLiteral = llvm::dyn_cast<ast::NumberLiteral>(PE)) {
             if (valueIsTriviallyConvertible(numberLiteral, TT)) {
                 auto cmp = std::make_shared<ast::BinOp>(ast::Operator::EQ,
                                                         std::make_shared<ast::RawLLVMValueExpr>(info.targetLLVMValue, TT),
@@ -1443,7 +1443,7 @@ llvm::Value *IRGenerator::codegen_HandleMatchPatternExpr(MatchExprPatternCodegen
 bool lastBranchIsWildcard(const std::shared_ptr<ast::MatchExpr> &matchExpr) {
     const auto& lastBranch = matchExpr->branches.back();
     if (lastBranch.patterns.size() > 1) return false;
-    if (auto ident = std::dynamic_pointer_cast<ast::Ident>(lastBranch.patterns[0])) {
+    if (auto ident = llvm::dyn_cast<ast::Ident>(lastBranch.patterns[0])) {
         return ident->value == "_";
     }
     return false;
@@ -1483,7 +1483,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MatchExpr> matchExpr) {
         
         for (auto it = branch.patterns.begin(); it != branch.patterns.end(); it++) {
             const auto& patternExpr = *it;
-            if (auto ident = std::dynamic_pointer_cast<ast::Ident>(patternExpr)) {
+            if (auto ident = llvm::dyn_cast<ast::Ident>(patternExpr)) {
                 LKAssert(it + 1 == branch.patterns.end() && branch.patterns.size() == 1);
                 LKAssert(ident->value == "_");
                 break;
@@ -1606,13 +1606,13 @@ bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared
         LKFatalError("oh no");
     }
     
-    if (std::dynamic_pointer_cast<ast::NumberLiteral>(*lhs)) {
+    if (llvm::isa<ast::NumberLiteral>(*lhs)) {
         // lhs is literal, cast to type of ths
         auto loc = (*lhs)->getSourceLocation();
         *lhs = std::make_shared<ast::CastExpr>(*lhs, ast::TypeDesc::makeResolved(rhsTy), ast::CastExpr::CastKind::StaticCast);
         (*lhs)->setSourceLocation(loc);
         *lhsTy_out = rhsTy;
-    } else if (std::dynamic_pointer_cast<ast::NumberLiteral>(*rhs)) {
+    } else if (llvm::isa<ast::NumberLiteral>(*rhs)) {
         // rhs is literal, cast to type of lhs
         auto loc = (*rhs)->getSourceLocation();
         *rhs = std::make_shared<ast::CastExpr>(*rhs, ast::TypeDesc::makeResolved(lhsTy), ast::CastExpr::CastKind::StaticCast);
@@ -1831,7 +1831,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
         } else if (prevDeduction.reason != reason && reason == DeductionReason::Literal) {
             // Prev wasn't a literal, but current is
             
-            auto argExpr = std::static_pointer_cast<ast::NumberLiteral>(call->arguments[argIdx]);
+            auto argExpr = llvm::dyn_cast<ast::NumberLiteral>(call->arguments[argIdx]);
             return valueIsTriviallyConvertible(argExpr, prevDeduction.type);
         } else if (prevDeduction.reason == DeductionReason::Literal && reason != prevDeduction.reason) {
             // Prev was a literal, but current isn't
@@ -1866,7 +1866,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
             }
             
             case TDK::Pointer: {
-                if (auto tyPtrT = llvm::dyn_cast_or_null<PointerType>(ty)) {
+                if (auto tyPtrT = llvm::dyn_cast<PointerType>(ty)) {
                     return handle(typeDesc->getPointee(), tyPtrT->getPointee(), argIdx);
                 } else {
                     return false;
@@ -1874,7 +1874,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
             }
             
             case TDK::Reference: {
-                if (auto tyRefT = llvm::dyn_cast_or_null<ReferenceType>(ty)) {
+                if (auto tyRefT = llvm::dyn_cast<ReferenceType>(ty)) {
                     return handle(typeDesc->getPointee(), tyRefT->getReferencedType(), argIdx);
                 } else {
                     // Calling a function `<T>(&T)` with an argument of type `T` ?
@@ -1883,7 +1883,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
             }
             
             case TDK::NominalTemplated: {
-                auto tyStructT = llvm::dyn_cast_or_null<StructType>(ty);
+                auto tyStructT = llvm::dyn_cast<StructType>(ty);
                 if (!tyStructT) return false;
                 
                 for (uint64_t idx = 0; idx < typeDesc->getTemplateArgs().size(); idx++) {
@@ -2040,7 +2040,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     uint8_t argumentOffset = 0;
     
     
-    if (auto ident = std::dynamic_pointer_cast<ast::Ident>(callExpr->target)) {
+    if (auto ident = llvm::dyn_cast<ast::Ident>(callExpr->target)) {
         targetName = ident->value;
         
         // this is in here because at this point targetName is still just an identifier
@@ -2060,12 +2060,11 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             }
         }
         
-    } else if (auto staticDeclRefExpr = std::dynamic_pointer_cast<ast::StaticDeclRefExpr>(callExpr->target)) {
+    } else if (auto staticDeclRefExpr = llvm::dyn_cast<ast::StaticDeclRefExpr>(callExpr->target)) {
         // <typename>::<methodname>()
         targetName = mangling::mangleCanonicalName(staticDeclRefExpr->typeName, staticDeclRefExpr->memberName, ast::FunctionKind::StaticMethod);
         
-    } else if (callExpr->target->isOfKind(NK::MemberExpr)) {
-        auto memberExpr = std::static_pointer_cast<ast::MemberExpr>(callExpr->target);
+    } else if (auto memberExpr = llvm::dyn_cast<ast::MemberExpr>(callExpr->target)) {
         // TODO does this take overloaded instance methods into account?
 
         // <memberExpr>()
@@ -2248,7 +2247,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             }
             
             if (arg->isOfKind(NK::NumberLiteral)) {
-                auto numberLiteral = std::static_pointer_cast<ast::NumberLiteral>(arg);
+                auto numberLiteral = llvm::dyn_cast<ast::NumberLiteral>(arg);
                 if (valueIsTriviallyConvertible(numberLiteral, expectedTy)) {
                     score += 1;
                     continue;
@@ -2444,7 +2443,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind
         std::shared_ptr<ast::Expr> implicitSelfArg;
         
         if (call->target->isOfKind(NK::MemberExpr) && !resolvedTarget.funcDecl->isCallOperatorOverload()) {
-            implicitSelfArg = std::static_pointer_cast<ast::MemberExpr>(call->target)->target;
+            implicitSelfArg = llvm::dyn_cast<ast::MemberExpr>(call->target)->target;
         } else {
             implicitSelfArg = call->target;
         }
@@ -2469,7 +2468,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind
             
             auto V = codegen(arg, RValue);
             
-            if (auto refTy = llvm::dyn_cast_or_null<ReferenceType>(argTy)) {
+            if (auto refTy = llvm::dyn_cast<ReferenceType>(argTy)) {
                 argTy = refTy->getReferencedType();
                 V = builder.CreateLoad(V);
             }
@@ -3260,7 +3259,7 @@ llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<
 llvm::Value* IRGenerator::constructCopyIfNecessary(Type *type, std::shared_ptr<ast::Expr> expr, bool *didConstructCopy) {
     if (!isTemporary(expr) && (type->isStructTy() || (type->isReferenceTy() && static_cast<ReferenceType *>(type)->getReferencedType()->isStructTy()))) {
         // TODO skip the copy constructor if the type is trivially copyable?
-        StructType *structTy = llvm::dyn_cast_or_null<StructType>(type) ?: static_cast<StructType *>(static_cast<ReferenceType *>(type)->getReferencedType());
+        StructType *structTy = llvm::dyn_cast<StructType>(type) ?: static_cast<StructType *>(static_cast<ReferenceType *>(type)->getReferencedType());
         auto call = std::make_shared<ast::CallExpr>(nullptr);
         call->setSourceLocation(expr->getSourceLocation());
         call->arguments = { expr };
@@ -3291,7 +3290,7 @@ std::shared_ptr<ast::LocalStmt> IRGenerator::createDestructStmtIfDefined(Type *t
 std::shared_ptr<ast::LocalStmt> IRGenerator::createDestructStmtIfDefined(Type *type, std::shared_ptr<ast::Expr> expr, bool includeReferences) {
     if (includeReferences && type->isReferenceTy()) type = static_cast<ReferenceType *>(type)->getReferencedType();
     
-    auto structTy = llvm::dyn_cast_or_null<StructType>(type);
+    auto structTy = llvm::dyn_cast<StructType>(type);
     if (!structTy) return nullptr;
     
     auto canonicalDeallocName = mangling::mangleCanonicalName(structTy->getName(), kSynthesizedDeallocMethodName, ast::FunctionKind::InstanceMethod);
@@ -3677,10 +3676,10 @@ bool IRGenerator::valueIsTriviallyConvertible(std::shared_ptr<ast::NumberLiteral
 
 
 Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
-    switch (expr->getNodeKind()) {
+    switch (expr->getKind()) {
         case NK::NumberLiteral: {
             using NT = ast::NumberLiteral::NumberType;
-            auto numberLiteral = std::static_pointer_cast<ast::NumberLiteral>(expr);
+            auto numberLiteral = llvm::dyn_cast<ast::NumberLiteral>(expr);
             switch (numberLiteral->type) {
                 case NT::Boolean:   return builtinTypes.yo.Bool;
                 case NT::Integer:   return builtinTypes.yo.i64;
@@ -3713,7 +3712,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
         }
         
         case NK::ArrayLiteralExpr: {
-            auto literal = std::static_pointer_cast<ast::ArrayLiteralExpr>(expr);
+            auto literal = llvm::dyn_cast<ast::ArrayLiteralExpr>(expr);
             if (literal->elements.empty()) {
                 diagnostics::emitError(literal->getSourceLocation(), "unable to deduce type from empty array literal");
             }
@@ -3724,7 +3723,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             return resolveTypeDesc(static_cast<ast::CastExpr *>(expr.get())->destType);
         
         case NK::CallExpr:
-            return resolveTypeDesc(resolveCall(std::static_pointer_cast<ast::CallExpr>(expr), kSkipCodegen).signature.returnType);
+            return resolveTypeDesc(resolveCall(llvm::dyn_cast<ast::CallExpr>(expr), kSkipCodegen).signature.returnType);
         
         case NK::MatchExpr:
             return getType(static_cast<ast::MatchExpr *>(expr.get())->branches.front().expression); // TODO add a check somewhere to make sure all branches return the same type
@@ -3733,7 +3732,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             return static_cast<ast::RawLLVMValueExpr *>(expr.get())->type;
         
         case NK::SubscriptExpr: {
-            auto subscriptExpr = std::static_pointer_cast<ast::SubscriptExpr>(expr);
+            auto subscriptExpr = llvm::dyn_cast<ast::SubscriptExpr>(expr);
             auto targetTy = getType(subscriptExpr->target);
             
             if (targetTy->isPointerTy()) {
@@ -3770,7 +3769,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
                 default: LKFatalError("OOF");
             }
             
-            if (auto structTy = llvm::dyn_cast_or_null<StructType>(underlyingTy)) {
+            if (auto structTy = llvm::dyn_cast<StructType>(underlyingTy)) {
                 if (auto memberTy = structTy->getMember(memberExpr->memberName).second) {
                     return memberTy;
                 } else {
@@ -3786,7 +3785,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
         case NK::UnaryExpr: {
             using Op = ast::UnaryExpr::Operation;
             
-            auto unaryExpr = std::static_pointer_cast<ast::UnaryExpr>(expr);
+            auto unaryExpr = llvm::dyn_cast<ast::UnaryExpr>(expr);
             switch (unaryExpr->op) {
                 case Op::LogicalNegation:
                     return builtinTypes.yo.Bool;
@@ -3797,7 +3796,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
                 
                 case Op::AddressOf: {
                     auto targetTy = getType(unaryExpr->expr);
-                    if (auto refTy = llvm::dyn_cast_or_null<ReferenceType>(targetTy)) {
+                    if (auto refTy = llvm::dyn_cast<ReferenceType>(targetTy)) {
                         return refTy->getReferencedType()->getPointerTo();
                     } else {
                         return targetTy->getPointerTo();
@@ -3820,7 +3819,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
         }
         
         case NK::LambdaExpr: {
-            auto lambdaExpr = std::static_pointer_cast<ast::LambdaExpr>(expr);
+            auto lambdaExpr = llvm::dyn_cast<ast::LambdaExpr>(expr);
             return synthesizeLambdaExpr(lambdaExpr);
         }
         
@@ -3840,7 +3839,7 @@ bool IRGenerator::isTemporary(std::shared_ptr<ast::Expr> expr) {
     auto ty = getType(expr);
     if (ty->isReferenceTy()) return false;
     
-    switch (expr->getNodeKind()) {
+    switch (expr->getKind()) {
         case NK::Ident:
         case NK::MemberExpr:
         case NK::SubscriptExpr:
@@ -3871,16 +3870,16 @@ bool IRGenerator::typeIsSubscriptable(Type *ty) {
 bool IRGenerator::implementsInstanceMethod(Type *ty, std::string_view methodName) {
     StructType *underlyingStruct = nullptr;
     
-    if (auto PT = llvm::dyn_cast_or_null<PointerType>(ty)) {
-        if (auto ST = llvm::dyn_cast_or_null<StructType>(PT->getPointee())) {
+    if (auto PT = llvm::dyn_cast<PointerType>(ty)) {
+        if (auto ST = llvm::dyn_cast<StructType>(PT->getPointee())) {
             underlyingStruct = ST;
         } else {
             return false;
         }
-    } else if (auto ST = llvm::dyn_cast_or_null<StructType>(ty)) {
+    } else if (auto ST = llvm::dyn_cast<StructType>(ty)) {
         underlyingStruct = ST;
-    } else if (auto refTy = llvm::dyn_cast_or_null<ReferenceType>(ty)) {
-        if (auto ST = llvm::dyn_cast_or_null<StructType>(refTy->getReferencedType())) {
+    } else if (auto refTy = llvm::dyn_cast<ReferenceType>(ty)) {
+        if (auto ST = llvm::dyn_cast<StructType>(refTy->getReferencedType())) {
             underlyingStruct = ST;
         } else {
             return false;

@@ -87,7 +87,7 @@ class ImplBlock;
 
 class Node {
 public:
-    enum class NodeKind {
+    enum class Kind {
         // Top Level Statements
         FunctionDecl, ImplBlock, StructDecl, TypealiasDecl,
         
@@ -101,8 +101,8 @@ public:
         TemplateParamDeclList, TemplateParamArgList, FunctionSignature, IfStmtBranch, MatchExprBranch
     };
     
-    NodeKind getNodeKind() const { return kind; }
-    bool isOfKind(NodeKind NK) const { return kind == NK; }
+    Kind getKind() const { return kind; }
+    bool isOfKind(Kind NK) const { return kind == NK; }
     
     // TODO add a `str` function that prints the node, as it would look as source code?
     virtual std::string description() const; // TODO remove in favor of `ast::description`
@@ -115,32 +115,33 @@ public:
     }
     
 protected:
-    Node(NodeKind kind) : kind(kind) {}
+    Node(Kind kind) : kind(kind) {}
     virtual ~Node() = default;
     
 private:
-    NodeKind kind;
+    Kind kind;
     TokenSourceLocation sourceLocation;
 };
 
 
 class TopLevelStmt : public Node {
 protected:
-    TopLevelStmt(NodeKind kind) : Node(kind) {}
+    TopLevelStmt(Kind kind) : Node(kind) {}
 };
 
 class LocalStmt : public Node {
 protected:
-    LocalStmt(NodeKind kind) : Node(kind) {}
+    LocalStmt(Kind kind) : Node(kind) {}
 };
 
 class Expr : public Node {
 protected:
-    Expr(NodeKind kind) : Node(kind) {}
+    Expr(Kind kind) : Node(kind) {}
 };
 
 
-// Note: some of the nested subclasses also inherit from ast::Node. one could argue that this is philosophically wrong, but it greatly simplifies ast printing
+// for llvm
+#define CLASSOF_IMP(NK) static bool classof(const Node *node) { return node->getKind() == NK; }
 
 
 
@@ -169,7 +170,8 @@ private:
     std::vector<Param> elements;
     
 public:
-    TemplateParamDeclList() : Node(Node::NodeKind::TemplateParamDeclList) {}
+    CLASSOF_IMP(Node::Kind::TemplateParamDeclList)
+    TemplateParamDeclList() : Node(Node::Kind::TemplateParamDeclList) {}
     
     void addParam(Param P) { elements.push_back(P); }
     void setParams(std::vector<Param> E) { elements = E; }
@@ -184,7 +186,8 @@ class TemplateParamArgList : public Node {
 public:
     std::vector<std::shared_ptr<ast::TypeDesc>> elements;
     
-    TemplateParamArgList() : Node(Node::NodeKind::TemplateParamArgList) {}
+    CLASSOF_IMP(Node::Kind::TemplateParamArgList)
+    TemplateParamArgList() : Node(Node::Kind::TemplateParamArgList) {}
     
     size_t size() const {
         return elements.size();
@@ -208,7 +211,8 @@ public:
     std::shared_ptr<TemplateParamDeclList> templateParamsDecl;
     bool isVariadic = false;
 
-    FunctionSignature() : Node(Node::NodeKind::FunctionSignature) {}
+    CLASSOF_IMP(Node::Kind::FunctionSignature)
+    FunctionSignature() : Node(Node::Kind::FunctionSignature) {}
     
     bool isTemplateDecl() const { return templateParamsDecl != nullptr; }
     uint64_t numberOfTemplateParameters() const {
@@ -241,8 +245,9 @@ class FunctionDecl : public TopLevelStmt {
 
     
 public:
+    CLASSOF_IMP(Node::Kind::FunctionDecl)
     FunctionDecl(FunctionKind kind, std::string name, FunctionSignature sig, attributes::FunctionAttributes attr)
-    : TopLevelStmt(Node::NodeKind::FunctionDecl), signature(sig), body(std::make_shared<CompoundStmt>()), attributes(attr), funcKind(kind), name(name) {}
+    : TopLevelStmt(Node::Kind::FunctionDecl), signature(sig), body(std::make_shared<CompoundStmt>()), attributes(attr), funcKind(kind), name(name) {}
     
     FunctionKind getFunctionKind() const { return funcKind; }
     void setFunctionKind(FunctionKind kind) { funcKind = kind; }
@@ -304,7 +309,9 @@ public:
     /// The `impl` blocks belonging to this struct
     std::vector<std::shared_ptr<ImplBlock>> implBlocks;
     
-    StructDecl() : TopLevelStmt(Node::NodeKind::StructDecl) {}
+    
+    CLASSOF_IMP(Node::Kind::StructDecl)
+    StructDecl() : TopLevelStmt(Node::Kind::StructDecl) {}
     
     bool isTemplateDecl() { return templateParamsDecl != nullptr; }
     
@@ -318,7 +325,8 @@ public:
     std::vector<std::shared_ptr<FunctionDecl>> methods;
     bool isNominalTemplateType = false;
 
-    ImplBlock(std::string typename_) : TopLevelStmt(Node::NodeKind::ImplBlock), typename_(typename_) {}
+    CLASSOF_IMP(Node::Kind::ImplBlock)
+    ImplBlock(std::string typename_) : TopLevelStmt(Node::Kind::ImplBlock), typename_(typename_) {}
     
     const std::string& getName() const {
         return typename_;
@@ -331,7 +339,8 @@ public:
     std::string typename_;
     std::shared_ptr<TypeDesc> type;
     
-    TypealiasDecl(std::string typename_, std::shared_ptr<TypeDesc> type) : TopLevelStmt(Node::NodeKind::TypealiasDecl), typename_(typename_), type(type) {}
+    CLASSOF_IMP(Node::Kind::TypealiasDecl)
+    TypealiasDecl(std::string typename_, std::shared_ptr<TypeDesc> type) : TopLevelStmt(Node::Kind::TypealiasDecl), typename_(typename_), type(type) {}
 };
 
 
@@ -343,8 +352,9 @@ class CompoundStmt : public LocalStmt {
 public:
     std::vector<std::shared_ptr<LocalStmt>> statements;
     
-    CompoundStmt() : LocalStmt(Node::NodeKind::CompoundStmt) {}
-    CompoundStmt(std::vector<std::shared_ptr<LocalStmt>> statements) : LocalStmt(Node::NodeKind::CompoundStmt), statements(statements) {}
+    CLASSOF_IMP(Node::Kind::CompoundStmt)
+    CompoundStmt() : LocalStmt(Node::Kind::CompoundStmt) {}
+    CompoundStmt(std::vector<std::shared_ptr<LocalStmt>> statements) : LocalStmt(Node::Kind::CompoundStmt), statements(statements) {}
     
     bool isEmpty() const {
         return statements.empty();
@@ -356,7 +366,8 @@ class ReturnStmt : public LocalStmt {
 public:
     std::shared_ptr<Expr> expr;
     
-    explicit ReturnStmt(std::shared_ptr<Expr> expr) : LocalStmt(Node::NodeKind::ReturnStmt), expr(expr) {}
+    CLASSOF_IMP(Node::Kind::ReturnStmt)
+    explicit ReturnStmt(std::shared_ptr<Expr> expr) : LocalStmt(Node::Kind::ReturnStmt), expr(expr) {}
 };
 
 
@@ -372,8 +383,9 @@ public:
     // Requires `type` to be nil
     bool declaresUntypedReference = false;
     
+    CLASSOF_IMP(Node::Kind::VarDecl)
     VarDecl(std::shared_ptr<Ident> ident, std::shared_ptr<TypeDesc> type, std::shared_ptr<Expr> initialValue = nullptr)
-    : LocalStmt(Node::NodeKind::VarDecl), ident(ident), type(type), initialValue(initialValue) {}
+    : LocalStmt(Node::Kind::VarDecl), ident(ident), type(type), initialValue(initialValue) {}
     
     const std::string& getName() const;
 };
@@ -387,7 +399,8 @@ public:
     bool shouldDestructOldValue = true;
     bool overwriteReferences = false;
     
-    Assignment(std::shared_ptr<Expr> target, std::shared_ptr<Expr> value) : LocalStmt(Node::NodeKind::Assignment), target(target), value(value) {}
+    CLASSOF_IMP(Node::Kind::Assignment)
+    Assignment(std::shared_ptr<Expr> target, std::shared_ptr<Expr> value) : LocalStmt(Node::Kind::Assignment), target(target), value(value) {}
 };
 
 
@@ -404,13 +417,15 @@ public:
         std::shared_ptr<Expr> condition; // nullptr if Kind == BranchKind::Else
         std::shared_ptr<CompoundStmt> body;
         
+        CLASSOF_IMP(Node::Kind::IfStmtBranch)
         Branch(BranchKind kind, std::shared_ptr<Expr> condition, std::shared_ptr<CompoundStmt> body)
-        : Node(Node::NodeKind::IfStmtBranch), kind(kind), condition(condition), body(body) {}
+        : Node(Node::Kind::IfStmtBranch), kind(kind), condition(condition), body(body) {}
     };
     
     std::vector<std::shared_ptr<Branch>> branches;
     
-    IfStmt(std::vector<std::shared_ptr<Branch>> branches) : LocalStmt(Node::NodeKind::IfStmt), branches(branches) {}
+    CLASSOF_IMP(Node::Kind::IfStmt)
+    IfStmt(std::vector<std::shared_ptr<Branch>> branches) : LocalStmt(Node::Kind::IfStmt), branches(branches) {}
 };
 
 
@@ -419,7 +434,8 @@ public:
     std::shared_ptr<ast::Expr> condition;
     std::shared_ptr<ast::CompoundStmt> body;
     
-    WhileStmt(std::shared_ptr<Expr> condition, std::shared_ptr<CompoundStmt> body) : LocalStmt(Node::NodeKind::WhileStmt), condition(condition), body(body) {}
+    CLASSOF_IMP(Node::Kind::WhileStmt)
+    WhileStmt(std::shared_ptr<Expr> condition, std::shared_ptr<CompoundStmt> body) : LocalStmt(Node::Kind::WhileStmt), condition(condition), body(body) {}
 };
 
 
@@ -430,8 +446,9 @@ public:
     std::shared_ptr<ast::Expr> expr;
     std::shared_ptr<ast::CompoundStmt> body;
     
+    CLASSOF_IMP(Node::Kind::ForLoop)
     ForLoop(std::shared_ptr<ast::Ident> ident, std::shared_ptr<ast::Expr> expr, std::shared_ptr<ast::CompoundStmt> body)
-    : LocalStmt(Node::NodeKind::ForLoop), ident(ident), expr(expr), body(body) {}
+    : LocalStmt(Node::Kind::ForLoop), ident(ident), expr(expr), body(body) {}
 };
 
 
@@ -441,9 +458,10 @@ public:
 class BreakContStmt : public LocalStmt {
 public:
     enum class Kind { Break, Continue };
-    
     const Kind kind;
-    BreakContStmt(Kind K) : LocalStmt(Node::NodeKind::BreakContStmt), kind(K) {}
+    
+    CLASSOF_IMP(Node::Kind::BreakContStmt)
+    BreakContStmt(Kind K) : LocalStmt(Node::Kind::BreakContStmt), kind(K) {}
     
     bool isBreak() const { return kind == Kind::Break; }
     bool isContinue() const { return !isBreak(); }
@@ -459,7 +477,8 @@ public:
     llvm::Value *value;
     yo::irgen::Type *type;
     
-    RawLLVMValueExpr(llvm::Value *value, yo::irgen::Type *ty) : Expr(Node::NodeKind::RawLLVMValueExpr), value(value), type(ty) {}
+    CLASSOF_IMP(Node::Kind::RawLLVMValueExpr)
+    RawLLVMValueExpr(llvm::Value *value, yo::irgen::Type *ty) : Expr(Node::Kind::RawLLVMValueExpr), value(value), type(ty) {}
 };
 
 
@@ -467,7 +486,8 @@ class Ident : public Expr {
 public:
     const std::string value;
     
-    explicit Ident(std::string value) : Expr(Node::NodeKind::Ident), value(value) {}
+    CLASSOF_IMP(Node::Kind::Ident)
+    explicit Ident(std::string value) : Expr(Node::Kind::Ident), value(value) {}
 };
 
 
@@ -481,7 +501,8 @@ public:
     const uint64_t value;
     const NumberType type;
     
-    explicit NumberLiteral(uint64_t value, NumberType type) : Expr(Node::NodeKind::NumberLiteral), value(value), type(type) {}
+    CLASSOF_IMP(Node::Kind::NumberLiteral)
+    explicit NumberLiteral(uint64_t value, NumberType type) : Expr(Node::Kind::NumberLiteral), value(value), type(type) {}
     
     static std::shared_ptr<NumberLiteral> integer(uint64_t value) {
         return std::make_shared<NumberLiteral>(value, NumberType::Integer);
@@ -499,7 +520,8 @@ public:
     std::string value;
     StringLiteralKind kind;
     
-    explicit StringLiteral(std::string value, StringLiteralKind kind) : Expr(Node::NodeKind::StringLiteral), value(value), kind(kind) {}
+    CLASSOF_IMP(Node::Kind::StringLiteral)
+    explicit StringLiteral(std::string value, StringLiteralKind kind) : Expr(Node::Kind::StringLiteral), value(value), kind(kind) {}
 };
 
 
@@ -509,7 +531,8 @@ class ExprStmt : public LocalStmt {
 public:
     std::shared_ptr<ast::Expr> expr;
     
-    explicit ExprStmt(std::shared_ptr<ast::Expr> expr) : LocalStmt(Node::NodeKind::ExprStmt), expr(expr) {}
+    CLASSOF_IMP(Node::Kind::ExprStmt)
+    explicit ExprStmt(std::shared_ptr<ast::Expr> expr) : LocalStmt(Node::Kind::ExprStmt), expr(expr) {}
 };
 
 
@@ -520,7 +543,8 @@ public:
     std::string typeName;
     std::string memberName;
     
-    StaticDeclRefExpr(const std::string &typeName, const std::string &memberName) : Expr(Node::NodeKind::StaticDeclRefExpr), typeName(typeName), memberName(memberName) {}
+    CLASSOF_IMP(Node::Kind::StaticDeclRefExpr)
+    StaticDeclRefExpr(const std::string &typeName, const std::string &memberName) : Expr(Node::Kind::StaticDeclRefExpr), typeName(typeName), memberName(memberName) {}
 };
 
 
@@ -533,8 +557,9 @@ public:
     std::vector<std::shared_ptr<Expr>> arguments;
     std::shared_ptr<ast::TemplateParamArgList> explicitTemplateArgs;
     
+    CLASSOF_IMP(Node::Kind::CallExpr)
     CallExpr(std::shared_ptr<Expr> target, std::vector<std::shared_ptr<Expr>> arguments = {})
-    : Expr(Node::NodeKind::CallExpr), target(target), arguments(arguments) {}
+    : Expr(Node::Kind::CallExpr), target(target), arguments(arguments) {}
     
     /// Whether the call has specifies explicit template arguments
     bool hasExplicitTemplateArgs() const {
@@ -556,7 +581,8 @@ public:
     std::shared_ptr<Expr> target;
     std::string memberName;
     
-    MemberExpr(std::shared_ptr<Expr> target, std::string memberName) : Expr(Node::NodeKind::MemberExpr), target(target), memberName(memberName) {}
+    CLASSOF_IMP(Node::Kind::MemberExpr)
+    MemberExpr(std::shared_ptr<Expr> target, std::string memberName) : Expr(Node::Kind::MemberExpr), target(target), memberName(memberName) {}
 };
 
 
@@ -567,7 +593,8 @@ public:
     std::shared_ptr<ast::Expr> target;
     std::shared_ptr<ast::Expr> offset;
     
-    SubscriptExpr(std::shared_ptr<ast::Expr> target, std::shared_ptr<ast::Expr> offset) : Expr(Node::NodeKind::SubscriptExpr), target(target), offset(offset) {}
+    CLASSOF_IMP(Node::Kind::SubscriptExpr)
+    SubscriptExpr(std::shared_ptr<ast::Expr> target, std::shared_ptr<ast::Expr> offset) : Expr(Node::Kind::SubscriptExpr), target(target), offset(offset) {}
 };
 
 
@@ -585,8 +612,9 @@ public:
     std::shared_ptr<TypeDesc> destType;
     CastKind kind;
     
+    CLASSOF_IMP(Node::Kind::CastExpr)
     CastExpr(std::shared_ptr<Expr> expr, std::shared_ptr<TypeDesc> destType, CastKind kind)
-    : Expr(Node::NodeKind::CastExpr), expr(expr), destType(destType), kind(kind) {
+    : Expr(Node::Kind::CastExpr), expr(expr), destType(destType), kind(kind) {
         setSourceLocation(expr->getSourceLocation());
     }
 };
@@ -600,16 +628,18 @@ public:
         std::vector<std::shared_ptr<Expr>> patterns;
         std::shared_ptr<Expr> expression;
         
-        MatchExprBranch() : Node(Node::NodeKind::MatchExprBranch) {}
+        MatchExprBranch() : Node(Node::Kind::MatchExprBranch) {}
         
+        CLASSOF_IMP(Node::Kind::MatchExprBranch)
         MatchExprBranch(std::vector<std::shared_ptr<Expr>> patterns, std::shared_ptr<Expr> expression)
-        : Node(Node::NodeKind::MatchExprBranch), patterns(patterns), expression(expression) {}
+        : Node(Node::Kind::MatchExprBranch), patterns(patterns), expression(expression) {}
     };
     
     std::shared_ptr<Expr> target;
     std::vector<MatchExprBranch> branches;
     
-    MatchExpr(std::shared_ptr<Expr> target, std::vector<MatchExprBranch> branches) : Expr(Node::NodeKind::MatchExpr), target(target), branches(branches) {}
+    CLASSOF_IMP(Node::Kind::MatchExpr)
+    MatchExpr(std::shared_ptr<Expr> target, std::vector<MatchExprBranch> branches) : Expr(Node::Kind::MatchExpr), target(target), branches(branches) {}
 };
 
 
@@ -622,8 +652,9 @@ class BinOp : public Expr {
     bool _isInPlaceBinop = false;
     
 public:
+    CLASSOF_IMP(Node::Kind::BinOp)
     BinOp(Operator op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs)
-    : Expr(Node::NodeKind::BinOp), op(op), lhs(lhs), rhs(rhs) {}
+    : Expr(Node::Kind::BinOp), op(op), lhs(lhs), rhs(rhs) {}
     
     Operator getOperator() const { return op; }
     std::shared_ptr<Expr> getLhs() const { return lhs; }
@@ -646,7 +677,8 @@ public:
     Operation op;
     std::shared_ptr<ast::Expr> expr;
     
-    UnaryExpr(Operation op, std::shared_ptr<ast::Expr> expr) : Expr(Node::NodeKind::UnaryExpr), op(op), expr(expr) {}
+    CLASSOF_IMP(Node::Kind::UnaryExpr)
+    UnaryExpr(Operation op, std::shared_ptr<ast::Expr> expr) : Expr(Node::Kind::UnaryExpr), op(op), expr(expr) {}
 };
 
 
@@ -674,7 +706,8 @@ public:
     // the struct generated for this lambda expression
     irgen::StructType *_structType = nullptr;
     
-    LambdaExpr() : Expr(Node::NodeKind::LambdaExpr) {}
+    CLASSOF_IMP(Node::Kind::LambdaExpr)
+    LambdaExpr() : Expr(Node::Kind::LambdaExpr) {}
 };
 
 
@@ -683,8 +716,9 @@ class ArrayLiteralExpr : public Expr {
 public:
     std::vector<std::shared_ptr<Expr>> elements;
     
+    CLASSOF_IMP(Node::Kind::ArrayLiteralExpr)
     explicit ArrayLiteralExpr(std::vector<std::shared_ptr<Expr>> elements)
-    : Expr(Node::NodeKind::ArrayLiteralExpr), elements(elements) {}
+    : Expr(Node::Kind::ArrayLiteralExpr), elements(elements) {}
 };
 
 NS_END

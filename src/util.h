@@ -169,21 +169,24 @@ inline constexpr bool is_vector_of_convertible_v = std::is_same<T, std::vector<t
 
 
 template <typename T>
-struct is_shared_ptr : std::false_type {};
+using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
+
+
 
 template <typename T>
-struct is_shared_ptr<std::shared_ptr<T>> : std::true_type {};
+struct is_shared_ptr_impl : std::false_type {};
 
 template <typename T>
-inline constexpr bool is_shared_ptr_v = is_shared_ptr<T>::value;
+struct is_shared_ptr_impl<std::shared_ptr<T>> : std::true_type {};
+
+
+template <typename T>
+inline constexpr bool is_shared_ptr_v = is_shared_ptr_impl<remove_cvref_t<T>>::value;
 
 
 template <typename T>
 inline constexpr bool is_nullable_v = std::is_pointer_v<T> || is_shared_ptr_v<T>;
 
-
-template <typename T>
-using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
 
 
 
