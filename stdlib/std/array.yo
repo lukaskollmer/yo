@@ -1,7 +1,7 @@
 use ":std/memory";
 
 struct ArrayIterator<Element> {
-    array: &Array<T>,
+    array: &Array<Element>,
     idx: i64
 }
 
