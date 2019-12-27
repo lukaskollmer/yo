@@ -20,12 +20,12 @@ public:
     enum class DataKind { Bool, String, Array };
     
     const std::string key;
-    DataKind dataKind;
+    const DataKind dataKind;
     
     const std::variant<
-    bool,
-    std::string,
-    std::vector<std::string>
+        bool,
+        std::string,
+        std::vector<std::string>
     > data;
     
 public:
@@ -57,6 +57,8 @@ struct FunctionAttributes {
     bool shutdown = false;
     bool int_isCtor = false;
     bool int_isFwdDecl = false;
+    bool int_isDelayed = false;
+    bool int_isSynthesized = false;
     std::string mangledName = "";
     std::vector<SideEffect> side_effects = { SideEffect::Unknown };
     

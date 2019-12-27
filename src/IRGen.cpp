@@ -369,6 +369,7 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         ctorFnDecl->setImplType(UselessStructTypeForTemplateStructCtor(structName, structDecl->getSourceLocation())); // TODO?
         ctorFnDecl->setSourceLocation(structDecl->getSourceLocation());
         ctorFnDecl->getAttributes().int_isCtor = true;
+        ctorFnDecl->getAttributes().int_isSynthesized = true;
 
         registerFunction(ctorFnDecl);
         return nullptr;
@@ -407,6 +408,7 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         ctorFnDecl->setImplType(structTy);
         ctorFnDecl->setSourceLocation(structDecl->getSourceLocation());
         ctorFnDecl->getAttributes().int_isCtor = true;
+        ctorFnDecl->getAttributes().int_isSynthesized = true;
         
         registerFunction(ctorFnDecl);
         
@@ -549,6 +551,8 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     const auto &sig = functionDecl->getSignature();
     const auto &attr = functionDecl->getAttributes();
     
+    LKAssert(!attr.int_isDelayed);
+    
     if (attr.extern_ || attr.intrinsic || attr.int_isCtor || sig.isTemplateDecl()) {
         return nullptr;
     }
@@ -568,6 +572,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         F->addFnAttr(llvm::Attribute::AlwaysInline);
     }
     
+    LKAssert(F->empty());
     
     auto entryBB = llvm::BasicBlock::Create(C, "entry", F);
     auto returnBB = llvm::BasicBlock::Create(C, "return");
@@ -2016,6 +2021,7 @@ ResolvedCallable IRGenerator::specializeTemplateFunctionDeclForCallExpr(std::sha
     llvm::Function *llvmFunction = nullptr;
     if (codegenOption == kRunCodegen && !specializedDecl->getAttributes().intrinsic) {
         llvmFunction = withCleanSlate([&]() {
+            specializedDecl->getAttributes().int_isDelayed = false;
             registerFunction(specializedDecl);
             return llvm::dyn_cast_or_null<llvm::Function>(codegen(specializedDecl));
         });
@@ -2308,9 +2314,16 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         }
         diagnostics::emitError(callExpr->getSourceLocation(), util::fmt::format("unable to resolve call to '{}'", targetName));
     }
-
+    
     
     auto bestMatch = matches.front();
+    
+    if (auto &attr = bestMatch.decl->getAttributes(); !skipCodegen && attr.int_isDelayed && !bestMatch.decl->getSignature().isTemplateDecl()) {
+        attr.int_isDelayed = false;
+        withCleanSlate([&]() {
+            codegen(bestMatch.decl);
+        });
+    }
     
     if (bestMatch.decl->getSignature().isTemplateDecl() && !bestMatch.llvmValue) {
         return specializeTemplateFunctionDeclForCallExpr(bestMatch.decl, bestMatch.templateArgumentMapping, argumentOffset, codegenOption);
@@ -3957,14 +3970,29 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
     
     // Instantiate & codegen impl blocks
     for (auto &implBlock : specializedDecl->implBlocks) {
+        for (auto &FD : implBlock->methods) {
+            if (!(FD->getAttributes().int_isSynthesized || FD->getName() == kInitializerMethodName)) {
+                FD->getAttributes().int_isDelayed = true;
+            }
+        }
+        
         auto name = implBlock->getName();
         implBlock->typename_ = mangledName;
         registerImplBlock(implBlock);
         implBlock->typename_ = name;
     }
+    
     for (auto &implBlock : specializedDecl->implBlocks) {
         for (auto &FD : implBlock->methods) {
-            codegen(FD);
+            if (!FD->getAttributes().int_isDelayed) {
+                if (auto F = module->getFunction(mangleFullyResolved(FD)); F && !F->empty()) {
+                    // It can happen that a function w/ delayed codegen is invoked by a function w/out delayed codegen,
+                    // in which case we have to avoid running codegen twice (ie int_isDelayed being false in here is not
+                    // indicative of the function actually needing codegen)
+                    continue;
+                }
+                codegen(FD);
+            }
         }
     }
     
@@ -3996,6 +4024,7 @@ llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
     attributes::FunctionAttributes attr;
     
     attr.int_isFwdDecl = true;
+    attr.int_isSynthesized = true;
     sig.setSourceLocation(SL);
     sig.returnType = ast::TypeDesc::makeResolved(builtinTypes.yo.Void);
     sig.paramTypes.reserve(ST->memberCount() + 1);
@@ -4059,6 +4088,7 @@ llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::
     attributes::FunctionAttributes attr;
     
     attr.int_isFwdDecl = true;
+    attr.int_isSynthesized = true;
     sig.setSourceLocation(SL);
     sig.returnType = ast::TypeDesc::makeResolved(builtinTypes.yo.Void);
     sig.paramTypes.push_back(ast::TypeDesc::makeResolved(ST->getReferenceTo()));
@@ -4125,6 +4155,7 @@ llvm::Value* IRGenerator::synthesizeDefaultDeallocMethod(std::shared_ptr<ast::St
     std::vector<std::shared_ptr<ast::Ident>> paramNames = { selfIdent };
     
     attr.int_isFwdDecl = true;
+    attr.int_isSynthesized = true;
     sig.returnType = ast::TypeDesc::makeResolved(builtinTypes.yo.Void);
     sig.paramTypes = { ast::TypeDesc::makeResolved(ST->getReferenceTo()) };
     
