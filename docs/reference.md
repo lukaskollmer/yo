@@ -24,8 +24,6 @@ TODO:
 
 
 
-
-
 <!--
 YO.LEX
 -->
@@ -33,7 +31,7 @@ YO.LEX
 
 
 <h2 sectionId="yo.lex">Lexical structure</h2>
-Valid Yo source code is written in ASCII. Some UTF-8 codepoints will probably work in identifiers and string literals, but there's no proper handling for characters outside the ASCII character set.
+Yo source code is written in ASCII. Some UTF-8 codepoints will probably work in identifiers and string literals, but there's no proper handling for characters outside the ASCII character set.
 
 
 <h3 sectionId="yo.lex.comment">Comments</h3>
@@ -50,7 +48,10 @@ The Yo lexer differentiates between the following kinds of tokens: keywords, ide
 Yo reserves the following keywords:
 
 ```
-decltype defer else fn for if impl in let mut match operator return struct switch unless use var while
+break       else    impl    match       switch    while
+continue    fn      in      operator    unless
+decltype    for     let     return      use
+defer       if      mut     struct      var
 ```
 
 
@@ -81,7 +82,7 @@ The following character sequences represent [operators](#yo.expr.operators) and 
 
 <h3 sectionId="yo.lex.literals">Literals</h3>
 
-<h4 sectionId="yo.lex.literals.int">Integer literals</h4>
+<h4 sectionId="yo.lex.literals.numeric">Numeric literals</h4>
 An integer literal is a sequence of digits. Depending on the prefix, the literal is interpreted as base 2, 8, 10 or 16.
 
 | Prefix | Base        |
@@ -91,20 +92,21 @@ An integer literal is a sequence of digits. Depending on the prefix, the literal
 | `0x`   | hexadecimal |
 |  none  | decimal     |
 
+A base-10 integer literal which is followed by a peroid (`.`) is interpreted as a floating point literal.
+
 ```
 binary_literal   =  0b[01]+       // base 2
 octal_literal    =  0o[0-7]+      // base 8
 decimal_literal  =  [0-9]+        // base 10
 hex_literal      =  0x[0-9a-f]+   // base 16
+
+flt_literal      = <decimal_literal>.<decimal_literal>
 ```
 
-<h4 sectionId="yo.lex.literals.float">Floating-point literals</h4>
-
-*TODO*
 
 <h4 sectionId="yo.lex.literals.char">Character literal</h4>
 A character literal is a valid ascii codepoint, enclosed by single quotes.
-*TODO*
+
 
 <h4 sectionId="yo.lex.literals.string">String literals</h4>
 A string literal is a sequence of valid ascii codepoints enclosed by double quotes.  
@@ -223,23 +225,52 @@ Yo defines the following primitive types:
 | `u{N}`   | N/8          | unsigned integer type | `0 ... 2^N-1`                         |
 | `i{N}`   | N/8          | signed integer type   | `-2^(N-1) ... 2^(N-1)-1`              |
 | `bool`   | 1            | the boolean type      | `true`, `false`                       |
+| `f32`    | 4            | IEEE-754 binary32     | [see wikipedia][ieee754binary32_wiki] |
 | `f64`    | 8            | IEEE-754 binary64     | [see wikipedia][ieee754binary64_wiki] |
 
+[ieee754binary32_wiki]: https://en.wikipedia.org/wiki/Single-precision_floating-point_format
 [ieee754binary64_wiki]: https://en.wikipedia.org/wiki/Double-precision_floating-point_format
 
 
 
 <h3 sectionId="yo.types.int">Integer types</h3>
 
-For integer types `u{N}` and `i{N}`, valid sizes are: N = 8, 16, 32, 64.
-
+For integer types `u{N}` and `i{N}`, valid sizes are: N = 8, 16, 32, 64.  
 An integer type's signedness is indicated by its prefix: `i8` is a signed integer, `u8` an unsigned integer.
 
-<h3 sectionId="yo.types.ptr">Pointer types</h3>
-Prefixing a base type `T` with a star yields a pointer type `*T`
 
+
+
+<h3 sectionId="yo.types.float">Floating-point types</h3>
+
+There are two types for floating-point values: `f32` and `f64`.  
+The `f32` type represents a 32-bit wide IEEE-754 floating point value, the `f64` type a 64-bit wide IEEE-754 floating point value.
+
+
+
+
+<h3 sectionId="yo.types.ptr">Pointer types</h3>
+
+A pointer to a value of type `T` is expressed by prefixing the type with an asterisk (`*`).
+
+For example, the type `*i32` denotes the set of all pointers to `i32` values.  
 A pointer type's base type must be of size > 0.
 Yo's equivalent of a C `void *` is `*i8`.
+
+
+
+
+<h3 sectionId="yo.types.ref">Reference types</h3>
+
+A [reference](#yo.ref) to a base type `T` is expressed by prefixing the type with an ampersand (`&`).  
+
+```rust
+let a: i64 = 12;
+let b
+```
+
+See the [lvalue references](#yo.ref) section for more info.
+
 
 
 
@@ -251,6 +282,7 @@ A function type represents all functions with the same parameter and result type
 (i32, i32) -> i64   // a function that takes two `i32` values and returns an `i64` value
 ```
 A function type (ie, a [function](#yo.decl.fn)'s signature) only contains the types of the parameter and return types, it does not contain the names of the individual parameters or any [attributes](#yo.attr.fn) the actual function declaration might have.
+
 
 
 
@@ -271,6 +303,8 @@ fn add<T, U>(x: T, y: U) -> decltype(x + y) {
     return x + y;
 }
 ```
+
+
 
 
 <h3 sectionId="yo.types.typealias">Typealias</h3>
@@ -320,9 +354,11 @@ fn add(x: i64, y: i64) -> i64 {
 }
 ```
 
-<h3 sectionId="yo.fn.decl.temp">Function template</h3>
 
-In the case of a [function template](#yo.temp.fn) declaration, the template parameter names are listed in angled brackets, immediately prior to the function's parameter list.
+
+<h3 sectionId="yo.fn.decl.tmpl">Function template</h3>
+
+In the case of a [function template](#yo.tmpl.fn) declaration, the template parameter names are listed in angled brackets, immediately prior to the function's parameter list.
 
 **Example**
 ```rust
@@ -337,29 +373,53 @@ fn add<T>(x: T, y: T) -> T {
 }
 ```
 
+See the [templates](#yo.tmpl) section for more info.
+
+
+
 
 <h3 sectionId="yo.fn.operator">Operator declaration</h3>
 
-Since most [binary operators](#yo.expr.operators) are implemented as functions, they can be overloaded for a specific signature.
+Since most [operators](#yo.expr.operators) are implemented as functions, they can be overloaded for a specific signature.
 An operator overload is declared as a function with the name `operator`, followed by the operator being overloaded.
 
-```rust
-fn operator + (x: Foo, y: Foo) -> Foo {
-    // some custom addition logic
-}
+The following operators may be overloaded:
 ```
-
-The following operators can be overloaded:
-```
-+    &     &&    ==
--    |     ||    !=
++    &     &&    ==    ()
+-    |     ||    !=    []
 *    ^           <
 /    <<          >
 %    >>          <=
                  >=
 ```
 
+**Example** Overloading the addition operator for a custom type:
+```rust
+fn operator + (x: Foo, y: Foo) -> Foo {
+    // some custom addition logic
+}
+```
+
+
+**Overloading the call and subscript operators**  
+A [struct type](#yo.struct) may overload the call and subscript operators.
+These overloads must be defined in one of the type's `impl` blocks, and match the signature requirements for instance methods.
+
+The `()` operator may accept an arbitrary number of parameters.
+The `[]` operator must always accept exactly one parameter.
+
+```rust
+// Example: overloading the subscript operator
+impl String {
+    fn operator [] (self: &String, index: i64) -> &i8 {
+        return self.data[index];
+    }
+}
+```
+
 **Note** When overloading comparison operators, implementing just `==` and `<` is sufficient, since all other operators have default implementations defined in terms of these two.
+
+
 
 
 <h3 sectionId="yo.fn.resolution">Overload resolution</h3>
@@ -372,11 +432,16 @@ A tie (ie, two or more equally likely targets) will result in a compile-time err
 
 
 
+
+
+
+
+
 <!-- yo.struct -->
 
 <h2 sectionId="yo.struct">Structs</h2>
 
-<h3 sectionId="yo.struct">Struct declaration</h3>
+<h3 sectionId="yo.struct.decl">Struct declaration</h3>
 
 Custom types can be defined using the `struct` keyword. All struct types are uniquely identified by their name. A struct type can have properties and a set of member functions (methods) associated with it. Member functions are declared in one or multiple `impl` blocks.
 
@@ -384,7 +449,6 @@ Custom types can be defined using the `struct` keyword. All struct types are uni
 - Static methods are type member functions that can be called on the type itself, using the `::` syntax
 - Unless the `no_init` [attribute](#yo.attr.struct) is present, the compiler will synthesize an initializer for a struct type
 
-**Note** For the time being, structs are always allocated on the heap
 
 **Example** Declaring a struct with properties and member functions  
 ```rust
@@ -395,20 +459,96 @@ struct Person {
 
 impl Person {
     // no `self` parameter -> static method
-    fn me() -> *Person {
-        return Person::init("Lukas", 20);
+    fn me() -> Person {
+        return Person("Lukas", 20);
     }
 
     // `self` parameter -> instance method
-    fn increaseAge(self: *Person) {
+    fn increaseAge(self: &Self) {
         self.age += 1;
     }
 }
 ```
 
 
+<h3 sectionId="yo.struct.static_method">Static methods</h3>
+
+A static method is a function which can be called on the type itself.
+All function declarations in an `impl` block that are not instance methods are static methods.
+
+**Example**
+```rust
+struct Foo {}
+
+impl Foo {
+    fn bar() -> i64 {
+        return 123;
+    }
+}
+```
 
 
+
+<h3 sectionId="yo.struct.instance_method">Instance methods</h3>
+
+An instance method is a function defined in a type's `impl` block which a reference to the type as its first parameter.
+
+```rust
+struct Number {
+    value: i32
+}
+
+impl Number {
+    fn increment(self: &Self) {
+        self.value += 1;
+    }
+
+    fn getValue(self: &Self) -> i32 {
+        return self.value;
+    }
+}
+
+let number = Number(10);
+number.increment();
+number.increment();
+number.getValue();  // <- returns 12
+```
+
+
+
+
+<h3 sectionId="yo.struct.init">Struct initialization</h3>
+
+Unless explicitly disabled via the `no_init` [attribute](#yo.attr), the compiler synthesizes the following initialization functions for a struct type:
+- A constructor, which can be called to construct and initialize an instance of the type
+- A default memberwise initializer, which sets each property of the object
+- A default copy initializer, which initializes an object by copying another object's properties
+
+An initializer is an instance method named `init` which returns `void`. A type can define custom initializers simply by overloading `init` for different signatures.
+
+**Constructor**  
+A type's constructor is invoked simply by calling the type as if it were a function:
+```rust
+let array = Array<Int>();
+```
+Based on the arguments passed to the constructor, the compiler will forward the call to one of the type's initializers.
+
+**Memberwise initializer**  
+The synthesized memberwise initializer takes the same arguments as the type's member fields, and simply sets the respective values. Note that if a type's member is a [reference](#yo.ref), the ccmpiler-generated memberwise initializer is the only option to initialize this reference (assigning to a reference member in a non-default initializer will set the object being referenced, as opposed to the reference itself).
+
+
+**Copy initializer**  
+The copy initializer takes two references to the current type (self and another object). It is used to initialize a an object from another instance of the same type, for example for constructing a copy when passing an object by-value to a function.
+
+
+
+
+<h3 sectionId="yo.struct.deinit">Struct destruction</h3>
+
+A type may implement a `dealloc` instance method, which will be invoked by the compiler when destructing that instance.
+This method must take just the `self` parameter and return `void`.
+
+**Note** custom `dealloc` methods will only be called for types that don't specify the `no_init` attribute
 
 
 <!--
@@ -482,22 +622,23 @@ Every expression evaluates to a value of a specific type, which must be known at
 
 <h3 sectionId="yo.expr.cast">Type conversions</h3>
 
-All type conversions are required to be explicit: Attempting to pass an `i64` to a function that expects an `u64` will result in a compilation error.  
-The only exception to this rule is numeric literals: Even though numeric literals by default evaluate to values of type `i64`, you may use a literal in an expression that is expected to be of a different numeric type, and the compiler will implicitly cast the literal.
+All type conversions are required to be explicit: Attempting to pass an `i64` to a function that expects an `u64` will result in a compilation error.
 
-<h4 sectionId="yo.expr.cast.static">static_cast</h4>
-```rust
-#[intrinsic]
-fn static_cast<R, T>(arg: T) -> R;
-```
-The `static_cast` intrinsic converts an expression of type `T` to a related type `R`, if there is a known conversion from `T` to `R`. It will fail at compile-time if there is no known conversion.
+**Implicit conversions**  
+The sole exception to this rule is numeric literals:
+Even though numeric literals by default evaluate to values of type `i64`, you may use a literal in an expression that expects a different numeric type, and the compiler will implicitly cast the literal.
 
-<h4 sectionId="yo.expr.cast.reinterpret">reinterpret_cast</h4>
-```rust
-#[intrinsic]
-fn reinterpret_cast<R, T>(arg: T) -> R;
-```
-The `reinterpret_cast` intrinsic converts between any two types `T` and `R`, by reinterpreting the value's bit pattern. `T` and `R` are required to have the exact same bit width, otherwise it will fail at compile-time.
+
+**Explicit conversions**  
+There are two intrinsics for converting a value from one type to another:
+- ```rust
+  fn cast<To, From>(x: From) -> To;
+  ``` 
+  The `cast` intrinsic converts a value of type `A` to a related type `B`, if there exists a known conversion from `A` to `B`. If there is no such conversion, the cast will fail to compile.
+- ```rust
+  fn bitcast<To, From>(x: From) -> To;
+  ``` 
+  The `bitcast` intrinsic converts between any two types `A` and `B`, by reinterpreting the value's bit pattern. `T` and `R` must have the exact same bit width, otherwise the cast will fail to compile.
 
 
 **Example**  
@@ -515,11 +656,46 @@ fn bar() -> i32 {
 
 
 
-<!-- yo.expr.lambda
+<!-- yo.expr.lambda  -->
 
 <h3 sectionId="yo.expr.lambda">Lambdas</h3>
-A lambda expression constructs an anynomous function -->
 
+A lambda expression constructs an anynomous function.
+
+Like a "normal" function, a lambda has a fixed set of inputs and an output.  
+In addition, a lambda can also capture variables from outside its own scope (these captures must be explicitly declared in the lambda's capture list).  
+<!-- A lambdas can define a [template](#yo.tmpl) parameter list. -->
+
+There is no uniform type for lambda objects, instead the compiler will generate an anonymous type for each lambda expression.
+
+**Syntax**
+```
+lambda_expr        = capture_list [tmpl_params] signature fn_body
+capture_list       = "[" "]" | "[" capture_list_elem { "," capture_list_elem } "]"
+capture_list_elem  = ["&"] ident [ "=" expr ]
+```
+
+**Example**
+```rust
+// a noop lambda: no input, no output, does nothing
+let f1 = []() {};
+
+// a lambda which adds two integers
+let f2 = [](x: i64, y: i64) -> i64 {
+    return x + y;
+};
+
+// a lambda which adds two values of the same type
+let f3 = []<T>(x: T, y: T) -> T {
+    return x + y;
+};
+
+// a lambda which captures an object by reference, and increments it
+let x = 0;
+let f4 = [&x](inc: i64) {
+    x += inc;
+};
+```
 
 
 
@@ -534,7 +710,13 @@ YO.ATTR
 <h2 sectionId="yo.attr">Attributes</h2>
 Attributes can be used to provide the compiler with additional knowledge about a declaration.
 
-An attribute list is declared using the `#[<attr>, <attr>, ...]` syntax.
+**Syntax**
+```
+attr_list = "#[" attr { "," attr } "]"
+attr      = ident [ "=" attr_val ]
+attr_val  = ident | string
+```
+
 A declaration that can have attributes can be preceded by one or multiple attribute lists.
 Splitting multiple attributes up into multiple separate attribute lists is semantically equivalent to putting them all in a single list.
 
@@ -551,7 +733,6 @@ Splitting multiple attributes up into multiple separate attribute lists is seman
     C  #[]
     D  #[attr_name=false]
     ```
-
 - `string` In this case, the value must always be explicitly specified  
     ```rust
     #[attr_name="attr_value"]
@@ -617,14 +798,39 @@ An intrinsic function may be overloaded with a custom implementation, in this ca
 
 
 
+
+
+
+
+
+
 <!--
-YO.TEMP
+YO.REF
+-->
+
+<h2 sectionId="yo.ref">LValue references</h2>
+
+_todo_
+
+
+
+
+<!--
+YO.TMPL
 -->
 
 
 
-<h2 sectionId="yo.temp">Templates</h2>
+<h2 sectionId="yo.tmpl">Templates</h2>
 Templates provide a way to declare a generic implementation of a struct or function.
+
+**Syntax**
+```
+tmpl_params = "<" tmpl_param { "," tmpl_param } ">"
+tmpl_param  = ident [ "=" type ]
+```
+
+**Template codegen**
 
 Templates don't exist "on their own": No code is generated when you only declare, but never use a template.  
 When the compiler encounters an instantiation of a struct template or a call to a function template, it generates a specialized version for the supplied generic arguments.
@@ -642,7 +848,6 @@ Function specializations can be declared simply by overloadding the function for
 
 
 
-
 <!--
 YO.MEM
 -->
@@ -650,17 +855,18 @@ YO.MEM
 
 
 <h2 sectionId="yo.mem">Memory Management</h2>
-Yo currently doesn't have garbage collection / automatic reference counting.
 
-The [`:runtime/memory`](https://github.com/lukaskollmer/yo/blob/master/stdlib/runtime/memory.yo) module declares some functions and intrinsics related to memory management:
+Yo implements C++-style RAII.
+Types can define a custom [copy initializer](#yo.struct.init), which will be invoked when constructing a copy of an object, and a `dealloc` method, which will be invoked when an object goes out of scope.
+
+<!-- The [`:runtime/memory`](https://github.com/lukaskollmer/yo/blob/master/stdlib/runtime/memory.yo) module declares some functions and intrinsics related to memory management:
 - **`fn sizeof<T>() -> size_t`**  
     Returns the size of the template parameter type `T`, in bytes.
 - **`fn alloc<T>(count: size_t) -> *T`**  
     Allocates memory for `count` objects of type `T` and returns a pointer to be first byte of the allocated memory block.  
     The allocated memory is initialized to zero.
 - **`fn dealloc<T>(ptr: *T) -> void`**  
-    Deallocates a memory block allocated by `alloc`.
-
+    Deallocates a memory block allocated by `alloc`. -->
 
 
 <script src="{{ '/static/spec-sections.js' | relative_url }}"></script>
