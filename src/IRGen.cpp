@@ -342,6 +342,7 @@ std::optional<ResolvedCallable> IRGenerator::getResolvedFunctionWithName(const s
 }
 
 
+// TODO come up w/ a better implementation than this!
 StructType* UselessStructTypeForTemplateStructCtor(std::string name, const parser::TokenSourceLocation &SL) {
     return StructType::create(name, {}, SL);
 }
@@ -1728,10 +1729,6 @@ IRGenerator::resolveStructTemplateParametersFromExplicitTemplateArgumentList(std
     auto &params = SD->templateParamsDecl->getParams();
     auto numParams = params.size();
     auto numArgs = explicitArgs.size();
-    
-    if (numParams != numArgs) {
-        LKFatalError("TODO");
-    }
     
     // TODO:
     // - take potential additional constructor params into account!
