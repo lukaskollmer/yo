@@ -2187,6 +2187,11 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         auto &sig = decl->getSignature();
         bool isVariadicWithCLinkage = sig.isVariadic && target.funcDecl->getAttributes().extern_;
         
+        if (decl->isTemplateInstantiation()) {
+            //rejections.emplace_back("template instantiation", *decl);
+            continue;
+        }
+        
         if (!sig.isVariadic && callExpr->arguments.size() != sig.paramTypes.size() - argumentOffset) {
             rejections.emplace_back("argument count mismatch", *decl);
             continue;
@@ -2202,10 +2207,6 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             if (!decl->isTemplateInstantiation()) {
                 rejections.emplace_back("cannot pass explicit template arguments to non-template target", *decl);
             }
-            continue;
-        }
-        if (decl->isTemplateInstantiation()) {
-            rejections.emplace_back("template instantiation", *decl);
             continue;
         }
         
