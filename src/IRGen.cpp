@@ -1720,15 +1720,19 @@ StructType* IRGenerator::synthesizeLambdaExpr(std::shared_ptr<ast::LambdaExpr> l
 // This only looks at the explicitly passed template arguments, not
 // This function returns fully resolved TypeDesc objects
 TemplateTypeMapping
-IRGenerator::resolveStructTemplateParametersFromExplicitTemplateArgumentList(std::shared_ptr<ast::StructDecl> SD, std::shared_ptr<ast::TemplateParamArgList> templateParamList) {
+IRGenerator::resolveStructTemplateParametersFromExplicitTemplateArgumentList(std::shared_ptr<ast::StructDecl> SD, std::shared_ptr<ast::TemplateParamArgList> templateArgsList) {
     
     TemplateTypeMapping mapping;
     
-    const auto &explicitArgs = templateParamList->elements;
+    const auto &explicitArgs = templateArgsList->elements;
     
     auto &params = SD->templateParamsDecl->getParams();
     auto numParams = params.size();
     auto numArgs = explicitArgs.size();
+    
+    if (numParams > numArgs) {
+        diagnostics::emitError(templateArgsList->getSourceLocation(), "too many template arguments");
+    }
     
     // TODO:
     // - take potential additional constructor params into account!
@@ -1743,7 +1747,7 @@ IRGenerator::resolveStructTemplateParametersFromExplicitTemplateArgumentList(std
             mapping[param.name] = ast::TypeDesc::makeResolved(resolveTypeDesc(defaultType));
         } else {
             auto msg = util::fmt::format("unable to resolve template parameter '{}'", param.name);
-            diagnostics::emitError(templateParamList->getSourceLocation(), msg);
+            diagnostics::emitError(templateArgsList->getSourceLocation(), msg);
         }
     }
     
@@ -1763,6 +1767,7 @@ uint8_t IRGenerator::argumentOffsetForCallingConvention(CallingConvention cc) {
 
 
 
+// TODO this should somehow return an error message explaining why the template deduction failed (eg "too many template arguments", etc)
 std::optional<TemplateTypeMapping>
 IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> FD, std::shared_ptr<ast::CallExpr> call, unsigned int argumentOffset) {
     using TDK = ast::TypeDesc::Kind;
@@ -1771,6 +1776,10 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
     LKAssert(sig.isTemplateDecl());
     
     if (sig.paramTypes.size() != call->arguments.size() + argumentOffset) {
+        return std::nullopt;
+    }
+    
+    if (call->numberOfExplicitTemplateArgs() > sig.numberOfTemplateParameters()) {
         return std::nullopt;
     }
     
