@@ -30,6 +30,9 @@ static NumericalType *_float64Ty;
 
 
 void Type::initPrimitives() {
+    static bool didInitialize = false;
+    if (didInitialize) return;
+    
     _voidTy    = new Type(TypeID::Void);
     _boolTy    = new NumericalType(NumericalType::NumericalTypeID::Bool);
     _int8Ty    = new NumericalType(NumericalType::NumericalTypeID::Int8);
@@ -42,6 +45,8 @@ void Type::initPrimitives() {
     _uint64Ty  = new NumericalType(NumericalType::NumericalTypeID::UInt64);
     _float32Ty = new NumericalType(NumericalType::NumericalTypeID::Float32);
     _float64Ty = new NumericalType(NumericalType::NumericalTypeID::Float64);
+    
+    didInitialize = true;
 }
 
 
