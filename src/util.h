@@ -188,7 +188,20 @@ template <typename T>
 inline constexpr bool is_nullable_v = std::is_pointer_v<T> || is_shared_ptr_v<T>;
 
 
+// Extracts a member pointer's class and member type
 
+template <typename>
+struct member_ptr;
+
+template <typename C, typename M>
+struct member_ptr<M C::*> {
+    using ClassT = C;
+    using MemberT = M;
+};
+
+
+
+// TODO the typename stuff needs a rewrite!
 
 
 template <typename T>
@@ -206,16 +219,6 @@ template <typename T>
 const std::string TypeInfo<T>::name = demangle(typeid(T).name());
 
 
-// Extracts a member pointer's class and member type
-
-template <typename T>
-struct member_ptr;
-
-template <typename ClassT, typename MemberT>
-struct member_ptr<MemberT ClassT::*> {
-    using classT = ClassT;
-    using memberT = MemberT;
-};
 
 } // namespace typeinfo
 

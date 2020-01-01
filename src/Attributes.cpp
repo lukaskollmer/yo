@@ -17,7 +17,7 @@ using namespace yo::attributes;
 
 template <typename T>
 struct Mapping {
-    using MemberT = typename util::typeinfo::member_ptr<T>::memberT;
+    using MemberT = typename util::typeinfo::member_ptr<T>::MemberT;
     
     const std::string_view key;
     const T memberPtr;
