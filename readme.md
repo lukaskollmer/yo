@@ -18,7 +18,7 @@ fn main() -> i32 {
 
 
 ## Documentation
-You can find some documentation [here](https://yo-lang.net)
+You can find some documentation [here](https://lukaskollmer.de/yo-lang/)
 
 
 ## Usage
