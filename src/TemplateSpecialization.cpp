@@ -51,8 +51,13 @@ std::shared_ptr<ast::TypeDesc> TemplateSpecializer::resolveType(std::shared_ptr<
         
         case TDK::NominalTemplated: {
             auto resolvedTemplateArgs = util::vector::map(typeDesc->getTemplateArgs(), [this](auto &ty) { return resolveType(ty); });
-            return ast::TypeDesc::makeNominalTemplated(typeDesc->getName(), resolvedTemplateArgs);
+            return ast::TypeDesc::makeNominalTemplated(typeDesc->getName(), resolvedTemplateArgs, loc);
         }
+        
+//        case TDK::Tuple: {
+//            auto resolvedTys = util::vector::map(typeDesc->getTupleMembers(), [this](auto &ty) { return resolveType(ty); });
+//            return ast::TypeDesc::makeTuple(resolvedTys, loc);
+//        }
         
         case TDK::Function:
             LKFatalError("TODO");

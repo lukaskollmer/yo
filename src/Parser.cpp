@@ -12,6 +12,9 @@
 #include "StdlibResolution.h"
 #include "Diagnostics.h"
 
+#include "util_llvm.h"
+#include "llvm/Support/Casting.h"
+
 #include <string>
 #include <vector>
 #include <map>
@@ -69,6 +72,14 @@ static const TokenSet binaryOperatorStartTokens = {
     TK::Plus, TK::Minus, TK::Asterisk, TK::ForwardSlash, TK::PercentageSign,
     TK::Ampersand, TK::Pipe, TK::Circumflex, TK::OpeningAngledBracket, TK::ClosingAngledBracket,
     TK::EqualsSign, TK::ExclamationMark
+};
+
+
+static const MappedTokenSet<ast::UnaryExpr::Operation> unaryOperators = {
+    { TK::Minus,           UnaryExpr::Operation::Negate          },
+    { TK::Tilde,           UnaryExpr::Operation::BitwiseNot      },
+    { TK::ExclamationMark, UnaryExpr::Operation::LogicalNegation },
+    { TK::Ampersand,       UnaryExpr::Operation::AddressOf       }
 };
 
 
@@ -272,7 +283,11 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
             consume();
             std::vector<std::shared_ptr<TypeDesc>> types;
             while (currentTokenKind() != TK::ClosingParens) {
-                types.push_back(parseType());
+                auto ty = parseType();
+                if (!ty) {
+                    diagnostics::emitError(getCurrentSourceLocation(), "unable to parse type");
+                }
+                types.push_back(ty);
                 if (currentTokenKind() == TK::Comma) {
                     consume();
                 }
@@ -286,10 +301,15 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
                 auto returnType = parseType();
                 return TypeDesc::makeFunction(cc, returnType, types, loc);
             } else {
-                LKFatalError("tuple");
+                // Tuple type
+                if (types.size() == 1) {
+                    return types[0];
+                }
+                return TypeDesc::makeTuple(types, loc);
             }
         }
-        default: return nullptr;
+        default:
+            return nullptr;
     }
 }
 
@@ -328,7 +348,12 @@ std::shared_ptr<TopLevelStmt> Parser::parseTopLevelStmt() {
                 break;
             }
         }
-        default: unhandledToken(currentToken());
+        case TK::Variant: {
+            stmt = parseVariantDecl();
+            break;
+        }
+        default:
+            unhandledToken(currentToken());
     }
     
     stmt->setSourceLocation(startLocation);
@@ -523,6 +548,40 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
 }
 
 
+
+
+std::shared_ptr<VariantDecl> Parser::parseVariantDecl() {
+    auto SL = getCurrentSourceLocation();
+    assertTkAndConsume(TK::Variant);
+    
+    auto decl = std::make_shared<VariantDecl>(parseIdent());
+    decl->templateParams = parseTemplateParamDeclList();
+    
+    assertTkAndConsume(TK::OpeningCurlyBraces);
+    
+    while (true) {
+        auto name = parseIdent();
+        if (currentTokenKind() == TK::OpeningParens) {
+            auto ty = parseType();
+            LKAssert(ty);
+//            if (!ty->isTuple()) {
+//                ty = TypeDesc::makeTuple({ty}, ty->getSourceLocation());
+//            }
+            decl->members.emplace_back(name, ty);
+        }
+        if (currentTokenKind() == TK::Comma) {
+            consume();
+            continue;
+        } else if (currentTokenKind() == TK::ClosingCurlyBraces) {
+            break;
+        } else {
+            unhandledToken(currentToken());
+        }
+    }
+    
+    assertTkAndConsume(TK::ClosingCurlyBraces);
+    return decl;
+}
 
 
 
@@ -911,6 +970,20 @@ std::vector<std::shared_ptr<Expr>> Parser::parseExpressionList(Token::TokenKind 
 }
 
 
+std::shared_ptr<TupleExpr> Parser::parseTupleExpr() {
+    auto SL = getCurrentSourceLocation();
+    assertTkAndConsume(TK::OpeningParens);
+    
+    auto elements = parseExpressionList(TK::ClosingParens);
+    assertTkAndConsume(TK::ClosingParens);
+    
+    auto tupleExpr = std::make_shared<TupleExpr>(elements);
+    tupleExpr->setSourceLocation(SL);
+    return tupleExpr;
+}
+
+
+
 std::string Parser::parseIdentAsString() {
     assertTk(TK::Ident);
     auto val = currentToken().getData<std::string>();
@@ -1012,48 +1085,64 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
     
     std::shared_ptr<Expr> expr;
     
-    if (currentTokenKind() == TK::OpeningParens) {
-        consume();
-        expr = parseExpression();
-        assertTkAndConsume(TK::ClosingParens);
+    switch (currentTokenKind()) {
+        case TK::OpeningParens: {
+            auto tupleExpr = parseTupleExpr();
+            if (tupleExpr->numberOfElements() == 1) {
+                expr = tupleExpr->elements[0];
+            } else {
+                expr = tupleExpr;
+            }
+            break;
+        }
+        
+        case TK::Match:
+            expr = parseMatchExpr();
+            break;
+        
+        case TK::BoolLiteral:
+        case TK::CharLiteral:
+        case TK::IntegerLiteral:
+        case TK::DoubleLiteral:
+            expr = parseNumberLiteral();
+            break;
+        
+        case TK::StringLiteral:
+        case TK::ByteStringLiteral:
+            expr = parseStringLiteral();
+            break;
+        
+        case TK::OpeningSquareBrackets:
+            expr = parseLambdaExpr();
+            break;
+        
+        case TK::Ident: {
+            expr = parseIdent();
+            
+            if (currentTokenKind() == TK::Colon && peekKind() == TK::Colon) {
+                // a static member reference
+                // Q: how do we know that for sure?
+                // A: we only end up here if E was null before -> the ident and the two colons are at the beginning of the expression we're parsing
+
+                auto typeName = std::dynamic_pointer_cast<ast::Ident>(expr)->value;
+                consume(2);
+                auto memberName = parseIdentAsString();
+                expr = std::make_shared<ast::StaticDeclRefExpr>(typeName, memberName);
+            }
+        }
+        
+        default:
+            break;
     }
     
-    if (!expr && currentTokenKind() == TK::Match) {
-        expr = parseMatchExpr();
-    }
-    
-    if (!expr) {
-        expr = parseNumberLiteral();
-    }
-    
-    if (!expr) {
+    if (!expr && unaryOperators.contains(currentTokenKind())) {
         expr = parseUnaryExpr();
     }
     
-    if (!expr) {
-        expr = parseStringLiteral();
-    }
     
     if (!expr) {
-        expr = parseLambdaExpr();
+        return nullptr;
     }
-    
-    if (!expr) {
-        expr = parseIdent();
-        
-        if (currentTokenKind() == TK::Colon && peekKind() == TK::Colon) {
-            // a static member reference
-            // Q: how do we know that for sure?
-            // A: we only end up here if E was null before -> the ident and the two colons are at the beginning of the expression we're parsing
-            
-            auto typeName = std::dynamic_pointer_cast<ast::Ident>(expr)->value;
-            consume(2);
-            auto memberName = parseIdentAsString();
-            expr = std::make_shared<ast::StaticDeclRefExpr>(typeName, memberName);
-        }
-    }
-    
-    if (!expr) return nullptr;
     
     expr->setSourceLocation(sourceLoc);
     
@@ -1503,13 +1592,6 @@ std::shared_ptr<StringLiteral> Parser::parseStringLiteral() {
     return std::make_shared<StringLiteral>(value, kind);
 }
 
-
-static const MappedTokenSet<ast::UnaryExpr::Operation> unaryOperators = {
-    { TK::Minus,           UnaryExpr::Operation::Negate          },
-    { TK::Tilde,           UnaryExpr::Operation::BitwiseNot      },
-    { TK::ExclamationMark, UnaryExpr::Operation::LogicalNegation },
-    { TK::Ampersand,       UnaryExpr::Operation::AddressOf       }
-};
 
 std::shared_ptr<UnaryExpr> Parser::parseUnaryExpr() {
     if (!unaryOperators.contains(currentTokenKind())) return nullptr;

@@ -66,6 +66,7 @@ std::string TokenKindToString(Token::TokenKind kind) {
         CASE(Decltype)
         CASE(Break)
         CASE(Continue)
+        CASE(Variant)
     }
 #undef CASE
 }

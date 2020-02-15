@@ -26,6 +26,10 @@ using namespace yo::ast;
 
 
 
+bool FunctionDecl::isOperatorOverload() const {
+    return util::string::allCharsMatch(name, isdigit);
+}
+
 bool FunctionDecl::isOperatorOverloadFor(Operator op) const {
     return name == mangling::encodeOperator(op);
 }
@@ -226,7 +230,7 @@ std::string to_string(T arg) {
         return arg->str();
         
     } else if constexpr(std::is_base_of_v<irgen::Type, typename std::remove_pointer_t<T>>) {
-        return arg->str();
+        return arg->str_desc();
     
     } else if constexpr(std::is_same_v<T, FunctionKind>) {
         return FunctionKindToString(arg);

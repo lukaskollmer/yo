@@ -9,6 +9,11 @@
 #include "Type.h"
 #include "Mangling.h"
 
+#include <string>
+#include <map>
+#include <vector>
+#include <ostream>
+
 using namespace yo;
 using namespace yo::irgen;
 
@@ -65,16 +70,14 @@ NumericalType* Type::getFloat64Type() { return _float64Ty; }
 
 
 
-
-
-
-std::string Type::str() const {
-    return getName();
+std::string Type::str_mangled() const {
+    return mangling::mangleFullyResolved(this);
 }
 
-std::string Type::getName() const {
+std::string Type::str_desc() const {
     if (isVoidTy()) return "void";
-    // Void is the only type that doesn't have its own subclass, so all other `getName` calls should get dispatched to the relative subclass
+    
+    // Void is the only type that doesn't have its own subclass, so all other `str_desc` calls should get dispatched to the respective implementation
     LKFatalError("should never reach here");
 }
 
@@ -144,11 +147,7 @@ bool NumericalType::isIntegerTy() const {
 
 
 
-std::string NumericalType::str() const {
-    return getName();
-}
-
-std::string NumericalType::getName() const {
+std::string NumericalType::str_desc() const {
     switch (numericalTypeId) {
         case NumericalTypeID::Bool: return "bool";
         case NumericalTypeID::Int8: return "i8";
@@ -215,44 +214,40 @@ bool NumericalType::isSigned() const {
 
 #pragma mark - PointerType
 
-std::string PointerType::getName() const {
-    LKFatalError("TODO");
-    return "";
-}
-
-std::string PointerType::str() const {
-    return std::string("*").append(pointee->str());
+std::string PointerType::str_desc() const {
+    return util::fmt::format("*{}", pointee->str_desc());
 }
 
 
 
 #pragma mark - ReferenceType
 
-std::string ReferenceType::getName() const {
-    LKFatalError("TODO");
-    return "";
+std::string ReferenceType::str_desc() const {
+    return util::fmt::format("&{}", pointee->str_desc());
 }
 
-std::string ReferenceType::str() const {
-    return util::fmt::format("&{}", pointee->str());
-}
 
 
 #pragma mark - FunctionType
 
-std::string FunctionType::str() const {
-    LKFatalError("TODO");
-    return "TODO";
-}
 
-std::string FunctionType::getName() const {
-    return "";
+std::string FunctionType::str_desc() const {
+    std::ostringstream OS;
+    
+    OS << '(';
+    util::vector::iterl(parameterTypes, [&OS](auto param, bool isLast) {
+        OS << param->str_desc();
+        if (!isLast) OS << ", ";
+    });
+    OS << ") -> " << returnType->str_desc();
+    
+    return OS.str();
 }
 
 
 #pragma mark - StructType
 
-std::string StructType::str() const {
+std::string StructType::str_desc() const {
     return mangling::demangle(name);
 }
 
@@ -267,4 +262,41 @@ std::pair<uint64_t, Type *> StructType::getMember(const std::string &name) const
     return {0, nullptr};
 }
 
+
+
+
+#pragma mark - TupleType
+
+static std::map<std::vector<Type *>, TupleType *> registeredTupleTypes;
+
+TupleType* TupleType::get(const std::vector<Type *> &members) {
+    if (auto TT = util::map::get_opt(registeredTupleTypes, members)) {
+        return *TT;
+    }
+
+    auto TT = new TupleType(members);
+    registeredTupleTypes[members] = TT;
+    return TT;
+}
+
+std::string TupleType::str_desc() const {
+    std::ostringstream OS;
+    
+    OS << "(";
+    util::vector::iterl(members, [&OS](auto member, bool isLast) {
+        OS << member->str_desc();
+        if (!isLast) OS << ", ";
+    });
+    OS << ")";
+    
+    return OS.str();
+}
+
+
+StructType* TupleType::getUnderlyingStructType() {
+    if (auto ST = underlyingStructType) return ST;
+    
+//    auto ST = StructType::create(<#std::string name#>, <#MembersT members#>, parser::TokenSourceLocation());
+    LKFatalError("TODO");
+}
 

@@ -12,6 +12,7 @@
 #include "Token.h"
 #include <vector>
 #include <utility>
+#include <string>
 
 
 namespace llvm {
@@ -46,7 +47,8 @@ public:
         Pointer,
         Reference,
         Function,
-        Struct
+        Struct,
+        Tuple
     };
     
 private:
@@ -74,9 +76,12 @@ public:
         llvmDIType = ty;
     }
     
+    /// The mangled string representation of the type
+    virtual std::string str_mangled() const;
     
-    virtual std::string getName() const;
-    virtual std::string str() const;
+    /// A string describing this type
+    virtual std::string str_desc() const;
+    
     
     bool isVoidTy() const { return typeId == TypeID::Void; }
     bool isPointerTy() const { return typeId == TypeID::Pointer; }
@@ -84,6 +89,7 @@ public:
     bool isFunctionTy() const { return typeId == TypeID::Function; }
     bool isStructTy() const { return typeId == TypeID::Struct; }
     bool isReferenceTy() const { return typeId == TypeID::Reference; }
+    bool isTupleTy() const { return typeId == TypeID::Tuple; }
         
     PointerType* getPointerTo();
     ReferenceType* getReferenceTo();
@@ -109,9 +115,9 @@ public:
     }
 };
 
-inline std::ostream& operator<<(std::ostream &OS, Type *ty) {
-    return OS << ty->str();
-}
+//inline std::ostream& operator<<(std::ostream &OS, Type *ty) {
+//    return OS << ty->str();
+//}
 
 
 class NumericalType : public Type {
@@ -129,11 +135,10 @@ private:
     
 public:
     NumericalTypeID getNumericalTypeID() const { return numericalTypeId; }
+    std::string str_desc() const override;
     
     bool numericalTypeIdEquals(NumericalTypeID ID) const { return numericalTypeId == ID; }
     
-    virtual std::string getName() const;
-    virtual std::string str() const;
     uint8_t getSize() const;
     uint8_t getPrimitiveSizeInBits() const;
     bool isSigned() const;
@@ -160,9 +165,9 @@ class PointerType : public Type {
     explicit PointerType(Type *pointee) : Type(Type::TypeID::Pointer), pointee(pointee) {}
     
 public:
-    virtual std::string getName() const;
-    virtual std::string str() const;
     Type* getPointee() const { return pointee; }
+    
+    std::string str_desc() const override;
     
     static bool classof(const Type *type) {
         return type->getTypeId() == TypeID::Pointer;
@@ -180,9 +185,9 @@ class ReferenceType : public Type {
     explicit ReferenceType(Type *pointee) : Type(Type::TypeID::Reference), pointee(pointee) {}
     
 public:
-    std::string getName() const;
-    std::string str() const;
     Type* getReferencedType() const { return pointee; }
+    
+    std::string str_desc() const override;
     
     static bool classof(const Type *type) {
         return type->getTypeId() == TypeID::Reference;
@@ -203,13 +208,12 @@ class FunctionType : public Type {
     : Type(Type::TypeID::Function), returnType(retTy), parameterTypes(paramTys), callingConvention(cc) {}
     
 public:
-    virtual std::string getName() const;
-    virtual std::string str() const;
-    
     Type* getReturnType() const { return returnType; }
     uint64_t getNumberOfParameters() const { return parameterTypes.size(); }
     const std::vector<Type *>& getParameterTypes() const { return parameterTypes; }
     CallingConvention getCallingConvention() const { return callingConvention; }
+    
+    std::string str_desc() const override;
     
     static FunctionType* create(Type *returnType, std::vector<Type *> parameterTypes, CallingConvention cc) {
         return new FunctionType(returnType, parameterTypes, cc);
@@ -242,11 +246,9 @@ private:
     : Type(Type::TypeID::Struct), name(name), members(members), templateArguments(templateArgs), sourceLoc(SL) {}
     
 public:
-    
-    virtual std::string getName() const {
-        return name;
-    }
-    virtual std::string str() const;
+    const std::string& getName() const { return name; }
+    std::string str_mangled() const override { return name; }
+    std::string str_desc() const override;
     
     bool hasMember(const std::string &name) const;
     
@@ -274,5 +276,26 @@ public:
     }
 };
 
+
+
+class TupleType : public Type {
+    std::vector<Type *> members;
+    StructType *underlyingStructType = nullptr;
+
+    TupleType(const std::vector<Type *> &M) : Type(Type::TypeID::Tuple), members(M) {}
+
+public:
+    static TupleType* get(const std::vector<Type *>&);
+    
+    uint64_t memberCount() const { return members.size(); }
+    const std::vector<Type *>& getMembers() const { return members; }
+    
+    StructType* getUnderlyingStructType();
+    std::string str_desc() const override;
+
+    static bool classof(const Type *type) {
+        return type->getTypeId() == TypeID::Tuple;
+    }
+};
 
 NS_END

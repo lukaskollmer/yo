@@ -90,7 +90,9 @@ private:
     
     [[noreturn]]
     void unhandledToken(const Token &);
+    
     void assertTk(Token::TokenKind expected);
+    
     void assertTkAndConsume(Token::TokenKind expected) {
         assertTk(expected);
         consume();
@@ -108,6 +110,7 @@ private:
     std::shared_ptr<ast::TemplateParamDeclList> parseTemplateParamDeclList();
     std::shared_ptr<ast::StructDecl> parseStructDecl(attributes::StructAttributes);
     std::shared_ptr<ast::TypealiasDecl> parseTypealias();
+    std::shared_ptr<ast::VariantDecl> parseVariantDecl();
     
     void parseFunctionSignatureAndParamNames(ast::FunctionSignature&, std::vector<std::shared_ptr<ast::Ident>>&);
     
@@ -142,7 +145,9 @@ private:
     std::shared_ptr<ast::TemplateParamArgList> parseTemplateArgumentList();
     
     
+    std::shared_ptr<ast::TupleExpr> parseTupleExpr();
     std::vector<std::shared_ptr<ast::Expr>> parseExpressionList(Token::TokenKind delimiter);
+    
     std::shared_ptr<ast::ArrayLiteralExpr> parseArrayLiteral();
     
     std::string parseIdentAsString();

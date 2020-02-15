@@ -49,6 +49,32 @@ std::shared_ptr<ast::Ident> makeIdent(const std::string& str, ast::TokenSourceLo
 }
 
 
+// TODO is this a good idea?
+StructType* getUnderlyingStruct(Type *ty) {
+    if (auto PT = llvm::dyn_cast<PointerType>(ty)) {
+        if (auto ST = llvm::dyn_cast<StructType>(PT->getPointee())) {
+            return ST;
+        } else {
+            return nullptr;
+        }
+    } else if (auto ST = llvm::dyn_cast<StructType>(ty)) {
+        return ST;
+    } else if (auto refTy = llvm::dyn_cast<ReferenceType>(ty)) {
+        if (auto ST = llvm::dyn_cast<StructType>(refTy->getReferencedType())) {
+            return ST;
+        } else {
+            return nullptr;
+        }
+    } else {
+        return nullptr;
+    }
+    
+    return nullptr;
+}
+
+
+
+
 // IRGen
 
 llvm::LLVMContext IRGenerator::C;
@@ -437,6 +463,7 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
         implBlock->isNominalTemplateType = true;
         
         // impl blocks for templated types are registered when their respective type is instantiated
+        // TODO static methods of struct templates should be registered anyways!!!!
         return;
     }
     
@@ -525,6 +552,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::Expr> expr, ValueKind VK,
     CASE(BinOp)
     CASE(LambdaExpr, VK)
     CASE(ArrayLiteralExpr, VK)
+    CASE(TupleExpr, VK)
     default: unhandled_node(expr)
     }
 #undef CASE
@@ -1512,7 +1540,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MatchExpr> matchExpr) {
             //                           "Invalud match branch pattern value: Type '%s' not compatible with expected type '%s'",
             //                           _initialTy->str().c_str(), resultType->str().c_str());
             LKFatalError("Invalid match branch result value: Type %s not compatible with expected type %s",
-                         _initialTy->str().c_str(), resultType->str().c_str());
+                         _initialTy->str_desc().c_str(), resultType->str_desc().c_str());
         }
         
         F->getBasicBlockList().push_back(valueBB);
@@ -1545,6 +1573,24 @@ llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::ArrayLiteralExpr> arrayLi
     LKFatalError("TODO implement");
 }
 
+
+
+llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::TupleExpr> tupleExpr, ValueKind VK) {
+    LKAssert(VK == RValue);
+    
+//    auto type = getType(tupleExpr);
+//    util::fmt::print("{}", mangling::demangle("A5ArrayTq"));
+//    util::fmt::print("type: {} | {} | {}", type->str_mangled(), type->str_desc(), mangling::demangle(type->str_mangled()));
+//
+//    for (auto &[name, RC] : resolvedFunctions) {
+//        util::fmt::print("#############");
+//        util::fmt::print("{} {}", name, mangling::demangle(name));
+//    }
+    
+    
+    LKFatalError("TODO");
+    
+}
 
 
 
@@ -1907,6 +1953,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
             
             case TDK::Function:
             case TDK::Decltype:
+            case TDK::Tuple:
             case TDK::Resolved:
                 LKFatalError("TODO");
         }
@@ -2065,7 +2112,9 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
                                         argumentOffsetForCallingConvention(fnTy->getCallingConvention()));
             } else if (implementsInstanceMethod(ty, mangling::encodeOperator(ast::Operator::FnCall))) {
                 // calling a local variable of a type which happens to overload the `()` operator
-                targetName = mangling::mangleCanonicalName(ty->getName(), mangling::encodeOperator(ast::Operator::FnCall), ast::FunctionKind::InstanceMethod);
+                targetName = mangling::mangleCanonicalName(getUnderlyingStruct(ty)->getName(),
+                                                           mangling::encodeOperator(ast::Operator::FnCall),
+                                                           ast::FunctionKind::InstanceMethod);
                 argumentOffset = kInstanceMethodCallArgumentOffset;
             } else {
                 diagnostics::emitError(callExpr->getSourceLocation(), "unable to resolve call target");
@@ -2085,7 +2134,8 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         // - calling a property that happens to be a function
 
         auto targetTy = getType(memberExpr->target);
-
+        
+        // TODO can this use `getUnderlyingType`?
         StructType *structTy = nullptr;
         switch (targetTy->getTypeId()) {
             case Type::TypeID::Struct:
@@ -2119,7 +2169,9 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
                                         argumentOffsetForCallingConvention(fnTy->getCallingConvention()));
             } else {
                 // calling a struct property of a type which overloads the `()` operator
-                targetName = mangling::mangleCanonicalName(memberTy->getName(), mangling::encodeOperator(ast::Operator::FnCall), ast::FunctionKind::InstanceMethod);
+                targetName = mangling::mangleCanonicalName(getUnderlyingStruct(memberTy)->getName(),
+                                                           mangling::encodeOperator(ast::Operator::FnCall),
+                                                           ast::FunctionKind::InstanceMethod);
                 argumentOffset = kInstanceMethodCallArgumentOffset;
             }
         } else {
@@ -2628,7 +2680,7 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
         
         case Intrinsic::Typename: {
             auto ty = resolveTypeDesc(call->explicitTemplateArgs->at(0));
-            return builder.CreateGlobalStringPtr(ty->str()); // TODO is str the right choice here?
+            return builder.CreateGlobalStringPtr(ty->str_mangled());
         }
         
         case Intrinsic::IsSame: {
@@ -2756,7 +2808,8 @@ llvm::Value* IRGenerator::codegen_HandleArithmeticIntrinsic(ast::Operator op, st
     auto rhs = call->arguments.at(1);
     
     if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&lhs, &rhs, &lhsTy, &rhsTy)) {
-        LKFatalError("unable to create binop for supplied operand types '%s' and '%s'", lhsTy->str().c_str(), rhsTy->str().c_str());
+        auto msg = util::fmt::format("unable to create binop for operand types '{}' and '{}'", lhsTy, rhsTy);
+        diagnostics::emitError(call->getSourceLocation(), msg);
     }
     
     LKAssert(lhsTy->isNumericalTy() && rhsTy->isNumericalTy());
@@ -3424,7 +3477,13 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
         
         case TDK::Reference:
             return handleResolvedTy(resolveTypeDesc(typeDesc->getPointee(), setInternalResolvedType)->getReferenceTo());
-            
+        
+        case TDK::Tuple: {
+            auto resolvedMembers = util::vector::map(typeDesc->getTupleMembers(), [&](auto &TD) -> Type* {
+                return resolveTypeDesc(TD, setInternalResolvedType);
+            });
+            return handleResolvedTy(TupleType::get(resolvedMembers));
+        }
         
         case TDK::Function: {
             LKFatalError("TODO: rewrite to return application handlers or whatever its called");
@@ -3530,12 +3589,27 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
             return handle_llvm_type(llvmStructTy);
         }
         
+        case Type::TypeID::Tuple: {
+            auto tupleTy = llvm::dyn_cast<TupleType>(type);
+            std::vector<llvm::Type *> types = util::vector::map(tupleTy->getMembers(), [this](auto memberTy) -> llvm::Type* {
+                return getLLVMType(memberTy);
+            });
+            auto llvmStructTy = llvm::StructType::get(C, types);
+            return handle_llvm_type(llvmStructTy);
+        }
+        
         case Type::TypeID::Function: {
             auto fnTy = llvm::dyn_cast<FunctionType>(type);
             auto paramTypes = util::vector::map(fnTy->getParameterTypes(), [this](auto ty) { return getLLVMType(ty); });
             auto llvmFnTy = llvm::FunctionType::get(getLLVMType(fnTy->getReturnType()), paramTypes, false); // TODO support variadic function types?
             return handle_llvm_type(llvmFnTy->getPointerTo());
         }
+        
+//        case Type::TypeID::Tuple: {
+//            auto TT = llvm::dyn_cast<TupleType>(type);
+//            auto memberTypes = util::vector::map(type, TT->getMembers());
+//            return handle_llvm_type(llvm::StructType::get(C, memberTypes));
+//        }
     }
     
     LKFatalError("should never reach here");
@@ -3584,9 +3658,9 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
             if (numTy->isBoolTy())         encoding = llvm::dwarf::DW_ATE_boolean;
             else if (numTy->isFloatTy())   encoding = llvm::dwarf::DW_ATE_float;
             else if (numTy->isIntegerTy()) encoding = numTy->isSigned() ? llvm::dwarf::DW_ATE_signed : llvm::dwarf::DW_ATE_unsigned;
-            else LKFatalError("Unhandled type: %s", numTy->str().c_str());
+            else LKFatalError("Unhandled type: %s", numTy->str_desc().c_str());
             
-            auto ty = builder.createBasicType(numTy->getName(), numTy->getPrimitiveSizeInBits(), encoding);
+            auto ty = builder.createBasicType(numTy->str_desc(), numTy->getPrimitiveSizeInBits(), encoding);
             return handle_di_type(ty);
         }
         
@@ -3606,23 +3680,64 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
             return handle_di_type(ty);
         }
         
-        case Type::TypeID::Struct: {
-            auto structTy = llvm::dyn_cast<StructType>(type);
-            auto llvmStructTy = llvm::dyn_cast<llvm::StructType>(getLLVMType(structTy));
+//        case Type::TypeID::Struct: {
+//            auto structTy = llvm::dyn_cast<StructType>(type);
+//            auto llvmStructTy = llvm::dyn_cast<llvm::StructType>(getLLVMType(structTy));
+//            auto llvmStructTyLayout = DL.getStructLayout(llvmStructTy);
+//            auto unit = DIFileForSourceLocation(builder, structTy->getSourceLocation());
+//
+//            std::vector<llvm::Metadata *> llvmMembers = util::vector::mapi(structTy->getMembers(), [&](auto idx, auto &member) -> llvm::Metadata* {
+//                auto llvmMemberTy = getLLVMType(member.second);
+//                return  builder.createMemberType(unit, member.first, unit, 0, // TODO struct member line number?
+//                                                 DL.getTypeSizeInBits(llvmMemberTy), DL.getPrefTypeAlignment(llvmMemberTy),
+//                                                 llvmStructTyLayout->getElementOffsetInBits(idx),
+//                                                 llvm::DINode::DIFlags::FlagZero, getDIType(member.second));
+//            });
+//
+//            auto ty = builder.createStructType(unit, structTy->getName(), unit, structTy->getSourceLocation().line,
+//                                               DL.getTypeSizeInBits(llvmStructTy), DL.getPrefTypeAlignment(llvmStructTy),
+//                                               llvm::DINode::DIFlags::FlagZero, nullptr, builder.getOrCreateArray(llvmMembers));
+//            return handle_di_type(ty);
+//        }
+        
+        case Type::TypeID::Struct:
+        case Type::TypeID::Tuple: {
+            // We know that `getLLVMType` returns a StructType for both structs and tuples
+            auto llvmStructTy = llvm::cast<llvm::StructType>(getLLVMType(type));
             auto llvmStructTyLayout = DL.getStructLayout(llvmStructTy);
-            auto unit = DIFileForSourceLocation(builder, structTy->getSourceLocation());
+            llvm::DIScope *scope;
+            std::vector<llvm::Metadata *> llvmMembers;
             
-            std::vector<llvm::Metadata *> llvmMembers = util::vector::mapi(structTy->getMembers(), [&](auto idx, auto &member) -> llvm::Metadata* {
-                auto llvmMemberTy = getLLVMType(member.second);
-                return  builder.createMemberType(unit, member.first, unit, 0, // TODO struct member line number?
-                                                 DL.getTypeSizeInBits(llvmMemberTy), DL.getPrefTypeAlignment(llvmMemberTy),
-                                                 llvmStructTyLayout->getElementOffsetInBits(idx),
-                                                 llvm::DINode::DIFlags::FlagZero, getDIType(member.second));
-            });
+            auto registerMember = [&](uint32_t index, std::string name, llvm::Type *llvmTy, llvm::DIType *DIType, llvm::DIFile *file, uint32_t lineNo) {
+                auto DIMember = builder.createMemberType(scope, name, file, lineNo,
+                                                         DL.getTypeSizeInBits(llvmTy), DL.getPrefTypeAlignment(llvmTy),
+                                                         llvmStructTyLayout->getElementOffsetInBits(index),
+                                                         llvm::DINode::DIFlags::FlagZero, DIType);
+                
+                llvmMembers.push_back(DIMember);
+            };
             
-            auto ty = builder.createStructType(unit, structTy->getName(), unit, structTy->getSourceLocation().line,
+            if (auto ST = llvm::dyn_cast<StructType>(type)) {
+                scope = DIFileForSourceLocation(builder, ST->getSourceLocation());
+                for (size_t idx = 0; idx < ST->memberCount(); idx++) {
+                    const auto &[name, type] = ST->getMembers()[idx];
+                    registerMember(idx, name, getLLVMType(type), getDIType(type), llvm::cast<llvm::DIFile>(scope), 0 /* TODO struct member line number? */);
+                }
+            } else if (auto TT = llvm::dyn_cast<TupleType>(type)) {
+                scope = debugInfo.compileUnit; // TODO  can we do better here?
+                for (size_t idx = 0; idx < TT->memberCount(); idx++) {
+                    auto memberName = util::fmt::format("{}", idx);
+                    auto type = TT->getMembers()[idx];
+                    registerMember(idx, memberName, getLLVMType(type), getDIType(type), nullptr, 0);
+                }
+            } else {
+                LKFatalError("unexpected type");
+            }
+            
+            auto ty = builder.createStructType(scope, type->str_desc(), type->isStructTy() ? llvm::cast<llvm::DIFile>(scope) : nullptr,
+                                               type->isStructTy() ? llvm::cast<StructType>(type)->getSourceLocation().line : 0,
                                                DL.getTypeSizeInBits(llvmStructTy), DL.getPrefTypeAlignment(llvmStructTy),
-                                               llvm::DINode::DIFlags::FlagZero, nullptr, builder.getOrCreateArray(llvmMembers));
+                                               llvm::DINode::DIFlags::FlagZero, /*derivedFrom*/ nullptr, builder.getOrCreateArray(llvmMembers));
             return handle_di_type(ty);
         }
     }
@@ -3797,7 +3912,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
                     diagnostics::emitError(memberExpr->getSourceLocation(), msg);
                 }
             } else {
-                auto msg = util::fmt::format("member expr target type '{}' not a struct", underlyingTy->str());
+                auto msg = util::fmt::format("member expr target type '{}' not a struct", underlyingTy->str_desc());
                 diagnostics::emitError(memberExpr->getSourceLocation(), msg);
             }
         }
@@ -3843,6 +3958,12 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             return synthesizeLambdaExpr(lambdaExpr);
         }
         
+        case NK::TupleExpr: {
+            auto tupleExpr = llvm::dyn_cast<ast::TupleExpr>(expr);
+            auto elementTys = util::vector::map(tupleExpr->elements, [&](auto E) { return getType(E); });
+            return TupleType::get(elementTys);
+        }
+        
         default:
             unhandled_node(expr);
             LKFatalError("TODO");
@@ -3886,32 +4007,13 @@ bool IRGenerator::typeIsSubscriptable(Type *ty) {
 }
 
 
-
 bool IRGenerator::implementsInstanceMethod(Type *ty, std::string_view methodName) {
-    StructType *underlyingStruct = nullptr;
-    
-    if (auto PT = llvm::dyn_cast<PointerType>(ty)) {
-        if (auto ST = llvm::dyn_cast<StructType>(PT->getPointee())) {
-            underlyingStruct = ST;
-        } else {
-            return false;
-        }
-    } else if (auto ST = llvm::dyn_cast<StructType>(ty)) {
-        underlyingStruct = ST;
-    } else if (auto refTy = llvm::dyn_cast<ReferenceType>(ty)) {
-        if (auto ST = llvm::dyn_cast<StructType>(refTy->getReferencedType())) {
-            underlyingStruct = ST;
-        } else {
-            return false;
-        }
+    if (auto ST = getUnderlyingStruct(ty)) {
+        auto canonicalName = mangling::mangleCanonicalName(ST->getName(), methodName, ast::FunctionKind::InstanceMethod);
+        return util::map::has_key(functions, canonicalName);
     } else {
         return false;
     }
-    
-    LKAssert(underlyingStruct);
-    
-    auto canonicalName = mangling::mangleCanonicalName(underlyingStruct->getName(), methodName, ast::FunctionKind::InstanceMethod);
-    return util::map::has_key(functions, canonicalName);
 }
 
 

@@ -23,6 +23,8 @@ namespace yo::mangling {
     std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl>);
     std::string mangleFullyResolved(std::shared_ptr<ast::StructDecl>);
     
+    std::string mangleFullyResolved(irgen::Type const*);
+    
     bool isCanonicalInstanceMethodName(std::string_view ident);
     
     // Operators

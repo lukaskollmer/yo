@@ -82,4 +82,3 @@ target_link_libraries(yo ${llvm_libs})
 
 # compilation options
 target_compile_options(yo PRIVATE "-fvisibility-inlines-hidden")
-# target_compile_options(yo PRIVATE "-Wconversion")

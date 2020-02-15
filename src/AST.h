@@ -89,14 +89,14 @@ class Node {
 public:
     enum class Kind {
         // Top Level Statements
-        FunctionDecl, ImplBlock, StructDecl, TypealiasDecl,
+        FunctionDecl, ImplBlock, StructDecl, TypealiasDecl, VariantDecl,
         
         // Local Statements
         Assignment, CompoundStmt, ExprStmt, ForLoop, IfStmt, ReturnStmt, VarDecl, WhileStmt, BreakContStmt,
         
         // Expressions
         BinOp, CallExpr, CompOp, Ident, LogicalOp, MatchExpr, MemberExpr, NumberLiteral, RawLLVMValueExpr, StaticDeclRefExpr,
-        StringLiteral, SubscriptExpr, CastExpr, UnaryExpr, LambdaExpr, ArrayLiteralExpr,
+        StringLiteral, SubscriptExpr, CastExpr, UnaryExpr, LambdaExpr, ArrayLiteralExpr, TupleExpr,
         
         TemplateParamDeclList, TemplateParamArgList, FunctionSignature, IfStmtBranch, MatchExprBranch
     };
@@ -276,6 +276,7 @@ public:
         return funcKind == kind;
     }
     
+    bool isOperatorOverload() const;
     bool isOperatorOverloadFor(Operator) const;
     
     bool isCallOperatorOverload() const {
@@ -342,6 +343,29 @@ public:
     CLASSOF_IMP(Node::Kind::TypealiasDecl)
     TypealiasDecl(std::string typename_, std::shared_ptr<TypeDesc> type) : TopLevelStmt(Node::Kind::TypealiasDecl), typename_(typename_), type(type) {}
 };
+
+
+
+/// A variant type declaration
+class VariantDecl : public TopLevelStmt {
+public:
+    struct MemberDecl {
+        std::shared_ptr<Ident> name;
+        std::shared_ptr<TypeDesc> params; // Should be a tuple type (TODO!)
+        
+        MemberDecl(std::shared_ptr<Ident> N, std::shared_ptr<TypeDesc> P) : name(N), params(P) {
+            //LKAssert(P->isTuple());
+        }
+    };
+    
+    std::shared_ptr<Ident> name;
+    std::shared_ptr<TemplateParamDeclList> templateParams;
+    std::vector<MemberDecl> members;
+    
+    CLASSOF_IMP(Node::Kind::VariantDecl)
+    VariantDecl(std::shared_ptr<Ident> N) : TopLevelStmt(Node::Kind::VariantDecl), name(N) {}
+};
+
 
 
 # pragma mark - Local Statements
@@ -535,6 +559,19 @@ public:
     explicit ExprStmt(std::shared_ptr<ast::Expr> expr) : LocalStmt(Node::Kind::ExprStmt), expr(expr) {}
 };
 
+
+
+class TupleExpr : public Expr {
+public:
+    std::vector<std::shared_ptr<Expr>> elements;
+    
+    CLASSOF_IMP(Node::Kind::TupleExpr)
+    TupleExpr(std::vector<std::shared_ptr<Expr>> E) : Expr(Node::Kind::TupleExpr), elements(E) {}
+    
+    size_t numberOfElements() const {
+        return elements.size();
+    }
+};
 
 
 // A reference to a static member of a type (for example a static method or an enum value)

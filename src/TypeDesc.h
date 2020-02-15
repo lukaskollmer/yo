@@ -47,6 +47,7 @@ public:
         Function,
         Reference,
         Decltype,
+        Tuple,
         Resolved // Special case that simply wraps a fully resolved `yo::Type *`
     };
     
@@ -55,11 +56,12 @@ private:
     
     Kind kind;
     std::variant<
-        std::string,                // Kind::Nominal
-        NominalTemplatedDataT,      // Kind::NominalTemplated
-        std::shared_ptr<TypeDesc>,  // Kind::Pointer | Kind::Reference
-        FunctionTypeInfo,           // Kind::Function
-        std::shared_ptr<Expr>       // Kind::Decltype
+        std::string,                            // Kind::Nominal
+        NominalTemplatedDataT,                  // Kind::NominalTemplated
+        std::shared_ptr<TypeDesc>,              // Kind::Pointer | Kind::Reference
+        FunctionTypeInfo,                       // Kind::Function
+        std::shared_ptr<Expr>,                  // Kind::Decltype
+        std::vector<std::shared_ptr<TypeDesc>>  // Kind:Tuple
     > data;
     yo::irgen::Type *resolvedType = nullptr;
     TokenSourceLocation srcLoc;
@@ -93,6 +95,10 @@ public:
         return std::shared_ptr<TypeDesc>(new TypeDesc(Kind::Function, FunctionTypeInfo(cc, returnTy, parameterTypes), loc));
     }
     
+    static std::shared_ptr<TypeDesc> makeTuple(std::vector<std::shared_ptr<TypeDesc>> M, TokenSourceLocation SL = TokenSourceLocation()) {
+        return std::shared_ptr<TypeDesc>(new TypeDesc(Kind::Tuple, M, SL));
+    }
+    
     static std::shared_ptr<TypeDesc> makeResolved(yo::irgen::Type *type, TokenSourceLocation loc = TokenSourceLocation()) {
         auto typeDesc = std::shared_ptr<TypeDesc>(new TypeDesc(Kind::Resolved, loc));
         typeDesc->setResolvedType(type);
@@ -113,6 +119,7 @@ public:
     bool isPointer() const { return isOfKind(Kind::Pointer); }
     bool isResolved() const { return isOfKind(Kind::Resolved); } // TODO should this also return true if resolvedType != nil ?
     bool isReference() const { return isOfKind(Kind::Reference); }
+    bool isTuple() const { return isOfKind(Kind::Tuple); }
     
     const std::string& getName() const {
         LKAssert(isNominal());
@@ -143,6 +150,10 @@ public:
     
     std::shared_ptr<Expr> getDecltypeExpr() const {
         return std::get<std::shared_ptr<Expr>>(data);
+    }
+    
+    const std::vector<std::shared_ptr<TypeDesc>>& getTupleMembers() const {
+        return std::get<std::vector<std::shared_ptr<TypeDesc>>>(data);
     }
     
 };

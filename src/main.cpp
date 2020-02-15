@@ -139,6 +139,7 @@ bool emitModule(std::unique_ptr<llvm::Module> module, const std::string &filenam
     module->setTargetTriple(targetTriple);
     
     
+//    llvm::outs() << *module << '\n';
     
     // Create and run passes
     

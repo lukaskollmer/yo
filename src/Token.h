@@ -74,7 +74,7 @@ public:
         
         // Keywords
         Use,
-        Fn, Struct, Impl,
+        Fn, Struct, Impl, Variant,
         Let, Return,
         If, Else, While, For, In, Match,
         Break, Continue,

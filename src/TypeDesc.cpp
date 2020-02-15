@@ -48,7 +48,7 @@ std::string TypeDesc::str() const {
         
         case Kind::Resolved:
             //return std::string("resolved(").append(getResolvedType()->str()).append(")");
-            return getResolvedType()->str();
+            return getResolvedType()->str_desc();
         
         case Kind::Decltype:
             return util::fmt::format("decltype({})", getDecltypeExpr()->description());
@@ -65,6 +65,17 @@ std::string TypeDesc::str() const {
                 }
             }
             OS << ">";
+            return OS.str();
+        }
+        
+        case Kind::Tuple: {
+            std::ostringstream OS;
+            OS << '(';
+            util::vector::iterl(getTupleMembers(), [&OS](auto &TD, bool isLast) {
+                OS << TD->str();
+                if (!isLast) OS << ", ";
+            });
+            OS << ')';
             return OS.str();
         }
     }

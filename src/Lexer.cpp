@@ -106,6 +106,7 @@ static const std::map<std::string, Token::TokenKind> tokenKindMappings = {
     { "if",       TK::If       },
     { "else",     TK::Else     },
     { "struct",   TK::Struct   },
+    { "variant",  TK::Variant  },
     { "impl",     TK::Impl     },
     { "use",      TK::Use      },
     { "while",    TK::While    },
