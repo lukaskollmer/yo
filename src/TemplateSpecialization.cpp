@@ -134,7 +134,7 @@ std::shared_ptr<ast::StructDecl> TemplateSpecializer::specialize(std::shared_ptr
 
 
 std::shared_ptr<ast::ImplBlock> TemplateSpecializer::specialize(std::shared_ptr<ast::ImplBlock> implBlock) {
-    auto decl = std::make_shared<ast::ImplBlock>(implBlock->typename_);
+    auto decl = std::make_shared<ast::ImplBlock>(implBlock->typeDesc);
     decl->setSourceLocation(implBlock->getSourceLocation());
     decl->methods = util::vector::map(implBlock->methods, [&](auto M) { return specialize(M); });
     decl->isNominalTemplateType = implBlock->isNominalTemplateType;

@@ -416,8 +416,10 @@ std::shared_ptr<StructDecl> Parser::parseStructDecl(attributes::StructAttributes
 std::shared_ptr<ImplBlock> Parser::parseImplBlock() {
     assertTkAndConsume(TK::Impl);
     
-    auto impl = std::make_shared<ImplBlock>(parseIdentAsString());
+    auto typeDesc = parseType();
     assertTkAndConsume(TK::OpeningCurlyBraces);
+    
+    auto implBlock = std::make_shared<ImplBlock>(typeDesc);
     
     while (currentTokenKind() == TK::Fn || currentTokenKind() == TK::Hashtag) {
         std::vector<attributes::Attribute> attributes;
@@ -426,11 +428,11 @@ std::shared_ptr<ImplBlock> Parser::parseImplBlock() {
             assertTk(TK::Fn);
         }
         auto functionDecl = parseFunctionDecl(attributes::FunctionAttributes(attributes));
-        impl->methods.push_back(functionDecl);
+        implBlock->methods.push_back(functionDecl);
     }
     
     assertTkAndConsume(TK::ClosingCurlyBraces);
-    return impl;
+    return implBlock;
 }
 
 

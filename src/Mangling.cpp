@@ -188,7 +188,7 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(irgen::Type cons
         }
         
         case TypeID::Struct: {
-            return appendWithCount(llvm::dyn_cast<irgen::StructType>(ty)->getName());
+            return append(llvm::dyn_cast<irgen::StructType>(ty)->getName());
         }
     }
 }
@@ -251,18 +251,28 @@ std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> funcDecl) {
 }
 
 
+
+std::string mangleAsStruct(std::string_view name) {
+    return ManglingStringBuilder(kMangledTypeStructPrefix).appendWithCount(name).str();
+}
+
 // TODO rewrite to use an irgen::StructType* object instead!!!!
 std::string mangleFullyResolved(std::shared_ptr<ast::StructDecl> SD) {
-    if (SD->resolvedTemplateArgTypes.empty()) {
-        return SD->name;
-    }
+//    if (SD->resolvedTemplateArgTypes.empty()) {
+        // TODO also mangle non-templated structs
+//        return SD->name;
+//    }
     
     ManglingStringBuilder mangler(kMangledTypeStructPrefix);
     mangler.appendWithCount(SD->name);
-    mangler.append(kMangledTemplateArgsListPrefix);
-    for (auto &ty : SD->resolvedTemplateArgTypes) {
-        mangler.appendEncodedType(ty);
+    
+    if (!SD->resolvedTemplateArgTypes.empty()) {
+        mangler.append(kMangledTemplateArgsListPrefix);
+        for (auto &ty : SD->resolvedTemplateArgTypes) {
+            mangler.appendEncodedType(ty);
+        }
     }
+    
     return mangler.str();
 }
 
@@ -481,11 +491,14 @@ std::string Demangler::demangleType() {
             input.remove_prefix(1);
             std::ostringstream OS;
             OS << extractString();
-            LKAssert(input[0] == 'T');
-            input.remove_prefix(1);
-            OS << '<';
-            OS << demangleTypeList();
-            OS << '>';
+            if (input[0] == kMangledTemplateArgsListPrefix) {
+                // TODO what if this is parsed as part of a template function which also has a templated types in its signature,
+                // could we accidentally end up confusing the two Ts in here?
+                input.remove_prefix(1);
+                OS << '<';
+                OS << demangleTypeList();
+                OS << '>';
+            }
             return OS.str();
         }
         
@@ -528,13 +541,17 @@ std::string Demangler::demangleTuple() {
 
 
 std::string Demangler::demangleTypeList() {
-    if (input.empty()) return "";
+    auto at_end = [&]() {
+        // second check since this might be a function template, in which case the template args are demangled elsewhere
+        return input.empty() || input[0] == kMangledTemplateArgsListPrefix;
+    };
+    
+    if (at_end()) return "";
     
     std::ostringstream OS;
     while (true) {
         OS << demangleType();
-        if (input.empty() || input[0] == kMangledTemplateArgsListPrefix) {
-            // second check since this might be a function template, in which case the template args are demangled elsewhere
+        if (at_end()) {
             break;
         } else {
             OS << ", ";

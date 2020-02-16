@@ -322,16 +322,12 @@ public:
 
 class ImplBlock : public TopLevelStmt {
 public:
-    std::string typename_; // TODO make this a TypeDesc instead?
+    std::shared_ptr<ast::TypeDesc> typeDesc;
     std::vector<std::shared_ptr<FunctionDecl>> methods;
     bool isNominalTemplateType = false;
 
     CLASSOF_IMP(Node::Kind::ImplBlock)
-    ImplBlock(std::string typename_) : TopLevelStmt(Node::Kind::ImplBlock), typename_(typename_) {}
-    
-    const std::string& getName() const {
-        return typename_;
-    }
+    ImplBlock(std::shared_ptr<ast::TypeDesc> typeDesc) : TopLevelStmt(Node::Kind::ImplBlock), typeDesc(typeDesc) {}
 };
 
 

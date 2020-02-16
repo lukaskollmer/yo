@@ -165,6 +165,11 @@ void IRGenerator::codegen(const ast::AST& ast) {
     
     handleStartupAndShutdownFunctions();
     debugInfo.builder.finalize();
+    
+    
+    for (auto &[name, whatever] : resolvedFunctions) {
+        std::cout << name << " " << mangling::demangle(name) << "\n";
+    }
 }
 
 
@@ -220,17 +225,18 @@ void IRGenerator::preflight(const ast::AST& ast) {
     for (const auto& implBlock : implBlocks) {
         registerImplBlock(implBlock);
         
-        auto insert = [&](std::map<std::string, std::shared_ptr<ast::StructDecl>> &decls) {
-            if (!util::map::has_key(decls, implBlock->typename_)) {
+        auto insert = [&](std::map<std::string, std::shared_ptr<ast::StructDecl>> &decls, bool shouldMangle) {
+            auto name = shouldMangle ? mangling::mangleAsStruct(implBlock->typeDesc->getName()) : implBlock->typeDesc->getName();
+            if (!util::map::has_key(decls, name)) {
                 diagnostics::emitError(implBlock->getSourceLocation(), "unable to find corresponding type");
             }
-            decls[implBlock->typename_]->implBlocks.push_back(implBlock);
+            decls[name]->implBlocks.push_back(implBlock);
         };
         
         if (implBlock->isNominalTemplateType) {
-            insert(templateStructs);
+            insert(templateStructs, false);
         } else {
-            insert(this->structDecls);
+            insert(this->structDecls, true);
         }
     }
 }
@@ -402,9 +408,12 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         return nullptr;
     }
     
-    if (structDecl->resolvedTemplateArgTypes.size() != 0) {
+    // TODO always use the mangled name!
+    // This doesn't work yet, since resolveTypeDesc wouldn't work anymore
+    // (shouldn't be too difficule to fix?)
+//    if (structDecl->resolvedTemplateArgTypes.size() != 0) {
         structName = mangling::mangleFullyResolved(structDecl);
-    }
+//    }
     
     // TODO add a check somewhere here to make sure there are no duplicate struct members
     StructType::MembersT structMembers;
@@ -453,13 +462,14 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
 void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
     using FK = ast::FunctionKind;
     
-    const auto &typename_ = implBlock->typename_;
-    auto implTy = nominalTypes.get(typename_);
+    auto typeDesc = implBlock->typeDesc;
+    //auto implTy = nominalTypes.get(mangling::mangleAsStruct(typeDesc->getName()));
     
-    if (auto templateDecl = util::map::get_opt(templateStructs, typename_)) {
-        if (implTy.has_value()) {
-            LKFatalError("multiple types w/ same name?");
-        }
+    if (auto templateDecl = util::map::get_opt(templateStructs, typeDesc->getName())) {
+        //if (implTy.has_value()) {
+        //if (implTy) {
+        //    LKFatalError("multiple types w/ same name?");
+        //}
         implBlock->isNominalTemplateType = true;
         
         // impl blocks for templated types are registered when their respective type is instantiated
@@ -467,11 +477,14 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
         return;
     }
     
+    auto implTy = resolveTypeDesc(implBlock->typeDesc);
     
-    auto structTy = llvm::dyn_cast<StructType>(implTy.value());
+    
+    //auto structTy = llvm::dyn_cast<StructType>(implTy.value());
+    auto structTy = llvm::dyn_cast<StructType>(implTy);
     
     for (auto &fn : implBlock->methods) {
-        LKAssert(!fn->getAttributes().no_mangle && "invalid attribute for function in impl block: no_mangle");
+        LKAssert(!fn->getAttributes().no_mangle && "invalid attribute for function in impl block");
         auto kind = FK::StaticMethod;
         if (!fn->getSignature().paramTypes.empty()) {
             // TODO allow omitting the type of a self parameter, and set it here implicitly?
@@ -1158,7 +1171,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StringLiteral> stringLite
             return builder.CreateGlobalStringPtr(stringLiteral->value);
         
         case SLK::NormalString: {
-            if (!nominalTypes.contains("String")) {
+            if (!nominalTypes.contains(mangling::mangleAsStruct("String"))) {
                 diagnostics::emitError(stringLiteral->getSourceLocation(), "unable to find 'String' type");
             }
             auto target = makeIdent("String"); //std::make_shared<ast::Ident>(mangling::mangleCanonicalName("String", "String", ast::FunctionKind::StaticMethod));
@@ -2186,7 +2199,9 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     
     // TODO does this mean we might miss another potential target
     // Not if the compiler disallows free functions w/ the same name as a defined type
-    if (nominalTypes.get(targetName) || util::map::has_key(templateStructs, targetName)) {
+    //if (nominalTypes.get(mangling::mangleAsStruct(targetName)) || util::map::has_key(templateStructs, targetName)) {
+    if (bool isNominalTy = nominalTypes.get(mangling::mangleAsStruct(targetName)).has_value(), isTemplate = util::map::has_key(templateStructs, targetName); isNominalTy || isTemplate) {
+        if (isNominalTy) targetName = mangling::mangleAsStruct(targetName); // TODO this is awful!!!
         auto mangledTargetName = mangling::mangleCanonicalName(targetName, targetName, ast::FunctionKind::StaticMethod);
         
         const auto &targets = functions[mangledTargetName];
@@ -3457,11 +3472,21 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
             return typeDesc->getResolvedType();
         
         case TDK::Nominal: {
-            const auto& name = typeDesc->getName();
+            auto name = typeDesc->getName();
             if (auto ty = resolvePrimitiveType(name)) {
                 return handleResolvedTy(ty);
-            } else {
-                // a nominal, non-primitive type
+            } else {// a nominal, non-primitive type
+                
+                if (auto entry = nominalTypes.get(name)) {
+                    return handleResolvedTy(entry.value());
+                }
+                
+                // TODO this is a disgusting workaround!!!!!
+                // Basically the issue is that we need the mangled key for the map lookup
+//                auto structDeclForNameMangling = std::make_shared<ast::StructDecl>();
+//                structDeclForNameMangling->name = typeDesc->getName();
+//                name = mangling::mangleFullyResolved(structDeclForNameMangling);
+                name = mangling::mangleAsStruct(name);
                 
                 // If there is already an entry for that type, return that
                 if (auto entry = nominalTypes.get(name)) {
@@ -3826,9 +3851,10 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
         case NK::StringLiteral: {
             using SLK = ast::StringLiteral::StringLiteralKind;
             switch (static_cast<ast::StringLiteral *>(expr.get())->kind) {
-                case SLK::ByteString: return builtinTypes.yo.i8Ptr;
+                case SLK::ByteString:
+                    return builtinTypes.yo.i8Ptr;
                 case SLK::NormalString: {
-                    if (auto StringTy = nominalTypes.get("String")) {
+                    if (auto StringTy = nominalTypes.get(mangling::mangleAsStruct("String"))) {
                         return *StringTy;
                     } else {
                         diagnostics::emitError(expr->getSourceLocation(), "unable to find 'String' type");
@@ -4085,10 +4111,16 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
             }
         }
         
-        auto name = implBlock->getName();
-        implBlock->typename_ = mangledName;
+        //auto name = implBlock->getName();
+        //implBlock->typename_ = mangledName;
+//        registerImplBlock(implBlock);
+        //implBlock->typename_ = name;
+        
+        auto TD = implBlock->typeDesc;
+        implBlock->typeDesc = ast::TypeDesc::makeNominal(mangledName);
         registerImplBlock(implBlock);
-        implBlock->typename_ = name;
+        implBlock->typeDesc = TD;
+        
     }
     
     for (auto &implBlock : specializedDecl->implBlocks) {

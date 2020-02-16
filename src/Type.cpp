@@ -248,7 +248,11 @@ std::string FunctionType::str_desc() const {
 #pragma mark - StructType
 
 std::string StructType::str_desc() const {
-    return mangling::demangle(name);
+    if (templateArguments.empty()) {
+        return name;
+    } else {
+        return mangling::demangle(name);
+    }
 }
 
 

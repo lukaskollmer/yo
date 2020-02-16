@@ -378,7 +378,7 @@ Mirror Reflect(const StructDecl *Struct) {
 
 Mirror Reflect(const ImplBlock *implBlock) {
     return {
-        { "typename", implBlock->typename_ },
+        { "typeDesc", implBlock->typeDesc },
         { "methods", implBlock->methods }
     };
 }
