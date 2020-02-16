@@ -1,9 +1,11 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.11)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE Debug)
 
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+
+option(BUILD_TESTS "Build test programs" OFF)
 
 project(yo)
 
@@ -33,9 +35,7 @@ add_custom_target(gen_stdlib
 )
 
 
-add_executable(yo
-    src/main.cpp
-
+add_library(yo
     src/AST.h
     src/AST.cpp
     src/Attributes.h
@@ -44,6 +44,8 @@ add_executable(yo
     src/CommandLine.cpp
     src/Diagnostics.h
     src/Diagnostics.cpp
+    src/Driver.h
+    src/Driver.cpp
     src/IRGen.h
     src/IRGen.cpp
     src/Lexer.h
@@ -65,11 +67,13 @@ add_executable(yo
     src/Type.cpp
     src/TypeDesc.h
     src/TypeDesc.cpp
+    src/Version.h
 
     src/util.h
     src/util.cpp
     src/util_llvm.h
 )
+
 
 add_dependencies(yo gen_stdlib)
 
@@ -82,3 +86,49 @@ target_link_libraries(yo ${llvm_libs})
 
 # compilation options
 target_compile_options(yo PRIVATE "-fvisibility-inlines-hidden")
+
+
+add_executable(yo_driver src/main.cpp)
+target_link_libraries(yo_driver yo)
+set_target_properties(yo_driver PROPERTIES OUTPUT_NAME yo)
+
+
+# Tests
+
+
+if(BUILD_TESTS)
+    set(TEST_DIR "${CMAKE_BINARY_DIR}/test")
+    include(FetchContent)
+
+    enable_testing()
+
+    message(STATUS "Fetching GoogleTest")
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG        release-1.10.0
+    )
+    FetchContent_GetProperties(googletest)
+
+    if(NOT googletest_POPULATED)
+        # TODO would be nice if this could somehow display a progress bar or something
+        FetchContent_Populate(googletest)
+        add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
+    endif()
+
+    message(STATUS "Processing test input files")
+
+    add_custom_target(
+        test_mangling_input_gen
+        #COMMAND "xxd" "-i" "${TEST_DIR}/mangling_input.txt.in" "${TEST_DIR}/mangling_input.txt"
+        COMMAND cat "${TEST_DIR}/mangling_input.txt" | xxd "-i" > "${TEST_DIR}/mangling_input.txt.in"
+        BYPRODUCTS "${TEST_DIR}/mangling_input.txt.in"
+    )
+
+    add_executable(yo_test test/test.cpp)
+    target_include_directories(yo_test PRIVATE "src/")
+    add_dependencies(yo_test gtest)
+    add_dependencies(yo_test test_mangling_input_gen)
+    target_link_libraries(yo_test yo gtest_main)
+    add_test(yo_test yo_test)
+endif()
