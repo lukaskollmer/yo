@@ -23,11 +23,12 @@ You can find some documentation [here](https://lukaskollmer.de/yo-lang/)
 
 ## Usage
 Build requirements:
-- make
-- cmake 3.10+
-- llvm 8
-- python 3.6+
-- clang (gcc probably works as well)
+- Make
+- CMake 3.10+
+- LLVM 8
+- Python 3.6+
+- Clang or GCC
+- GoogleTest (optional, required if building tests)
 
 
 ## License
