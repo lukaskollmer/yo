@@ -28,15 +28,6 @@ impl ClosedRange {
 }
 
 
-fn operator ..< <T> (lhs: T, rhs: T) -> ClosedRange<T> {
-    return ClosedRange<T>::exclusive(lhs, rhs);
-}
-
-fn operator ... <T> (lhs: T, rhs: T) -> ClosedRange<T> {
-    return ClosedRange<T>::inclusive(lhs, rhs);
-}
-
-
 impl ClosedRange {
     fn contains(self: &Self, value: T) -> bool {
         return self.lowerBound <= value && value <= self.upperBound;
@@ -59,7 +50,7 @@ impl ClosedRangeIterator {
         self.lowerBound = lowerBound;
         self.upperBound = upperBound;
     }
-    
+
     fn hasNext(self: &Self) -> bool {
         return self.lowerBound <= self.upperBound;
     }
@@ -69,4 +60,13 @@ impl ClosedRangeIterator {
         self.lowerBound += 1;
         return value;
     }
+}
+
+
+fn operator ..< <T> (lhs: T, rhs: T) -> ClosedRange<T> {
+    return ClosedRange<T>::exclusive(lhs, rhs);
+}
+
+fn operator ... <T> (lhs: T, rhs: T) -> ClosedRange<T> {
+    return ClosedRange<T>::inclusive(lhs, rhs);
 }
