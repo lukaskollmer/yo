@@ -3254,9 +3254,16 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ForLoop> forLoop) {
     }
     
     
+    auto loopExprIdent = makeIdent(currentFunction.getTmpIdent(), forLoop->getSourceLocation());
     auto iteratorIdent = makeIdent(currentFunction.getTmpIdent(), forLoop->getSourceLocation());
     
-    auto iteratorCallExpr = makeInstanceMethodCallExpr(forLoop->expr, kIteratorMethodName);
+    // make sure the target's lifetime exceeds the iterator's
+    auto loopExprVarDecl = std::make_shared<ast::VarDecl>(loopExprIdent, nullptr, forLoop->expr);
+    if (!isTemporary(forLoop->expr)) {
+        loopExprVarDecl->declaresUntypedReference = true;
+    }
+    
+    auto iteratorCallExpr = makeInstanceMethodCallExpr(loopExprIdent, kIteratorMethodName);
     iteratorCallExpr->setSourceLocation(forLoop->getSourceLocation());
     
     // let it = <target>.iterator();
@@ -3285,6 +3292,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ForLoop> forLoop) {
     // Wrap in a compound to make sure the iterator gets deallocated immediately after the loop exits
     auto stmt = std::make_shared<ast::CompoundStmt>();
     stmt->setSourceLocation(forLoop->getSourceLocation());
+    stmt->statements.push_back(loopExprVarDecl);
     stmt->statements.push_back(iteratorVarDecl);
     stmt->statements.push_back(whileStmt);
     return codegen(stmt);
