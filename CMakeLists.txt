@@ -120,12 +120,14 @@ if(BUILD_TESTS)
 
     add_custom_target(
         test_mangling_input_gen
-        #COMMAND "xxd" "-i" "${TEST_DIR}/mangling_input.txt.in" "${TEST_DIR}/mangling_input.txt"
         COMMAND cat "${TEST_DIR}/mangling_input.txt" | xxd "-i" > "${TEST_DIR}/mangling_input.txt.in"
         BYPRODUCTS "${TEST_DIR}/mangling_input.txt.in"
     )
 
-    add_executable(yo_test test/test.cpp)
+    add_executable(
+        yo_test
+        test/mangling.cpp
+    )
     target_include_directories(yo_test PRIVATE "src/")
     add_dependencies(yo_test gtest)
     add_dependencies(yo_test test_mangling_input_gen)

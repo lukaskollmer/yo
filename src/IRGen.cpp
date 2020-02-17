@@ -4111,11 +4111,6 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
             }
         }
         
-        //auto name = implBlock->getName();
-        //implBlock->typename_ = mangledName;
-//        registerImplBlock(implBlock);
-        //implBlock->typename_ = name;
-        
         auto TD = implBlock->typeDesc;
         implBlock->typeDesc = ast::TypeDesc::makeNominal(mangledName);
         registerImplBlock(implBlock);

@@ -1,5 +1,5 @@
 //
-//  test.cpp
+//  mangling.cpp
 //  yo
 //
 //  Created by Lukas Kollmer on 2020-02-15.
@@ -15,6 +15,8 @@
 #include <string>
 #include <vector>
 
+
+using namespace yo;
 
 const char raw_test_input[] = {
 #include "mangling_input.txt.in"
@@ -39,13 +41,21 @@ std::vector<ManglingTestCase> loadTestCases() {
         return line;
     };
     
+    int64_t prev_size = -1;
+    
     while (!input.empty()) {
+        if (prev_size == -1) {
+            prev_size = input.size();
+        } else {
+            LKAssert(prev_size > input.size() && "bad recursion?");
+        }
+        
         if (input.find('\n') == std::string_view::npos) {
             break;
         }
         
         auto line1 = read_line();
-        if (line1.empty() || yo::util::string::has_prefix(line1, "#")) {
+        if (line1.empty() || util::string::has_prefix(line1, "#")) {
             continue;
         }
         
@@ -61,6 +71,6 @@ std::vector<ManglingTestCase> loadTestCases() {
 
 TEST(yo, mangling) {
     for (ManglingTestCase testCase : loadTestCases()) {
-        EXPECT_EQ(yo::mangling::demangle(testCase.input), testCase.expected);
+        EXPECT_EQ(mangling::demangle(testCase.input), testCase.expected);
     }
 }

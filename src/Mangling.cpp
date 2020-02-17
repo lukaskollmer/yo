@@ -15,6 +15,96 @@
 
 #include "llvm/Support/Casting.h"
 
+
+/*
+ // TODO move this to the documentation and make it part of the website?
+ 
+ # Mangling reference:
+ 
+ ## Functions
+ 
+ ### Global (free) functions
+ - Syntax: _F{name}{ret_ty}{param_tys}{tmpl_info}
+ - {name}: the name of the function, prefixed w/ the count. eg: foo -> 3foo
+ - {ret_ty}: mangled return type of the function
+ - {param_tys}: mangled parameter types of the function
+   Note: the length of this portion is not explicitly stated, since it is either the last part of the mangled identifier,
+         or followed by the template info (which would be prefixed w/ `T`)
+ - {tmpl_info}: if the function is a template instantiation: `T{tmpl_tys}`, with:
+    - {tmpl_tys}: a list of the mangled template types used to instantiate the function, prefixed w/ the count (number of tmpl args)
+ 
+ ### Global operator overload:
+ - same as a global function, except:
+    - `_F` is replaced w/ `_O`
+    - {name} is replaced w/ the operator's encoding (a number), prefixed by the length of the encoding string
+ 
+ ### Instance Method
+ - Syntax: _I{self_ty}{name}{ret_ty}{param_tys}{tmpl_info}
+ - {self_ty}: mangled name of the method's receiver type
+ - {name}: method name, prefixed w/ count
+ - {ret_ty}: mangled name of the return type
+ - {param_tys}: mangled parameter types (does not contain the implicit self parameter)
+ - {tmpl_infp}: template instantiation info. see global function.
+    Note: this only lists template arguments used for instantiating this specific call, not the type on which it was instantiated.
+    ie, this field is only present if the function itself is a template instantiation, regardless of whether its impl-type is templated.
+ 
+ ### Instance Method that is an Operator Overload
+ - Same as a non-operator-overload instance method, except:
+    - {name} is replaced w/ `O{enc}`, where {enc} is the encoded operator being overloaded, prefixed w/ the length of the overload
+ 
+ 
+ ### Static Method
+ - same as an instance method, except:
+    - `_I` is replaced w/ `_S`
+ 
+ 
+ ## Pointer Type
+ - `P{pointee}`
+ 
+ ## Reference Type
+ - `R{pointee}`
+ 
+ ## Primitive built-in type
+ - see table:
+ |  type  | encoding |
+ | :----: | :------: |
+ | `void` |   `v`    |
+ | `bool` |   `b`    |
+ | `i8`   |   `c`    |
+ | `i16`  |   `s`    |
+ | `i32`  |   `i`    |
+ | `i64`  |   `d`    |
+ | `u8`   |   `C`    |
+ | `u16`  |   `S`    |
+ | `u32`  |   `I`    |
+ | `u64`  |   `D`    |
+ | `f32`  |   `h`    |
+ | `f64`  |   `f`    |
+ 
+ 
+ ## Struct Type
+ - Syntax build-up:
+    - A
+    - t: if this is a template instantiation
+    - name, prefixed w/ count
+    - T: if this is a template instantiation
+ 
+ ## Tuple Type
+ - Syntax: B{num_elems}{elem_tys}
+ - {num_elems}: number of elements in the tuple
+ - {elem_tys}: the mangled element types
+ 
+ 
+ Ideas:
+ - well-known identifiers
+    - ie, `_I` followed by a digit could be used to refer to well-known instance method names)
+    - `A` followed by a non-digit that is not `t` could be used to refer to well-known type names
+ - Encode type list multiplicity?
+ - Option to refer to template args by "reference" (since the template arg is already in the mangled identifier, we don't need to include it again for each use)
+ 
+ */
+
+
 using namespace yo;
 
 NS_START(yo::mangling)
@@ -32,6 +122,7 @@ inline constexpr char kCanonicalPrefixOperatorOverload = '~';
 
 inline constexpr char kMangledTemplateArgsListPrefix = 'T';
 inline constexpr char kMangledTypeStructPrefix = 'A';
+inline constexpr char kMangledTypeStructIsTemplatePrefix = 't';
 inline constexpr char kMangledTypeTuplePrefix = 'B';
 
 inline constexpr char kMangledTypePointerPrefix = 'P';
@@ -58,23 +149,21 @@ public:
         return *this;
     }
     
-    ManglingStringBuilder& append(std::string_view str) {
-        OS << str;
+    template <typename T>
+    ManglingStringBuilder& append(const T& arg) {
+        OS << arg;
         return *this;
     }
     
-    ManglingStringBuilder& append(char c) {
-        OS << c;
-        return *this;
-    }
-    
-    ManglingStringBuilder& appendEncodedType(irgen::Type const*);
+    ManglingStringBuilder& appendEncodedType(const irgen::Type*);
     
     std::string str() const { return OS.str(); }
 };
 
 
 
+
+#pragma mark - Canonical Mangling
 
 
 std::string mangleCanonicalName(std::string_view type, std::string_view method, ast::FunctionKind kind) {
@@ -120,25 +209,12 @@ std::string mangleCanonicalName(std::shared_ptr<ast::FunctionDecl> funcDecl) {
 }
 
 
-/*
- type encodings:
- 
- i8     c
- i16    s
- i32    i
- i64    q
- 
- u8     C
- u16    S
- u32    I
- u64    Q
- 
- */
+
+#pragma mark - Mangling
 
 
 static const std::map<irgen::NumericalType::NumericalTypeID, std::string_view> numericalTypeEncodings = {
-    { irgen::NumericalType::NumericalTypeID::Bool,    "b" },
-    { irgen::NumericalType::NumericalTypeID::Float64, "f" },
+    { irgen::NumericalType::NumericalTypeID::Bool, "b" },
     
     { irgen::NumericalType::NumericalTypeID::Int8,  "c" },
     { irgen::NumericalType::NumericalTypeID::Int16, "s" },
@@ -149,28 +225,31 @@ static const std::map<irgen::NumericalType::NumericalTypeID, std::string_view> n
     { irgen::NumericalType::NumericalTypeID::UInt16, "S" },
     { irgen::NumericalType::NumericalTypeID::UInt32, "I" },
     { irgen::NumericalType::NumericalTypeID::UInt64, "Q" },
+    
+    { irgen::NumericalType::NumericalTypeID::Float32, "h" },
+    { irgen::NumericalType::NumericalTypeID::Float64, "f" },
 };
 
 
 
-ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(irgen::Type const *ty) {
+ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(const irgen::Type *ty) {
     using TypeID = irgen::Type::TypeID;
     switch (ty->getTypeId()) {
         case TypeID::Void:
             return append(kMangledTypeVoidEncoding);
         
         case TypeID::Numerical: {
-            auto *numTy = llvm::dyn_cast<irgen::NumericalType>(ty);
+            auto *numTy = llvm::cast<irgen::NumericalType>(ty);
             return append(numericalTypeEncodings.at(numTy->getNumericalTypeID()));
         }
         
         case TypeID::Pointer: {
-            auto *pointerTy = llvm::dyn_cast<irgen::PointerType>(ty);
+            auto *pointerTy = llvm::cast<irgen::PointerType>(ty);
             return append(kMangledTypePointerPrefix).appendEncodedType(pointerTy->getPointee());
         }
         
         case TypeID::Reference: {
-            auto refTy = llvm::dyn_cast<irgen::ReferenceType>(ty);
+            auto refTy = llvm::cast<irgen::ReferenceType>(ty);
             return append(kMangledTypeReferencePrefix).appendEncodedType(refTy->getReferencedType());
         }
         
@@ -178,31 +257,31 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(irgen::Type cons
             LKFatalError("TODO");
         
         case TypeID::Tuple: {
-            auto tupleTy = llvm::dyn_cast<irgen::TupleType>(ty);
-            
+            auto tupleTy = llvm::cast<irgen::TupleType>(ty);
             ManglingStringBuilder mangler(kMangledTypeTuplePrefix);
+            mangler.append(tupleTy->memberCount());
             for (auto elemTy : tupleTy->getMembers()) {
                 mangler.appendEncodedType(elemTy);
             }
-            return appendWithCount(mangler.str());
+            return append(mangler.str());
         }
         
         case TypeID::Struct: {
-            return append(llvm::dyn_cast<irgen::StructType>(ty)->getName());
+            return append(llvm::cast<irgen::StructType>(ty)->getName());
         }
     }
 }
 
 
-std::string mangleFullyResolved(irgen::Type const *type) {
+std::string mangleFullyResolved(const irgen::Type *type) {
     return ManglingStringBuilder().appendEncodedType(type).str();
 }
 
 
 // Mangled name includes type encodings for return- & parameter types
 std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> funcDecl) {
-    if (!funcDecl->getAttributes().mangledName.empty()) {
-        return funcDecl->getAttributes().mangledName;
+    if (auto mangledName = funcDecl->getAttributes().mangledName; !mangledName.empty()) {
+        return mangledName;
     }
     
     ManglingStringBuilder mangler(kMangledFunctionCommonPrefix);
@@ -218,30 +297,33 @@ std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> funcDecl) {
         
         case ast::FunctionKind::InstanceMethod:
             mangler.append(kPrefixInstanceMethod);
-            mangler.appendWithCount(funcDecl->getImplType()->getName());
+            mangler.appendEncodedType(funcDecl->getImplType());
             break;
         
         case ast::FunctionKind::StaticMethod:
             mangler.append(kPrefixStaticMethod);
-            mangler.appendWithCount(funcDecl->getImplType()->getName());
+            mangler.appendEncodedType(funcDecl->getImplType());
             break;
     }
     
     
-    if (funcDecl->isOperatorOverload() && !funcDecl->isOfFunctionKind(ast::FunctionKind::OperatorOverload)) {
-        // instance/static method which is an operator overload
+    if (funcDecl->isOperatorOverload() && funcDecl->isOfFunctionKind(ast::FunctionKind::InstanceMethod)) {
+        // instance method which is an operator overload
         mangler.append(kPrefixOperatorOverload);
+    } else if (funcDecl->isOperatorOverload() && funcDecl->isOfFunctionKind(ast::FunctionKind::StaticMethod)) {
+        LKFatalError("TODO support this as well?");
     }
     
     mangler.appendWithCount(funcDecl->getName());
     mangler.appendEncodedType(funcDecl->getSignature().returnType->getResolvedType());
     
-    for (auto &paramType : funcDecl->getSignature().paramTypes) {
-        mangler.appendEncodedType(paramType->getResolvedType());
+    for (size_t idx = funcDecl->isOfFunctionKind(ast::FunctionKind::InstanceMethod); idx < funcDecl->getSignature().paramTypes.size(); idx++) {
+        mangler.appendEncodedType(funcDecl->getSignature().paramTypes[idx]->getResolvedType());
     }
     
     if (!funcDecl->getResolvedTemplateArgTypes().empty()) {
         mangler.append(kMangledTemplateArgsListPrefix);
+        mangler.append(funcDecl->getResolvedTemplateArgTypes().size());
         for (auto &ty : funcDecl->getResolvedTemplateArgTypes()) {
             mangler.appendEncodedType(ty);
         }
@@ -258,16 +340,18 @@ std::string mangleAsStruct(std::string_view name) {
 
 // TODO rewrite to use an irgen::StructType* object instead!!!!
 std::string mangleFullyResolved(std::shared_ptr<ast::StructDecl> SD) {
-//    if (SD->resolvedTemplateArgTypes.empty()) {
-        // TODO also mangle non-templated structs
-//        return SD->name;
-//    }
-    
     ManglingStringBuilder mangler(kMangledTypeStructPrefix);
+    bool isTemplate = SD->resolvedTemplateArgTypes.size() > 0;
+    
+    if (isTemplate) {
+        mangler.append(kMangledTypeStructIsTemplatePrefix);
+    }
+    
     mangler.appendWithCount(SD->name);
     
-    if (!SD->resolvedTemplateArgTypes.empty()) {
+    if (isTemplate) {
         mangler.append(kMangledTemplateArgsListPrefix);
+        mangler.append(SD->resolvedTemplateArgTypes.size());
         for (auto &ty : SD->resolvedTemplateArgTypes) {
             mangler.appendEncodedType(ty);
         }
@@ -339,6 +423,14 @@ std::string_view demangleOperatorIntoSymbol(ast::Operator op) {
 
 
 
+template <typename T>
+void append_as_list(std::ostream &OS, const std::vector<T> &vec) {
+    util::vector::iterl(vec, [&OS](auto &elem, bool isLast) {
+        OS << elem;
+        if (!isLast) OS << ", ";
+    });
+}
+
 
 class Demangler {
     std::string_view input;
@@ -353,7 +445,8 @@ private:
     std::string demangleType();
     std::string demangleTuple();
     
-    std::string demangleTypeList();
+    std::vector<std::string> demangleTypeList();
+    std::vector<std::string> demangleTemplateArgTypeList();
     
     /// Attempts to read an integer at the beginning of the input string
     /// Returns: tuple of (value, #digits)
@@ -395,6 +488,7 @@ std::string Demangler::demangle() {
     
     auto [val, count] = this->readInt();
     if (count != 0 && input.size() == val + count) {
+        LKFatalError("shouldn't end up here anymore");
         input.remove_prefix(count);
     }
     
@@ -416,20 +510,29 @@ std::string Demangler::demangle() {
 std::string Demangler::demangleFunction() {
     LKAssert(input[0] == kMangledFunctionCommonPrefix);
     
-    std::ostringstream OS;
-    
-    auto functionKindChar = input[1];
+    char functionKind = input[1];
     input.remove_prefix(2);
     
-    switch (functionKindChar) {
+    std::ostringstream OS;
+    std::string returnTy;
+    std::optional<std::string> selfTy;
+    std::vector<std::string> paramsTys, templateArgTys;
+    
+    switch (functionKind) {
         case kPrefixGlobalFunction:
             OS << extractString();
             break;
         
         case kPrefixStaticMethod:
-        case kPrefixInstanceMethod:
-            OS << Demangler(extractString()).demangle();
-            OS << (functionKindChar == kPrefixStaticMethod ? "::" : ".");
+        case kPrefixInstanceMethod: {
+            selfTy = demangleType();
+            OS << *selfTy;
+            if (functionKind == kPrefixStaticMethod) {
+                OS << "::";
+            } else {
+                LKAssert(functionKind == kPrefixInstanceMethod);
+                OS << '.';
+            }
             if (input[0] == kPrefixOperatorOverload) {
                 input.remove_prefix(2); // 'O' and length of operator encoding (we know that the length is only 1 digit, since there are only a handful of operators (ie, never enough operators that the number of operators would be a number exceeding 9 digits)
                 auto op = static_cast<ast::Operator>(extractInt());
@@ -438,11 +541,10 @@ std::string Demangler::demangleFunction() {
                 OS << extractString();
             }
             break;
+        }
         
         case kPrefixOperatorOverload: {
             input.remove_prefix(1); // remove length of operator encoding
-            //auto opCanon = util::fmt::format("~{}", extractInt());
-            //auto op = demangleCanonicalOperatorEncoding(opCanon);
             auto op = static_cast<ast::Operator>(extractInt());
             OS << "operator" << demangleOperatorIntoSymbol(op);
             break;
@@ -452,22 +554,30 @@ std::string Demangler::demangleFunction() {
             LKFatalError("");
     }
     
-    auto returnType = demangleType();
-    auto paramTys = demangleTypeList();
-    std::string templateArgs;
+    returnTy = demangleType();
+    paramsTys = demangleTypeList();
     
     if (input[0] == kMangledTemplateArgsListPrefix) {
-        input.remove_prefix(1);
-        templateArgs = demangleTypeList();
+        templateArgTys = demangleTemplateArgTypeList();
     }
     
     LKAssert(input.empty());
     
-    if (!templateArgs.empty()) {
-        OS << '<' << templateArgs << '>';
+    if (!templateArgTys.empty()) {
+        OS << '<';
+        append_as_list(OS, templateArgTys);
+        OS << '>';
     }
     
-    OS << '(' << paramTys << ") -> " << returnType;
+    OS << '(';
+    if (selfTy.has_value()) {
+        OS << '&' << *selfTy;
+        if (!paramsTys.empty()) {
+            OS << ", ";
+        }
+    }
+    append_as_list(OS, paramsTys);
+    OS << ") -> " << returnTy;
     return OS.str();
 }
 
@@ -488,17 +598,33 @@ std::string Demangler::demangleType() {
             return std::string("&").append(demangleType());
         
         case kMangledTypeStructPrefix: {
-            input.remove_prefix(1);
             std::ostringstream OS;
-            OS << extractString();
-            if (input[0] == kMangledTemplateArgsListPrefix) {
-                // TODO what if this is parsed as part of a template function which also has a templated types in its signature,
-                // could we accidentally end up confusing the two Ts in here?
-                input.remove_prefix(1);
+            bool isTemplateInstantiation = input[1] == kMangledTypeStructIsTemplatePrefix;
+            input.remove_prefix(1 + isTemplateInstantiation);
+            
+            OS << extractString(); // typename
+            
+            if (isTemplateInstantiation) {
+                LKAssert(input[0] == kMangledTemplateArgsListPrefix);
                 OS << '<';
-                OS << demangleTypeList();
+                append_as_list(OS, demangleTemplateArgTypeList());
                 OS << '>';
             }
+            return OS.str();
+        }
+        
+        case kMangledTypeTuplePrefix: {
+            input.remove_prefix(1);
+            std::ostringstream OS;
+            auto numElements = extractInt();
+            OS << '(';
+            for (auto idx = 0; idx < numElements; idx++) {
+                OS << demangleType();
+                if (idx < numElements - 1) {
+                    OS << ", ";
+                }
+            }
+            OS << ')';
             return OS.str();
         }
         
@@ -540,26 +666,38 @@ std::string Demangler::demangleTuple() {
 }
 
 
-std::string Demangler::demangleTypeList() {
+std::vector<std::string> Demangler::demangleTypeList() {
     auto at_end = [&]() {
         // second check since this might be a function template, in which case the template args are demangled elsewhere
         return input.empty() || input[0] == kMangledTemplateArgsListPrefix;
     };
     
-    if (at_end()) return "";
+    if (at_end()) return {};
     
-    std::ostringstream OS;
+    std::vector<std::string> types;
     while (true) {
-        OS << demangleType();
+        types.push_back(demangleType());
         if (at_end()) {
             break;
-        } else {
-            OS << ", ";
         }
     }
-    return OS.str();
+    return types;
 }
 
+
+std::vector<std::string> Demangler::demangleTemplateArgTypeList() {
+    LKAssert(input[0] == kMangledTemplateArgsListPrefix);
+    input.remove_prefix(1);
+    
+    auto numElements = extractInt();
+    std::vector<std::string> types;
+    
+    for (size_t idx = 0; idx < numElements; idx++) {
+        types.push_back(demangleType());
+    }
+    
+    return types;
+}
 
 
 
