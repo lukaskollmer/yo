@@ -1263,7 +1263,7 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
             
             auto precedence = getOperatorPrecedenceGroup(op);
             
-            if (precedence >= precedenceGroupConstraint) {
+            if (precedence > precedenceGroupConstraint) { // TODO should this be `>` or `>=` depending on operator associativity?
                 auto rhs = parseExpression(precedence);
                 if (!rhs) {
                     restore_pos(fallback);
