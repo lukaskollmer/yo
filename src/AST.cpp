@@ -149,6 +149,8 @@ std::string operatorToString(ast::Operator op) {
         CASE(FnCall)
         CASE(Subscript)
         CASE(Assign)
+        CASE(CR_Inc)
+        CASE(CR_Exc)
     }
 }
 

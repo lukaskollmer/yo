@@ -65,6 +65,8 @@ enum class Operator : uint8_t {
     /* <= */ LE,
     /* > */  GT,
     /* >= */ GE,
+    /*..< */ CR_Exc, // exclusive closed range
+    /*... */ CR_Inc, // inclusive closed range
     
     /* |> */ FnPipe,
     

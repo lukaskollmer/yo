@@ -1,0 +1,72 @@
+use ":std/core";
+
+/// An inclusive interval from a lower bound to an upper bound
+///
+/// ClosedRange objects can be constructed either using
+/// the `ClosedRange::{exclusive|inclusive}` static methods,
+/// or via the `..<` and `...` operators
+struct ClosedRange<T> {
+    lowerBound: T,
+    upperBound: T
+}
+
+
+impl ClosedRange {
+    fn init(self: &Self, lowerBound: T, upperBound: T) {
+        assert(lowerBound <= upperBound);
+        self.lowerBound = lowerBound;
+        self.upperBound = upperBound;
+    }
+
+    fn inclusive(lowerBound: T, upperBound: T) -> ClosedRange<T> {
+        return ClosedRange<T>(lowerBound, upperBound);
+    }
+
+    fn exclusive(lowerBound: T, upperBound: T) -> ClosedRange<T> {
+        return ClosedRange<T>(lowerBound, upperBound - cast<T>(1));
+    }
+}
+
+
+fn operator ..< <T> (lhs: T, rhs: T) -> ClosedRange<T> {
+    return ClosedRange<T>::exclusive(lhs, rhs);
+}
+
+fn operator ... <T> (lhs: T, rhs: T) -> ClosedRange<T> {
+    return ClosedRange<T>::inclusive(lhs, rhs);
+}
+
+
+impl ClosedRange {
+    fn contains(self: &Self, value: T) -> bool {
+        return self.lowerBound <= value && value <= self.upperBound;
+    }
+
+    fn iterator(self: &Self) -> ClosedRangeIterator<T> {
+        return ClosedRangeIterator<T>(self.lowerBound, self.upperBound);
+    }
+}
+
+
+struct ClosedRangeIterator<T> {
+    lowerBound: T,
+    upperBound: T
+}
+
+impl ClosedRangeIterator {
+    fn init(self: &Self, lowerBound: T, upperBound: T) {
+        assert(lowerBound <= upperBound);
+        self.lowerBound = lowerBound;
+        self.upperBound = upperBound;
+    }
+    
+    fn hasNext(self: &Self) -> bool {
+        return self.lowerBound <= self.upperBound;
+    }
+
+    fn next(self: &Self) -> T {
+        let value = self.lowerBound;
+        self.lowerBound += 1;
+        return value;
+    }
+}

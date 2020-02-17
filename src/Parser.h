@@ -34,6 +34,7 @@ enum class PrecedenceGroup : uint8_t {
     LogicalConjunction,
     Comparison,
     Casting,
+    RangeFormation,
     Addition,
     Multiplication,
     Bitshift,

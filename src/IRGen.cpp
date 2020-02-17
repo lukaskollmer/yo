@@ -1670,7 +1670,9 @@ bool isValidBinopOperator(ast::Operator op) {
         || op == Op::GT
         || op == Op::GE
         || op == Op::LAnd
-        || op == Op::LOr;
+        || op == Op::LOr
+        || op == Op::CR_Exc
+        || op == Op::CR_Inc;
 }
 
 

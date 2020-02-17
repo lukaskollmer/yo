@@ -1032,6 +1032,10 @@ PrecedenceGroup getOperatorPrecedenceGroup(Operator op) {
         case Operator::Xor:
             return PrecedenceGroup::Addition;
         
+        case Operator::CR_Inc:
+        case Operator::CR_Exc:
+            return PrecedenceGroup::RangeFormation;
+        
         case Operator::Mul:
         case Operator::Div:
         case Operator::Mod:
@@ -1203,6 +1207,10 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
         
 //    parse_member_expr:
         if (currentTokenKind() == TK::Period) { // member expr
+            if (peekKind() == TK::Period && (peekKind(2) == TK::Period || peekKind(2) == TK::OpeningAngledBracket)) {
+                goto parse_binop_expr;
+            }
+            
             const auto loc = getCurrentSourceLocation();
             consume();
             auto memberName = parseIdentAsString();
@@ -1383,6 +1391,7 @@ std::optional<ast::Operator> Parser::parseOperator(bool includeFunctionDeclOpera
                 consume(2);
                 return Operator::FnCall;
             }
+            break;
         
         case TK::OpeningSquareBrackets:
             if (peekKind() == TK::ClosingSquareBrackets) {
@@ -1390,10 +1399,28 @@ std::optional<ast::Operator> Parser::parseOperator(bool includeFunctionDeclOpera
                 consume(2);
                 return Operator::Subscript;
             }
+            break;
+        
+        case TK::Period: {
+            auto peek1 = peekKind();
+            auto peek2 = peekKind(2);
+            if (peek1 == TK::Period) {
+                if (peek2 == TK::Period) {
+                    consume(3);
+                    return Operator::CR_Inc;
+                } else if (peek2 == TK::OpeningAngledBracket) {
+                    consume(3);
+                    return Operator::CR_Exc;
+                }
+            }
+            break;
+        }
         
         default:
-            return std::nullopt;
+            break;
     }
+    
+    return std::nullopt;
 }
 
 

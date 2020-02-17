@@ -418,6 +418,8 @@ std::string_view demangleOperatorIntoSymbol(ast::Operator op) {
         CASE(FnCall, "()")
         CASE(Subscript, "[]")
         CASE(Assign, "=")
+        CASE(CR_Inc, "...")
+        CASE(CR_Exc, "..<")
     }
 #undef CASE
 }

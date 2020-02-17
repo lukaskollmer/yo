@@ -16,3 +16,16 @@ fn fatalError(message: String) {
     printf(b"Fatal Error: %s\n", message.c_str());
     __trap();
 }
+
+
+// TODO add source locations (and maybe also the actual expression of the condition?)
+fn assert(condition: bool) {
+    if !condition {
+        fatalError("Assertion failed");
+    }
+}
+fn assert(condition: bool, message: String) {
+    if !condition {
+        fatalError(message);
+    }
+}

@@ -343,17 +343,28 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& fi
             while (true) {
                 // TODO allow non-base-10 floating point literals?
                 // ie: 0b101.11 = 5.75
+                // also support some of these: https://en.cppreference.com/w/cpp/language/floating_literal ?
                 rawValue.push_back(sourceText[offset]);
                 
                 auto nextChar = sourceText[++offset];
                 // The hex digits charset contains all other digits as well, so it makes most sense to use that.
                 // Invalid characters will be detected by `std::{stoll|stod}` below
-                if (isHexDigitChar(nextChar)) continue;
-                // All of the below are valid!
+                
+                if (isFloat && isDecimalDigitChar(nextChar)) {
+                    // if isFloat is true, the next digits that still belong to the number can only be base-10
+                    continue;
+                } else if (!isFloat && isHexDigitChar(nextChar)) {
+                    continue;
+                }
+                
+                // All of the below are valid code!
                 // 1.7
                 // 1.x
                 // 1.7.x
                 if (nextChar == '.') {
+                    if (!isDecimalDigitChar(sourceText[offset + 1])) { // next next char
+                        break;
+                    }
                     if (isFloat || base != 10) {
                         // parsing a float and there's a second period or parsing something that cannot become a float and there's a period
                         break;
