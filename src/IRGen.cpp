@@ -3596,7 +3596,15 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
         
         case TDK::NominalTemplated: {
             auto structDecl = util::map::get_opt(templateStructs, typeDesc->getName());
-            if (!structDecl) diagnostics::emitError(typeDesc->getSourceLocation(), "unable to resolve type");
+            if (!structDecl) {
+                diagnostics::emitError(typeDesc->getSourceLocation(), "unable to resolve type");
+            }
+            
+            // Make sure the template args are resolved in the current context, instead of the clean-slate context used for instantiating the template
+            // (this is important for example for decltype template args dependent on local variables)
+            for (auto tmplArg : typeDesc->getTemplateArgs()) {
+                resolveTypeDesc(tmplArg);
+            }
             
             StructType *ST = withCleanSlate([&]() { return instantiateTemplateStruct(*structDecl, typeDesc); });
             return handleResolvedTy(ST);

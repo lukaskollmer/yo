@@ -1,4 +1,6 @@
+use ":std/core";
 use ":std/memory";
+use ":std/range";
 
 struct ArrayIterator<Element> {
     array: &Array<Element>,
@@ -25,19 +27,19 @@ impl ArrayIterator {
 
 struct Array<Element> {
     data: *Element,
-    size: i64,
-    allocSize: i64
+    size: i64, // TODO rename to count?
+    capacity: i64
 }
 
 impl Array {
     fn init(self: &Self) {
         self.data = alloc<Element>(10);
-        self.allocSize = 10;
+        self.capacity = 10;
     }
 
     fn init(self: &Self, other: &Array<Element>) {
-        self.allocSize = other.allocSize;
-        self.data = alloc<Element>(cast<size_t>(self.allocSize));
+        self.capacity = other.capacity;
+        self.data = alloc<Element>(cast<size_t>(self.capacity));
         while self.size < other.size {
             self._constructInPlace(self.size, other[self.size]);
             self.size += 1;
@@ -45,6 +47,9 @@ impl Array {
     }
 
     fn operator [] (self: &Self, index: i64) -> &Element {
+        //assert((0..<self.size).contains(index));
+        let range = 0..<self.size;
+        assert(range.contains(index), "index out of bounds");
         return self.data[index];
     }
 
@@ -54,7 +59,7 @@ impl Array {
 
 
     fn append(self: &Self, element: Element) {
-        if self.size >= self.allocSize - 2 {
+        if self.size >= self.capacity - 2 {
             self._resize(25); // TODO dynamically calculate growth factor!
         }
         self._constructInPlace(self.size, element);
@@ -63,7 +68,15 @@ impl Array {
 
     
     fn remove(self: &Self, index: i64) {
-        fatalError("TODO: implement");
+        if __is_destructible<Element>() {
+            self[index].__dealloc();
+        }
+        for idx in index..<self.size {
+            memcpy(bitcast<*i8>(self.data + cast<size_t>(idx)), bitcast<*i8>(self.data + cast<size_t>(idx) + 1), 1);
+        }
+        self.size -= 1;
+
+        // TODO shrink if necessary?
     }
 
 
@@ -78,13 +91,25 @@ impl Array {
 
     
     fn _resize(self: &Self, diff: i64) {
-        let ptr = alloc<Element>(cast<size_t>(self.allocSize + diff));
+        let ptr = alloc<Element>(cast<size_t>(self.capacity + diff));
         memcpy(bitcast<*i8>(ptr), bitcast<*i8>(self.data), cast<size_t>(self.size) * sizeof<Element>());
         dealloc(self.data);
         self.data = ptr;
     }
 
 
+    /// Filter the array in-place, removing all elements which do not match the predicate
+    fn filter<F>(self: &Self, f: F) {
+        let indices = Array<i64>();
+        for index in 0..<self.size {
+            if !f(self[index]) {
+                indices.append(index);
+            }
+        }
+        for idx in 0..<indices.size {
+            self.remove(indices[indices.size - idx - 1]);
+        }
+    }
 
 
     fn filtered<F>(self: &Self, f: F) -> Array<Element> {
@@ -119,6 +144,14 @@ impl Array {
         return false;
     }
 
+
+    fn map<F>(self: &Self, f: F) -> Array<decltype(f(self.data[0]))> {
+        let mapped = Array<decltype(f(self.data[0]))>();
+        for &elem in self {
+            mapped.append(f(elem));
+        }
+        return mapped;
+    }
 
 
     fn dealloc(self: &Self) {
