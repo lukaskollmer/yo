@@ -276,10 +276,6 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     
     
     if (sig.isTemplateDecl() || functionDecl->getAttributes().intrinsic || functionDecl->getAttributes().int_isCtor) {
-//        if (sig.isTemplateDecl()) {
-//            ensureTemplateParametersAreDistinct(*sig.templateParamsDecl);
-//        }
-        
         auto canonicalName = mangling::mangleCanonicalName(functionDecl);
         
         if (functionDecl->getAttributes().int_isCtor && !functions[canonicalName].empty()) {
@@ -537,7 +533,11 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
     
     for (auto &fn : implBlock->methods) {
         assertIsValidMemberFunction(*fn);
-        fn->setFunctionKind(getFunctionKind(*fn));
+        auto functionKind = getFunctionKind(*fn);
+        if (functionKind == FunctionKind::InstanceMethod) {
+            fn->getSignature().paramTypes[0] = ast::TypeDesc::makeResolved(structTy->getReferenceTo());
+        }
+        fn->setFunctionKind(functionKind);
         fn->setImplType(structTy);
         registerFunction(fn);
     }

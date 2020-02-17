@@ -1402,17 +1402,11 @@ std::optional<ast::Operator> Parser::parseOperator(bool includeFunctionDeclOpera
 std::shared_ptr<ast::CallExpr> Parser::parseCallExpr(std::shared_ptr<ast::Expr> target) {
     auto templateArgs = parseTemplateArgumentList();
     
-//    if (!templateArgs && currentTokenKind() != TK::OpeningParens) {
-//        return nullptr;
-//    }
     
-    
-    if (currentTokenKind() == TK::OpeningParens) {
-        consume();
-    //} else if (currentTokenKind() == TK::Colon && peekKind() == TK::Colon) {
-    //    consume(2);
+    if (!templateArgs && currentTokenKind() != TK::OpeningParens) {
+        return nullptr;
     } else {
-        diagnostics::emitError(getCurrentSourceLocation(), "expected '.' or '::'");
+        consume();
     }
     
     auto callArguments = parseExpressionList(TK::ClosingParens);
