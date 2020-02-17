@@ -14,13 +14,12 @@
 #include <optional>
 
 #include "AST.h"
-//#include "TypeInfo.h"
 #include "IRGen.h"
 
 
 NS_START(yo::irgen)
 
-// TODO this should probably be renamed to TemplateInstantiation or something like that
+
 class TemplateSpecializer {
 public:
     using TmplParamMapping = std::map<std::string, std::shared_ptr<ast::TypeDesc>>;
@@ -61,6 +60,7 @@ public:
     std::shared_ptr<ast::BinOp> specialize(std::shared_ptr<ast::BinOp>);
     std::shared_ptr<ast::UnaryExpr> specialize(std::shared_ptr<ast::UnaryExpr>);
     std::shared_ptr<ast::LambdaExpr> specialize(std::shared_ptr<ast::LambdaExpr>);
+    std::shared_ptr<ast::StaticDeclRefExpr> specialize(std::shared_ptr<ast::StaticDeclRefExpr>);
     
     std::shared_ptr<ast::TemplateParamArgList> specialize(std::shared_ptr<ast::TemplateParamArgList>);
     std::shared_ptr<ast::TemplateParamDeclList> specialize(std::shared_ptr<ast::TemplateParamDeclList>);

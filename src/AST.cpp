@@ -445,7 +445,7 @@ Mirror Reflect(const ast::MemberExpr *memberExpr) {
 
 Mirror Reflect(const ast::StaticDeclRefExpr *staticDeclRefExpr) {
     return {
-        { "typeName", staticDeclRefExpr->typeName },
+        { "typeDesc", staticDeclRefExpr->typeDesc },
         { "memberName", staticDeclRefExpr->memberName }
     };
 }

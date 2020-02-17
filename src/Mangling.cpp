@@ -99,6 +99,7 @@
  - well-known identifiers
     - ie, `_I` followed by a digit could be used to refer to well-known instance method names)
     - `A` followed by a non-digit that is not `t` could be used to refer to well-known type names
+    - question: is only the identifier well-known (ie "this is an initializer"), or also the specific signature (ie "this is the copy constructor")
  - Encode type list multiplicity?
  - Option to refer to template args by "reference" (since the template arg is already in the mangled identifier, we don't need to include it again for each use)
  

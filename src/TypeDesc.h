@@ -115,14 +115,15 @@ public:
     
     bool isOfKind(Kind K) const { return kind == K; }
     
-    bool isNominal() const { return isOfKind(Kind::Nominal) || isOfKind(Kind::NominalTemplated); }
+    bool isNominal() const { return isOfKind(Kind::Nominal); }
     bool isPointer() const { return isOfKind(Kind::Pointer); }
     bool isResolved() const { return isOfKind(Kind::Resolved); } // TODO should this also return true if resolvedType != nil ?
     bool isReference() const { return isOfKind(Kind::Reference); }
     bool isTuple() const { return isOfKind(Kind::Tuple); }
+    bool isNominalTemplated() const { return isOfKind(Kind::NominalTemplated); }
     
     const std::string& getName() const {
-        LKAssert(isNominal());
+        LKAssert(isNominal() || isNominalTemplated());
         return isOfKind(Kind::Nominal)
             ? std::get<std::string>(data)
             : std::get<NominalTemplatedDataT>(data).first;

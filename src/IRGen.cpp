@@ -165,11 +165,6 @@ void IRGenerator::codegen(const ast::AST& ast) {
     
     handleStartupAndShutdownFunctions();
     debugInfo.builder.finalize();
-    
-    
-    for (auto &[name, whatever] : resolvedFunctions) {
-        std::cout << name << " " << mangling::demangle(name) << "\n";
-    }
 }
 
 
@@ -242,18 +237,6 @@ void IRGenerator::preflight(const ast::AST& ast) {
 }
 
 
-void ensureTemplateParametersAreDistinct(const ast::TemplateParamDeclList &paramDeclList) {
-    std::vector<std::string> paramNames;
-    
-    for (auto &param : paramDeclList.getParams()) {
-        if (util::vector::contains(paramNames, param.name)) {
-            diagnostics::emitError(paramDeclList.getSourceLocation(), util::fmt::format("duplicate template parameter name '{}'", param.name));
-        }
-        paramNames.push_back(param.name);
-    }
-}
-
-
 uint8_t argumentOffsetForFunctionKind(ast::FunctionKind kind) {
     switch (kind) {
         case yo::ast::FunctionKind::GlobalFunction:
@@ -293,9 +276,9 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     
     
     if (sig.isTemplateDecl() || functionDecl->getAttributes().intrinsic || functionDecl->getAttributes().int_isCtor) {
-        if (sig.isTemplateDecl()) {
-            ensureTemplateParametersAreDistinct(*sig.templateParamsDecl);
-        }
+//        if (sig.isTemplateDecl()) {
+//            ensureTemplateParametersAreDistinct(*sig.templateParamsDecl);
+//        }
         
         auto canonicalName = mangling::mangleCanonicalName(functionDecl);
         
@@ -380,18 +363,55 @@ StructType* UselessStructTypeForTemplateStructCtor(std::string name, const parse
 }
 
 
+
+
+
+void ensureTemplateParametersAreDistinct(const ast::TemplateParamDeclList &paramDeclList) {
+    std::vector<std::string> paramNames;
+    
+    for (auto &param : paramDeclList.getParams()) {
+        if (util::vector::contains(paramNames, param.name->value)) {
+            diagnostics::emitError(paramDeclList.getSourceLocation(), util::fmt::format("duplicate template parameter name '{}'", param.name->value));
+        }
+        paramNames.push_back(param.name->value);
+    }
+}
+
+
+// the initializer_list should contain template param decls in decreasing order of precedence
+// (ie, a struct decl's param list should come before the decl list of one of the struct's member functions)
+// Note: this function assumes that the individual lists are duplicate-free
+// (otherwise, it will still catch these duplicates, but the error message won't really make sense)
+void ensureTemplateParametersDontShadow(std::initializer_list<std::shared_ptr<ast::TemplateParamDeclList>> lists) {
+    std::vector<ast::TemplateParamDeclList::Param> params;
+    
+    for (auto &list : lists) {
+        for (auto &param : list->getParams()) {
+            if (auto prev = util::vector::first_where(params, [&param](auto &P) { return P.name->value == param.name->value; })) {
+                diagnostics::emitNote(prev.value().name->getSourceLocation(), "previously declared here");
+                diagnostics::emitError(param.name->getSourceLocation(),
+                                       util::fmt::format("declaration of '{}' shadows template parameter from outer scope", param.name->value));
+            } else {
+                params.push_back(param);
+            }
+        }
+    }
+}
+
+
 StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl) {
     auto structName = structDecl->name;
     
     if (structDecl->isTemplateDecl()) {
         LKAssert(!structDecl->attributes.no_init && "template struct cannot have no_init attribute");
+        ensureTemplateParametersAreDistinct(*structDecl->templateParamsDecl);
         
         templateStructs[structDecl->name] = structDecl;
         
         ast::FunctionSignature ctorSig;
         std::vector<std::shared_ptr<ast::Ident>> ctorParamNames;
         ctorSig.returnType = ast::TypeDesc::makeNominalTemplated(structName, util::vector::map(structDecl->templateParamsDecl->getParams(), [](auto &param) {
-            return ast::TypeDesc::makeNominal(param.name);
+            return ast::TypeDesc::makeNominal(param.name->value);
         }));
         ctorSig.templateParamsDecl = std::make_shared<ast::TemplateParamDeclList>(*structDecl->templateParamsDecl);
 
@@ -408,12 +428,7 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         return nullptr;
     }
     
-    // TODO always use the mangled name!
-    // This doesn't work yet, since resolveTypeDesc wouldn't work anymore
-    // (shouldn't be too difficule to fix?)
-//    if (structDecl->resolvedTemplateArgTypes.size() != 0) {
-        structName = mangling::mangleFullyResolved(structDecl);
-//    }
+    structName = mangling::mangleFullyResolved(structDecl);
     
     // TODO add a check somewhere here to make sure there are no duplicate struct members
     StructType::MembersT structMembers;
@@ -460,47 +475,69 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
 
 
 void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
-    using FK = ast::FunctionKind;
+    using ast::FunctionKind;
+    
+    auto getFunctionKind = [](const ast::FunctionDecl &FD) -> FunctionKind {
+        auto &sig = FD.getSignature();
+        if (sig.paramTypes.empty()) {
+            LKAssert(!FD.isOperatorOverload()); // TODO would be cool to support this
+            return FunctionKind::StaticMethod;
+        }
+        if (FD.getParamNames()[0]->value != "self") {
+            return FunctionKind::StaticMethod;
+        }
+        auto T = sig.paramTypes[0];
+        if (T->isReference() && T->getPointee()->isNominal() && T->getPointee()->getName() == "Self") {
+            return FunctionKind::InstanceMethod;
+        }
+        return FunctionKind::StaticMethod;
+    };
+    
+    
+    auto assertIsValidMemberFunction = [](const ast::FunctionDecl &FD, std::shared_ptr<ast::TemplateParamDeclList> implTypeTemplateParams = nullptr) {
+        auto &sig = FD.getSignature();
+        auto &attr = FD.getAttributes();
+        
+        if (attr.no_mangle) {
+            diagnostics::emitError(FD.getSourceLocation(), "type member function cannot have 'no_mangle' attribute");
+        }
+        
+        if (!attr.mangledName.empty()) {
+            diagnostics::emitError(FD.getSourceLocation(), "type member function cannot have explicitly set mangled name");
+        }
+        
+        if (sig.isTemplateDecl()) {
+            ensureTemplateParametersAreDistinct(*sig.templateParamsDecl);
+            if (implTypeTemplateParams) {
+                ensureTemplateParametersDontShadow({implTypeTemplateParams, sig.templateParamsDecl});
+            }
+        }
+    };
+    
+    
     
     auto typeDesc = implBlock->typeDesc;
-    //auto implTy = nominalTypes.get(mangling::mangleAsStruct(typeDesc->getName()));
-    
     if (auto templateDecl = util::map::get_opt(templateStructs, typeDesc->getName())) {
-        //if (implTy.has_value()) {
-        //if (implTy) {
-        //    LKFatalError("multiple types w/ same name?");
-        //}
         implBlock->isNominalTemplateType = true;
-        
         // impl blocks for templated types are registered when their respective type is instantiated
         // TODO static methods of struct templates should be registered anyways!!!!
+        
+        for (auto &FD : implBlock->methods) {
+            assertIsValidMemberFunction(*FD, templateDecl.value()->templateParamsDecl);
+            
+            // TODO what about registering static method in here, so that we don't have to instantiate the type just to resolve them?
+        }
+        
         return;
     }
     
+    
     auto implTy = resolveTypeDesc(implBlock->typeDesc);
-    
-    
-    //auto structTy = llvm::dyn_cast<StructType>(implTy.value());
-    auto structTy = llvm::dyn_cast<StructType>(implTy);
+    auto structTy = llvm::cast<StructType>(implTy);
     
     for (auto &fn : implBlock->methods) {
-        LKAssert(!fn->getAttributes().no_mangle && "invalid attribute for function in impl block");
-        auto kind = FK::StaticMethod;
-        if (!fn->getSignature().paramTypes.empty()) {
-            // TODO allow omitting the type of a self parameter, and set it here implicitly?
-            // TODO don't call resolveTypeDesc on templated methods
-            
-            if (fn->getParamNames()[0]->value == "self") {
-                auto T = fn->getSignature().paramTypes[0];
-                if (T->isReference() && T->getPointee()->isNominal() && T->getPointee()->getName() == "Self") {
-                    kind = FK::InstanceMethod;
-                    fn->getSignature().paramTypes[0] = ast::TypeDesc::makeResolved(structTy->getReferenceTo());
-                } else if (resolveTypeDesc(T) == structTy->getReferenceTo()) {
-                    kind = FK::InstanceMethod;
-                }
-            }
-        }
-        fn->setFunctionKind(kind);
+        assertIsValidMemberFunction(*fn);
+        fn->setFunctionKind(getFunctionKind(*fn));
         fn->setImplType(structTy);
         registerFunction(fn);
     }
@@ -1799,13 +1836,13 @@ IRGenerator::resolveStructTemplateParametersFromExplicitTemplateArgumentList(std
     for (size_t i = 0; i < numParams; i++) {
         auto &param = params[i];
         if (i < numArgs) {
-            mapping[param.name] = ast::TypeDesc::makeResolved(resolveTypeDesc(explicitArgs[i]));
+            mapping[param.name->value] = ast::TypeDesc::makeResolved(resolveTypeDesc(explicitArgs[i]));
         } else if (auto defaultType = param.defaultType) {
             // TODO what if a default parameter depends on one of the previous params? (like what std::vector does?)
             // TODO issue? this resolves the type desc in the wrong context (caller vs callee!)
-            mapping[param.name] = ast::TypeDesc::makeResolved(resolveTypeDesc(defaultType));
+            mapping[param.name->value] = ast::TypeDesc::makeResolved(resolveTypeDesc(defaultType));
         } else {
-            auto msg = util::fmt::format("unable to resolve template parameter '{}'", param.name);
+            auto msg = util::fmt::format("unable to resolve template parameter '{}'", param.name->value);
             diagnostics::emitError(templateArgsList->getSourceLocation(), msg);
         }
     }
@@ -1855,7 +1892,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
     //    a template argument type deduced from a literal expression.
     
     
-    auto templateParamNames = util::vector::map(sig.templateParamsDecl->getParams(), [](auto &param) { return param.name; });
+    const auto templateParamNames = util::vector::map(sig.templateParamsDecl->getParams(), [](auto &param) { return param.name->value; });
     
     
     enum class DeductionReason {
@@ -1878,7 +1915,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
     // Handle explicitly specified types
     for (uint64_t idx = 0; idx < std::min<uint64_t>(sig.templateParamsDecl->size(), call->numberOfExplicitTemplateArgs()); idx++) {
         auto &param = sig.templateParamsDecl->getParams()[idx];
-        mapping[param.name] = { resolveTypeDesc(call->explicitTemplateArgs->elements[idx]), DeductionReason::Explicit };
+        mapping[param.name->value] = { resolveTypeDesc(call->explicitTemplateArgs->elements[idx]), DeductionReason::Explicit };
     }
     
     
@@ -1990,7 +2027,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
     // Make sure all parameters were resolved, apply default values where necessary
     
     for (auto &param : sig.templateParamsDecl->getParams()) {
-        if (util::map::has_key(mapping, param.name)) continue;
+        if (util::map::has_key(mapping, param.name->value)) continue;
         
         if (auto defaultTy = param.defaultType) {
             // TODO this resolves the default type in a different context than the one it was declared in!
@@ -2002,7 +2039,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
             // fn bar<A>() { foo(); }
             // ```
             // In this case, even though foo's default type specified the global struct `A`, it'd get resolved to the locally shadowing template parameter
-            mapping[param.name] = { resolveTypeDesc(defaultTy), DR::Default };
+            mapping[param.name->value] = { resolveTypeDesc(defaultTy), DR::Default };
         } else {
             // no entry for type, and no default value
             return std::nullopt;
@@ -2049,7 +2086,7 @@ ResolvedCallable IRGenerator::specializeTemplateFunctionDeclForCallExpr(std::sha
     std::vector<Type *> templateArgTypes;
     for (const auto &param : funcDecl->getSignature().templateParamsDecl->getParams()) {
         // TODO does this take default arg values into account?
-        templateArgTypes.push_back(resolveTypeDesc(templateArgMapping.at(param.name)));
+        templateArgTypes.push_back(resolveTypeDesc(templateArgMapping.at(param.name->value)));
     }
     // TODO use this assert to check whether all params (incl defaults) are taken into account here!!!!
     LKAssert(templateArgTypes.size() == funcDecl->getSignature().templateParamsDecl->size());
@@ -2136,7 +2173,34 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         
     } else if (auto staticDeclRefExpr = llvm::dyn_cast<ast::StaticDeclRefExpr>(callExpr->target)) {
         // <typename>::<methodname>()
-        targetName = mangling::mangleCanonicalName(staticDeclRefExpr->typeName, staticDeclRefExpr->memberName, ast::FunctionKind::StaticMethod);
+        
+        auto TD = staticDeclRefExpr->typeDesc;
+        
+        if (TD->isNominal()) {
+            targetName = mangling::mangleCanonicalName(mangling::mangleAsStruct(TD->getName()),
+                                                       staticDeclRefExpr->memberName,
+                                                       ast::FunctionKind::StaticMethod);
+        } else if (TD->isNominalTemplated()) {
+//            util::fmt::print("{}", staticDeclRefExpr->description());
+            
+            if (auto structDecl = util::map::get_opt(templateStructs, TD->getName())) {
+                // TODO can we do better if `codegenOption = kSkipCodegen`?
+                // at the end of the day, it doesn't really matter, but still ...
+                auto structTy = withCleanSlate([&]() { return instantiateTemplateStruct(*structDecl, TD); });
+                targetName = mangling::mangleCanonicalName(structTy->getName(),
+                                                           staticDeclRefExpr->memberName,
+                                                           ast::FunctionKind::StaticMethod);
+            
+            } else {
+                diagnostics::emitError(staticDeclRefExpr->getSourceLocation(),
+                                       util::fmt::format("unable to resolve type '{}'", TD->getName()));
+            }
+            
+        } else {
+            // TODO what about decltypes that resolve to nominal types?
+            // TODO once `impl`s are typedesc-based, all types should support static methods
+            LKFatalError("unsupported type desc");
+        }
         
     } else if (auto memberExpr = llvm::dyn_cast<ast::MemberExpr>(callExpr->target)) {
         // TODO does this take overloaded instance methods into account?
@@ -2200,7 +2264,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     // TODO does this mean we might miss another potential target
     // Not if the compiler disallows free functions w/ the same name as a defined type
     //if (nominalTypes.get(mangling::mangleAsStruct(targetName)) || util::map::has_key(templateStructs, targetName)) {
-    if (bool isNominalTy = nominalTypes.get(mangling::mangleAsStruct(targetName)).has_value(), isTemplate = util::map::has_key(templateStructs, targetName); isNominalTy || isTemplate) {
+    if (bool isNominalTy = nominalTypes.get(mangling::mangleAsStruct(targetName)).has_value(), isTemplate = util::map::has_key(templateStructs, targetName);isNominalTy || isTemplate) {
         if (isNominalTy) targetName = mangling::mangleAsStruct(targetName); // TODO this is awful!!!
         auto mangledTargetName = mangling::mangleCanonicalName(targetName, targetName, ast::FunctionKind::StaticMethod);
         
@@ -2270,7 +2334,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         if (decl->getName() != kInitializerMethodName && !sig.isTemplateDecl() && callExpr->numberOfExplicitTemplateArgs() > 0) {
             // Reject a non-template target if the call expression contains explicit template arguments.
             // The sole exception here are calls to initializers, since in this case the call expression
-            // has being reused by the compiler, with the original target (the ctor) replaced w/ the initializer
+            // is being reused by the compiler, with the original target (the ctor) replaced w/ the initializer
             if (!decl->isTemplateInstantiation()) {
                 rejections.emplace_back("cannot pass explicit template arguments to non-template target", *decl);
             }
@@ -4058,7 +4122,7 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
     
     for (uint64_t idx = 0; idx < SD->templateParamsDecl->size(); idx++) {
         if (idx < explicitArgs.size()) {
-            mapping[SD->templateParamsDecl->getParams()[idx].name] = explicitArgs[idx];
+            mapping[SD->templateParamsDecl->getParams()[idx].name->value] = explicitArgs[idx];
         }
     }
     
@@ -4077,7 +4141,7 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
         Type *ty = nullptr;
         auto &param = SD->templateParamsDecl->getParams()[idx];
         
-        if (auto TD = util::map::get_opt(mapping, param.name)) {
+        if (auto TD = util::map::get_opt(mapping, param.name->value)) {
             ty = resolveTypeDesc(*TD);
         } else if (auto defaultTD = param.defaultType) {
             ty = resolveTypeDesc(defaultTD);
@@ -4085,14 +4149,14 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
             diagnostics::emitError(util::fmt::format("unable to resolve template parameter {}", param.name));
         }
         
-        fullMapping[param.name] = ast::TypeDesc::makeResolved(ty);
+        fullMapping[param.name->value] = ast::TypeDesc::makeResolved(ty);
     }
     
     auto specializedDecl = TemplateSpecializer::specializeWithMapping(SD, fullMapping);
     
     for (uint64_t idx = 0; idx < SD->templateParamsDecl->size(); idx++) {
         auto &name = SD->templateParamsDecl->getParams()[idx].name;
-        specializedDecl->resolvedTemplateArgTypes.push_back(fullMapping.at(name)->getResolvedType());
+        specializedDecl->resolvedTemplateArgTypes.push_back(fullMapping.at(name->value)->getResolvedType());
     }
     
     auto mangledName = mangling::mangleFullyResolved(specializedDecl);

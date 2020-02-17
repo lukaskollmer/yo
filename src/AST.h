@@ -161,9 +161,9 @@ enum class FunctionKind {
 class TemplateParamDeclList : public Node {
 public:
     struct Param {
-        std::string name;
+        std::shared_ptr<Ident> name;
         std::shared_ptr<ast::TypeDesc> defaultType;
-        Param(std::string name, std::shared_ptr<ast::TypeDesc> defaultType = nullptr) : name(name), defaultType(defaultType) {}
+        Param(std::shared_ptr<Ident> name, std::shared_ptr<ast::TypeDesc> defaultType = nullptr) : name(name), defaultType(defaultType) {}
     };
     
 private:
@@ -230,6 +230,8 @@ std::ostream& operator<<(std::ostream&, const ast::FunctionSignature&);
 
 /// A Function Declaration
 class FunctionDecl : public TopLevelStmt {
+    // TODO somehow enforce that these cannot be arbitrarily changed
+    // what about intruducing the general concept of "finalized" nodes, which cannot be mutated?
     FunctionSignature signature;
     std::vector<std::shared_ptr<ast::Ident>> paramNames;
     std::shared_ptr<ast::CompoundStmt> body;
@@ -573,11 +575,12 @@ public:
 // A reference to a static member of a type (for example a static method or an enum value)
 class StaticDeclRefExpr : public Expr {
 public:
-    std::string typeName;
+    std::shared_ptr<TypeDesc> typeDesc;
     std::string memberName;
     
     CLASSOF_IMP(Node::Kind::StaticDeclRefExpr)
-    StaticDeclRefExpr(const std::string &typeName, const std::string &memberName) : Expr(Node::Kind::StaticDeclRefExpr), typeName(typeName), memberName(memberName) {}
+    StaticDeclRefExpr(std::shared_ptr<TypeDesc> typeDesc, const std::string &memberName)
+    : Expr(Node::Kind::StaticDeclRefExpr), typeDesc(typeDesc), memberName(memberName) {}
 };
 
 

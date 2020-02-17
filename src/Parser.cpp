@@ -371,7 +371,8 @@ std::shared_ptr<ast::TemplateParamDeclList> Parser::parseTemplateParamDeclList()
     consume();
     
     while (true) {
-        auto name = parseIdentAsString();
+        assertTk(TK::Ident);
+        auto name = parseIdent();
         std::shared_ptr<TypeDesc> initialValue = nullptr;
         if (currentTokenKind() == TK::EqualsSign) {
             consume();
@@ -1120,17 +1121,31 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
         
         case TK::Ident: {
             expr = parseIdent();
+            save_pos(fallback_pos_after_ident);
+            std::shared_ptr<TemplateParamArgList> templateParamsArgList;
+            
+            if (currentTokenKind() == TK::OpeningAngledBracket) {
+                templateParamsArgList = parseTemplateArgumentList();
+            }
             
             if (currentTokenKind() == TK::Colon && peekKind() == TK::Colon) {
-                // a static member reference
-                // Q: how do we know that for sure?
-                // A: we only end up here if E was null before -> the ident and the two colons are at the beginning of the expression we're parsing
-
-                auto typeName = std::dynamic_pointer_cast<ast::Ident>(expr)->value;
+                auto &ident = llvm::cast<Ident>(expr)->value;
+                std::shared_ptr<TypeDesc> typeDesc;
+                
+                if (!templateParamsArgList) {
+                    typeDesc = TypeDesc::makeNominal(ident);
+                } else {
+                    typeDesc = TypeDesc::makeNominalTemplated(ident, templateParamsArgList->elements);
+                }
+                
                 consume(2);
                 auto memberName = parseIdentAsString();
-                expr = std::make_shared<ast::StaticDeclRefExpr>(typeName, memberName);
+                expr = std::make_shared<StaticDeclRefExpr>(typeDesc, memberName);
+                
+            } else {
+                restore_pos(fallback_pos_after_ident);
             }
+            break;
         }
         
         default:
@@ -1387,11 +1402,18 @@ std::optional<ast::Operator> Parser::parseOperator(bool includeFunctionDeclOpera
 std::shared_ptr<ast::CallExpr> Parser::parseCallExpr(std::shared_ptr<ast::Expr> target) {
     auto templateArgs = parseTemplateArgumentList();
     
-    if (!templateArgs && currentTokenKind() != TK::OpeningParens) {
-        return nullptr;
-    }
+//    if (!templateArgs && currentTokenKind() != TK::OpeningParens) {
+//        return nullptr;
+//    }
     
-    assertTkAndConsume(TK::OpeningParens);
+    
+    if (currentTokenKind() == TK::OpeningParens) {
+        consume();
+    //} else if (currentTokenKind() == TK::Colon && peekKind() == TK::Colon) {
+    //    consume(2);
+    } else {
+        diagnostics::emitError(getCurrentSourceLocation(), "expected '.' or '::'");
+    }
     
     auto callArguments = parseExpressionList(TK::ClosingParens);
     assertTkAndConsume(TK::ClosingParens);

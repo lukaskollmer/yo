@@ -59,8 +59,10 @@ std::shared_ptr<ast::TypeDesc> TemplateSpecializer::resolveType(std::shared_ptr<
 //            return ast::TypeDesc::makeTuple(resolvedTys, loc);
 //        }
         
+        case TDK::Tuple:
         case TDK::Function:
             LKFatalError("TODO");
+        
         
     }
 }
@@ -80,7 +82,7 @@ std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specialize(std::shared_p
         signature.templateParamsDecl->setSourceLocation(decl->getSignature().templateParamsDecl->getSourceLocation());
 
         for (auto &param : decl->getSignature().templateParamsDecl->getParams()) {
-            if (!util::map::has_key(templateArgumentMapping, param.name)) {
+            if (!util::map::has_key(templateArgumentMapping, param.name->value)) {
                 signature.templateParamsDecl->addParam({ param.name, resolveType(param.defaultType) });
             }
         }
@@ -181,6 +183,7 @@ std::shared_ptr<ast::Expr> TemplateSpecializer::specialize(std::shared_ptr<ast::
         CASE(BinOp)
         CASE(UnaryExpr)
         CASE(LambdaExpr)
+        CASE(StaticDeclRefExpr)
         
         default:
             unhandled_node(node)
@@ -257,6 +260,7 @@ std::shared_ptr<ast::ExprStmt> TemplateSpecializer::specialize(std::shared_ptr<a
 
 std::shared_ptr<ast::CallExpr> TemplateSpecializer::specialize(std::shared_ptr<ast::CallExpr> call) {
     auto instantiatedCall = std::make_shared<ast::CallExpr>(*call);
+    instantiatedCall->target = specialize(call->target);
     instantiatedCall->arguments = util::vector::map(call->arguments, [this](auto& expr) { return specialize(expr); });
     instantiatedCall->explicitTemplateArgs = specialize(call->explicitTemplateArgs);
     instantiatedCall->setSourceLocation(call->getSourceLocation());
@@ -274,6 +278,12 @@ std::shared_ptr<ast::MemberExpr> TemplateSpecializer::specialize(std::shared_ptr
     auto X = std::make_shared<ast::MemberExpr>(specialize(memberExpr->target), memberExpr->memberName);
     X->setSourceLocation(memberExpr->getSourceLocation());
     return X;
+}
+
+std::shared_ptr<ast::StaticDeclRefExpr> TemplateSpecializer::specialize(std::shared_ptr<ast::StaticDeclRefExpr> staticDeclRefExpr) {
+    auto expr = std::make_shared<ast::StaticDeclRefExpr>(*staticDeclRefExpr);
+    expr->typeDesc = resolveType(expr->typeDesc);
+    return expr;
 }
 
 
