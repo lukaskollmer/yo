@@ -20,6 +20,7 @@ using namespace yo;
 
 const char raw_test_input[] = {
 #include "mangling_input.txt.in"
+, 0x0
 };
 
 
