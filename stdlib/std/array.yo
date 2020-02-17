@@ -72,7 +72,11 @@ impl Array {
             self[index].__dealloc();
         }
         for idx in index..<self.size {
-            memcpy(bitcast<*i8>(self.data + cast<size_t>(idx)), bitcast<*i8>(self.data + cast<size_t>(idx) + 1), sizeof<Element>());
+            memcpy(
+                bitcast<*i8>(self.data + cast<size_t>(idx)),
+                bitcast<*i8>(self.data + cast<size_t>(idx) + 1),
+                sizeof<Element>()
+            );
         }
         self.size -= 1;
 
