@@ -23,7 +23,7 @@ impl ClosedRange {
     }
 
     fn exclusive(lowerBound: T, upperBound: T) -> ClosedRange<T> {
-        return ClosedRange<T>(lowerBound, upperBound - cast<T>(1));
+        return ClosedRange<T>(lowerBound, upperBound - 1);
     }
 }
 
