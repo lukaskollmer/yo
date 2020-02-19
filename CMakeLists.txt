@@ -93,6 +93,14 @@ target_link_libraries(yo-cli yo)
 set_target_properties(yo-cli PROPERTIES OUTPUT_NAME yo)
 
 
+# yo-demangle
+add_executable(yo-demangle src/yo-demangle.cpp)
+llvm_map_components_to_libnames(yo_demangle_llvm_libs support)
+target_include_directories(yo-demangle PRIVATE SYSTEM ${LLVM_INCLUDE_DIRS})
+target_link_libraries(yo-demangle yo ${yo_demangle_llvm_libs})
+
+
+
 
 # Tests
 
