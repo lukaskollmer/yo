@@ -432,39 +432,21 @@ std::string getFilename(const std::string& path);
 
 namespace fmt {
 
-// TODO somehow allow overloading this to get custom formatting for custom types?
 template <typename T>
-void value_formatter(std::ostream &OS, std::string_view flags, const T &arg) {
-    if constexpr(typeinfo::is_nullable_v<T>) {
-        if (flags == "p") {
-            if constexpr(std::is_pointer_v<T>) {
-                OS << reinterpret_cast<const void *>(arg);
-            } else if constexpr(typeinfo::is_shared_ptr_v<T>) {
-                OS << reinterpret_cast<const void *>(arg.get());
-            } else {
-                static_assert(std::is_same_v<T, void>, "should never reach here");
-            }
-            return;
-        }
-    }
-    
-    OS << arg;
-}
-
-template <>
-inline void value_formatter<bool>(std::ostream &OS, std::string_view flags, const bool &arg) {
-    OS << (arg ? "true" : "false");
-}
-
-template <>
-inline void value_formatter<uint8_t>(std::ostream &OS, std::string_view flags, const uint8_t &arg) {
-    if (flags == "c") {
+struct formatter {
+    static void format(std::ostream &OS, std::string_view flags, const T &arg) {
         OS << arg;
-    } else {
-        OS << static_cast<uint32_t>(arg);
     }
-    //OS << (arg ? "true" : "false");
-}
+};
+
+
+template <>
+struct formatter<bool> {
+    static void format(std::ostream &OS, std::string_view flags, const bool &value) {
+        OS << (value ? "true" : "false");
+    }
+};
+
 
 
 
@@ -478,14 +460,13 @@ void format_imp(std::ostream &OS, std::string_view format, T &&arg, Ts&&... args
     
     OS << format.substr(0, pos);
     if (format[pos + 1] == '}') {
-        value_formatter<typeinfo::remove_cvref_t<T>>(OS, "", arg);
+        formatter<typeinfo::remove_cvref_t<T>>::format(OS, "", arg);
         format.remove_prefix(pos + 2);
     } else {
         auto end_pos = format.find_first_of('}', pos);
         LKAssert(end_pos != std::string_view::npos);
         std::string_view flags = format.substr(pos + 1, end_pos - 1 - pos);
-        
-        value_formatter<typeinfo::remove_cvref_t<T>>(OS, flags, arg);
+        formatter<typeinfo::remove_cvref_t<T>>::format(OS, flags, arg);
         format.remove_prefix(end_pos + 1);
     }
 

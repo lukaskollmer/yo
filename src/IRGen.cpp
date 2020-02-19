@@ -21,7 +21,7 @@
 
 using namespace yo;
 using namespace yo::irgen;
-using namespace yo::util::llvm_utils;
+
 
 using NK = ast::Node::Kind;
 

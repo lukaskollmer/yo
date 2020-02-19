@@ -118,3 +118,11 @@ namespace yo::util::llvm_utils {
         return OS << to_string(T);
     }
 }
+
+
+template <>
+struct yo::util::fmt::formatter<llvm::Value *> {
+    static void format(std::ostream &OS, std::string_view flags, const llvm::Value *value) {
+        OS << yo::util::llvm_utils::to_string(value);
+    }
+};
