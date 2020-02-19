@@ -87,10 +87,11 @@ target_link_libraries(yo ${llvm_libs})
 # compilation options
 target_compile_options(yo PRIVATE "-fvisibility-inlines-hidden")
 
+# driver
+add_executable(yo-cli src/main.cpp)
+target_link_libraries(yo-cli yo)
+set_target_properties(yo-cli PROPERTIES OUTPUT_NAME yo)
 
-add_executable(yo_driver src/main.cpp)
-target_link_libraries(yo_driver yo)
-set_target_properties(yo_driver PROPERTIES OUTPUT_NAME yo)
 
 
 # Tests
