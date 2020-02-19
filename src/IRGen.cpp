@@ -2604,14 +2604,19 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind
             implicitSelfArg = call->target;
         }
         
-        // TODO this is missing checks to make sure selfTy actually matches / is convertible to the expected argument type !?
-        auto selfTy = getType(implicitSelfArg);
-        auto selfVal = codegen(implicitSelfArg, LValue);
         
-        args[0] = selfVal;
+        // TODO this is missing checks to make sure selfTy actually matches / is convertible to the expected argument type !?
+        
         
         if (isTemporary(implicitSelfArg)) {
-            includeInStackDestruction(selfTy, selfVal);
+            // if an instance method call target is a temporary, we need to make sure the object outlives the call
+            // we do this by putting it on the stack, thus implicitly registering it for destruction once we leave the current scope
+            // TODO the object should be destructed immediately after the call returns / at the end of the enclosing statement !
+            auto ident = makeIdent(currentFunction.getTmpIdent(), implicitSelfArg->getSourceLocation());
+            auto varDecl = std::make_shared<ast::VarDecl>(ident, nullptr, implicitSelfArg);
+            args[0] = codegen(varDecl);
+        } else {
+            args[0] = codegen(implicitSelfArg, LValue);
         }
     }
     

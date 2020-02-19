@@ -47,9 +47,7 @@ impl Array {
     }
 
     fn operator [] (self: &Self, index: i64) -> &Element {
-        //assert((0..<self.size).contains(index));
-        let range = 0..<self.size;
-        assert(range.contains(index), "index out of bounds");
+        assert((0..<self.size).contains(index), "index out of bounds");
         return self.data[index];
     }
 
