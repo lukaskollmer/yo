@@ -1,10 +1,10 @@
 diff --git a/lib/languages.js b/lib/languages.js
-index e77b337e..0ef00a43 100644
+index e75be353..cafecf1e 100644
 --- a/lib/languages.js
 +++ b/lib/languages.js
-@@ -169,6 +169,12 @@ const languages = {
-         monaco: 'ada',
-         extensions: ['.adb', '.ads'],
+@@ -181,6 +181,12 @@ const languages = {
+         monaco: 'nim',
+         extensions: ['.nim'],
          alias: []
 +    },
 +    yo: {

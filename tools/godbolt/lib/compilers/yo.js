@@ -7,19 +7,19 @@ class YoCompiler extends BaseCompiler {
     constructor(info, env) {
         info.supportsBinary = false;
         info.supportsExecute = false;
-        info.supportsDemangle = false;
+        // info.supportsDemangle = false;
         super(info, env);
 
         this.compiler.supportsIntel = true;
         this.compiler.supportsIrView = true;
-        this.compiler.supportsDemangle = false;
-        this.demanglerClass = undefined;
+        // this.compiler.supportsDemangle = false;
+        // this.demanglerClass = undefined;
         this.compiler.irArg = ['--emit', 'llvm-ir'];
     }
 
     getDefaultFilters() {
         let filters = super.getDefaultFilters();
-        filters.demangle = false;
+        // filters.demangle = false;
         return filters;
     }
 
@@ -42,10 +42,15 @@ class YoCompiler extends BaseCompiler {
         return inputFilename + '.ll';
     }
 
-    exec(compiler, args, options) {
-        options.env['YO_DISABLE_EXEC'] = '';
-        return super.exec(compiler, args, options);
-    }
+    // async exec(compiler, args, options) {
+    //     console.log(`\n\ncompiler: ${compiler}`);
+    //     console.log(`\n\args: ${args}`);
+    //     console.log(`\n\options: ${JSON.stringify(options)}`);
+    //     // options.env['YO_DISABLE_EXEC'] = '';
+    //     let x = await super.exec(compiler, args, options);
+    //     console.log(x);
+    //     return x;
+    // }
 }
 
 module.exports = YoCompiler;
