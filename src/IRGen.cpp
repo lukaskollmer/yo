@@ -2446,7 +2446,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         for (const auto &match : matches) {
             diagnostics::emitNote(match.decl->getSourceLocation(), util::fmt::format("note: potential target (score: {})", match.score));
         }
-        auto msg = util::fmt::format("ambiguous call to '{}'", targetName);
+        auto msg = util::fmt::format("ambiguous call to '{}'", mangling::demangleCanonicalName(targetName));
         diagnostics::emitError(callExpr->getSourceLocation(), msg);
     }
     
