@@ -1469,6 +1469,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::UnaryExpr> unaryExpr) {
         }
         
         case ast::UnaryExpr::Operation::AddressOf: {
+            if (isTemporary(expr)) {
+                diagnostics::emitError(unaryExpr->getSourceLocation(), "can't take address of temporary");
+            }
             return codegen(expr, LValue);
         }
     }
