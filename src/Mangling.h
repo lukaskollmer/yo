@@ -35,4 +35,5 @@ namespace yo::mangling {
     
     
     std::string demangle(std::string_view);
+    std::string demangleCanonicalName(std::string_view);
 }

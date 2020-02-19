@@ -485,8 +485,8 @@ private:
 
 
 std::string Demangler::demangle() {
-    if (input.length() >= 2 && input[0] == '_' && input[1] == '_') {
-        return std::string(input);
+    if (input[0] == kMangledFunctionCommonPrefix) {
+        input.remove_prefix(1);
     }
     
     auto [val, count] = this->readInt();
@@ -554,6 +554,7 @@ std::string Demangler::demangleFunction() {
         }
         
         default:
+            util::fmt::print("FUCK {}", input);
             LKFatalError("");
     }
     
@@ -706,6 +707,31 @@ std::vector<std::string> Demangler::demangleTemplateArgTypeList() {
 
 std::string demangle(std::string_view name) {
     return Demangler(name).demangle();
+}
+
+
+std::string demangleCanonicalName(std::string_view name) {
+    std::ostringstream OS;
+    
+    switch (name[0]) {
+        case kCanonicalPrefixOperatorOverload: {
+            OS << demangleOperatorIntoSymbol(demangleCanonicalOperatorEncoding(name));
+            break;
+        }
+        
+        case kCanonicalPrefixStaticMethod: {
+            util::fmt::print("{}", name);
+            LKFatalError("TODO");
+        }
+        
+        case kCanonicalPrefixInstanceMethod: {
+            util::fmt::print("{}", name);
+            LKFatalError("TODO");
+        }
+    }
+        
+        
+    return OS.str();
 }
 
 NS_END
