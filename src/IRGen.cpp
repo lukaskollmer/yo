@@ -3346,6 +3346,8 @@ void IRGenerator::handleStartupAndShutdownFunctions() {
             }
         }
         
+        if (functions.empty()) return;
+        
         auto arrayTy = llvm::ArrayType::get(structTy, functions.size());
         module->getOrInsertGlobal(dest, arrayTy);
         
