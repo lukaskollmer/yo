@@ -655,16 +655,17 @@ std::string Demangler::demangleTuple() {
     LKAssert(input[0] == kMangledTypeTuplePrefix);
     input.remove_prefix(1);
     
+    auto numElements = extractInt();
     std::ostringstream OS;
     OS << '(';
-    while (true) {
+    
+    for (auto idx = 0; idx < numElements; idx++) {
         OS << demangleType();
-        if (input.empty()) {
-            break;
-        } else {
+        if (idx < numElements - 1) {
             OS << ", ";
         }
     }
+    
     OS << ')';
     return OS.str();
 }
