@@ -278,6 +278,7 @@ public:
 
 
 
+
 class TupleType : public Type {
     std::vector<Type *> members;
     StructType *underlyingStructType = nullptr;
@@ -287,11 +288,29 @@ class TupleType : public Type {
 public:
     static TupleType* get(const std::vector<Type *>&);
     
-    uint64_t memberCount() const { return members.size(); }
-    const std::vector<Type *>& getMembers() const { return members; }
+    uint64_t memberCount() const {
+        return members.size();
+    }
     
-    StructType* getUnderlyingStructType();
+    const std::vector<Type *>& getMembers() const {
+        return members;
+    }
+    
+    // returns nullptr if the index is invalid
+    Type* getTypeOfElementAtIndex(size_t idx) const {
+        return (idx >= 0 && idx < members.size()) ? members[idx] : nullptr;
+    }
+    
     std::string str_desc() const override;
+    
+    StructType* getUnderlyingStructType() const {
+        return underlyingStructType;
+    }
+    
+    void setUnderlyingStructType(StructType *ST) {
+        LKAssert(!underlyingStructType && "cannot overwrite a tuple's underlying struct type");
+        underlyingStructType = ST;
+    }
 
     static bool classof(const Type *type) {
         return type->getTypeId() == TypeID::Tuple;

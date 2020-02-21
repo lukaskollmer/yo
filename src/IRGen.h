@@ -176,8 +176,18 @@ private:
     /// Register an `impl` block for a specific struct type
     void registerImplBlock(std::shared_ptr<ast::ImplBlock>);
     
+    
     // Debug Metadata
     void emitDebugLocation(const std::shared_ptr<ast::Node>&);
+    
+    // Whether irgen should emit debug metadata
+    // Note: if we're in a function, this also takes the function's `no_debug_info` attribute into account
+    bool shouldEmitDebugInfo() const {
+        if (currentFunction.decl && currentFunction.decl->getAttributes().no_debug_info) {
+            return false;
+        }
+        return CLIOptions.emitDebugMetadata;
+    }
     
     
     //
@@ -334,6 +344,7 @@ private:
     llvm::Value* synthesizeDefaultDeallocMethod(std::shared_ptr<ast::StructDecl>, SkipCodegenOption);
     
     StructType* synthesizeLambdaExpr(std::shared_ptr<ast::LambdaExpr>);
+    StructType* synthesizeUnderlyingStructTypeForTupleType(TupleType *tupleTy);
     
     
     
@@ -345,11 +356,13 @@ private:
     // Assuming this is only ever used for registering synthesized functions, what about just having a `queueSynthFunction` function that registers the llvm::Function, and then puts the FuncDecl in a queue which is handled after regular codegen finished?
     template <typename F>
     std::invoke_result_t<F> withCleanSlate(F &&fn) {
+        // TODO this also need to take debugInfo.lexicalBlocks into account !!!!!!!!!!
         auto prevLocalScope = localScope;
         auto prevCurrentFunction = currentFunction;
         auto prevInsertBlock = builder.GetInsertBlock();
         
         localScope = {};
+        currentFunction = {};
         
         util::DeferHandle H([&]() {
             localScope = prevLocalScope;

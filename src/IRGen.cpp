@@ -49,27 +49,41 @@ std::shared_ptr<ast::Ident> makeIdent(const std::string& str, ast::TokenSourceLo
 }
 
 
+std::shared_ptr<ast::Ident> formatTupleMemberAtIndex(size_t index) {
+    return makeIdent(util::fmt::format("__{}", index));
+}
+
+
 // TODO is this a good idea?
+// Note: this assumes that the type has already been fully initialized (important for tuples and lambdas)
 StructType* getUnderlyingStruct(Type *ty) {
-    if (auto PT = llvm::dyn_cast<PointerType>(ty)) {
-        if (auto ST = llvm::dyn_cast<StructType>(PT->getPointee())) {
-            return ST;
-        } else {
+    auto handle = [](Type *type) -> StructType* {
+        if (!type) {
             return nullptr;
         }
-    } else if (auto ST = llvm::dyn_cast<StructType>(ty)) {
-        return ST;
-    } else if (auto refTy = llvm::dyn_cast<ReferenceType>(ty)) {
-        if (auto ST = llvm::dyn_cast<StructType>(refTy->getReferencedType())) {
-            return ST;
+        if (auto tupleTy = llvm::dyn_cast<TupleType>(type)) {
+            return tupleTy->getUnderlyingStructType();
         } else {
-            return nullptr;
+            return llvm::dyn_cast<StructType>(type);
         }
-    } else {
-        return nullptr;
-    }
+    };
     
-    return nullptr;
+    switch (ty->getTypeId()) {
+        case Type::TypeID::Struct:
+            return llvm::cast<StructType>(ty);
+        
+        case Type::TypeID::Pointer:
+            return handle(llvm::cast<PointerType>(ty)->getPointee());
+        
+        case Type::TypeID::Reference:
+            return handle(llvm::cast<ReferenceType>(ty)->getReferencedType());
+        
+        case Type::TypeID::Tuple:
+            return llvm::cast<TupleType>(ty)->getUnderlyingStructType();
+        
+        default:
+            return nullptr;
+    }
 }
 
 
@@ -135,7 +149,7 @@ IRGenerator::IRGenerator(const std::string& translationUnitPath)
 
 
 void IRGenerator::emitDebugLocation(const std::shared_ptr<ast::Node> &node) {
-    if (!CLIOptions.emitDebugMetadata) return;
+    if (!shouldEmitDebugInfo()) return;
     
     if (!node || node->getSourceLocation().empty())  {
         builder.SetCurrentDebugLocation(llvm::DebugLoc());
@@ -273,6 +287,12 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
             }
         }
     }
+    
+    
+    // TODO insert more signature checks:
+    // - initializers have to return void, as do dealloc functions
+    // - subscript operators can only have 1 parameter
+    // - ...
     
     
     if (sig.isTemplateDecl() || functionDecl->getAttributes().intrinsic || functionDecl->getAttributes().int_isCtor) {
@@ -445,13 +465,13 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
     
     if (!structDecl->attributes.no_init) {
         ast::FunctionSignature signature;
-        std::vector<std::shared_ptr<ast::Ident>> paramNames;
         signature.returnType = ast::TypeDesc::makeResolved(structTy);
         
+        attributes::FunctionAttributes attributes;
+        attributes.no_debug_info = structDecl->attributes.no_debug_info;
+        
         auto ctorFnDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::StaticMethod,
-                                                              structName, signature,
-                                                              attributes::FunctionAttributes());
-        ctorFnDecl->setParamNames(paramNames);
+                                                              structName, signature, attributes);
         ctorFnDecl->setImplType(structTy);
         ctorFnDecl->setSourceLocation(structDecl->getSourceLocation());
         ctorFnDecl->getAttributes().int_isCtor = true;
@@ -531,12 +551,15 @@ void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
     auto implTy = resolveTypeDesc(implBlock->typeDesc);
     auto structTy = llvm::cast<StructType>(implTy);
     
+    const auto &structAttrs = structDecls.at(structTy->getName())->attributes;
+    
     for (auto &fn : implBlock->methods) {
         assertIsValidMemberFunction(*fn);
         auto functionKind = getFunctionKind(*fn);
         if (functionKind == FunctionKind::InstanceMethod) {
             fn->getSignature().paramTypes[0] = ast::TypeDesc::makeResolved(structTy->getReferenceTo());
         }
+        fn->getAttributes().no_debug_info = structAttrs.no_debug_info;
         fn->setFunctionKind(functionKind);
         fn->setImplType(structTy);
         registerFunction(fn);
@@ -650,14 +673,23 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     if (attr.always_inline) {
         F->addFnAttr(llvm::Attribute::AlwaysInline);
     }
+    // TODO
+//    if (attr.no_inline) {
+//        F->addFnAttr(llvm::Attribute::NoInline);
+//    }
     
     LKAssert(F->empty());
+    
+    
+    // for now, assign just the function decl, so that shouldEmitDebugInfo can access the current function's attributes
+    // the proper `currentFunction` is assigned before function body codegen
+    currentFunction = FunctionState(functionDecl, /* llvmFunction */ nullptr, /* returnBB */ nullptr, /* retvalAlloca */ nullptr, /* stackTopMarker */ 0);
     
     auto entryBB = llvm::BasicBlock::Create(C, "entry", F);
     auto returnBB = llvm::BasicBlock::Create(C, "return");
     builder.SetInsertPoint(entryBB);
     
-    if (CLIOptions.emitDebugMetadata) {
+    if (shouldEmitDebugInfo()) {
         auto unit = DIFileForSourceLocation(debugInfo.builder, functionDecl->getSourceLocation());
         auto SP = debugInfo.builder.createFunction(unit, functionDecl->getName(), resolvedName, unit,
                                            sig.getSourceLocation().line,
@@ -700,7 +732,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         
         const auto &paramTy = sig.paramTypes.at(i);
         const auto &paramNameDecl = functionDecl->getParamNames().at(i);
-        if (CLIOptions.emitDebugMetadata) {
+        if (shouldEmitDebugInfo()) {
             auto SP = debugInfo.lexicalBlocks.back();
 //            if (functionDecl->getAttributes().always_inline && )
             auto varInfo = debugInfo.builder.createParameterVariable(SP, alloca->getName(), i + 1, SP->getFile(),
@@ -729,7 +761,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         ));
         
         // Create Debug Metadata
-        if (CLIOptions.emitDebugMetadata) {
+        if (shouldEmitDebugInfo()) {
             auto SP = debugInfo.lexicalBlocks.back();
             auto D = debugInfo.builder.createAutoVariable(SP, kRetvalAllocaIdentifier, SP->getFile(),
                                                           sig.getSourceLocation().line, returnType->getLLVMDIType());
@@ -771,10 +803,10 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
     }
     
     
-    currentFunction = FunctionState();
-    if (CLIOptions.emitDebugMetadata) {
+    if (shouldEmitDebugInfo()) {
         debugInfo.lexicalBlocks.pop_back(); // TODO maybe add a check that the lexical blocks weren't somehow modified?
     }
+    currentFunction = FunctionState();
     
     return F;
 }
@@ -886,7 +918,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
     alloca->setName(varDecl->getName());
     
     // Create Debug Metadata
-    if (CLIOptions.emitDebugMetadata) {
+    if (shouldEmitDebugInfo()) {
         auto D = debugInfo.builder.createAutoVariable(currentFunction.llvmFunction->getSubprogram(),
                                                       varDecl->getName(),
                                                       debugInfo.lexicalBlocks.back()->getFile(),
@@ -1339,20 +1371,10 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::MemberExpr> memberExpr, V
     
     StructType *structTy = nullptr;
     const bool needsLoad = targetTy->isPointerTy() || targetTy->isReferenceTy();
+        
+    structTy = getUnderlyingStruct(targetTy);
     
-    auto struct_or_error = [&](Type *ty) -> StructType* {
-        if (ty->isStructTy()) return static_cast<StructType *>(ty);
-        auto msg = util::fmt::format("member expr base type '{}' not a struct", ty);
-        diagnostics::emitError(memberExpr->getSourceLocation(), msg);
-    };
-    
-    if (auto ST = llvm::dyn_cast<StructType>(targetTy)) {
-        structTy = ST;
-    } else if (auto ptrTy = llvm::dyn_cast<PointerType>(targetTy)) {
-        structTy = struct_or_error(ptrTy->getPointee());
-    } else if (auto refTy = llvm::dyn_cast<ReferenceType>(targetTy)) {
-        structTy = struct_or_error(refTy->getReferencedType());
-    } else {
+    if (!structTy) {
         auto msg = util::fmt::format("invalid member expr base type: '{}'", targetTy);
         diagnostics::emitError(memberExpr->getSourceLocation(), msg);
     }
@@ -1408,17 +1430,29 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::SubscriptExpr> subscript,
     auto OT = getType(subscript->offset);
     
     if (!TT->isPointerTy()) {
-        if (typeIsSubscriptable(TT)) {
+        if (!typeIsSubscriptable(TT)) {
+            auto msg = util::fmt::format("cannot subscript value of type '{}'", TT);
+            diagnostics::emitError(subscript->target->getSourceLocation(), msg);
+        }
+        
+        if (TT->isTupleTy()) {
+            size_t index = llvm::cast<ast::NumberLiteral>(subscript->offset)->value;
+            auto memberName = formatTupleMemberAtIndex(index)->value;
+            auto memberExpr = std::make_shared<ast::MemberExpr>(subscript->target, memberName);
+            memberExpr->setSourceLocation(subscript->getSourceLocation());
+            return codegen(memberExpr, returnValueKind);
+        } else {
             return codegen(subscriptExprToCall(subscript), returnValueKind);
         }
-        auto msg = util::fmt::format("cannot subscript value of type '{}'", TT);
-        diagnostics::emitError(subscript->target->getSourceLocation(), msg);
     }
+    LKAssert(TT->isPointerTy());
+    
     
     if (TT->isPointerTy() && (!OT->isNumericalTy() || !llvm::dyn_cast<NumericalType>(OT)->isIntegerTy())) {
         auto msg = util::fmt::format("expected integral type, got '{}'", OT);
         diagnostics::emitError(subscript->offset->getSourceLocation(), msg);
     }
+    
     
     auto target = codegen(subscript->target);
     auto offset = codegen(subscript->offset);
@@ -1628,21 +1662,39 @@ llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::ArrayLiteralExpr> arrayLi
 
 
 
+StructType* IRGenerator::synthesizeUnderlyingStructTypeForTupleType(TupleType *tupleTy) {
+    if (auto ST = tupleTy->getUnderlyingStructType()) {
+        return ST;
+    }
+    
+    auto SD = std::make_shared<ast::StructDecl>();
+    SD->attributes.no_debug_info = true;
+    SD->name = util::fmt::format("__tuple_{}", mangling::mangleFullyResolved(tupleTy));
+    
+    for (int64_t idx = 0; idx < tupleTy->memberCount(); idx++) {
+        auto name = formatTupleMemberAtIndex(idx);
+        auto type = ast::TypeDesc::makeResolved(tupleTy->getMembers()[idx]);
+        SD->members.push_back(std::make_shared<ast::VarDecl>(name, type));
+    }
+    
+    auto ST = withCleanSlate([this, SD] { return registerStructDecl(SD); });
+    tupleTy->setUnderlyingStructType(ST);
+    return ST;
+}
+
+
+
 llvm::Value* IRGenerator::codegen(std::shared_ptr<ast::TupleExpr> tupleExpr, ValueKind VK) {
     LKAssert(VK == RValue);
     
-//    auto type = getType(tupleExpr);
-//    util::fmt::print("{}", mangling::demangle("A5ArrayTq"));
-//    util::fmt::print("type: {} | {} | {}", type->str_mangled(), type->str_desc(), mangling::demangle(type->str_mangled()));
-//
-//    for (auto &[name, RC] : resolvedFunctions) {
-//        util::fmt::print("#############");
-//        util::fmt::print("{} {}", name, mangling::demangle(name));
-//    }
+    auto tupleTy = llvm::cast<TupleType>(getType(tupleExpr));
+    auto underlyingST = synthesizeUnderlyingStructTypeForTupleType(tupleTy);
     
+    auto callExpr = std::make_shared<ast::CallExpr>(nullptr);
+    callExpr->arguments = tupleExpr->elements;
+    callExpr->setSourceLocation(tupleExpr->getSourceLocation());
     
-    LKFatalError("TODO");
-    
+    return constructStruct(underlyingST, callExpr, /* putInLocalScope */ false, RValue);
 }
 
 
@@ -1940,11 +1992,12 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
         
         if (prevDeduction.type == ty) {
             return true;
+        
         } else if (prevDeduction.reason != reason && reason == DeductionReason::Literal) {
             // Prev wasn't a literal, but current is
-            
             auto argExpr = llvm::dyn_cast<ast::NumberLiteral>(call->arguments[argIdx]);
             return valueIsTriviallyConvertible(argExpr, prevDeduction.type);
+        
         } else if (prevDeduction.reason == DeductionReason::Literal && reason != prevDeduction.reason) {
             // Prev was a literal, but current isn't
             
@@ -1958,6 +2011,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
             // TODO Fix!
             mapping[name] = { ty, reason };
             return true;
+        
         } else {
             return false;
         }
@@ -1996,7 +2050,10 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
             
             case TDK::NominalTemplated: {
                 auto tyStructT = llvm::dyn_cast<StructType>(ty);
-                if (!tyStructT) return false;
+                if (!tyStructT || tyStructT->getTemplateArguments().size() != typeDesc->getTemplateArgs().size()) {
+                    // TODO does this need to take defaulted template args into account?
+                    return false;
+                }
                 
                 for (uint64_t idx = 0; idx < typeDesc->getTemplateArgs().size(); idx++) {
                     if (!handle(typeDesc->getTemplateArgs().at(idx), tyStructT->getTemplateArguments().at(idx), argIdx)) {
@@ -2361,6 +2418,9 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             
             if (auto mapping = attemptToResolveTemplateArgumentTypesForCall(decl, callExpr, argumentOffset)) {
                 templateArgTypeMapping = *mapping;
+//                for (const auto &[name, typeDesc] : *mapping) {
+//                    util::fmt::print("[{}] {} = {}", targetName, name, typeDesc);
+//                }
             } else {
                 rejections.emplace_back("unable to resolve template parameter types", *decl);
                 goto discard_potential_match;
@@ -3409,10 +3469,8 @@ llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<
     }, ValueBinding::Flags::ReadWrite));
     
     auto callTarget = std::make_shared<ast::MemberExpr>(makeIdent(ident), kInitializerMethodName);
-    auto callExpr = std::make_shared<ast::CallExpr>(callTarget);
-    callExpr->arguments = call->arguments;
-    callExpr->explicitTemplateArgs = call->explicitTemplateArgs; // TODO should this be a copy?
-    callExpr->setSourceLocation(call->getSourceLocation());
+    auto callExpr = std::make_shared<ast::CallExpr>(*call);
+    callExpr->target = callTarget;
     
     codegen(callExpr);
     
@@ -3420,7 +3478,7 @@ llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<
         localScope.remove(ident);
     }
     
-    // TODO should this even be allowed to return anything but an LValue?
+    // TODO should this even be allowed to return anything but an RValue?
     switch (VK) {
         case LValue: return alloca;
         case RValue: return builder.CreateLoad(alloca);
@@ -3707,12 +3765,12 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
         }
         
         case Type::TypeID::Tuple: {
-            auto tupleTy = llvm::dyn_cast<TupleType>(type);
-            std::vector<llvm::Type *> types = util::vector::map(tupleTy->getMembers(), [this](auto memberTy) -> llvm::Type* {
-                return getLLVMType(memberTy);
-            });
-            auto llvmStructTy = llvm::StructType::get(C, types);
-            return handle_llvm_type(llvmStructTy);
+            auto tupleTy = llvm::cast<TupleType>(type);
+            if (auto ST = tupleTy->getUnderlyingStructType()) {
+                return handle_llvm_type(getLLVMType(ST));
+            } else {
+                return handle_llvm_type(getLLVMType(synthesizeUnderlyingStructTypeForTupleType(tupleTy)));
+            }
         }
         
         case Type::TypeID::Function: {
@@ -3988,11 +4046,38 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             auto subscriptExpr = llvm::dyn_cast<ast::SubscriptExpr>(expr);
             auto targetTy = getType(subscriptExpr->target);
             
+            // Note: `typeIsSubscriptable` also returns true for pointers, but we have a separate check
+            // since pointer subscripts shouldn't get resolved to custom subscript overloads (same for tuples)
             if (targetTy->isPointerTy()) {
                 return llvm::dyn_cast<PointerType>(targetTy)->getPointee()->getReferenceTo();
+            
+            } else if (targetTy->isTupleTy()) {
+                auto diag_invalid_offset = [&]() {
+                    diagnostics::emitError(subscriptExpr->getSourceLocation(), "tuple subscript offset expression must be an integer literal");
+                };
+                
+                if (auto offsetExprNumLiteral = llvm::dyn_cast<ast::NumberLiteral>(subscriptExpr->offset)) {
+                    if (offsetExprNumLiteral->type != ast::NumberLiteral::NumberType::Integer) {
+                        diag_invalid_offset();
+                    }
+                    auto tupleTy = llvm::cast<TupleType>(targetTy);
+                    auto index = offsetExprNumLiteral->value;
+                    
+                    if (auto ty = tupleTy->getTypeOfElementAtIndex(index)) {
+                        return ty;
+                    } else {
+                        auto msg = util::fmt::format("tuple type '{}' has no member at index {}", tupleTy, index);
+                        diagnostics::emitError(subscriptExpr->getSourceLocation(), msg);
+                    }
+                    
+                } else {
+                    diag_invalid_offset();
+                }
+            
             } else if (typeIsSubscriptable(targetTy)) {
                 auto callExpr = subscriptExprToCall(subscriptExpr);
                 return resolveTypeDesc(resolveCall(callExpr, kSkipCodegen).signature.returnType);
+            
             } else {
                 auto msg = util::fmt::format("type '{}' is not subscriptable", targetTy);
                 diagnostics::emitError(subscriptExpr->getSourceLocation(), msg);
@@ -4121,7 +4206,7 @@ bool IRGenerator::typeIsDestructible(Type *ty) {
 }
 
 bool IRGenerator::typeIsSubscriptable(Type *ty) {
-    return ty->isPointerTy() || implementsInstanceMethod(ty, mangling::encodeOperator(ast::Operator::Subscript));
+    return ty->isPointerTy() || ty->isTupleTy() || implementsInstanceMethod(ty, mangling::encodeOperator(ast::Operator::Subscript));
 }
 
 
@@ -4251,6 +4336,7 @@ llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
     std::vector<std::shared_ptr<ast::Ident>> paramNames;
     attributes::FunctionAttributes attr;
     
+    attr.no_debug_info = structDecl->attributes.no_debug_info;
     attr.int_isFwdDecl = true;
     attr.int_isSynthesized = true;
     sig.setSourceLocation(SL);
@@ -4315,6 +4401,7 @@ llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::
     std::vector<std::shared_ptr<ast::Ident>> paramNames;
     attributes::FunctionAttributes attr;
     
+    attr.no_debug_info = structDecl->attributes.no_debug_info;
     attr.int_isFwdDecl = true;
     attr.int_isSynthesized = true;
     sig.setSourceLocation(SL);
@@ -4382,6 +4469,7 @@ llvm::Value* IRGenerator::synthesizeDefaultDeallocMethod(std::shared_ptr<ast::St
     attributes::FunctionAttributes attr;
     std::vector<std::shared_ptr<ast::Ident>> paramNames = { selfIdent };
     
+    attr.no_debug_info = structDecl->attributes.no_debug_info;
     attr.int_isFwdDecl = true;
     attr.int_isSynthesized = true;
     sig.returnType = ast::TypeDesc::makeResolved(builtinTypes.yo.Void);

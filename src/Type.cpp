@@ -291,12 +291,3 @@ std::string TupleType::str_desc() const {
     
     return OS.str();
 }
-
-
-StructType* TupleType::getUnderlyingStructType() {
-    if (auto ST = underlyingStructType) return ST;
-    
-//    auto ST = StructType::create(<#std::string name#>, <#MembersT members#>, parser::TokenSourceLocation());
-    LKFatalError("TODO");
-}
-

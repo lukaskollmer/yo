@@ -59,6 +59,7 @@ struct FunctionAttributes {
     bool int_isFwdDecl = false;
     bool int_isDelayed = false;
     bool int_isSynthesized = false;
+    bool no_debug_info = false;
     std::string mangledName = "";
     std::vector<SideEffect> side_effects = { SideEffect::Unknown };
     
@@ -75,6 +76,7 @@ struct FunctionAttributes {
 struct StructAttributes {
     bool arc;
     bool no_init;
+    bool no_debug_info = false;
     
     StructAttributes() : arc(false), no_init(false) {}
     
