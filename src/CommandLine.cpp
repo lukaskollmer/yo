@@ -30,15 +30,15 @@ static llvm::cl::opt<std::string, true> inputFile(llvm::cl::Positional, llvm::cl
 static llvm::cl::list<std::string> runArgs("run-args", llvm::cl::desc("Argv to be used when executing the produced binary. Implies `-run`"),
 llvm::cl::CommaSeparated, llvm::cl::cat(CLIOptionsCategory));
 
-CLI_OPT(bool, dumpLLVM, "dump-llvm", "Dump LLVM IR")
-CLI_OPT(bool, dumpLLVMPreOpt, "dump-llvm-pre-opt", "Dump LLVM IR prior to running optimizations")
+CLI_OPT(bool, dumpLLVM, "dump-llvm", "Dump LLVM IR to stdout")
+CLI_OPT(bool, dumpLLVMPreOpt, "dump-llvm-pre-opt", "Dump LLVM IR to stdout, prior to running optimizations")
 CLI_OPT(bool, emitDebugMetadata, "g", "Emit debug metadata")
 CLI_OPT(bool, fnoInline, "fno-inline", "Disable all function inlining")
-CLI_OPT(bool, fzeroInitialize, "fzero-initialize", "allow uninitialized variables and zero-initialize them")
+CLI_OPT(bool, fzeroInitialize, "fzero-initialize", "Allow uninitialized variables and zero-initialize them")
 CLI_OPT(bool, int_trapOnFatalError, "int_trap-on-fatal-error", "", llvm::cl::Hidden)
-CLI_OPT(bool, optimize, "O", "Enable Optimizations")
-CLI_OPT(bool, printAST, "print-ast", "Print the Abstract Syntax Tree")
-CLI_OPT(bool, pygmentize, "pygmentize", "Lex input, then print pygmentized HTML to stdout")
+CLI_OPT(bool, optimize, "O", "Enable optimizations")
+CLI_OPT(bool, printAST, "print-ast", "Print the Abstract Syntax Tree to stdout")
+CLI_OPT(bool, pygmentize, "pygmentize", "Lex input, then print pygmentized HTML to stdout", llvm::cl::Hidden)
 CLI_OPT(bool, run, "run", "Run the generated executable after codegen. Implies `--emit bin`")
 CLI_OPT(std::string, stdlibRoot, "stdlib-root", "Load stdlib modules from <path>, instead of using the bundled ones", llvm::cl::value_desc("path"))
 
