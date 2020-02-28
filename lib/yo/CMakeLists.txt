@@ -30,6 +30,3 @@ yo_add_lib(
 )
 
 add_dependencies(yo gen_stdlib)
-
-# compilation options
-target_compile_options(yo PRIVATE "-fvisibility-inlines-hidden")

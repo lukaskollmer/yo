@@ -15,8 +15,6 @@
 #include <iostream>
 
 
-// TODO use llvm's cl stuff once the driver doesn't register (mandatory) options anymore
-
 static llvm::cl::list<std::string> inputNames(llvm::cl::Positional,
                                               llvm::cl::desc("[mangled name...]"),
                                               llvm::cl::ZeroOrMore);
