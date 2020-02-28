@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+args=("$@")
+
+
+vscode() {
+    code --extensionDevelopmentPath="`pwd`/tools/other/yo-lang-vscode/" .
+}
+
+
+case "${args[0]}" in
+    "vscode") vscode ;;
+    *) echo "F"; exit 1 ;;
+esac

@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.11)
 
+project(yo)
+
+set(YO_VERSION "0.0.1")
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE Debug)
 
@@ -7,139 +11,83 @@ set(CMAKE_BUILD_TYPE Debug)
 
 option(BUILD_TESTS "Build test programs" OFF)
 
-project(yo)
-
-set(YO_VERSION "0.0.1")
-set(YO_STDLIB_PATH "${CMAKE_BINARY_DIR}/stdlib")
-string(TIMESTAMP YO_BUILD_DATE "%Y-%m-%d_%H%MZ" UTC)
-
 
 # find_package(LLVM 9 REQUIRED CONFIG)
 find_package(LLVM 8 REQUIRED PATHS /usr/local/opt/llvm@8)
-find_package(PythonInterp 3.6 REQUIRED)
-
 add_definitions(${LLVM_DEFINITIONS})
-
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in ${LLVM_DIR}")
 
 
-configure_file(
-    "${PROJECT_SOURCE_DIR}/src/Version.h.in"
-    "${PROJECT_SOURCE_DIR}/src/Version.h"
-)
+
+macro(yo_add_target)
+    cmake_parse_arguments(
+        ARG         # prefix of output variables
+        "LINK_YO"   # list of names of the boolean arguments (only defined ones will be true)
+        "TYPE"      # list of names of mono-valued arguments
+        "LLVM_LIBS" # list of names of multi-valued arguments (output variables are lists)
+        ${ARGN}     # arguments of the function to parse, here we take the all original ones
+    )
+    set(target_type ${ARG_TYPE})
+    list(GET ARG_UNPARSED_ARGUMENTS 0 target_name)
+    list(SUBLIST ARG_UNPARSED_ARGUMENTS 1 -1 src_files)
+    
+    #message(STATUS "name: ${target_name}")
+    #message(STATUS "type: ${target_type}")
+    #message(STATUS "src: ${src_files}")
+    #message(STATUS "llvm: ${ARG_LLVM_LIBS}")
+
+    if(${target_type} STREQUAL "lib")
+        add_library(${target_name} ${src_files})
+    elseif(${target_type} STREQUAL "bin")
+        add_executable(${target_name} ${src_files})
+        set(IS_BIN TRUE)
+    else()
+        message(FATAL_ERROR "Invalid target type '${target_type}'")
+    endif()
+
+    llvm_map_components_to_libnames(llvm_libs ${ARG_LLVM_LIBS})
+    target_include_directories(${target_name} PRIVATE SYSTEM ${LLVM_INCLUDE_DIRS})
+    target_link_libraries(${target_name} ${llvm_libs})
+    
+    if(${ARG_LINK_YO})
+        if(NOT ${is_bin})
+            message(FATAL_ERROR "only bin targets may specify 'LINK_YO'")
+        endif()
+        target_link_libraries(${target_name} yo)
+        target_include_directories(${target_name} PRIVATE "${PROJECT_SOURCE_DIR}/lib")
+    endif()
+
+    # set_target_properties(${target_name}
+    #     PROPERTIES
+    #     ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/out/lib/"
+    #     LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/out/lib/"
+    #     RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/out/bin/"
+    # )
+endmacro(yo_add_target)
 
 
-add_custom_target(gen_stdlib
-    COMMAND ${PYTHON_EXECUTABLE} tools/stdlib_gen.py "${CMAKE_BINARY_DIR}" "${YO_STDLIB_PATH}"
-)
+macro(yo_add_lib)
+    yo_add_target(TYPE lib ${ARGN})
+endmacro(yo_add_lib)
+
+macro(yo_add_tool)
+    yo_add_target(TYPE bin ${ARGN})
+endmacro(yo_add_tool)
 
 
-add_library(yo
-    src/AST.h
-    src/AST.cpp
-    src/Attributes.h
-    src/Attributes.cpp
-    src/CommandLine.h
-    src/CommandLine.cpp
-    src/Diagnostics.h
-    src/Diagnostics.cpp
-    src/Driver.h
-    src/Driver.cpp
-    src/IRGen.h
-    src/IRGen.cpp
-    src/Lexer.h
-    src/Lexer.cpp
-    src/Mangling.h
-    src/Mangling.cpp
-    src/NamedScope.h
-    src/Parser.h
-    src/Parser.cpp
-    src/Pygmentize.h
-    src/Pygmentize.cpp
-    src/StdlibResolution.h
-    src/StdlibResolution.cpp
-    src/TemplateSpecialization.h
-    src/TemplateSpecialization.cpp
-    src/Token.h
-    src/Token.cpp
-    src/Type.h
-    src/Type.cpp
-    src/TypeDesc.h
-    src/TypeDesc.cpp
-    src/Version.h
-
-    src/util.h
-    src/util.cpp
-    src/util_llvm.h
-)
+macro(link_yo target_name)
+    target_link_libraries(${target_name} yo)
+    target_include_directories(${target_name} PRIVATE "${PROJECT_SOURCE_DIR}/lib")
+endmacro(link_yo)
 
 
-add_dependencies(yo gen_stdlib)
+add_subdirectory(lib/yo)
+add_subdirectory(tools/yo-cli)
+add_subdirectory(tools/yo-demangle)
 
-
-# LLVM
-llvm_map_components_to_libnames(llvm_libs core support native nativecodegen passes)
-target_include_directories(yo PRIVATE SYSTEM ${LLVM_INCLUDE_DIRS})
-target_link_libraries(yo ${llvm_libs})
-
-
-# compilation options
-target_compile_options(yo PRIVATE "-fvisibility-inlines-hidden")
-
-# driver
-add_executable(yo-cli src/main.cpp)
-target_link_libraries(yo-cli yo)
-set_target_properties(yo-cli PROPERTIES OUTPUT_NAME yo)
-
-
-# yo-demangle
-add_executable(yo-demangle src/yo-demangle.cpp)
-llvm_map_components_to_libnames(yo_demangle_llvm_libs support)
-target_include_directories(yo-demangle PRIVATE SYSTEM ${LLVM_INCLUDE_DIRS})
-target_link_libraries(yo-demangle yo ${yo_demangle_llvm_libs})
-
-
-
-
-# Tests
 
 
 if(BUILD_TESTS)
-    set(TEST_DIR "${CMAKE_BINARY_DIR}/test")
-    include(FetchContent)
-
-    enable_testing()
-
-    message(STATUS "Fetching GoogleTest")
-    FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG        release-1.10.0
-    )
-    FetchContent_GetProperties(googletest)
-
-    if(NOT googletest_POPULATED)
-        # TODO would be nice if this could somehow display a progress bar or something
-        FetchContent_Populate(googletest)
-        add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
-    endif()
-
-    message(STATUS "Processing test input files")
-
-    add_custom_target(
-        test_mangling_input_gen
-        COMMAND cat "${TEST_DIR}/mangling_input.txt" | xxd "-i" > "${TEST_DIR}/mangling_input.txt.in"
-        BYPRODUCTS "${TEST_DIR}/mangling_input.txt.in"
-    )
-
-    add_executable(
-        yo_test
-        test/mangling.cpp
-    )
-    target_include_directories(yo_test PRIVATE "src/")
-    add_dependencies(yo_test gtest)
-    add_dependencies(yo_test test_mangling_input_gen)
-    target_link_libraries(yo_test yo gtest_main)
-    add_test(yo_test yo_test)
+    add_subdirectory(test)
 endif()

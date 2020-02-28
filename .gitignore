@@ -12,13 +12,14 @@ CTestTestfile.cmake
 _deps
 
 # Xcode
-yo.xcodeproj/
+*.xcodeproj/
 
 # Other
 .DS_Store
 temp/
-yo.build/
+*.build/
 Debug/
+Release/
 a.out
 ideas.md
 .tabnineignore
@@ -26,6 +27,6 @@ ideas.md
 stdlib_old/
 
 # Automatically generated files
-src/Version.h
-src/stdlib_sources.h
+tools/yo-cli/Version.h
+lib/yo/stdlib_sources.cpp
 test/*.in

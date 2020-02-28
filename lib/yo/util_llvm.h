@@ -12,6 +12,8 @@
 
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -124,5 +126,23 @@ template <>
 struct yo::util::fmt::formatter<llvm::Value *> {
     static void format(std::ostream &OS, std::string_view flags, const llvm::Value *value) {
         OS << yo::util::llvm_utils::to_string(value);
+    }
+};
+
+template <>
+struct yo::util::fmt::formatter<llvm::StringRef> {
+    static void format(std::ostream &OS, std::string_view flags, const llvm::StringRef &value) {
+        for (char c : value) {
+            OS << c;
+        }
+    }
+};
+
+
+template <int N>
+struct yo::util::fmt::formatter<llvm::SmallString<N>> {
+    static void format(std::ostream &OS, std::string_view flags, const llvm::SmallString<N> &value) {
+        formatter<llvm::StringRef>::format(OS, flags, value.str());
+//        OS << value.str();
     }
 };

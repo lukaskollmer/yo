@@ -114,6 +114,35 @@ R bitcast(T value) {
 
 
 
+template <typename T>
+class OptionSet {
+    using Data = std::make_unsigned_t<std::underlying_type_t<T>>;
+    Data data;
+    
+public:
+    OptionSet() : data(0) {}
+    
+    bool isEmpty() const {
+        return data == 0;
+    }
+    
+    bool contains(T val) const {
+        return data & static_cast<Data>(val);
+    }
+    
+    void insert(T val) {
+        data |= static_cast<Data>(val);
+    }
+    
+    bool remove(T val) {
+        data &= ~static_cast<Data>(val);
+    }
+};
+
+
+
+
+
 template <typename F>
 class DeferHandle {
     F fn;

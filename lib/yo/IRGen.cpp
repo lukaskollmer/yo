@@ -13,7 +13,6 @@
 #include "TemplateSpecialization.h"
 #include "Attributes.h"
 #include "Diagnostics.h"
-#include "CommandLine.h"
 
 #include <optional>
 #include <limits>
@@ -93,11 +92,11 @@ StructType* getUnderlyingStruct(Type *ty) {
 
 llvm::LLVMContext IRGenerator::C;
 
-IRGenerator::IRGenerator(const std::string& translationUnitPath)
+IRGenerator::IRGenerator(const std::string &translationUnitPath, const driver::Options &options)
     : module(llvm::make_unique<llvm::Module>(util::fs::path_utils::getFilename(translationUnitPath), C)),
     builder(C),
     debugInfo{llvm::DIBuilder(*module), nullptr, {}},
-    CLIOptions(cl::get_options())
+    driverOptions(options)
 {
     builtinTypes.llvm = {
         /*.i8    = */ llvm::Type::getInt8Ty(C),
@@ -141,7 +140,7 @@ IRGenerator::IRGenerator(const std::string& translationUnitPath)
     
     debugInfo.compileUnit = debugInfo.builder.createCompileUnit(llvm::dwarf::DW_LANG_C,
                                                                 debugInfo.builder.createFile(filename, path),
-                                                                "yo", CLIOptions.optimize, "", 0);
+                                                                "yo", driverOptions.optimize, "", 0);
     debugInfo.lexicalBlocks.push_back(debugInfo.compileUnit);
     module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
 }
@@ -954,7 +953,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::VarDecl> varDecl) {
             builder.CreateStore(V, alloca);
         }
     } else {
-        if (!CLIOptions.fzeroInitialize) {
+        if (!driverOptions.fzeroInitialize) {
             diagnostics::emitError(varDecl->getSourceLocation(), "no initial value specified");
         } else {
             // zero initialize

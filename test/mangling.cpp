@@ -6,8 +6,8 @@
 //  Copyright © 2020 Lukas Kollmer. All rights reserved.
 //
 
-#include "Mangling.h"
-#include "util.h"
+#include "yo/Mangling.h"
+#include "yo/util.h"
 
 #include "gtest/gtest.h"
 

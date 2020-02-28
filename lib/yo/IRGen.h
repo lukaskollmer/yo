@@ -12,7 +12,7 @@
 #include "Type.h"
 #include "NamedScope.h"
 #include "util.h"
-#include "CommandLine.h"
+#include "Driver.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
@@ -131,7 +131,7 @@ class IRGenerator {
         } yo;
     } builtinTypes;
     
-    const cl::Options &CLIOptions;
+    const driver::Options &driverOptions;
     
     /// The local scope
     NamedScope<ValueBinding> localScope;
@@ -159,7 +159,7 @@ class IRGenerator {
 public:
     static llvm::LLVMContext C;
     
-    explicit IRGenerator(const std::string& translationUnitPath);
+    IRGenerator(const std::string& translationUnitPath, const driver::Options&);
     
     void codegen(const ast::AST&);
     
@@ -186,7 +186,7 @@ private:
         if (currentFunction.decl && currentFunction.decl->getAttributes().no_debug_info) {
             return false;
         }
-        return CLIOptions.emitDebugMetadata;
+        return driverOptions.emitDebugMetadata;
     }
     
     
