@@ -3480,8 +3480,11 @@ llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<
     
     // TODO should this even be allowed to return anything but an RValue?
     switch (VK) {
-        case LValue: return alloca;
-        case RValue: return builder.CreateLoad(alloca);
+        case LValue:
+            LKFatalError("why?");
+            return alloca;
+        case RValue:
+            return builder.CreateLoad(alloca);
     }
 }
 
