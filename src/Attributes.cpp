@@ -55,12 +55,14 @@ ENTRY(FunctionAttributes, startup, "startup")
 ENTRY(FunctionAttributes, shutdown, "shutdown")
 ENTRY(FunctionAttributes, side_effects, "side_effects")
 ENTRY(FunctionAttributes, intrinsic, "intrinsic")
+ENTRY(FunctionAttributes, no_debug_info, "no_debug_info")
 }
 
 
 namespace struct_decl {
 ENTRY(StructAttributes, arc, "arc")
 ENTRY(StructAttributes, no_init, "no_init")
+ENTRY(StructAttributes, no_debug_info, "no_debug_info")
 }
 
 namespace var_decl {
@@ -162,6 +164,7 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
         IF_ATTR(attr, builtin_attributes::func_decl::startup)
         IF_ATTR(attr, builtin_attributes::func_decl::shutdown)
         IF_ATTR(attr, builtin_attributes::func_decl::intrinsic)
+        IF_ATTR(attr, builtin_attributes::func_decl::no_debug_info)
         
         if (attr.key == builtin_attributes::func_decl::side_effects.key) {
             side_effects = HandleSideEffectsAttribute(attr);
@@ -190,12 +193,14 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
 
 
 bool FunctionAttributes::operator==(const FunctionAttributes &other) const {
+    // TODO keep this up-to-date w/ the actual properties
     return no_mangle    == other.no_mangle
         && intrinsic    == other.intrinsic
         && arc          == other.arc
         && extern_      == other.extern_
         && mangledName  == other.mangledName
-        && side_effects == other.side_effects;
+        && side_effects == other.side_effects
+        && no_debug_info == other.no_debug_info;
 }
 
 
@@ -215,6 +220,7 @@ StructAttributes::StructAttributes(const std::vector<Attribute> &attributes) : S
         
         IF_ATTR(attribute, builtin_attributes::struct_decl::arc)
         IF_ATTR(attribute, builtin_attributes::struct_decl::no_init)
+        IF_ATTR(attribute, builtin_attributes::struct_decl::no_debug_info)
         
         LKFatalError("unknown struct attribute: '%s'", attribute.key.c_str());
     }
