@@ -9,7 +9,7 @@ set(CMAKE_BUILD_TYPE Debug)
 
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
 
-option(BUILD_TESTS "Build test programs" OFF)
+option(BUILD_TESTS "Build tests" OFF)
 
 
 # find_package(LLVM 9 REQUIRED CONFIG)

@@ -100,6 +100,7 @@ int main(int argc, const char * argv[], const char *const *envp) {
     }
     
     llvm::cl::SetVersionPrinter(&version_printer);
+    llvm::cl::HideUnrelatedOptions(cl_options::CLIOptionCategory);
     llvm::cl::ParseCommandLineOptions(argc, argv, "The Yo Programming Language v" YO_VERSION "\n");
     
     llvm::cl::PrintOptionValues();
