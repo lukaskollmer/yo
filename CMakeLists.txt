@@ -31,11 +31,6 @@ macro(yo_add_target)
     set(target_type ${ARG_TYPE})
     list(GET ARG_UNPARSED_ARGUMENTS 0 target_name)
     list(SUBLIST ARG_UNPARSED_ARGUMENTS 1 -1 src_files)
-    
-    #message(STATUS "name: ${target_name}")
-    #message(STATUS "type: ${target_type}")
-    #message(STATUS "src: ${src_files}")
-    #message(STATUS "llvm: ${ARG_LLVM_LIBS}")
 
     if(${target_type} STREQUAL "lib")
         add_library(${target_name} ${src_files})
@@ -57,13 +52,6 @@ macro(yo_add_target)
         target_link_libraries(${target_name} yo)
         target_include_directories(${target_name} PRIVATE "${PROJECT_SOURCE_DIR}/lib")
     endif()
-
-    # set_target_properties(${target_name}
-    #     PROPERTIES
-    #     ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/out/lib/"
-    #     LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/out/lib/"
-    #     RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/out/bin/"
-    # )
 endmacro(yo_add_target)
 
 
@@ -76,16 +64,9 @@ macro(yo_add_tool)
 endmacro(yo_add_tool)
 
 
-macro(link_yo target_name)
-    target_link_libraries(${target_name} yo)
-    target_include_directories(${target_name} PRIVATE "${PROJECT_SOURCE_DIR}/lib")
-endmacro(link_yo)
-
-
 add_subdirectory(lib/yo)
 add_subdirectory(tools/yo-cli)
 add_subdirectory(tools/yo-demangle)
-
 
 
 if(BUILD_TESTS)
