@@ -52,6 +52,7 @@ void addOptimizationPasses(llvm::PassRegistry &PR, llvm::legacy::PassManager &MP
     llvm::initializeIPO(PR);
     llvm::initializeRegToMemPass(PR);
     llvm::initializeSimpleInlinerPass(PR);
+//    llvm::initializeStripDeadPrototypesLegacyPassPass(PR);
     
     llvm::PassManagerBuilder PMBuilder;
     PMBuilder.OptLevel = cl::get_options().optimize ? 1 : 0;
@@ -67,6 +68,8 @@ void addOptimizationPasses(llvm::PassRegistry &PR, llvm::legacy::PassManager &MP
     
     PMBuilder.populateFunctionPassManager(FPM);
     PMBuilder.populateModulePassManager(MPM);
+    
+//    MPM.add(llvm::createStripDeadPrototypesPass()); // TODO
 }
 
 
