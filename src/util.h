@@ -471,10 +471,10 @@ void format_imp(std::ostream &OS, std::string_view format, T &&arg, Ts&&... args
     }
 
     if constexpr(sizeof...(args) == 0) {
+        LKAssert(format.find('{') == format.npos && "more format specifiers than arguments");
         OS << format;
-        LKAssert(format.find('{') == format.npos);
     } else {
-        LKAssert(format.find('{') != format.npos);
+        LKAssert(format.find('{') != format.npos && "more arguments than format specifiers");
         format_imp(OS, format, std::forward<Ts>(args)...);
     }
 }
@@ -487,9 +487,10 @@ std::string format(std::string_view format, Ts &&...args) {
     
     std::ostringstream OS;
     if constexpr(sizeof...(args) == 0) {
-        LKAssert(format.find('{') == format.npos);
+        LKAssert(format.find('{') == format.npos && "more format specifiers than arguments");
         OS << format;
     } else {
+        LKAssert(format.find('{') != format.npos && "more arguments than format specifiers");
         format_imp(OS, format, std::forward<Ts>(args)...);
     }
     return OS.str();
