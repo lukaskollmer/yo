@@ -729,6 +729,9 @@ std::string demangleCanonicalName(std::string_view name) {
             util::fmt::print("{}", name);
             LKFatalError("TODO");
         }
+        default:
+            OS << name;
+            break;
     }
         
         
