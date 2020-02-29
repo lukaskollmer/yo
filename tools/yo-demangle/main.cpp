@@ -35,19 +35,6 @@ int main(int argc, const char * argv[]) {
         }
     }
     
-    
-//    if (argc < 2) {
-//        // demangle from stdin
-//        std::string input;
-//        while (std::getline(std::cin, input)) {
-//            std::cout << yo::mangling::demangle(input) << std::endl;
-//        }
-//    } else {
-//        for (int i = 1; i < argc; i++) {
-//            std::cout << yo::mangling::demangle(argv[i]) << std::endl;
-//        }
-//    }
-    
     return EXIT_SUCCESS;
 }
 
