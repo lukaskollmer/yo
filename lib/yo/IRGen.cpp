@@ -756,7 +756,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
             }, [this, retvalAlloca](llvm::Value *V) {
                 builder.CreateStore(V, retvalAlloca);
             },
-            ValueBinding::Flags::CanWrite | ValueBinding::Flags::DontDestroy
+            { ValueBinding::Flags::CanWrite, ValueBinding::Flags::DontDestroy }
         ));
         
         // Create Debug Metadata
