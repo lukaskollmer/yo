@@ -20,6 +20,7 @@
 #include <iostream>
 #include <type_traits>
 #include <iomanip>
+#include <initializer_list>
 
 
 #define NS_START(x) namespace x {
@@ -114,27 +115,33 @@ R bitcast(T value) {
 
 
 
-template <typename T>
+template <typename Flags>
 class OptionSet {
-    using Data = std::make_unsigned_t<std::underlying_type_t<T>>;
+    using Data = std::make_unsigned_t<std::underlying_type_t<Flags>>;
     Data data;
     
 public:
     OptionSet() : data(0) {}
     
+    OptionSet(Flags flags) : data(static_cast<Data>(flags)) {}
+    
+    OptionSet(std::initializer_list<Flags> flags) {
+        for (Flags F : flags) insert(F);
+    }
+    
     bool isEmpty() const {
         return data == 0;
     }
     
-    bool contains(T val) const {
+    bool contains(Flags val) const {
         return data & static_cast<Data>(val);
     }
     
-    void insert(T val) {
+    void insert(Flags val) {
         data |= static_cast<Data>(val);
     }
     
-    bool remove(T val) {
+    bool remove(Flags val) {
         data &= ~static_cast<Data>(val);
     }
 };

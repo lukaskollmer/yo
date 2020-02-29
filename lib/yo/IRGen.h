@@ -52,11 +52,14 @@ struct ValueBinding {
     llvm::Value *value;
     ReadImp read;
     WriteImp write;
-    uint8_t flags;
+    util::OptionSet<Flags> flags;
     
-    bool hasFlag(Flags F) const { return flags & F; }
+    bool hasFlag(Flags F) const { return flags.contains(F); }
     
-    ValueBinding(Type *type, llvm::Value *value, ReadImp read, WriteImp write, uint8_t F)
+    ValueBinding(Type *type, llvm::Value *value, ReadImp read, WriteImp write, Flags F)
+    : type(type), value(value), read(read), write(write), flags(F) {}
+    
+    ValueBinding(Type *type, llvm::Value *value, ReadImp read, WriteImp write, std::initializer_list<Flags> F)
     : type(type), value(value), read(read), write(write), flags(F) {}
 };
 
