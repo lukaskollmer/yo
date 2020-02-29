@@ -16,11 +16,11 @@
 NS_START(yo::driver)
 
 enum class OutputFileType : uint8_t {
-    Binary = 1,
-    ObjectFile,
-    LLVM_IR,
-    LLVM_BC,
-    Assembly
+    Binary     = 1 << 0,
+    ObjectFile = 1 << 1,
+    LLVM_IR    = 1 << 2,
+    LLVM_BC    = 1 << 3,
+    Assembly   = 1 << 4
 };
 
 
