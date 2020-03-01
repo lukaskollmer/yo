@@ -1,4 +1,4 @@
-use ":runtime/intrinsics";
+use ":std/core";
 
 #[extern]
 fn atoi(*i8) -> i32;
