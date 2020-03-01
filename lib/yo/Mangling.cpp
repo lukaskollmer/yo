@@ -24,7 +24,7 @@
  ## Functions
  
  ### Global (free) functions
- - Syntax: _F{name}{ret_ty}{param_tys}{tmpl_info}
+ - Syntax: $F{name}{ret_ty}{param_tys}{tmpl_info}
  - {name}: the name of the function, prefixed w/ the count. eg: foo -> 3foo
  - {ret_ty}: mangled return type of the function
  - {param_tys}: mangled parameter types of the function
@@ -35,11 +35,11 @@
  
  ### Global operator overload:
  - same as a global function, except:
-    - `_F` is replaced w/ `_O`
+    - `$F` is replaced w/ `$O`
     - {name} is replaced w/ the operator's encoding (a number), prefixed by the length of the encoding string
  
  ### Instance Method
- - Syntax: _I{self_ty}{name}{ret_ty}{param_tys}{tmpl_info}
+ - Syntax: $I{self_ty}{name}{ret_ty}{param_tys}{tmpl_info}
  - {self_ty}: mangled name of the method's receiver type
  - {name}: method name, prefixed w/ count
  - {ret_ty}: mangled name of the return type
@@ -55,7 +55,7 @@
  
  ### Static Method
  - same as an instance method, except:
-    - `_I` is replaced w/ `_S`
+    - `$I` is replaced w/ `$S`
  
  
  ## Pointer Type
@@ -97,7 +97,7 @@
  
  Ideas:
  - well-known identifiers
-    - ie, `_I` followed by a digit could be used to refer to well-known instance method names)
+    - ie, `$I` followed by a digit could be used to refer to well-known instance method names)
     - `A` followed by a non-digit that is not `t` could be used to refer to well-known type names
     - question: is only the identifier well-known (ie "this is an initializer"), or also the specific signature (ie "this is the copy constructor")
  - Encode type list multiplicity?
@@ -111,7 +111,7 @@ using namespace yo;
 NS_START(yo::mangling)
 
 
-inline constexpr char kMangledFunctionCommonPrefix = '_';
+inline constexpr char kMangledFunctionCommonPrefix = '$';
 inline constexpr char kPrefixGlobalFunction = 'F';
 inline constexpr char kPrefixInstanceMethod = 'I';
 inline constexpr char kPrefixStaticMethod   = 'S';
@@ -485,7 +485,7 @@ private:
 
 
 std::string Demangler::demangle() {
-    if (input[0] == kMangledFunctionCommonPrefix) {
+    if (input[0] == '_') { // TODO does this mess up typenames?
         input.remove_prefix(1);
     }
     
