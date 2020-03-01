@@ -10,6 +10,7 @@
 #include "Lexer.h"
 #include "Parser.h"
 #include "IRGen.h"
+#include "Diagnostics.h"
 #include "util.h"
 
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -236,6 +237,10 @@ bool LKCompilerInternalOptionSigabrtOnFatalError() {
 
 bool driver::run(driver::Options options) {
     shouldSigabrtOnFatalError = options.int_trapOnFatalError;
+    
+    if (!util::fs::file_exists(options.inputFile)) {
+        diagnostics::emitError(util::fmt::format("input file '{}' does not exist", options.inputFile));
+    }
     
     const std::string inputFile = options.inputFile;
     const std::string inputFilename = util::fs::path_utils::getFilename(inputFile);

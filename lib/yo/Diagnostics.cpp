@@ -19,12 +19,14 @@ void diagnostics::emit(std::string_view category, const parser::TokenSourceLocat
     if (loc.empty()) return emit(category, msg);
     
     util::fmt::print("{}:{}:{}: {}: {}", loc.filepath, loc.line, loc.column, category, msg);
-    std::cout << util::fs::read_specific_line(loc.filepath, loc.line - 1) << std::endl;
     
-    for (uint64_t i = 0; i < loc.column - 1; i++) {
-        std::cout << ' ';
+    if (util::fs::file_exists(loc.filepath)) {
+        std::cout << util::fs::read_specific_line(loc.filepath, loc.line - 1) << std::endl;
+        for (uint64_t i = 0; i < loc.column - 1; i++) {
+            std::cout << ' ';
+        }
+        std::cout << "^" << std::endl;
     }
-    std::cout << "^" << std::endl;
 }
 
 
