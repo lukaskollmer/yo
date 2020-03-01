@@ -30,11 +30,13 @@ yo_add_tool(
     mangling.cpp
     LINK_YO
 )
-# add_executable(
-#     yo_test
-#     mangling.cpp
-# )
-# target_include_directories(yo_test PRIVATE "src/")
+
 add_dependencies(yo_test gtest test_mangling_input_gen)
 target_link_libraries(yo_test gtest_main)
 add_test(yo_test yo_test)
+
+add_custom_target(
+    check
+    COMMAND ${CMAKE_CTEST_COMMAND} --verbose
+    DEPENDS yo_test
+)
