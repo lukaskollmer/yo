@@ -2681,17 +2681,11 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind
     
     
     if (isVariadic && getResolvedFunctionWithName(llvmFunction->getName().str())->funcDecl->getAttributes().extern_) {
-        // TODO extract references if possible, disallow otherwise, promote types as expected by C
+        // TODO extract references if possible, disallow otherwise, promote types as expected by C?
         for (auto it = call->arguments.begin() + numFixedArgs; it != call->arguments.end(); it++) {
             auto arg = *it;
             auto argTy = getType(arg);
-            
             auto V = codegen(arg, RValue);
-            
-            if (auto refTy = llvm::dyn_cast<ReferenceType>(argTy)) {
-                argTy = refTy->getReferencedType();
-                V = builder.CreateLoad(V);
-            }
             
             if (argTy == builtinTypes.yo.f32) {
                 V = builder.CreateFPCast(V, builtinTypes.llvm.Double);
