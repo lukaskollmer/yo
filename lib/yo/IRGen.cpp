@@ -99,15 +99,15 @@ IRGenerator::IRGenerator(const std::string &translationUnitPath, const driver::O
     driverOptions(options)
 {
     builtinTypes.llvm = {
-        /*.i8    = */ llvm::Type::getInt8Ty(C),
-        /*.i16   = */ llvm::Type::getInt16Ty(C),
-        /*.i32   = */ llvm::Type::getInt32Ty(C),
-        /*.i64   = */ llvm::Type::getInt64Ty(C),
-        /*.i1    = */ llvm::Type::getInt1Ty(C),
-        /*.Void  = */ llvm::Type::getVoidTy(C),
-        /*.Float = */ llvm::Type::getFloatTy(C),
-        /*.Doble = */ llvm::Type::getDoubleTy(C),
-        /*.i8Ptr = */ llvm::Type::getInt8PtrTy(C)
+        .i8     = llvm::Type::getInt8Ty(C),
+        .i16    = llvm::Type::getInt16Ty(C),
+        .i32    = llvm::Type::getInt32Ty(C),
+        .i64    = llvm::Type::getInt64Ty(C),
+        .i1     = llvm::Type::getInt1Ty(C),
+        .Void   = llvm::Type::getVoidTy(C),
+        .Float  = llvm::Type::getFloatTy(C),
+        .Double = llvm::Type::getDoubleTy(C),
+        .i8Ptr  = llvm::Type::getInt8PtrTy(C)
     };
     
     // create all primitives' llvm::Type and llvm::DIType objects
