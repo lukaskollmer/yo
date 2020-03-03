@@ -72,6 +72,6 @@ std::vector<ManglingTestCase> loadTestCases() {
 
 TEST(yo, mangling) {
     for (ManglingTestCase testCase : loadTestCases()) {
-        EXPECT_EQ(mangling::demangle(testCase.input), testCase.expected);
+        EXPECT_EQ(mangling::demangle(testCase.input), std::string(testCase.expected));
     }
 }

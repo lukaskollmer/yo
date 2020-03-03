@@ -8,558 +8,561 @@
 main
 main
 
+_printf
+printf
 
-_F10fatalErrorvA6String
+
+$F10fatalErrorvA6String
 fatalError(String) -> void
 
-_F10fatalErrorqA6String
+$F10fatalErrorqA6String
 fatalError(String) -> i64
 
-_F10fatalErrorRqA6String
+$F10fatalErrorRqA6String
 fatalError(String) -> &i64
 
-_F10fatalErrorPqA6String
+$F10fatalErrorPqA6String
 fatalError(String) -> *i64
 
-_F10fatalErrorqRA6String
+$F10fatalErrorqRA6String
 fatalError(&String) -> i64
 
-_F10fatalErrorqPA6String
+$F10fatalErrorqPA6String
 fatalError(*String) -> i64
 
-_F10fatalErrorqPPA6String
+$F10fatalErrorqPPA6String
 fatalError(**String) -> i64
 
-_F10fatalErrorqPPPA6String
+$F10fatalErrorqPPPA6String
 fatalError(***String) -> i64
 
 
-_F3foovB3iiqi
+$F3foovB3iiqi
 foo((i32, i32, i64), i32) -> void
 
-_F3foovB2B3iiqi
+$F3foovB2B3iiqi
 foo(((i32, i32, i64), i32)) -> void
 
 
-_F3incvRA3Foo
+$F3incvRA3Foo
 inc(&Foo) -> void
 
-_F3incvRqT1q
+$F3incvRqT1q
 inc<i64>(&i64) -> void
 
 
-_F5allocPA3FooQT1A3Foo
+$F5allocPA3FooQT1A3Foo
 alloc<Foo>(u64) -> *Foo
 
-_F5allocPA6StringQT1A6String
+$F5allocPA6StringQT1A6String
 alloc<String>(u64) -> *String
 
-_F5allocPAt5ArrayT1A6StringQT1At5ArrayT1A6String
+$F5allocPAt5ArrayT1A6StringQT1At5ArrayT1A6String
 alloc<Array<String>>(u64) -> *Array<String>
 
-_F5allocPbQT1b
+$F5allocPbQT1b
 alloc<bool>(u64) -> *bool
 
-_F5allocPcQT1c
+$F5allocPcQT1c
 alloc<i8>(u64) -> *i8
 
-_F5allocPqQT1q
+$F5allocPqQT1q
 alloc<i64>(u64) -> *i64
 
-_F5printvA6String
+$F5printvA6String
 print(String) -> void
 
-_F5printvRA3Foo
+$F5printvRA3Foo
 print(&Foo) -> void
 
-_F6getStrA6String
+$F6getStrA6String
 getStr() -> String
 
-_F7deallocvPA3FooT1A3Foo
+$F7deallocvPA3FooT1A3Foo
 dealloc<Foo>(*Foo) -> void
 
-_F7deallocvPA6StringT1A6String
+$F7deallocvPA6StringT1A6String
 dealloc<String>(*String) -> void
 
-_F7deallocvPAt5ArrayT1A6StringT1At5ArrayT1A6String
+$F7deallocvPAt5ArrayT1A6StringT1At5ArrayT1A6String
 dealloc<Array<String>>(*Array<String>) -> void
 
-_F7deallocvPbT1b
+$F7deallocvPbT1b
 dealloc<bool>(*bool) -> void
 
-_F7deallocvPqT1q
+$F7deallocvPqT1q
 dealloc<i64>(*i64) -> void
 
-_F8print_tyvT1Pc
+$F8print_tyvT1Pc
 print_ty<*i8>() -> void
 
-_F8print_tyvT1Rc
+$F8print_tyvT1Rc
 print_ty<&i8>() -> void
 
-_F8print_tyvT1c
+$F8print_tyvT1c
 print_ty<i8>() -> void
 
 
-_IA14BlockLiteral_14initv
+$IA14BlockLiteral_14initv
 BlockLiteral_1.init(&BlockLiteral_1) -> void
 
-_IA14BlockLiteral_14initvRA14BlockLiteral_1
+$IA14BlockLiteral_14initvRA14BlockLiteral_1
 BlockLiteral_1.init(&BlockLiteral_1, &BlockLiteral_1) -> void
 
-_IA14BlockLiteral_19__deallocv
+$IA14BlockLiteral_19__deallocv
 BlockLiteral_1.__dealloc(&BlockLiteral_1) -> void
 
-_IA16__main_lambda_284initv
+$IA16__main_lambda_284initv
 __main_lambda_28.init(&__main_lambda_28) -> void
 
-_IA16__main_lambda_284initvRA16__main_lambda_28
+$IA16__main_lambda_284initvRA16__main_lambda_28
 __main_lambda_28.init(&__main_lambda_28, &__main_lambda_28) -> void
 
-_IA16__main_lambda_289__deallocv
+$IA16__main_lambda_289__deallocv
 __main_lambda_28.__dealloc(&__main_lambda_28) -> void
 
-_IA16__main_lambda_28O222bA6StringT1A6String
+$IA16__main_lambda_28O222bA6StringT1A6String
 __main_lambda_28.operator()<String>(&__main_lambda_28, String) -> bool
 
-_IA16__main_lambda_794initvRA16__main_lambda_79
+$IA16__main_lambda_794initvRA16__main_lambda_79
 __main_lambda_79.init(&__main_lambda_79, &__main_lambda_79) -> void
 
-_IA16__main_lambda_794initvRii
+$IA16__main_lambda_794initvRii
 __main_lambda_79.init(&__main_lambda_79, &i32, i32) -> void
 
-_IA16__main_lambda_799__deallocv
+$IA16__main_lambda_799__deallocv
 __main_lambda_79.__dealloc(&__main_lambda_79) -> void
 
-_IA16__main_lambda_79O222vi
+$IA16__main_lambda_79O222vi
 __main_lambda_79.operator()(&__main_lambda_79, i32) -> void
 
-_IA16__main_lambda_864initv
+$IA16__main_lambda_864initv
 __main_lambda_86.init(&__main_lambda_86) -> void
 
-_IA16__main_lambda_864initvRA16__main_lambda_86
+$IA16__main_lambda_864initvRA16__main_lambda_86
 __main_lambda_86.init(&__main_lambda_86, &__main_lambda_86) -> void
 
-_IA16__main_lambda_869__deallocv
+$IA16__main_lambda_869__deallocv
 __main_lambda_86.__dealloc(&__main_lambda_86) -> void
 
-_IA16__main_lambda_86O222vA6StringA6StringT2A6StringA6String
+$IA16__main_lambda_86O222vA6StringA6StringT2A6StringA6String
 __main_lambda_86.operator()<String, String>(&__main_lambda_86, String, String) -> void
 
-_IA16__main_lambda_86O222vA6StringPcT2A6StringPc
+$IA16__main_lambda_86O222vA6StringPcT2A6StringPc
 __main_lambda_86.operator()<String, *i8>(&__main_lambda_86, String, *i8) -> void
 
-_IA16__main_lambda_86O222vPcA6StringT2PcA6String
+$IA16__main_lambda_86O222vPcA6StringT2PcA6String
 __main_lambda_86.operator()<*i8, String>(&__main_lambda_86, *i8, String) -> void
 
-_IA16__main_lambda_86O222vPcPcT2PcPc
+$IA16__main_lambda_86O222vPcPcT2PcPc
 __main_lambda_86.operator()<*i8, *i8>(&__main_lambda_86, *i8, *i8) -> void
 
-_IA17__main_lambda_1044initv
+$IA17__main_lambda_1044initv
 __main_lambda_104.init(&__main_lambda_104) -> void
 
-_IA17__main_lambda_1044initvRA17__main_lambda_104
+$IA17__main_lambda_1044initvRA17__main_lambda_104
 __main_lambda_104.init(&__main_lambda_104, &__main_lambda_104) -> void
 
-_IA17__main_lambda_1049__deallocv
+$IA17__main_lambda_1049__deallocv
 __main_lambda_104.__dealloc(&__main_lambda_104) -> void
 
-_IA17__main_lambda_104O222viT1i
+$IA17__main_lambda_104O222viT1i
 __main_lambda_104.operator()<i32>(&__main_lambda_104, i32) -> void
 
-_IA17__main_lambda_104O222vqT1q
+$IA17__main_lambda_104O222vqT1q
 __main_lambda_104.operator()<i64>(&__main_lambda_104, i64) -> void
 
-_IA3Foo4initvRA3Foo
+$IA3Foo4initvRA3Foo
 Foo.init(&Foo, &Foo) -> void
 
-_IA3Foo4initvqqq
+$IA3Foo4initvqqq
 Foo.init(&Foo, i64, i64, i64) -> void
 
-_IA3Foo9__deallocv
+$IA3Foo9__deallocv
 Foo.__dealloc(&Foo) -> void
 
-_IA3FooO222qq
+$IA3FooO222qq
 Foo.operator()(&Foo, i64) -> i64
 
-_IA6Number4initvRA6Number
+$IA6Number4initvRA6Number
 Number.init(&Number, &Number) -> void
 
-_IA6Number4initvq
+$IA6Number4initvq
 Number.init(&Number, i64) -> void
 
-_IA6Number9__deallocv
+$IA6Number9__deallocv
 Number.__dealloc(&Number) -> void
 
-_IA6String10print_descv
+$IA6String10print_descv
 String.print_desc(&String) -> void
 
-_IA6String4initvPc
+$IA6String4initvPc
 String.init(&String, *i8) -> void
 
-_IA6String4initvPcQ
+$IA6String4initvPcQ
 String.init(&String, *i8, u64) -> void
 
-_IA6String4initvRA6String
+$IA6String4initvRA6String
 String.init(&String, &String) -> void
 
-_IA6String5c_strPc
+$IA6String5c_strPc
 String.c_str(&String) -> *i8
 
-_IA6String6appendvA6String
+$IA6String6appendvA6String
 String.append(&String, String) -> void
 
-_IA6String6lengthQ
+$IA6String6lengthQ
 String.length(&String) -> u64
 
-_IA6String7deallocv
+$IA6String7deallocv
 String.dealloc(&String) -> void
 
-_IA6String9__deallocv
+$IA6String9__deallocv
 String.__dealloc(&String) -> void
 
-_IA6StringO223Rcq
+$IA6StringO223Rcq
 String.operator[](&String, i64) -> &i8
 
-_IAt13ArrayIteratorT1A3Foo4initvRAt13ArrayIteratorT1A3Foo
+$IAt13ArrayIteratorT1A3Foo4initvRAt13ArrayIteratorT1A3Foo
 ArrayIterator<Foo>.init(&ArrayIterator<Foo>, &ArrayIterator<Foo>) -> void
 
-_IAt13ArrayIteratorT1A3Foo4initvRAt5ArrayT1A3Foo
+$IAt13ArrayIteratorT1A3Foo4initvRAt5ArrayT1A3Foo
 ArrayIterator<Foo>.init(&ArrayIterator<Foo>, &Array<Foo>) -> void
 
-_IAt13ArrayIteratorT1A3Foo4initvRAt5ArrayT1A3Fooq
+$IAt13ArrayIteratorT1A3Foo4initvRAt5ArrayT1A3Fooq
 ArrayIterator<Foo>.init(&ArrayIterator<Foo>, &Array<Foo>, i64) -> void
 
-_IAt13ArrayIteratorT1A3Foo4nextRA3Foo
+$IAt13ArrayIteratorT1A3Foo4nextRA3Foo
 ArrayIterator<Foo>.next(&ArrayIterator<Foo>) -> &Foo
 
-_IAt13ArrayIteratorT1A3Foo7hasNextb
+$IAt13ArrayIteratorT1A3Foo7hasNextb
 ArrayIterator<Foo>.hasNext(&ArrayIterator<Foo>) -> bool
 
-_IAt13ArrayIteratorT1A3Foo9__deallocv
+$IAt13ArrayIteratorT1A3Foo9__deallocv
 ArrayIterator<Foo>.__dealloc(&ArrayIterator<Foo>) -> void
 
-_IAt13ArrayIteratorT1A6String4initvRAt13ArrayIteratorT1A6String
+$IAt13ArrayIteratorT1A6String4initvRAt13ArrayIteratorT1A6String
 ArrayIterator<String>.init(&ArrayIterator<String>, &ArrayIterator<String>) -> void
 
-_IAt13ArrayIteratorT1A6String4initvRAt5ArrayT1A6String
+$IAt13ArrayIteratorT1A6String4initvRAt5ArrayT1A6String
 ArrayIterator<String>.init(&ArrayIterator<String>, &Array<String>) -> void
 
-_IAt13ArrayIteratorT1A6String4initvRAt5ArrayT1A6Stringq
+$IAt13ArrayIteratorT1A6String4initvRAt5ArrayT1A6Stringq
 ArrayIterator<String>.init(&ArrayIterator<String>, &Array<String>, i64) -> void
 
-_IAt13ArrayIteratorT1A6String4nextRA6String
+$IAt13ArrayIteratorT1A6String4nextRA6String
 ArrayIterator<String>.next(&ArrayIterator<String>) -> &String
 
-_IAt13ArrayIteratorT1A6String7hasNextb
+$IAt13ArrayIteratorT1A6String7hasNextb
 ArrayIterator<String>.hasNext(&ArrayIterator<String>) -> bool
 
-_IAt13ArrayIteratorT1A6String9__deallocv
+$IAt13ArrayIteratorT1A6String9__deallocv
 ArrayIterator<String>.__dealloc(&ArrayIterator<String>) -> void
 
-_IAt13ArrayIteratorT1At5ArrayT1A6String4initvRAt13ArrayIteratorT1At5ArrayT1A6String
+$IAt13ArrayIteratorT1At5ArrayT1A6String4initvRAt13ArrayIteratorT1At5ArrayT1A6String
 ArrayIterator<Array<String>>.init(&ArrayIterator<Array<String>>, &ArrayIterator<Array<String>>) -> void
 
-_IAt13ArrayIteratorT1At5ArrayT1A6String4initvRAt5ArrayT1At5ArrayT1A6String
+$IAt13ArrayIteratorT1At5ArrayT1A6String4initvRAt5ArrayT1At5ArrayT1A6String
 ArrayIterator<Array<String>>.init(&ArrayIterator<Array<String>>, &Array<Array<String>>) -> void
 
-_IAt13ArrayIteratorT1At5ArrayT1A6String4initvRAt5ArrayT1At5ArrayT1A6Stringq
+$IAt13ArrayIteratorT1At5ArrayT1A6String4initvRAt5ArrayT1At5ArrayT1A6Stringq
 ArrayIterator<Array<String>>.init(&ArrayIterator<Array<String>>, &Array<Array<String>>, i64) -> void
 
-_IAt13ArrayIteratorT1At5ArrayT1A6String4nextRAt5ArrayT1A6String
+$IAt13ArrayIteratorT1At5ArrayT1A6String4nextRAt5ArrayT1A6String
 ArrayIterator<Array<String>>.next(&ArrayIterator<Array<String>>) -> &Array<String>
 
-_IAt13ArrayIteratorT1At5ArrayT1A6String7hasNextb
+$IAt13ArrayIteratorT1At5ArrayT1A6String7hasNextb
 ArrayIterator<Array<String>>.hasNext(&ArrayIterator<Array<String>>) -> bool
 
-_IAt13ArrayIteratorT1At5ArrayT1A6String9__deallocv
+$IAt13ArrayIteratorT1At5ArrayT1A6String9__deallocv
 ArrayIterator<Array<String>>.__dealloc(&ArrayIterator<Array<String>>) -> void
 
-_IAt13ArrayIteratorT1b4initvRAt13ArrayIteratorT1b
+$IAt13ArrayIteratorT1b4initvRAt13ArrayIteratorT1b
 ArrayIterator<bool>.init(&ArrayIterator<bool>, &ArrayIterator<bool>) -> void
 
-_IAt13ArrayIteratorT1b4initvRAt5ArrayT1b
+$IAt13ArrayIteratorT1b4initvRAt5ArrayT1b
 ArrayIterator<bool>.init(&ArrayIterator<bool>, &Array<bool>) -> void
 
-_IAt13ArrayIteratorT1b4initvRAt5ArrayT1bq
+$IAt13ArrayIteratorT1b4initvRAt5ArrayT1bq
 ArrayIterator<bool>.init(&ArrayIterator<bool>, &Array<bool>, i64) -> void
 
-_IAt13ArrayIteratorT1b4nextRb
+$IAt13ArrayIteratorT1b4nextRb
 ArrayIterator<bool>.next(&ArrayIterator<bool>) -> &bool
 
-_IAt13ArrayIteratorT1b7hasNextb
+$IAt13ArrayIteratorT1b7hasNextb
 ArrayIterator<bool>.hasNext(&ArrayIterator<bool>) -> bool
 
-_IAt13ArrayIteratorT1b9__deallocv
+$IAt13ArrayIteratorT1b9__deallocv
 ArrayIterator<bool>.__dealloc(&ArrayIterator<bool>) -> void
 
-_IAt13ArrayIteratorT1q4initvRAt13ArrayIteratorT1q
+$IAt13ArrayIteratorT1q4initvRAt13ArrayIteratorT1q
 ArrayIterator<i64>.init(&ArrayIterator<i64>, &ArrayIterator<i64>) -> void
 
-_IAt13ArrayIteratorT1q4initvRAt5ArrayT1q
+$IAt13ArrayIteratorT1q4initvRAt5ArrayT1q
 ArrayIterator<i64>.init(&ArrayIterator<i64>, &Array<i64>) -> void
 
-_IAt13ArrayIteratorT1q4initvRAt5ArrayT1qq
+$IAt13ArrayIteratorT1q4initvRAt5ArrayT1qq
 ArrayIterator<i64>.init(&ArrayIterator<i64>, &Array<i64>, i64) -> void
 
-_IAt13ArrayIteratorT1q4nextRq
+$IAt13ArrayIteratorT1q4nextRq
 ArrayIterator<i64>.next(&ArrayIterator<i64>) -> &i64
 
-_IAt13ArrayIteratorT1q7hasNextb
+$IAt13ArrayIteratorT1q7hasNextb
 ArrayIterator<i64>.hasNext(&ArrayIterator<i64>) -> bool
 
-_IAt13ArrayIteratorT1q9__deallocv
+$IAt13ArrayIteratorT1q9__deallocv
 ArrayIterator<i64>.__dealloc(&ArrayIterator<i64>) -> void
 
-_IAt5ArrayT1A3Foo17_constructInPlacevqRA3Foo
+$IAt5ArrayT1A3Foo17_constructInPlacevqRA3Foo
 Array<Foo>._constructInPlace(&Array<Foo>, i64, &Foo) -> void
 
-_IAt5ArrayT1A3Foo4initv
+$IAt5ArrayT1A3Foo4initv
 Array<Foo>.init(&Array<Foo>) -> void
 
-_IAt5ArrayT1A3Foo4initvPA3Fooqq
+$IAt5ArrayT1A3Foo4initvPA3Fooqq
 Array<Foo>.init(&Array<Foo>, *Foo, i64, i64) -> void
 
-_IAt5ArrayT1A3Foo4initvRAt5ArrayT1A3Foo
+$IAt5ArrayT1A3Foo4initvRAt5ArrayT1A3Foo
 Array<Foo>.init(&Array<Foo>, &Array<Foo>) -> void
 
-_IAt5ArrayT1A3Foo6appendvA3Foo
+$IAt5ArrayT1A3Foo6appendvA3Foo
 Array<Foo>.append(&Array<Foo>, Foo) -> void
 
-_IAt5ArrayT1A3Foo6removevq
+$IAt5ArrayT1A3Foo6removevq
 Array<Foo>.remove(&Array<Foo>, i64) -> void
 
-_IAt5ArrayT1A3Foo7_resizevq
+$IAt5ArrayT1A3Foo7_resizevq
 Array<Foo>._resize(&Array<Foo>, i64) -> void
 
-_IAt5ArrayT1A3Foo7deallocv
+$IAt5ArrayT1A3Foo7deallocv
 Array<Foo>.dealloc(&Array<Foo>) -> void
 
-_IAt5ArrayT1A3Foo8containsbA3Foo
+$IAt5ArrayT1A3Foo8containsbA3Foo
 Array<Foo>.contains(&Array<Foo>, Foo) -> bool
 
-_IAt5ArrayT1A3Foo8iteratorAt13ArrayIteratorT1A3Foo
+$IAt5ArrayT1A3Foo8iteratorAt13ArrayIteratorT1A3Foo
 Array<Foo>.iterator(&Array<Foo>) -> ArrayIterator<Foo>
 
-_IAt5ArrayT1A3Foo9__deallocv
+$IAt5ArrayT1A3Foo9__deallocv
 Array<Foo>.__dealloc(&Array<Foo>) -> void
 
-_IAt5ArrayT1A3FooO223RA3Fooq
+$IAt5ArrayT1A3FooO223RA3Fooq
 Array<Foo>.operator[](&Array<Foo>, i64) -> &Foo
 
-_IAt5ArrayT1A6String17_constructInPlacevqRA6String
+$IAt5ArrayT1A6String17_constructInPlacevqRA6String
 Array<String>._constructInPlace(&Array<String>, i64, &String) -> void
 
-_IAt5ArrayT1A6String4initv
+$IAt5ArrayT1A6String4initv
 Array<String>.init(&Array<String>) -> void
 
-_IAt5ArrayT1A6String4initvPA6Stringqq
+$IAt5ArrayT1A6String4initvPA6Stringqq
 Array<String>.init(&Array<String>, *String, i64, i64) -> void
 
-_IAt5ArrayT1A6String4initvRAt5ArrayT1A6String
+$IAt5ArrayT1A6String4initvRAt5ArrayT1A6String
 Array<String>.init(&Array<String>, &Array<String>) -> void
 
-_IAt5ArrayT1A6String6appendvA6String
+$IAt5ArrayT1A6String6appendvA6String
 Array<String>.append(&Array<String>, String) -> void
 
-_IAt5ArrayT1A6String6removevq
+$IAt5ArrayT1A6String6removevq
 Array<String>.remove(&Array<String>, i64) -> void
 
-_IAt5ArrayT1A6String7_resizevq
+$IAt5ArrayT1A6String7_resizevq
 Array<String>._resize(&Array<String>, i64) -> void
 
-_IAt5ArrayT1A6String7deallocv
+$IAt5ArrayT1A6String7deallocv
 Array<String>.dealloc(&Array<String>) -> void
 
-_IAt5ArrayT1A6String8containsbA6String
+$IAt5ArrayT1A6String8containsbA6String
 Array<String>.contains(&Array<String>, String) -> bool
 
-_IAt5ArrayT1A6String8filteredAt5ArrayT1A6StringA16__main_lambda_28T1A16__main_lambda_28
+$IAt5ArrayT1A6String8filteredAt5ArrayT1A6StringA16__main_lambda_28T1A16__main_lambda_28
 Array<String>.filtered<__main_lambda_28>(&Array<String>, __main_lambda_28) -> Array<String>
 
-_IAt5ArrayT1A6String8iteratorAt13ArrayIteratorT1A6String
+$IAt5ArrayT1A6String8iteratorAt13ArrayIteratorT1A6String
 Array<String>.iterator(&Array<String>) -> ArrayIterator<String>
 
-_IAt5ArrayT1A6String9__deallocv
+$IAt5ArrayT1A6String9__deallocv
 Array<String>.__dealloc(&Array<String>) -> void
 
-_IAt5ArrayT1A6StringO223RA6Stringq
+$IAt5ArrayT1A6StringO223RA6Stringq
 Array<String>.operator[](&Array<String>, i64) -> &String
 
-_IAt5ArrayT1At5ArrayT1A6String17_constructInPlacevqRAt5ArrayT1A6String
+$IAt5ArrayT1At5ArrayT1A6String17_constructInPlacevqRAt5ArrayT1A6String
 Array<Array<String>>._constructInPlace(&Array<Array<String>>, i64, &Array<String>) -> void
 
-_IAt5ArrayT1At5ArrayT1A6String4initv
+$IAt5ArrayT1At5ArrayT1A6String4initv
 Array<Array<String>>.init(&Array<Array<String>>) -> void
 
-_IAt5ArrayT1At5ArrayT1A6String4initvPAt5ArrayT1A6Stringqq
+$IAt5ArrayT1At5ArrayT1A6String4initvPAt5ArrayT1A6Stringqq
 Array<Array<String>>.init(&Array<Array<String>>, *Array<String>, i64, i64) -> void
 
-_IAt5ArrayT1At5ArrayT1A6String4initvRAt5ArrayT1At5ArrayT1A6String
+$IAt5ArrayT1At5ArrayT1A6String4initvRAt5ArrayT1At5ArrayT1A6String
 Array<Array<String>>.init(&Array<Array<String>>, &Array<Array<String>>) -> void
 
 
-_IAt5ArrayT1At5ArrayT1A6String6appendvAt5ArrayT1A6String
+$IAt5ArrayT1At5ArrayT1A6String6appendvAt5ArrayT1A6String
 Array<Array<String>>.append(&Array<Array<String>>, Array<String>) -> void
 
-_IAt5ArrayT1At5ArrayT1A6String6removevq
+$IAt5ArrayT1At5ArrayT1A6String6removevq
 Array<Array<String>>.remove(&Array<Array<String>>, i64) -> void
 
-_IAt5ArrayT1At5ArrayT1A6String7_resizevq
+$IAt5ArrayT1At5ArrayT1A6String7_resizevq
 Array<Array<String>>._resize(&Array<Array<String>>, i64) -> void
 
-_IAt5ArrayT1At5ArrayT1A6String7deallocv
+$IAt5ArrayT1At5ArrayT1A6String7deallocv
 Array<Array<String>>.dealloc(&Array<Array<String>>) -> void
 
-_IAt5ArrayT1At5ArrayT1A6String8containsbAt5ArrayT1A6String
+$IAt5ArrayT1At5ArrayT1A6String8containsbAt5ArrayT1A6String
 Array<Array<String>>.contains(&Array<Array<String>>, Array<String>) -> bool
 
-_IAt5ArrayT1At5ArrayT1A6String8iteratorAt13ArrayIteratorT1At5ArrayT1A6String
+$IAt5ArrayT1At5ArrayT1A6String8iteratorAt13ArrayIteratorT1At5ArrayT1A6String
 Array<Array<String>>.iterator(&Array<Array<String>>) -> ArrayIterator<Array<String>>
 
-_IAt5ArrayT1At5ArrayT1A6String9__deallocv
+$IAt5ArrayT1At5ArrayT1A6String9__deallocv
 Array<Array<String>>.__dealloc(&Array<Array<String>>) -> void
 
-_IAt5ArrayT1At5ArrayT1A6StringO223RAt5ArrayT1A6Stringq
+$IAt5ArrayT1At5ArrayT1A6StringO223RAt5ArrayT1A6Stringq
 Array<Array<String>>.operator[](&Array<Array<String>>, i64) -> &Array<String>
 
-_IAt5ArrayT1b17_constructInPlacevqRb
+$IAt5ArrayT1b17_constructInPlacevqRb
 Array<bool>._constructInPlace(&Array<bool>, i64, &bool) -> void
 
-_IAt5ArrayT1b4initv
+$IAt5ArrayT1b4initv
 Array<bool>.init(&Array<bool>) -> void
 
-_IAt5ArrayT1b4initvPbqq
+$IAt5ArrayT1b4initvPbqq
 Array<bool>.init(&Array<bool>, *bool, i64, i64) -> void
 
-_IAt5ArrayT1b4initvRAt5ArrayT1b
+$IAt5ArrayT1b4initvRAt5ArrayT1b
 Array<bool>.init(&Array<bool>, &Array<bool>) -> void
 
-_IAt5ArrayT1b6appendvb
+$IAt5ArrayT1b6appendvb
 Array<bool>.append(&Array<bool>, bool) -> void
 
-_IAt5ArrayT1b6removevq
+$IAt5ArrayT1b6removevq
 Array<bool>.remove(&Array<bool>, i64) -> void
 
-_IAt5ArrayT1b7_resizevq
+$IAt5ArrayT1b7_resizevq
 Array<bool>._resize(&Array<bool>, i64) -> void
 
-_IAt5ArrayT1b7deallocv
+$IAt5ArrayT1b7deallocv
 Array<bool>.dealloc(&Array<bool>) -> void
 
-_IAt5ArrayT1b8containsbb
+$IAt5ArrayT1b8containsbb
 Array<bool>.contains(&Array<bool>, bool) -> bool
 
-_IAt5ArrayT1b8iteratorAt13ArrayIteratorT1b
+$IAt5ArrayT1b8iteratorAt13ArrayIteratorT1b
 Array<bool>.iterator(&Array<bool>) -> ArrayIterator<bool>
 
-_IAt5ArrayT1b9__deallocv
+$IAt5ArrayT1b9__deallocv
 Array<bool>.__dealloc(&Array<bool>) -> void
 
-_IAt5ArrayT1bO223Rbq
+$IAt5ArrayT1bO223Rbq
 Array<bool>.operator[](&Array<bool>, i64) -> &bool
 
-_IAt5ArrayT1q17_constructInPlacevqRq
+$IAt5ArrayT1q17_constructInPlacevqRq
 Array<i64>._constructInPlace(&Array<i64>, i64, &i64) -> void
 
-_IAt5ArrayT1q4initv
+$IAt5ArrayT1q4initv
 Array<i64>.init(&Array<i64>) -> void
 
-_IAt5ArrayT1q4initvPqqq
+$IAt5ArrayT1q4initvPqqq
 Array<i64>.init(&Array<i64>, *i64, i64, i64) -> void
 
-_IAt5ArrayT1q4initvRAt5ArrayT1q
+$IAt5ArrayT1q4initvRAt5ArrayT1q
 Array<i64>.init(&Array<i64>, &Array<i64>) -> void
 
-_IAt5ArrayT1q6appendvq
+$IAt5ArrayT1q6appendvq
 Array<i64>.append(&Array<i64>, i64) -> void
 
-_IAt5ArrayT1q6removevq
+$IAt5ArrayT1q6removevq
 Array<i64>.remove(&Array<i64>, i64) -> void
 
-_IAt5ArrayT1q7_resizevq
+$IAt5ArrayT1q7_resizevq
 Array<i64>._resize(&Array<i64>, i64) -> void
 
-_IAt5ArrayT1q7deallocv
+$IAt5ArrayT1q7deallocv
 Array<i64>.dealloc(&Array<i64>) -> void
 
-_IAt5ArrayT1q8containsbq
+$IAt5ArrayT1q8containsbq
 Array<i64>.contains(&Array<i64>, i64) -> bool
 
-_IAt5ArrayT1q8iteratorAt13ArrayIteratorT1q
+$IAt5ArrayT1q8iteratorAt13ArrayIteratorT1q
 Array<i64>.iterator(&Array<i64>) -> ArrayIterator<i64>
 
-_IAt5ArrayT1q9__deallocv
+$IAt5ArrayT1q9__deallocv
 Array<i64>.__dealloc(&Array<i64>) -> void
 
-_IAt5ArrayT1qO223Rqq
+$IAt5ArrayT1qO223Rqq
 Array<i64>.operator[](&Array<i64>, i64) -> &i64
 
-_IAt7WrapperT1A3Foo4initvA3Foo
+$IAt7WrapperT1A3Foo4initvA3Foo
 Wrapper<Foo>.init(&Wrapper<Foo>, Foo) -> void
 
-_IAt7WrapperT1A3Foo4initvRAt7WrapperT1A3Foo
+$IAt7WrapperT1A3Foo4initvRAt7WrapperT1A3Foo
 Wrapper<Foo>.init(&Wrapper<Foo>, &Wrapper<Foo>) -> void
 
-_IAt7WrapperT1A3Foo9__deallocv
+$IAt7WrapperT1A3Foo9__deallocv
 Wrapper<Foo>.__dealloc(&Wrapper<Foo>) -> void
 
-_IAt7WrapperT1A3Foo9get_valueA3Foo
+$IAt7WrapperT1A3Foo9get_valueA3Foo
 Wrapper<Foo>.get_value(&Wrapper<Foo>) -> Foo
 
 
-_O10PcPcQT1c
+$O10PcPcQT1c
 operator+<i8>(*i8, u64) -> *i8
 
-_O10QQQT1Q
+$O10QQQT1Q
 operator+<u64>(u64, u64) -> u64
 
-_O10iiiT1i
+$O10iiiT1i
 operator+<i32>(i32, i32) -> i32
 
-_O10qqqT1q
+$O10qqqT1q
 operator+<i64>(i64, i64) -> i64
 
-_O11qqqT1q
+$O11qqqT1q
 operator-<i64>(i64, i64) -> i64
 
-_O12QQQT1Q
+$O12QQQT1Q
 operator*<u64>(u64, u64) -> u64
 
-_O215bPcPcT1Pc
+$O215bPcPcT1Pc
 operator==<*i8>(*i8, *i8) -> bool
 
-_O215bPcRA6String
+$O215bPcRA6String
 operator==(*i8, &String) -> bool
 
-_O215bQQT1Q
+$O215bQQT1Q
 operator==<u64>(u64, u64) -> bool
 
-_O215bRA6StringPc
+$O215bRA6StringPc
 operator==(&String, *i8) -> bool
 
-_O215bRA6StringRA6String
+$O215bRA6StringRA6String
 operator==(&String, &String) -> bool
 
-_O215bbbT1b
+$O215bbbT1b
 operator==<bool>(bool, bool) -> bool
 
-_O215biiT1i
+$O215biiT1i
 operator==<i32>(i32, i32) -> bool
 
-_O215bqqT1q
+$O215bqqT1q
 operator==<i64>(i64, i64) -> bool
 
-_O216bQQT1Q
+$O216bQQT1Q
 operator!=<u64>(u64, u64) -> bool
 
-_O217bQQT1Q
+$O217bQQT1Q
 operator<<u64>(u64, u64) -> bool
 
-_O217bqqT1q
+$O217bqqT1q
 operator<<i64>(i64, i64) -> bool
 
-_O219bQQT1Q
+$O219bQQT1Q
 operator><u64>(u64, u64) -> bool
 
-_O220bqqT1q
+$O220bqqT1q
 operator>=<i64>(i64, i64) -> bool
