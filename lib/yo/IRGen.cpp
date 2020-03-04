@@ -418,8 +418,13 @@ void ensureTemplateParametersDontShadow(std::initializer_list<std::shared_ptr<as
 StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl) {
     auto structName = structDecl->name;
     
+    if (structDecl->attributes.trivial && structDecl->isTemplateDecl()) {
+        diagnostics::emitError(structDecl->getSourceLocation(), "trivial struct cannot be a template");
+        // TODO implement the other checks!!!
+    }
+    
     if (structDecl->isTemplateDecl()) {
-        LKAssert(!structDecl->attributes.no_init && "template struct cannot have no_init attribute");
+        LKAssert(!structDecl->attributes.no_init && "struct template cannot have no_init attribute");
         ensureTemplateParametersAreDistinct(*structDecl->templateParamsDecl);
         
         templateStructs[structDecl->name] = structDecl;

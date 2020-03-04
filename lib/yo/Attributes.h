@@ -49,7 +49,6 @@ enum class SideEffect {
 struct FunctionAttributes {
     bool no_mangle = false;
     bool intrinsic = false;
-    bool arc = false;
     bool extern_ = false;
     bool inline_ = false;
     bool always_inline = false;
@@ -66,7 +65,6 @@ struct FunctionAttributes {
     FunctionAttributes() {}
     explicit FunctionAttributes(const std::vector<Attribute>&);
     
-    bool operator ==(const FunctionAttributes &) const;
 };
 
 
@@ -74,17 +72,12 @@ struct FunctionAttributes {
 #pragma mark - Struct Attributes
 
 struct StructAttributes {
-    bool arc;
-    bool no_init;
+    bool no_init = false;
     bool no_debug_info = false;
+    bool trivial = false;
     
-    StructAttributes() : arc(false), no_init(false) {}
-    
+    StructAttributes() {}
     explicit StructAttributes(const std::vector<Attribute>&);
-    
-    bool operator ==(const StructAttributes &other) const {
-        return arc == other.arc && no_init == other.no_init;
-    }
 };
 
 

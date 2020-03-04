@@ -47,7 +47,6 @@ static const auto name_int = Mapping(name_ext, &scope::name_int);
 namespace func_decl {
 ENTRY(FunctionAttributes, no_mangle, "no_mangle")
 ENTRY(FunctionAttributes, mangledName, "mangle")
-ENTRY(FunctionAttributes, arc, "arc")
 ENTRY(FunctionAttributes, extern_, "extern")
 ENTRY(FunctionAttributes, inline_, "inline")
 ENTRY(FunctionAttributes, always_inline, "always_inline")
@@ -60,9 +59,9 @@ ENTRY(FunctionAttributes, no_debug_info, "no_debug_info")
 
 
 namespace struct_decl {
-ENTRY(StructAttributes, arc, "arc")
 ENTRY(StructAttributes, no_init, "no_init")
 ENTRY(StructAttributes, no_debug_info, "no_debug_info")
+ENTRY(StructAttributes, trivial, "trivial")
 }
 
 namespace var_decl {
@@ -157,7 +156,6 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
         
         IF_ATTR(attr, builtin_attributes::func_decl::no_mangle)
         IF_ATTR(attr, builtin_attributes::func_decl::mangledName)
-        IF_ATTR(attr, builtin_attributes::func_decl::arc)
         IF_ATTR(attr, builtin_attributes::func_decl::extern_)
         IF_ATTR(attr, builtin_attributes::func_decl::inline_)
         IF_ATTR(attr, builtin_attributes::func_decl::always_inline)
@@ -192,18 +190,6 @@ FunctionAttributes::FunctionAttributes(const std::vector<Attribute> &attributes)
 }
 
 
-bool FunctionAttributes::operator==(const FunctionAttributes &other) const {
-    // TODO keep this up-to-date w/ the actual properties
-    return no_mangle    == other.no_mangle
-        && intrinsic    == other.intrinsic
-        && arc          == other.arc
-        && extern_      == other.extern_
-        && mangledName  == other.mangledName
-        && side_effects == other.side_effects
-        && no_debug_info == other.no_debug_info;
-}
-
-
 
 
 #pragma mark - Struct Attributes
@@ -218,9 +204,9 @@ StructAttributes::StructAttributes(const std::vector<Attribute> &attributes) : S
         LKAssert(!util::vector::contains(handledAttributes, attribute.getKey()));
         handledAttributes.push_back(attribute.key);
         
-        IF_ATTR(attribute, builtin_attributes::struct_decl::arc)
         IF_ATTR(attribute, builtin_attributes::struct_decl::no_init)
         IF_ATTR(attribute, builtin_attributes::struct_decl::no_debug_info)
+        IF_ATTR(attribute, builtin_attributes::struct_decl::trivial)
         
         LKFatalError("unknown struct attribute: '%s'", attribute.key.c_str());
     }
