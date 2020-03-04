@@ -45,7 +45,7 @@ std::ostream& ast::operator<<(std::ostream &OS, const ast::FunctionSignature &si
     if (signature.isTemplateDecl()) {
         OS << "<";
         util::vector::iterl(signature.templateParamsDecl->getParams(), [&OS](const TemplateParamDeclList::Param &P, bool isLast) {
-            OS << P.name;
+            OS << P.name->value;
             if (auto defaultType = P.defaultType) {
                 OS << " = " << defaultType;
             }
