@@ -94,7 +94,11 @@ impl Array {
     
     fn _resize(self: &Self, diff: i64) {
         let ptr = alloc<Element>(cast<size_t>(self.capacity + diff));
-        memcpy(bitcast<*i8>(ptr), bitcast<*i8>(self.data), cast<size_t>(self.size) * sizeof<Element>());
+        memcpy(
+            bitcast<*i8>(ptr),
+            bitcast<*i8>(self.data),
+            cast<size_t>(self.size) * sizeof<Element>()
+        );
         dealloc(self.data);
         self.data = ptr;
     }
@@ -165,3 +169,21 @@ impl Array {
         dealloc(self.data);
     }
 }
+
+
+fn operator == <T>(lhs: &Array<T>, rhs: &Array<T>) -> bool {
+    if lhs.size != rhs.size {
+        return false;
+    }
+    if lhs.data == rhs.data {
+        return true;
+    }
+
+    for idx in 0..<lhs.size {
+        if lhs[idx] != rhs[idx] {
+            return false;
+        }
+    }
+    return true;
+}
+
