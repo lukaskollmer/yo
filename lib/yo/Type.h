@@ -51,17 +51,32 @@ public:
         Tuple
     };
     
+    enum class Flags : uint8_t {
+        IsTemporary = 1 << 0
+    };
+    
 private:
     const TypeID typeId;
     llvm::Type *llvmType = nullptr;
     llvm::DIType *llvmDIType = nullptr;
     PointerType *pointerTo = nullptr;
     ReferenceType *referenceTo = nullptr;
+    util::OptionSet<Flags> flags;
 
 protected:
     explicit Type(TypeID typeId) : typeId(typeId) {}
     
 public:
+    virtual ~Type() = default;
+    
+    void setFlag(Flags F) {
+        flags.insert(F);
+    }
+    
+    bool hasFlag(Flags F) const {
+        return flags.contains(F);
+    }
+    
     TypeID getTypeId() const { return typeId; }
     
     llvm::Type* getLLVMType() const { return llvmType; }
@@ -109,6 +124,10 @@ public:
     static NumericalType* getUInt64Type();
     static NumericalType* getFloat32Type(); // An IEEE 754 binary64 floating point type
     static NumericalType* getFloat64Type(); // An IEEE 754 binary64 floating point type
+    
+    static Type* createTemporary(const std::string& name);
+    static StructType* createTemporary(const std::string& name, const std::vector<Type *> &templateArgs);
+
     
     static bool classof(const Type *type) {
         return type->getTypeId() == TypeID::Void; // Void is the only primitive that doesn't live in a subclass
@@ -261,6 +280,10 @@ public:
     const parser::TokenSourceLocation& getSourceLocation() const { return sourceLoc; }
     
     const std::vector<Type *>& getTemplateArguments() const { return templateArguments; }
+    
+    bool isTemplateInstantiation() const {
+        return !templateArguments.empty();
+    }
     
     
     static StructType* create(std::string name, MembersT members, parser::TokenSourceLocation sourceLoc) {

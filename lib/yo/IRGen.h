@@ -27,9 +27,11 @@
 
 NS_START(yo::irgen)
 
-using TemplateTypeMapping = std::map<std::string, std::shared_ptr<ast::TypeDesc>>;
-
 enum class Intrinsic : uint8_t;
+class IRGenerator;
+
+
+using TemplateTypeMapping = std::map<std::string, std::shared_ptr<ast::TypeDesc>>;
 
 enum ValueKind { // TODO rename to ValueCategory?
     LValue, RValue
@@ -68,7 +70,7 @@ struct ResolvedCallable {
     // TODO add a "kind of callable" field (global function, instance/static method, lambda, etc). that could also replace the argumentOffset field
     ast::FunctionSignature signature;
     std::shared_ptr<ast::FunctionDecl> funcDecl; // only nonnull if the callable is a function decl
-    llvm::Value *llvmValue;
+    llvm::Value *llvmValue; // nullptr if this is a yet to be instantiated function template
     uint8_t argumentOffset;
     
     ResolvedCallable(ast::FunctionSignature sig, std::shared_ptr<ast::FunctionDecl> funcDecl, llvm::Value *llvmValue, uint8_t argumentOffset)
@@ -108,7 +110,37 @@ struct FunctionState {
 
 
 
+enum class CandidateViabilityComparisonResult {
+    MoreViable,
+    LessViable,
+    Ambiguous
+};
+
+/// A possible candidate for a call expression
+struct FunctionCallTargetCandidate {
+    using ID = uint64_t;
+    
+    ID id;
+    ResolvedCallable target;
+    std::vector<uint32_t> implicitConversionArgumentIndices; // args which need implicit converison
+    TemplateTypeMapping templateArgumentMapping; // empty unless this is a function template
+    
+    FunctionCallTargetCandidate(ID id, const ResolvedCallable& RC) : id(id), target(RC) {}
+    
+    const ast::FunctionSignature& getSignature() const {
+        return target.signature;
+    }
+    
+    CandidateViabilityComparisonResult compare(IRGenerator &irgen, const FunctionCallTargetCandidate &other, std::shared_ptr<ast::CallExpr>, const std::vector<Type *> &argTys) const;
+};
+
+
+
+
+
 class IRGenerator {
+    friend struct FunctionCallTargetCandidate;
+    
     std::unique_ptr<llvm::Module> module;
     llvm::IRBuilder<> builder;
     
@@ -322,7 +354,7 @@ private:
     TemplateTypeMapping resolveStructTemplateParametersFromExplicitTemplateArgumentList(std::shared_ptr<ast::StructDecl>, std::shared_ptr<ast::TemplateParamArgList>);
     
     std::optional<TemplateTypeMapping>
-    attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> templateFunction, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset);
+    attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSignature&, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset);
     
     /// Instantiate a template struct, using a fully resolved typeDesc to resolve the template parameters
     StructType* instantiateTemplateStruct(std::shared_ptr<ast::StructDecl>, std::shared_ptr<ast::TypeDesc>);

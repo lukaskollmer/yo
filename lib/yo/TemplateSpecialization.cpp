@@ -68,34 +68,62 @@ std::shared_ptr<ast::TypeDesc> TemplateSpecializer::resolveType(std::shared_ptr<
 }
 
 
-std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specialize(std::shared_ptr<ast::FunctionDecl> decl) {
-    auto signature = decl->getSignature();
+ast::FunctionSignature TemplateSpecializer::specialize(const ast::FunctionSignature &signature) {
+    ast::FunctionSignature specSig = signature;
     
-    signature.paramTypes = util::vector::map(decl->getSignature().paramTypes, [&](auto paramTy) {
-        return resolveType(paramTy);
-    });
-    signature.returnType = resolveType(signature.returnType);
-    
+    for (size_t idx = 0; idx < signature.paramTypes.size(); idx++) {
+        specSig.paramTypes[idx] = resolveType(signature.paramTypes[idx]);
+    }
+    specSig.returnType = resolveType(signature.returnType);
+    specSig.setSourceLocation(signature.getSourceLocation());
     
     if (signature.numberOfTemplateParameters() > 0) {
-        signature.templateParamsDecl = std::make_shared<ast::TemplateParamDeclList>();
-        signature.templateParamsDecl->setSourceLocation(decl->getSignature().templateParamsDecl->getSourceLocation());
-
-        for (auto &param : decl->getSignature().templateParamsDecl->getParams()) {
+        specSig.templateParamsDecl = std::make_shared<ast::TemplateParamDeclList>();
+        specSig.templateParamsDecl->setSourceLocation(signature.templateParamsDecl->getSourceLocation());
+        
+        for (auto &param : signature.templateParamsDecl->getParams()) {
             if (!util::map::has_key(templateArgumentMapping, param.name->value)) {
-                signature.templateParamsDecl->addParam({ param.name, resolveType(param.defaultType) });
+                specSig.templateParamsDecl->addParam({ param.name, resolveType(param.defaultType) });
             }
         }
     }
     
-    if (signature.templateParamsDecl && signature.templateParamsDecl->size() == 0) {
-        signature.templateParamsDecl = nullptr;
+    if (specSig.templateParamsDecl && specSig.templateParamsDecl->size() == 0) {
+        specSig.templateParamsDecl = nullptr;
     }
+    
+    return specSig;
+}
+
+
+std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specialize(std::shared_ptr<ast::FunctionDecl> decl) {
+//    ast::FunctionSignature signature = decl->getSignature();
+//
+//    for (size_t idx = 0; idx < signature.paramTypes.size(); idx++) {
+//        signature.paramTypes[idx] = resolveType(signature.paramTypes[idx]);
+//    }
+//    signature.returnType = resolveType(signature.returnType);
+//
+//
+//    if (signature.numberOfTemplateParameters() > 0) {
+//        signature.templateParamsDecl = std::make_shared<ast::TemplateParamDeclList>();
+//        signature.templateParamsDecl->setSourceLocation(decl->getSignature().templateParamsDecl->getSourceLocation());
+//
+//        for (auto &param : decl->getSignature().templateParamsDecl->getParams()) {
+//            if (!util::map::has_key(templateArgumentMapping, param.name->value)) {
+//                signature.templateParamsDecl->addParam({ param.name, resolveType(param.defaultType) });
+//            }
+//        }
+//    }
+//
+//    if (signature.templateParamsDecl && signature.templateParamsDecl->size() == 0) {
+//        signature.templateParamsDecl = nullptr;
+//    }
     
     
     auto specializedFuncDecl = std::make_shared<ast::FunctionDecl>(decl->getFunctionKind(),
                                                                    decl->getName(),
-                                                                   signature,
+                                                                   specialize(decl->getSignature()),
                                                                    decl->getAttributes());
     specializedFuncDecl->setSourceLocation(decl->getSourceLocation());
     specializedFuncDecl->setParamNames(decl->getParamNames()); // TODO make copies here!

@@ -115,6 +115,27 @@ R bitcast(T value) {
 
 
 
+template <typename T = uint64_t>
+class Counter {
+    T value;
+    
+public:
+    Counter() : value(0) {}
+    explicit Counter(T initial) : value(initial) {}
+    
+    T currentValue() const {
+        return value;
+    }
+    
+    T increment() {
+        T val = value;
+        value += 1;
+        return val;
+    }
+};
+
+
+
 template <typename Flags>
 class OptionSet {
     using Data = std::make_unsigned_t<std::underlying_type_t<Flags>>;
@@ -289,7 +310,7 @@ std::optional<T> first_where(const std::vector<T> &vector, F fn) {
     return std::nullopt;
 }
 
-/// Iterate over a vector, 2nd `F` parameter is the current index
+/// Iterate over a vector, 1st `F` parameter is the current index
 template <typename T, typename F>
 void iteri(const std::vector<T> &vec, F &&fn) {
     for (size_t i = 0; i < vec.size(); i++) {
@@ -396,6 +417,22 @@ std::optional<K> reverse_lookup(const std::map<K, V> &map, const V &value) {
         if (val == value) return key;
     }
     return std::nullopt;
+}
+
+template <typename K, typename V, typename F>
+bool contains_where(const std::map<K, V> &map, F &&fn) {
+    for (auto &[key, value] : map) {
+        if (fn(key, value)) return true;
+    }
+    return false;
+}
+
+
+template <typename K, typename V, typename F>
+void iterl(const std::map<K, V> &map, F &&fn) {
+    for (auto it = map.begin(); it != map.end();) {
+        fn(it->first, it->second, ++it == map.end());
+    }
 }
 
 } // namespace map

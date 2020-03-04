@@ -16,6 +16,7 @@
 
 #include <optional>
 #include <limits>
+#include <set>
 
 
 using namespace yo;
@@ -254,7 +255,7 @@ uint8_t argumentOffsetForFunctionKind(ast::FunctionKind kind) {
     switch (kind) {
         case yo::ast::FunctionKind::GlobalFunction:
         case yo::ast::FunctionKind::StaticMethod:
-        case yo::ast::FunctionKind::OperatorOverload:
+        case yo::ast::FunctionKind::OperatorOverload: // TODO what about instance methods that are operator overloads?
             return 0;
         case yo::ast::FunctionKind::InstanceMethod:
             return kInstanceMethodCallArgumentOffset;
@@ -429,6 +430,7 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
             return ast::TypeDesc::makeNominal(param.name->value);
         }));
         ctorSig.templateParamsDecl = std::make_shared<ast::TemplateParamDeclList>(*structDecl->templateParamsDecl);
+        ctorSig.setSourceLocation(structDecl->getSourceLocation());
 
         auto ctorFnDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::StaticMethod,
                                                               structName, ctorSig,
@@ -465,6 +467,7 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
     if (!structDecl->attributes.no_init) {
         ast::FunctionSignature signature;
         signature.returnType = ast::TypeDesc::makeResolved(structTy);
+        signature.setSourceLocation(structDecl->getSourceLocation());
         
         attributes::FunctionAttributes attributes;
         attributes.no_debug_info = structDecl->attributes.no_debug_info;
@@ -733,7 +736,6 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
         const auto &paramNameDecl = functionDecl->getParamNames().at(i);
         if (shouldEmitDebugInfo()) {
             auto SP = debugInfo.lexicalBlocks.back();
-//            if (functionDecl->getAttributes().always_inline && )
             auto varInfo = debugInfo.builder.createParameterVariable(SP, alloca->getName(), i + 1, SP->getFile(),
                                                                      paramNameDecl->getSourceLocation().line,
                                                                      resolveTypeDesc(paramTy)->getLLVMDIType());
@@ -1921,17 +1923,16 @@ uint8_t IRGenerator::argumentOffsetForCallingConvention(CallingConvention cc) {
 
 // TODO this should somehow return an error message explaining why the template deduction failed (eg "too many template arguments", etc)
 std::optional<TemplateTypeMapping>
-IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::FunctionDecl> FD, std::shared_ptr<ast::CallExpr> call, unsigned int argumentOffset) {
+IRGenerator::attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSignature &signature, std::shared_ptr<ast::CallExpr> call, unsigned int argumentOffset) {
     using TDK = ast::TypeDesc::Kind;
     
-    const auto &sig = FD->getSignature();
-    LKAssert(sig.isTemplateDecl());
+    LKAssert(signature.isTemplateDecl());
     
-    if (sig.paramTypes.size() != call->arguments.size() + argumentOffset) {
+    if (signature.paramTypes.size() != call->arguments.size() + argumentOffset) {
         return std::nullopt;
     }
     
-    if (call->numberOfExplicitTemplateArgs() > sig.numberOfTemplateParameters()) {
+    if (call->numberOfExplicitTemplateArgs() > signature.numberOfTemplateParameters()) {
         return std::nullopt;
     }
     
@@ -1948,7 +1949,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
     //    a template argument type deduced from a literal expression.
     
     
-    const auto templateParamNames = util::vector::map(sig.templateParamsDecl->getParams(), [](auto &param) { return param.name->value; });
+    const auto templateParamNames = util::vector::map(signature.templateParamsDecl->getParams(), [](auto &param) { return param.name->value; });
     
     
     enum class DeductionReason {
@@ -1969,8 +1970,8 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
     
     
     // Handle explicitly specified types
-    for (uint64_t idx = 0; idx < std::min<uint64_t>(sig.templateParamsDecl->size(), call->numberOfExplicitTemplateArgs()); idx++) {
-        auto &param = sig.templateParamsDecl->getParams()[idx];
+    for (uint64_t idx = 0; idx < std::min<uint64_t>(signature.templateParamsDecl->size(), call->numberOfExplicitTemplateArgs()); idx++) {
+        auto &param = signature.templateParamsDecl->getParams()[idx];
         mapping[param.name->value] = { resolveTypeDesc(call->explicitTemplateArgs->elements[idx]), DeductionReason::Explicit };
     }
     
@@ -2018,6 +2019,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
     
     
     std::function<bool(std::shared_ptr<ast::TypeDesc>, Type *, uint64_t)> handle;
+    
     handle = [&](std::shared_ptr<ast::TypeDesc> typeDesc, Type *ty, uint64_t argIdx) -> bool {
         switch (typeDesc->getKind()) {
             case TDK::Nominal: {
@@ -2072,7 +2074,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
     
     
     for (size_t idx = 0; idx < call->arguments.size(); idx++) {
-        auto sigTypeDesc = sig.paramTypes[idx + argumentOffset];
+        auto sigTypeDesc = signature.paramTypes[idx + argumentOffset];
         auto argTy = getType(call->arguments[idx]);
         
         if (llvm::isa<ReferenceType>(argTy)) {
@@ -2087,7 +2089,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(std::shared_ptr<ast::F
     
     // Make sure all parameters were resolved, apply default values where necessary
     
-    for (auto &param : sig.templateParamsDecl->getParams()) {
+    for (auto &param : signature.templateParamsDecl->getParams()) {
         if (util::map::has_key(mapping, param.name->value)) continue;
         
         if (auto defaultTy = param.defaultType) {
@@ -2202,12 +2204,219 @@ bool IRGenerator::isImplicitConversionAvailable(Type *src, Type *dst) {
 }
 
 
+
+
+
+/// This function assumes that both targets match the call (ie, are valid targets)
+CandidateViabilityComparisonResult FunctionCallTargetCandidate::compare(IRGenerator &irgen, const FunctionCallTargetCandidate &other, std::shared_ptr<ast::CallExpr> callExpr, const std::vector<Type *> &argTys) const {
+    const auto &lhs = *this;
+    const auto &rhs = other;
+    
+    auto getResolvedParamTys = [&](const FunctionCallTargetCandidate &candidate) -> std::vector<Type *> {
+        std::vector<decltype(irgen.nominalTypes)::ID> tempTypeIds;
+        for (const auto &[name, typeDesc] : candidate.templateArgumentMapping) {
+            tempTypeIds.push_back(irgen.nominalTypes.insert(name, typeDesc->getResolvedType()));
+        }
+        auto tys = util::vector::map(candidate.getSignature().paramTypes, [&](auto typeDesc) {
+            return irgen.resolveTypeDesc(typeDesc, false);
+        });
+        irgen.nominalTypes.removeAll(tempTypeIds);
+        return tys;
+    };
+    
+    
+    auto lhsParamTys = getResolvedParamTys(lhs);
+    auto rhsParamTys = getResolvedParamTys(rhs);
+    
+    
+    for (uint32_t idx = lhs.target.argumentOffset; idx < lhs.getSignature().paramTypes.size(); idx++) {
+        auto argTy = argTys[idx];
+        auto lhsTy = lhsParamTys[idx];
+        auto rhsTy = rhsParamTys[idx];
+        
+//        util::fmt::print("[{}] act: {}, exp(L): {}, exp(R): {}", idx, argTy, lhsTy, rhsTy);
+        
+        if (argTy == lhsTy && argTy == rhsTy) {
+            continue;
+        } else if (callExpr->arguments[idx]->isOfKind(NK::NumberLiteral)) {
+            LKFatalError("TODO");
+        } else {
+            continue;
+        }
+    }
+    
+    // prefer non-template overloads
+    if (!lhs.getSignature().isTemplateDecl() && rhs.getSignature().isTemplateDecl()) {
+        return CandidateViabilityComparisonResult::MoreViable;
+    }
+    
+    // if both are templates, prefer the more specialized one
+    if (lhs.getSignature().isTemplateDecl() && rhs.getSignature().isTemplateDecl()) {
+        
+        // What's going on here?
+        // We somehow need to figure out which of these two versions is "more specialized".
+        //
+        // What does this mean? Consider the following example:
+        // ```
+        // struct A<T> {}
+        //
+        // fn f<T>(T, T) {}       // 1
+        // fn f<T>(A<T>, A<T>) {} // 2
+        //
+        // let a = A<i64>();
+        // f(a, a);
+        // ```
+        //
+        // clearly, the best target for the call to `f` is the second overload
+        
+        
+        auto imp = [&irgen](const FunctionCallTargetCandidate &lhs, const FunctionCallTargetCandidate &rhs) -> bool {
+            uint64_t counter = 0;
+            TemplateTypeMapping mapping;
+            std::vector<std::pair<Type *, decltype(irgen.nominalTypes)::ID>> tmpTypes;
+            
+            for (auto &param : lhs.getSignature().templateParamsDecl->getParams()) {
+                auto tmpName = util::fmt::format("U{}", ++counter);
+                mapping[param.name->value] = ast::TypeDesc::makeNominal(tmpName);
+            }
+            
+            auto specSig = TemplateSpecializer(mapping).specialize(lhs.getSignature());
+            
+            for (const auto &[_ignored_name, typeDesc] : mapping) {
+                auto name = typeDesc->getName();
+                auto type = Type::createTemporary(mangling::mangleAsStruct(name));
+                typeDesc->setResolvedType(type);
+                tmpTypes.emplace_back(type, irgen.nominalTypes.insert(name, type));
+            }
+            
+            auto argTys = util::vector::map(specSig.paramTypes, [&irgen](auto TD) { return irgen.resolveTypeDesc(TD, false); });
+            
+            auto tmpCallExpr = std::make_shared<ast::CallExpr>(nullptr);
+            tmpCallExpr->arguments = util::vector::map(argTys, [](Type *type) -> std::shared_ptr<ast::Expr> {
+                return std::make_shared<ast::RawLLVMValueExpr>(nullptr, type);
+            });
+            
+            auto deduction = irgen.attemptToResolveTemplateArgumentTypesForCall(rhs.getSignature(), tmpCallExpr, rhs.target.argumentOffset);
+            
+            std::function<bool(Type *, std::set<Type *> &)> collectTempTypes;
+            collectTempTypes = [&](Type *type, std::set<Type *> &found) -> bool {
+                bool retval = false;
+                
+                if (type->hasFlag(Type::Flags::IsTemporary)) {
+                    found.insert(type);
+                    retval = true;
+                }
+                
+                switch (type->getTypeId()) {
+                    case Type::TypeID::Void:
+                        break;
+                    
+                    case Type::TypeID::Numerical:
+                        break;
+                    
+                    case Type::TypeID::Pointer: {
+                        auto ptrTy = llvm::cast<PointerType>(type);
+                        if (collectTempTypes(ptrTy->getPointee(), found)) {
+                            retval = true;
+                        }
+                        break;
+                    }
+                    
+                    case Type::TypeID::Reference: {
+                        auto refTy = llvm::cast<ReferenceType>(type);
+                        if (collectTempTypes(refTy->getReferencedType(), found)) {
+                            retval = true;
+                        }
+                        break;
+                    }
+                    
+                    case Type::TypeID::Function: {
+                        auto fnTy = llvm::cast<FunctionType>(type);
+                        for (auto ty : fnTy->getParameterTypes()) {
+                            if (collectTempTypes(ty, found)) {
+                                retval = true;
+                            }
+                        }
+                        if (collectTempTypes(fnTy->getReturnType(), found)) {
+                            retval = true;
+                        }
+                        break;
+                    }
+                    
+                    case Type::TypeID::Struct: {
+                        auto structTy = llvm::cast<StructType>(type);
+                        for (auto ty : structTy->getTemplateArguments()) {
+                            if (collectTempTypes(ty, found)) {
+                                retval = true;
+                            }
+                        }
+                        break;
+                    }
+                    
+                    case Type::TypeID::Tuple: {
+                        auto tupleTy = llvm::cast<TupleType>(type);
+                        for (auto ty : tupleTy->getMembers()) {
+                            if (collectTempTypes(ty, found)) {
+                                retval = true;
+                            }
+                        }
+                        break;
+                    }
+                }
+                
+                if (retval) {
+                    found.insert(type);
+                }
+                return retval;
+            };
+            
+            
+            for (auto [type, id] : tmpTypes) {
+                irgen.nominalTypes.remove(id);
+            }
+            
+            std::set<Type *> foundTempTypes;
+            for (Type *type : argTys) {
+                collectTempTypes(type, foundTempTypes);
+            }
+//            for (Type *type : foundTempTypes) {
+//                util::fmt::print("[DEL] {}", static_cast<void*>(type));
+//                delete type; // TODO why does this not work as expected?
+//            }
+            return !deduction.has_value();
+        };
+        
+        bool l2r = imp(lhs, rhs);
+        bool r2l = imp(rhs, lhs);
+        
+        if (l2r == r2l) {
+            return CandidateViabilityComparisonResult::Ambiguous;
+        } else if (l2r) {
+            return CandidateViabilityComparisonResult::LessViable;
+        } else if (r2l) {
+            return CandidateViabilityComparisonResult::MoreViable;
+        }
+        
+        
+        LKFatalError("TODO");
+    }
+    
+    
+    return CandidateViabilityComparisonResult::LessViable;
+}
+
+
+
+
+
+
 // This function will only return if the call can be resolved
 ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExpr, SkipCodegenOption codegenOption) {
-    const bool skipCodegen = codegenOption == kSkipCodegen;
+    // TODO this function is rather long, refactor!!!
     
+    const bool skipCodegen = codegenOption == kSkipCodegen;
     std::string targetName;
-    uint8_t argumentOffset = 0;
+    auto targetKind = ast::FunctionKind::GlobalFunction;
     
     
     if (auto ident = llvm::dyn_cast<ast::Ident>(callExpr->target)) {
@@ -2226,7 +2435,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
                 targetName = mangling::mangleCanonicalName(getUnderlyingStruct(ty)->getName(),
                                                            mangling::encodeOperator(ast::Operator::FnCall),
                                                            ast::FunctionKind::InstanceMethod);
-                argumentOffset = kInstanceMethodCallArgumentOffset;
+                targetKind = ast::FunctionKind::InstanceMethod;
             } else {
                 diagnostics::emitError(callExpr->getSourceLocation(), "unable to resolve call target");
             }
@@ -2242,8 +2451,6 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
                                                        staticDeclRefExpr->memberName,
                                                        ast::FunctionKind::StaticMethod);
         } else if (TD->isNominalTemplated()) {
-//            util::fmt::print("{}", staticDeclRefExpr->description());
-            
             if (auto structDecl = util::map::get_opt(templateStructs, TD->getName())) {
                 // TODO can we do better if `codegenOption = kSkipCodegen`?
                 // at the end of the day, it doesn't really matter, but still ...
@@ -2310,17 +2517,19 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
                 targetName = mangling::mangleCanonicalName(getUnderlyingStruct(memberTy)->getName(),
                                                            mangling::encodeOperator(ast::Operator::FnCall),
                                                            ast::FunctionKind::InstanceMethod);
-                argumentOffset = kInstanceMethodCallArgumentOffset;
+                targetKind = ast::FunctionKind::InstanceMethod;
             }
         } else {
             // calling an instance method
             targetName = mangling::mangleCanonicalName(structName, memberExpr->memberName, ast::FunctionKind::InstanceMethod);
-            argumentOffset = kInstanceMethodCallArgumentOffset;
+            targetKind = ast::FunctionKind::InstanceMethod;
         }
     } else {
         diagnostics::emitError(callExpr->getSourceLocation(), "unable to resolve call target");
     }
     
+    
+    auto argumentOffset = argumentOffsetForFunctionKind(targetKind);
     
     // TODO does this mean we might miss another potential target
     // Not if the compiler disallows free functions w/ the same name as a defined type
@@ -2355,13 +2564,6 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     }
     
     
-    struct FunctionResolutionMatchInfo {
-        uint32_t score; // lower is better
-        std::shared_ptr<ast::FunctionDecl> decl;
-        llvm::Value *llvmValue; // nullptr if this is a yet to be instantiated template function
-        TemplateTypeMapping templateArgumentMapping; // fully resolved ast::TypeDescs!
-    };
-    
     struct TargetRejectionInfo {
         std::string reason;
         const ast::FunctionDecl &decl; // using a reference should be fine since the rejection info objects never leave the current scope
@@ -2369,18 +2571,35 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         TargetRejectionInfo(std::string reason, const ast::FunctionDecl &decl) : reason(reason), decl(decl) {}
     };
     
-    
-    // list of potential targets, with a score indicating how close they match the call
-    std::vector<FunctionResolutionMatchInfo> matches;
+    util::Counter<> candidateIndexCounter;
     std::vector<TargetRejectionInfo> rejections;
+    std::vector<FunctionCallTargetCandidate> candidates;
+    
+    // Q: Why are the argument types fetched up here?
+    // A: If we were to call `getType` in the check loop below, this might get messed up
+    //    by the resolved template mapping temporarily inserted into the nominal types list
+    std::vector<Type *> argTypes;
+    argTypes.reserve(callExpr->arguments.size() + argumentOffsetForFunctionKind(targetKind));
+    if (targetKind == ast::FunctionKind::InstanceMethod) {
+        if (auto memberExpr = llvm::dyn_cast<ast::MemberExpr>(callExpr->target)) {
+            argTypes.push_back(getType(memberExpr->target));
+        } else {
+            argTypes.push_back(getType(callExpr->target));
+        }
+    } else {
+        LKAssert(argumentOffset == 0); // just to make sure we don't miss anything
+    }
+    for (auto argExpr : callExpr->arguments) {
+        argTypes.push_back(getType(argExpr));
+    }
+    
     
     for (const auto &target : possibleTargets) {
-        auto &decl = target.funcDecl;
+        const auto &decl = target.funcDecl;
         auto &sig = decl->getSignature();
         bool isVariadicWithCLinkage = sig.isVariadic && target.funcDecl->getAttributes().extern_;
         
         if (decl->isTemplateInstantiation()) {
-            //rejections.emplace_back("template instantiation", *decl);
             continue;
         }
         
@@ -2406,29 +2625,23 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         // another important distinction is that for functions w/ C linkage, the variadic parameter cannot be omitted.
         // for example, printf(*i8...) cannot be called w/ zero arguments, since that would also leave out the format string
 
-        uint32_t score = 0;
+        FunctionCallTargetCandidate candidate(candidateIndexCounter.increment(), target);
         size_t lastTypecheckedArgument = isVariadicWithCLinkage ? sig.paramTypes.size() : callExpr->arguments.size();
-        TemplateTypeMapping templateArgTypeMapping;
         
         std::vector<decltype(nominalTypes)::ID> tempTypeIds;
         
         if (sig.isTemplateDecl()) {
-            score += 2; // Add a small penalty to prefer a non-templated overload, if available
-            
-            if (auto mapping = attemptToResolveTemplateArgumentTypesForCall(decl, callExpr, argumentOffset)) {
-                templateArgTypeMapping = *mapping;
-//                for (const auto &[name, typeDesc] : *mapping) {
-//                    util::fmt::print("[{}] {} = {}", targetName, name, typeDesc);
-//                }
+            if (auto mapping = attemptToResolveTemplateArgumentTypesForCall(decl->getSignature(), callExpr, argumentOffset)) {
+                candidate.templateArgumentMapping = *mapping;
+                for (const auto &[name, typeDesc] : *mapping) {
+                    LKAssert(typeDesc->isResolved());
+                    tempTypeIds.push_back(nominalTypes.insert(name, typeDesc->getResolvedType()));
+                }
             } else {
                 rejections.emplace_back("unable to resolve template parameter types", *decl);
                 goto discard_potential_match;
             }
             
-            for (const auto &[name, typeDesc] : templateArgTypeMapping) {
-                LKAssert(typeDesc->isResolved());
-                tempTypeIds.push_back(nominalTypes.insert(name, typeDesc->getResolvedType()));
-            }
         //} else if (sig.templateArgumentNames.empty() != decl->getResolvedTemplateArgTypes().empty()) {
         } else if (sig.isTemplateDecl() != decl->getSignature().isTemplateDecl()) {
             // Discard already instantiated template functions. Not necessarily necessary,
@@ -2437,13 +2650,15 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             goto discard_potential_match;
         }
         
-        for (size_t i = 0; i < lastTypecheckedArgument; i++) {
-            auto arg = callExpr->arguments[i];
-            auto argTy = getType(arg);
+        for (size_t idx = 0; idx < lastTypecheckedArgument; idx++) {
+            // These checks deliberately ignore the implicit self parameter.
+            // Since the list of possible targets was fetched based on the receiver type, this isn't an issue
+            auto arg = callExpr->arguments[idx];
+            auto argTy = argTypes[idx + argumentOffset];
             Type *expectedTy = nullptr;
 
-            if (i < sig.paramTypes.size()) {
-                expectedTy = resolveTypeDesc(sig.paramTypes[i + argumentOffset], false);
+            if (idx < sig.paramTypes.size()) {
+                expectedTy = resolveTypeDesc(sig.paramTypes[idx + argumentOffset], false);
             } else {
                 LKFatalError("is this non-C-linkage varargs?");
             }
@@ -2457,10 +2672,10 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             if (arg->isOfKind(NK::NumberLiteral)) {
                 auto numberLiteral = llvm::dyn_cast<ast::NumberLiteral>(arg);
                 if (valueIsTriviallyConvertible(numberLiteral, expectedTy)) {
-                    score += 1;
+                    candidate.implicitConversionArgumentIndices.push_back(idx);
                     continue;
                 } else {
-                    auto str = util::fmt::format("argument #{} not trivially convertible from '{}' to '{}'", i, argTy, expectedTy);
+                    auto str = util::fmt::format("argument #{} not trivially convertible from '{}' to '{}'", idx, argTy, expectedTy);
                     rejections.emplace_back(str, *decl);
                     goto discard_potential_match;
                 }
@@ -2476,41 +2691,34 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
                 }
             }
             
-            rejections.emplace_back(util::fmt::format("argument #{} of type '{}' incompatible with expected type '{}'", i, argTy, expectedTy), *decl);
+            rejections.emplace_back(util::fmt::format("argument #{} of type '{}' incompatible with expected type '{}'", idx, argTy, expectedTy), *decl);
             goto discard_potential_match;
         }
         
-        matches.push_back({score, decl, target.llvmValue, templateArgTypeMapping});
+        candidates.push_back(candidate);
         
     discard_potential_match:
         nominalTypes.removeAll(tempTypeIds);
     }
     
-    std::sort(matches.begin(), matches.end(), [](auto &arg0, auto &arg1) { return arg0.score < arg1.score; });
     
-#if 0
-    {
-        std::ostringstream OS;
-        for (auto expr : callExpr->arguments) {
-            OS << getType(expr) << ", ";
+    std::map<FunctionCallTargetCandidate::ID, std::vector<FunctionCallTargetCandidate::ID>> ambiguousCandidates;
+    
+    std::sort(candidates.begin(), candidates.end(), [&](const FunctionCallTargetCandidate &lhs, const FunctionCallTargetCandidate &rhs) -> bool {
+        switch (lhs.compare(*this, rhs, callExpr, argTypes)) {
+            case CandidateViabilityComparisonResult::MoreViable:
+                return true;
+            case CandidateViabilityComparisonResult::LessViable:
+                return false;
+            case CandidateViabilityComparisonResult::Ambiguous:
+                ambiguousCandidates[lhs.id].push_back(rhs.id);
+                ambiguousCandidates[rhs.id].push_back(lhs.id);
+                return false;
         }
-        util::fmt::print("Matching overloads for call to '{}'({}) [argOffset={}]:", targetName, OS.str(), argumentOffset);
-        for (auto& match : matches) {
-            util::fmt::print("- {}: {}", match.score, match.decl->getSignature());
-        }
-    }
-#endif
-    
-    if (matches.size() > 1 && matches[0].score == matches[1].score) {
-        for (const auto &match : matches) {
-            diagnostics::emitNote(match.decl->getSourceLocation(), util::fmt::format("note: potential target (score: {})", match.score));
-        }
-        auto msg = util::fmt::format("ambiguous call to '{}'", mangling::demangleCanonicalName(targetName));
-        diagnostics::emitError(callExpr->getSourceLocation(), msg);
-    }
+    });
     
     
-    if (matches.empty()) {
+    if (candidates.empty()) {
         for (const auto &rejection : rejections) {
             diagnostics::emitNote(rejection.decl.getSourceLocation(), util::fmt::format("not viable: {}", rejection.reason));
         }
@@ -2518,19 +2726,42 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     }
     
     
-    auto bestMatch = matches.front();
+    if (candidates.size() > 1 && !ambiguousCandidates[candidates[0].id].empty()) {
+        for (const auto &candidate : candidates) {
+            std::ostringstream OS;
+            OS << "potential target";
+            if (candidate.getSignature().isTemplateDecl()) {
+                OS << " [with ";
+                util::map::iterl(candidate.templateArgumentMapping, [&OS](auto &name, auto &typeDesc, bool isLast) {
+                    OS << name << " = " << typeDesc->str();
+                    if (!isLast) OS << ", ";
+                });
+                OS << "]";
+            }
+            diagnostics::emitNote(candidate.getSignature().getSourceLocation(), OS.str());
+        }
+        
+        auto msg = util::fmt::format("ambiguous call to '{}'", mangling::demangleCanonicalName(targetName));
+        diagnostics::emitError(callExpr->getSourceLocation(), msg);
+    }
     
-    if (auto &attr = bestMatch.decl->getAttributes(); !skipCodegen && attr.int_isDelayed && !bestMatch.decl->getSignature().isTemplateDecl()) {
+    
+    
+    auto bestMatch = candidates.front();
+    
+    if (auto &attr = bestMatch.target.funcDecl->getAttributes();
+        !skipCodegen && attr.int_isDelayed && !bestMatch.getSignature().isTemplateDecl())
+    {
         attr.int_isDelayed = false;
         withCleanSlate([&]() {
-            codegen(bestMatch.decl);
+            codegen(bestMatch.target.funcDecl);
         });
     }
     
-    if (bestMatch.decl->getSignature().isTemplateDecl() && !bestMatch.llvmValue) {
-        return specializeTemplateFunctionDeclForCallExpr(bestMatch.decl, bestMatch.templateArgumentMapping, argumentOffset, codegenOption);
+    if (bestMatch.getSignature().isTemplateDecl() && !bestMatch.target.llvmValue) {
+        return specializeTemplateFunctionDeclForCallExpr(bestMatch.target.funcDecl, bestMatch.templateArgumentMapping, argumentOffset, codegenOption);
     }
-    return ResolvedCallable(bestMatch.decl, bestMatch.llvmValue, argumentOffset);
+    return ResolvedCallable(bestMatch.target.funcDecl, bestMatch.target.llvmValue, argumentOffset);
 }
 
 
@@ -4269,6 +4500,14 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
     }
     
     auto mangledName = mangling::mangleFullyResolved(specializedDecl);
+    
+    bool isTemporary = util::map::contains_where(fullMapping, [](const std::string &name, const std::shared_ptr<ast::TypeDesc> &TD) -> bool {
+        return TD->getResolvedType() && TD->getResolvedType()->hasFlag(Type::Flags::IsTemporary);
+    });
+    if (isTemporary) {
+        return Type::createTemporary(mangledName, specializedDecl->resolvedTemplateArgTypes);
+    }
+    
     
     if (auto ST = nominalTypes.get(mangledName)) {
         return llvm::dyn_cast<StructType>(*ST);

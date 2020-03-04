@@ -96,6 +96,26 @@ ReferenceType* Type::getReferenceTo() {
 }
 
 
+
+Type* Type::createTemporary(const std::string &name) {
+    auto ty = StructType::create(name, {}, {});
+    ty->flags.insert(Flags::IsTemporary);
+    return ty;
+}
+
+static std::map<std::string, StructType *> templatedTemporaryTypes;
+
+StructType* Type::createTemporary(const std::string &name, const std::vector<Type *> &templateArgs) {
+    if (auto type = util::map::get_opt(templatedTemporaryTypes, name)) {
+        return *type;
+    }
+    auto type = StructType::create(name, {}, templateArgs, parser::TokenSourceLocation());
+    type->setFlag(Flags::IsTemporary);
+    templatedTemporaryTypes[name] = type;
+    return type;
+}
+
+
 #pragma mark - NumericalType
 
 

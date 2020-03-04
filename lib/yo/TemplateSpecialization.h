@@ -34,6 +34,9 @@ public:
     explicit TemplateSpecializer(TmplParamMapping templateArgumentMapping) : templateArgumentMapping(templateArgumentMapping) {}
     
     
+    ast::FunctionSignature specialize(const ast::FunctionSignature&);
+    
+    
     std::shared_ptr<ast::TypeDesc> resolveType(std::shared_ptr<ast::TypeDesc>);
     
     std::shared_ptr<ast::FunctionDecl> specialize(std::shared_ptr<ast::FunctionDecl>);

@@ -519,6 +519,7 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
     consume();
     
     FunctionSignature signature;
+    signature.setSourceLocation(loc);
     std::vector<std::shared_ptr<Ident>> paramNames;
     
     auto name = parseIdentAsString();
