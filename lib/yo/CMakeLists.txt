@@ -9,6 +9,7 @@ yo_add_lib(
     yo
 
     AST.h AST.cpp
+    ASTVisitor.h ASTVisitor.cpp
     Attributes.h Attributes.cpp
     Diagnostics.h Diagnostics.cpp
     Driver.h Driver.cpp

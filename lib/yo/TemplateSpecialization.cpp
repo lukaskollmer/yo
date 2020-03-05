@@ -97,30 +97,6 @@ ast::FunctionSignature TemplateSpecializer::specialize(const ast::FunctionSignat
 
 
 std::shared_ptr<ast::FunctionDecl> TemplateSpecializer::specialize(std::shared_ptr<ast::FunctionDecl> decl) {
-//    ast::FunctionSignature signature = decl->getSignature();
-//
-//    for (size_t idx = 0; idx < signature.paramTypes.size(); idx++) {
-//        signature.paramTypes[idx] = resolveType(signature.paramTypes[idx]);
-//    }
-//    signature.returnType = resolveType(signature.returnType);
-//
-//
-//    if (signature.numberOfTemplateParameters() > 0) {
-//        signature.templateParamsDecl = std::make_shared<ast::TemplateParamDeclList>();
-//        signature.templateParamsDecl->setSourceLocation(decl->getSignature().templateParamsDecl->getSourceLocation());
-//
-//        for (auto &param : decl->getSignature().templateParamsDecl->getParams()) {
-//            if (!util::map::has_key(templateArgumentMapping, param.name->value)) {
-//                signature.templateParamsDecl->addParam({ param.name, resolveType(param.defaultType) });
-//            }
-//        }
-//    }
-//
-//    if (signature.templateParamsDecl && signature.templateParamsDecl->size() == 0) {
-//        signature.templateParamsDecl = nullptr;
-//    }
-    
-    
     auto specializedFuncDecl = std::make_shared<ast::FunctionDecl>(decl->getFunctionKind(),
                                                                    decl->getName(),
                                                                    specialize(decl->getSignature()),
@@ -148,14 +124,14 @@ std::shared_ptr<ast::StructDecl> TemplateSpecializer::specialize(std::shared_ptr
     specDecl->name = SD->getName();
     specDecl->attributes = SD->attributes;
     specDecl->members.reserve(SD->members.size());
-    specDecl->implBlocks.reserve(SD->implBlocks.size());
+    specDecl->methods.reserve(SD->methods.size());
     
     for (auto member : SD->members) {
         specDecl->members.push_back(specialize(member));
     }
     
-    for (auto implBlock : SD->implBlocks) {
-        specDecl->implBlocks.push_back(specialize(implBlock));
+    for (auto func : SD->methods) {
+        specDecl->methods.push_back(specialize(func));
     }
     
     return specDecl;

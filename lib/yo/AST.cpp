@@ -70,6 +70,49 @@ std::ostream& ast::operator<<(std::ostream &OS, const ast::FunctionSignature &si
 
 #define CASE(n) case E::n: return #n;
 
+
+std::string ast::nodeKindToString(Node::Kind kind) {
+    using E = Node::Kind;
+    switch (kind) {
+        CASE(FunctionDecl)
+        CASE(ImplBlock)
+        CASE(StructDecl)
+        CASE(TypealiasDecl)
+        CASE(VariantDecl)
+        CASE(Assignment)
+        CASE(CompoundStmt)
+        CASE(ExprStmt)
+        CASE(ForLoop)
+        CASE(IfStmt)
+        CASE(ReturnStmt)
+        CASE(VarDecl)
+        CASE(WhileStmt)
+        CASE(BreakContStmt)
+        CASE(BinOp)
+        CASE(CallExpr)
+        CASE(CompOp)
+        CASE(Ident)
+        CASE(LogicalOp)
+        CASE(MatchExpr)
+        CASE(MemberExpr)
+        CASE(NumberLiteral)
+        CASE(RawLLVMValueExpr)
+        CASE(StaticDeclRefExpr)
+        CASE(StringLiteral)
+        CASE(SubscriptExpr)
+        CASE(CastExpr)
+        CASE(UnaryExpr)
+        CASE(LambdaExpr)
+        CASE(ArrayLiteralExpr)
+        CASE(TupleExpr)
+        CASE(TemplateParamDeclList)
+        CASE(TemplateParamArgList)
+        CASE(FunctionSignature)
+        CASE(IfStmtBranch)
+        CASE(MatchExprBranch)
+    }
+}
+
 std::string FunctionKindToString(FunctionKind kind) {
     using E = FunctionKind;
     switch (kind) {
@@ -176,7 +219,7 @@ std::string ast_vec_desc(const std::vector<T> &vec, std::string(U::*desc_fn_ptr)
     OS << "std::vector<" << util::typeinfo::TypeInfo<T>::name << "> [\n";
     
     for (auto it = vec.begin(); it != vec.end(); it++) {
-        if constexpr(util::typeinfo::is_nullable_v<T>) {
+        if constexpr (util::typeinfo::is_nullable_v<T>) {
             if (!*it) {
                 OS << "<nullptr>";
                 goto fin;

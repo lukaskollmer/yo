@@ -126,6 +126,9 @@ private:
 };
 
 
+std::string nodeKindToString(Node::Kind);
+
+
 class TopLevelStmt : public Node {
 protected:
     TopLevelStmt(Kind kind) : Node(kind) {}
@@ -232,6 +235,7 @@ std::ostream& operator<<(std::ostream&, const ast::FunctionSignature&);
 
 /// A Function Declaration
 class FunctionDecl : public TopLevelStmt {
+public:
     // TODO somehow enforce that these cannot be arbitrarily changed
     // what about intruducing the general concept of "finalized" nodes, which cannot be mutated?
     FunctionSignature signature;
@@ -243,6 +247,7 @@ class FunctionDecl : public TopLevelStmt {
     std::string name;
     
     // context
+    std::shared_ptr<TypeDesc> implTypeDesc;
     irgen::StructType *implType = nullptr; // Only nonnull if this is a type member function
     /// The template arguments this function was instantiated with
     std::vector<yo::irgen::Type *> resolvedTemplateArgTypes;
@@ -312,7 +317,8 @@ public:
     std::vector<yo::irgen::Type *> resolvedTemplateArgTypes;
     
     /// The `impl` blocks belonging to this struct
-    std::vector<std::shared_ptr<ImplBlock>> implBlocks;
+    //std::vector<std::shared_ptr<ImplBlock>> implBlocks;
+    std::vector<std::shared_ptr<FunctionDecl>> methods;
     
     
     CLASSOF_IMP(Node::Kind::StructDecl)
@@ -709,7 +715,8 @@ public:
         Negate,
         BitwiseNot,
         LogicalNegation,
-        AddressOf
+        AddressOf,
+//        Dereference
     };
     
     Operation op;

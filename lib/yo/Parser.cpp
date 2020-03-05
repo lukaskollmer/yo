@@ -79,7 +79,8 @@ static const MappedTokenSet<ast::UnaryExpr::Operation> unaryOperators = {
     { TK::Minus,           UnaryExpr::Operation::Negate          },
     { TK::Tilde,           UnaryExpr::Operation::BitwiseNot      },
     { TK::ExclamationMark, UnaryExpr::Operation::LogicalNegation },
-    { TK::Ampersand,       UnaryExpr::Operation::AddressOf       }
+    { TK::Ampersand,       UnaryExpr::Operation::AddressOf       },
+//    { TK::Asterisk,        UnaryExpr::Operation::Dereference     }
 };
 
 
@@ -963,7 +964,6 @@ std::vector<std::shared_ptr<Expr>> Parser::parseExpressionList(Token::TokenKind 
     do {
         expressions.push_back(parseExpression());
         if (currentTokenKind() != TK::Comma && currentTokenKind() != delimiter) {
-            //diagnostics::emitError(getCurrentSourceLocation(), "")
             unhandledToken(currentToken()); // TODO should be unexpected
         }
         if (currentTokenKind() == TK::Comma) consume();

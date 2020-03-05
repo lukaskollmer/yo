@@ -13,6 +13,7 @@
 #include "TemplateSpecialization.h"
 #include "Attributes.h"
 #include "Diagnostics.h"
+#include "ASTVisitor.h"
 
 #include <optional>
 #include <limits>
@@ -52,6 +53,16 @@ std::shared_ptr<ast::Ident> makeIdent(const std::string& str, ast::TokenSourceLo
 std::shared_ptr<ast::Ident> formatTupleMemberAtIndex(size_t index) {
     return makeIdent(util::fmt::format("__{}", index));
 }
+
+std::string mangleFullyResolved(const std::shared_ptr<ast::FunctionDecl>& functionDecl) {
+    if (functionDecl->getAttributes().no_mangle) {
+        return functionDecl->getName();
+    } else if (!functionDecl->getAttributes().mangledName.empty()) {
+        return functionDecl->getAttributes().mangledName;
+    }
+    return mangling::mangleFullyResolved(functionDecl);
+}
+
 
 
 // TODO is this a good idea?
@@ -162,7 +173,7 @@ void IRGenerator::emitDebugLocation(const std::shared_ptr<ast::Node> &node) {
 
 
 
-void IRGenerator::codegen(const ast::AST& ast) {
+void IRGenerator::codegen(const ast::AST &ast) {
     preflight(ast);
     
     for (const auto &node : ast) {
@@ -183,72 +194,152 @@ void IRGenerator::codegen(const ast::AST& ast) {
 
 
 
-std::string mangleFullyResolved(const std::shared_ptr<ast::FunctionDecl>& functionDecl) {
-    if (functionDecl->getAttributes().no_mangle) {
-        return functionDecl->getName();
-    } else if (!functionDecl->getAttributes().mangledName.empty()) {
-        return functionDecl->getAttributes().mangledName;
+
+
+
+
+
+// whether a function declaration depends on another function declaration
+// (eg, A depends on B if A's signature contains a decltype expression which contains a call to B)
+
+
+bool isDependentOn(const std::shared_ptr<ast::TopLevelStmt> &lhs, const std::shared_ptr<ast::TopLevelStmt> &rhs) {
+    if (lhs->isOfKind(NK::FunctionDecl) && rhs->isOfKind(NK::StructDecl)) {
+        // Function dependent on struct type?
+        auto FD = llvm::cast<ast::FunctionDecl>(lhs);
+        auto SD = llvm::cast<ast::StructDecl>(rhs);
+        
+        if (auto typeDesc = FD->implTypeDesc; typeDesc && typeDesc->isNominal() && typeDesc->getName() == SD->name) {
+            return true;
+        }
+        
+        return ast::check_sig_ty_dep(FD->getSignature(), SD);
     }
-    return mangling::mangleFullyResolved(functionDecl);
+    
+    
+    return false;
+    LKFatalError("TODO");
 }
 
 
 
-void IRGenerator::preflight(const ast::AST& ast) {
-    // Q: Why collect the different kinds of top level decls first and then process them, instead of simply processing them all in a single for loop?
-    // A: What if a function uses a type that is declared at some later point, or in another module? it's important all of these are processed in the correct order
-    std::vector<std::shared_ptr<ast::TypealiasDecl>> typealiases;
-    std::vector<std::shared_ptr<ast::FunctionDecl>> functionDecls;
-    std::vector<std::shared_ptr<ast::StructDecl>> structDecls;
-    std::vector<std::shared_ptr<ast::ImplBlock>> implBlocks;
+void IRGenerator::preflight(const ast::AST &inputAST) {
+    ast::AST ast;
+    ast.reserve(inputAST.size());
     
-#define CASE(node, kind, dest) case NK::kind: { dest.push_back(llvm::dyn_cast<ast::kind>(node)); continue; }
-    for (const auto& node : ast) {
-        switch(node->getKind()) {
-            CASE(node, TypealiasDecl, typealiases)
-            CASE(node, FunctionDecl, functionDecls)
-            CASE(node, StructDecl, structDecls)
-            CASE(node, ImplBlock, implBlocks)
-            default: continue;
+    std::map<std::string, std::shared_ptr<ast::StructDecl>> structDecls;
+    for (auto &node : inputAST) {
+        if (auto structDecl = llvm::dyn_cast<ast::StructDecl>(node)) {
+            LKAssert(!util::map::has_key(structDecls, structDecl->name));
+            structDecls[structDecl->name] = structDecl;
         }
     }
-#undef CASE
     
-    for (const auto& typealiasDecl : typealiases) {
-        // TODO is this a good idea?
-        // TODO prevent circular aliases!
-        nominalTypes.insert(typealiasDecl->typename_, resolveTypeDesc(typealiasDecl->type));
-    }
-    
-    for (const auto& structDecl : structDecls) {
-        registerStructDecl(structDecl);
-    }
-    
-    for (const auto& functionDecl : functionDecls) {
-        if (functionDecl->getAttributes().extern_) {
-            functionDecl->getAttributes().no_mangle = true;
-        }
-        registerFunction(functionDecl);
-    }
-    
-    for (const auto& implBlock : implBlocks) {
-        registerImplBlock(implBlock);
-        
-        auto insert = [&](std::map<std::string, std::shared_ptr<ast::StructDecl>> &decls, bool shouldMangle) {
-            auto name = shouldMangle ? mangling::mangleAsStruct(implBlock->typeDesc->getName()) : implBlock->typeDesc->getName();
-            if (!util::map::has_key(decls, name)) {
-                diagnostics::emitError(implBlock->getSourceLocation(), "unable to find corresponding type");
+    for (auto &node : inputAST) {
+        if (auto implBlock = llvm::dyn_cast<ast::ImplBlock>(node)) {
+            LKAssert(implBlock->typeDesc->isNominal());
+            LKAssert(util::map::has_key(structDecls, implBlock->typeDesc->getName()));
+            auto &SD = structDecls[implBlock->typeDesc->getName()];
+            for (auto FD : implBlock->methods) {
+                FD->implTypeDesc = implBlock->typeDesc;
+                SD->methods.push_back(FD);
+                ast.push_back(FD);
             }
-            decls[name]->implBlocks.push_back(implBlock);
-        };
-        
-        if (implBlock->isNominalTemplateType) {
-            insert(templateStructs, false);
         } else {
-            insert(this->structDecls, true);
+            ast.push_back(node);
         }
     }
+    
+    
+    auto dbg_ast = [&]() {
+        for (const auto &node : ast) {
+            switch (node->getKind()) {
+                case NK::FunctionDecl: {
+                    auto FD = llvm::cast<ast::FunctionDecl>(node);
+                    util::fmt::print("FunctionDecl: {}", FD->getName());
+                    break;
+                }
+                
+                case NK::StructDecl:{
+                    auto SD = llvm::cast<ast::StructDecl>(node);
+                    std::ostringstream OS;
+                    OS << SD->name;
+                    if (SD->isTemplateDecl()) {
+                        std::ostringstream OS;
+                        OS << "<";
+                        util::vector::iterl(SD->templateParamsDecl->getParams(), [&OS](auto &P, bool isLast) {
+                            OS << P.name->value;
+                            if (!isLast) {
+                                OS << ", ";
+                            }
+                        });
+                        OS << ">";
+                    }
+                    util::fmt::print("StructDecl: {}", OS.str());
+                    break;
+                }
+                
+                case NK::TypealiasDecl:
+                    LKFatalError("TODO");
+                
+                default:
+                    LKFatalError("wtf");
+            }
+        }
+    };
+    
+    //puts("\n\n");
+    //dbg_ast();
+    //puts("\n\n");
+    std::stable_sort(ast.begin(), ast.end(), [](auto lhs, auto rhs) { return isDependentOn(rhs, lhs); });
+    //puts("\n\n");
+    //dbg_ast();
+    //puts("\n\n");
+    
+    for (auto &node : ast) {
+        switch (node->getKind()) {
+            case NK::StructDecl:
+                registerStructDecl(llvm::cast<ast::StructDecl>(node));
+                break;
+            
+            case NK::FunctionDecl:
+                registerFunction(llvm::cast<ast::FunctionDecl>(node));
+                break;
+            
+            case NK::TypealiasDecl:
+                registerTypealias(llvm::cast<ast::TypealiasDecl>(node));
+                break;
+            
+            default:
+                LKFatalError("?");
+        }
+    }
+    
+    //LKFatalError("TODO");
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void IRGenerator::registerTypealias(std::shared_ptr<ast::TypealiasDecl> typealiasDecl) {
+    nominalTypes.insert(typealiasDecl->typename_, resolveTypeDesc(typealiasDecl->type));
+}
+
+
+
+
 
 
 uint8_t argumentOffsetForFunctionKind(ast::FunctionKind kind) {
@@ -269,6 +360,10 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     const bool isMain = functionDecl->isOfFunctionKind(ast::FunctionKind::GlobalFunction) && functionDecl->getName() == "main";
     
     const auto argumentOffset = argumentOffsetForFunctionKind(functionDecl->getFunctionKind());
+    
+    if (functionDecl->getAttributes().extern_) {
+        functionDecl->getAttributes().no_mangle = true;
+    }
     
     if (isMain) {
         functionDecl->getAttributes().no_mangle = true;
@@ -294,6 +389,11 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     // - subscript operators can only have 1 parameter
     // - ...
     
+    
+    if (functionDecl->implTypeDesc && !functionDecl->implType) {
+        // has an impl type desc, but does not have a resolved impl type -> member function of a templated type
+        return;
+    }
     
     if (sig.isTemplateDecl() || functionDecl->getAttributes().intrinsic || functionDecl->getAttributes().int_isCtor) {
         auto canonicalName = mangling::mangleCanonicalName(functionDecl);
@@ -415,6 +515,48 @@ void ensureTemplateParametersDontShadow(std::initializer_list<std::shared_ptr<as
 }
 
 
+
+
+ast::FunctionKind getFunctionKind(const ast::FunctionDecl &FD) {
+    auto &sig = FD.getSignature();
+    if (sig.paramTypes.empty()) {
+        LKAssert(!FD.isOperatorOverload()); // TODO would be cool to support this
+        return ast::FunctionKind::StaticMethod;
+    }
+    if (FD.getParamNames()[0]->value != "self") {
+        return ast::FunctionKind::StaticMethod;
+    }
+    auto T = sig.paramTypes[0];
+    if (T->isReference() && T->getPointee()->isNominal() && T->getPointee()->getName() == "Self") {
+        return ast::FunctionKind::InstanceMethod;
+    }
+    return ast::FunctionKind::StaticMethod;
+};
+
+
+void assertIsValidMemberFunction(const ast::FunctionDecl &FD, std::shared_ptr<ast::TemplateParamDeclList> implTypeTemplateParams = nullptr) {
+    auto &sig = FD.getSignature();
+    auto &attr = FD.getAttributes();
+    
+    if (attr.no_mangle) {
+        diagnostics::emitError(FD.getSourceLocation(), "type member function cannot have 'no_mangle' attribute");
+    }
+    
+    if (!attr.mangledName.empty()) {
+        diagnostics::emitError(FD.getSourceLocation(), "type member function cannot have explicitly set mangled name");
+    }
+    
+    if (sig.isTemplateDecl()) {
+        ensureTemplateParametersAreDistinct(*sig.templateParamsDecl);
+        if (implTypeTemplateParams) {
+            ensureTemplateParametersDontShadow({implTypeTemplateParams, sig.templateParamsDecl});
+        }
+    }
+}
+
+
+
+// Note: this only registers the struct decl, it does not register the type's methods
 StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl) {
     auto structName = structDecl->name;
     
@@ -425,12 +567,15 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
     
     if (structDecl->isTemplateDecl()) {
         LKAssert(!structDecl->attributes.no_init && "struct template cannot have no_init attribute");
-        ensureTemplateParametersAreDistinct(*structDecl->templateParamsDecl);
         
-        templateStructs[structDecl->name] = structDecl;
+        ensureTemplateParametersAreDistinct(*structDecl->templateParamsDecl);
+        for (auto FD : structDecl->methods) {
+            assertIsValidMemberFunction(*FD, structDecl->templateParamsDecl);
+        }
+        
+        structTemplateDecls[structDecl->name] = structDecl;
         
         ast::FunctionSignature ctorSig;
-        std::vector<std::shared_ptr<ast::Ident>> ctorParamNames;
         ctorSig.returnType = ast::TypeDesc::makeNominalTemplated(structName, util::vector::map(structDecl->templateParamsDecl->getParams(), [](auto &param) {
             return ast::TypeDesc::makeNominal(param.name->value);
         }));
@@ -440,7 +585,6 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         auto ctorFnDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::StaticMethod,
                                                               structName, ctorSig,
                                                               attributes::FunctionAttributes());
-        ctorFnDecl->setParamNames(ctorParamNames);
         ctorFnDecl->setImplType(UselessStructTypeForTemplateStructCtor(structName, structDecl->getSourceLocation())); // TODO?
         ctorFnDecl->setSourceLocation(structDecl->getSourceLocation());
         ctorFnDecl->getAttributes().int_isCtor = true;
@@ -449,6 +593,8 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         registerFunction(ctorFnDecl);
         return nullptr;
     }
+    
+    
     
     structName = mangling::mangleFullyResolved(structDecl);
     
@@ -492,86 +638,104 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         synthesizeDefaultDeallocMethod(structDecl, kSkipCodegen);
     }
     
-    return structTy;
-}
-
-
-
-void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
-    using ast::FunctionKind;
-    
-    auto getFunctionKind = [](const ast::FunctionDecl &FD) -> FunctionKind {
-        auto &sig = FD.getSignature();
-        if (sig.paramTypes.empty()) {
-            LKAssert(!FD.isOperatorOverload()); // TODO would be cool to support this
-            return FunctionKind::StaticMethod;
-        }
-        if (FD.getParamNames()[0]->value != "self") {
-            return FunctionKind::StaticMethod;
-        }
-        auto T = sig.paramTypes[0];
-        if (T->isReference() && T->getPointee()->isNominal() && T->getPointee()->getName() == "Self") {
-            return FunctionKind::InstanceMethod;
-        }
-        return FunctionKind::StaticMethod;
-    };
     
     
-    auto assertIsValidMemberFunction = [](const ast::FunctionDecl &FD, std::shared_ptr<ast::TemplateParamDeclList> implTypeTemplateParams = nullptr) {
-        auto &sig = FD.getSignature();
-        auto &attr = FD.getAttributes();
-        
-        if (attr.no_mangle) {
-            diagnostics::emitError(FD.getSourceLocation(), "type member function cannot have 'no_mangle' attribute");
-        }
-        
-        if (!attr.mangledName.empty()) {
-            diagnostics::emitError(FD.getSourceLocation(), "type member function cannot have explicitly set mangled name");
-        }
-        
-        if (sig.isTemplateDecl()) {
-            ensureTemplateParametersAreDistinct(*sig.templateParamsDecl);
-            if (implTypeTemplateParams) {
-                ensureTemplateParametersDontShadow({implTypeTemplateParams, sig.templateParamsDecl});
-            }
-        }
-    };
+    const auto &structAttrs = structDecl->attributes;
     
-    
-    
-    auto typeDesc = implBlock->typeDesc;
-    if (auto templateDecl = util::map::get_opt(templateStructs, typeDesc->getName())) {
-        implBlock->isNominalTemplateType = true;
-        // impl blocks for templated types are registered when their respective type is instantiated
-        // TODO static methods of struct templates should be registered anyways!!!!
-        
-        for (auto &FD : implBlock->methods) {
-            assertIsValidMemberFunction(*FD, templateDecl.value()->templateParamsDecl);
-            
-            // TODO what about registering static method in here, so that we don't have to instantiate the type just to resolve them?
-        }
-        
-        return;
-    }
-    
-    
-    auto implTy = resolveTypeDesc(implBlock->typeDesc);
-    auto structTy = llvm::cast<StructType>(implTy);
-    
-    const auto &structAttrs = structDecls.at(structTy->getName())->attributes;
-    
-    for (auto &fn : implBlock->methods) {
+    for (auto &fn : structDecl->methods) {
         assertIsValidMemberFunction(*fn);
         auto functionKind = getFunctionKind(*fn);
-        if (functionKind == FunctionKind::InstanceMethod) {
+        if (functionKind == ast::FunctionKind::InstanceMethod) {
             fn->getSignature().paramTypes[0] = ast::TypeDesc::makeResolved(structTy->getReferenceTo());
         }
         fn->getAttributes().no_debug_info = structAttrs.no_debug_info;
         fn->setFunctionKind(functionKind);
         fn->setImplType(structTy);
-        registerFunction(fn);
     }
+    
+    return structTy;
 }
+
+
+
+//void IRGenerator::registerImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) {
+//    return;
+//
+//
+//    using ast::FunctionKind;
+//
+//    auto getFunctionKind = [](const ast::FunctionDecl &FD) -> FunctionKind {
+//        auto &sig = FD.getSignature();
+//        if (sig.paramTypes.empty()) {
+//            LKAssert(!FD.isOperatorOverload()); // TODO would be cool to support this
+//            return FunctionKind::StaticMethod;
+//        }
+//        if (FD.getParamNames()[0]->value != "self") {
+//            return FunctionKind::StaticMethod;
+//        }
+//        auto T = sig.paramTypes[0];
+//        if (T->isReference() && T->getPointee()->isNominal() && T->getPointee()->getName() == "Self") {
+//            return FunctionKind::InstanceMethod;
+//        }
+//        return FunctionKind::StaticMethod;
+//    };
+//
+//
+//    auto assertIsValidMemberFunction = [](const ast::FunctionDecl &FD, std::shared_ptr<ast::TemplateParamDeclList> implTypeTemplateParams = nullptr) {
+//        auto &sig = FD.getSignature();
+//        auto &attr = FD.getAttributes();
+//
+//        if (attr.no_mangle) {
+//            diagnostics::emitError(FD.getSourceLocation(), "type member function cannot have 'no_mangle' attribute");
+//        }
+//
+//        if (!attr.mangledName.empty()) {
+//            diagnostics::emitError(FD.getSourceLocation(), "type member function cannot have explicitly set mangled name");
+//        }
+//
+//        if (sig.isTemplateDecl()) {
+//            ensureTemplateParametersAreDistinct(*sig.templateParamsDecl);
+//            if (implTypeTemplateParams) {
+//                ensureTemplateParametersDontShadow({implTypeTemplateParams, sig.templateParamsDecl});
+//            }
+//        }
+//    };
+//
+//
+//
+//    auto typeDesc = implBlock->typeDesc;
+//    if (auto templateDecl = util::map::get_opt(structTemplateDecls, typeDesc->getName())) {
+//        implBlock->isNominalTemplateType = true;
+//        // impl blocks for templated types are registered when their respective type is instantiated
+//        // TODO static methods of struct templates should be registered anyways!!!!
+//
+//        for (auto &FD : implBlock->methods) {
+//            assertIsValidMemberFunction(*FD, templateDecl.value()->templateParamsDecl);
+//
+//            // TODO what about registering static method in here, so that we don't have to instantiate the type just to resolve them?
+//        }
+//
+//        return;
+//    }
+//
+//
+//    auto implTy = resolveTypeDesc(implBlock->typeDesc);
+//    auto structTy = llvm::cast<StructType>(implTy);
+//
+//    const auto &structAttrs = structDecls.at(structTy->getName())->attributes;
+//
+//    for (auto &fn : implBlock->methods) {
+//        assertIsValidMemberFunction(*fn);
+//        auto functionKind = getFunctionKind(*fn);
+//        if (functionKind == FunctionKind::InstanceMethod) {
+//            fn->getSignature().paramTypes[0] = ast::TypeDesc::makeResolved(structTy->getReferenceTo());
+//        }
+//        fn->getAttributes().no_debug_info = structAttrs.no_debug_info;
+//        fn->setFunctionKind(functionKind);
+//        fn->setImplType(structTy);
+//        registerFunction(fn);
+//    }
+//}
 
 
 
@@ -587,7 +751,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::TopLevelStmt> TLS) {
     switch (TLS->getKind()) {
     CASE(TLS, FunctionDecl)
     CASE(TLS, StructDecl)
-    CASE(TLS, ImplBlock)
+    case NK::ImplBlock:
     case NK::TypealiasDecl:
         return nullptr;
     default: unhandled_node(TLS);
@@ -654,7 +818,10 @@ llvm::DIFile* DIFileForSourceLocation(llvm::DIBuilder& builder, const parser::To
 }
 
 
+
+
 #pragma mark - Top Level Statements
+
 
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDecl) {
     const auto &sig = functionDecl->getSignature();
@@ -823,10 +990,13 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::FunctionDecl> functionDec
 llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StructDecl> structDecl) {
     if (structDecl->isTemplateDecl()) return nullptr;
     
-    for (auto &implBlock : structDecl->implBlocks) {
-        for (auto &FD : implBlock->methods) {
-            codegen(FD);
-        }
+//    for (auto &implBlock : structDecl->implBlocks) {
+//        for (auto &FD : implBlock->methods) {
+//            codegen(FD);
+//        }
+//    }
+    for (auto FD : structDecl->methods) {
+        codegen(FD);
     }
     
     return nullptr;
@@ -835,9 +1005,9 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::StructDecl> structDecl) {
 
 
 
-llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ImplBlock> implBlock) {
-    return nullptr;
-}
+//llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::ImplBlock> implBlock) {
+//    return nullptr;
+//}
 
 
 
@@ -2456,7 +2626,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
                                                        staticDeclRefExpr->memberName,
                                                        ast::FunctionKind::StaticMethod);
         } else if (TD->isNominalTemplated()) {
-            if (auto structDecl = util::map::get_opt(templateStructs, TD->getName())) {
+            if (auto structDecl = util::map::get_opt(structTemplateDecls, TD->getName())) {
                 // TODO can we do better if `codegenOption = kSkipCodegen`?
                 // at the end of the day, it doesn't really matter, but still ...
                 auto structTy = withCleanSlate([&]() { return instantiateTemplateStruct(*structDecl, TD); });
@@ -2539,7 +2709,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     // TODO does this mean we might miss another potential target
     // Not if the compiler disallows free functions w/ the same name as a defined type
     //if (nominalTypes.get(mangling::mangleAsStruct(targetName)) || util::map::has_key(templateStructs, targetName)) {
-    if (bool isNominalTy = nominalTypes.get(mangling::mangleAsStruct(targetName)).has_value(), isTemplate = util::map::has_key(templateStructs, targetName);isNominalTy || isTemplate) {
+    if (bool isNominalTy = nominalTypes.get(mangling::mangleAsStruct(targetName)).has_value(), isTemplate = util::map::has_key(structTemplateDecls, targetName);isNominalTy || isTemplate) {
         if (isNominalTy) targetName = mangling::mangleAsStruct(targetName); // TODO this is awful!!!
         auto mangledTargetName = mangling::mangleCanonicalName(targetName, targetName, ast::FunctionKind::StaticMethod);
         
@@ -2551,7 +2721,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         LKAssert(target.funcDecl->getAttributes().int_isCtor);
         
         if (target.funcDecl->getSignature().isTemplateDecl()) {
-            auto templateDecl = templateStructs.at(targetName);
+            auto templateDecl = structTemplateDecls.at(targetName);
             // TODO what about initializer-based type deduction here?
             auto mapping = resolveStructTemplateParametersFromExplicitTemplateArgumentList(templateDecl, callExpr->explicitTemplateArgs);
             return specializeTemplateFunctionDeclForCallExpr(target.funcDecl, mapping, argumentOffset, codegenOption);
@@ -2565,7 +2735,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     const auto &possibleTargets = functions[targetName];
     
     if (possibleTargets.empty()) {
-        diagnostics::emitError(callExpr->getSourceLocation(), util::fmt::format("unable to resolve call to '{}'", targetName));
+        diagnostics::emitError(callExpr->getSourceLocation(), util::fmt::format("unable to resolve call to '{}'", targetName)); // TODO demangle targetName
     }
     
     
@@ -2891,6 +3061,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind
     }
     
     if (resolvedTarget.argumentOffset == kInstanceMethodCallArgumentOffset) {
+        // TODO this is missing checks to make sure selfTy actually matches / is convertible to the expected argument type !?
         std::shared_ptr<ast::Expr> implicitSelfArg;
         
         if (call->target->isOfKind(NK::MemberExpr) && !resolvedTarget.funcDecl->isCallOperatorOverload()) {
@@ -2899,8 +3070,7 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind
             implicitSelfArg = call->target;
         }
         
-        
-        // TODO this is missing checks to make sure selfTy actually matches / is convertible to the expected argument type !?
+        auto selfArgTy = getType(implicitSelfArg);
         
         
         if (isTemporary(implicitSelfArg)) {
@@ -2912,6 +3082,12 @@ llvm::Value *IRGenerator::codegen(std::shared_ptr<ast::CallExpr> call, ValueKind
             args[0] = codegen(varDecl);
         } else {
             args[0] = codegen(implicitSelfArg, LValue);
+        }
+        
+        if (selfArgTy->isPointerTy()) {
+            args[0]->print(llvm::outs());
+            std::cout << '\n';
+//            LKFatalError("ugh");
         }
     }
     
@@ -3672,7 +3848,7 @@ void IRGenerator::handleStartupAndShutdownFunctions() {
 
 
 llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<ast::CallExpr> call, bool putInLocalScope, ValueKind VK) {
-    if (auto SD = util::map::get_opt(templateStructs, structTy->getName())) {
+    if (auto SD = util::map::get_opt(structTemplateDecls, structTy->getName())) {
         if (!call->explicitTemplateArgs) {
             LKFatalError("needs explicit args for instantiating template");
         }
@@ -3895,7 +4071,7 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
             return handleResolvedTy(getType(typeDesc->getDecltypeExpr()));
         
         case TDK::NominalTemplated: {
-            auto structDecl = util::map::get_opt(templateStructs, typeDesc->getName());
+            auto structDecl = util::map::get_opt(structTemplateDecls, typeDesc->getName());
             if (!structDecl) {
                 diagnostics::emitError(typeDesc->getSourceLocation(), "unable to resolve type");
             }
@@ -4513,41 +4689,66 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
         return Type::createTemporary(mangledName, specializedDecl->resolvedTemplateArgTypes);
     }
     
-    
     if (auto ST = nominalTypes.get(mangledName)) {
         return llvm::dyn_cast<StructType>(*ST);
     }
     
+    for (auto FD : specializedDecl->methods) {
+        if (!(FD->getAttributes().int_isSynthesized || FD->getName() == kInitializerMethodName)) {
+            FD->getAttributes().int_isDelayed = true;
+        }
+    }
+    
+    
     StructType *structTy = registerStructDecl(specializedDecl);
     
-    // Instantiate & codegen impl blocks
-    for (auto &implBlock : specializedDecl->implBlocks) {
-        for (auto &FD : implBlock->methods) {
-            if (!(FD->getAttributes().int_isSynthesized || FD->getName() == kInitializerMethodName)) {
-                FD->getAttributes().int_isDelayed = true;
-            }
+    for (auto funcDecl : specializedDecl->methods) {
+        if (!(funcDecl->getAttributes().int_isSynthesized || funcDecl->getName() == kInitializerMethodName)) {
+            funcDecl->getAttributes().int_isDelayed = true;
         }
-        
-        auto TD = implBlock->typeDesc;
-        implBlock->typeDesc = ast::TypeDesc::makeNominal(mangledName);
-        registerImplBlock(implBlock);
-        implBlock->typeDesc = TD;
-        
+        registerFunction(funcDecl);
     }
     
-    for (auto &implBlock : specializedDecl->implBlocks) {
-        for (auto &FD : implBlock->methods) {
-            if (!FD->getAttributes().int_isDelayed) {
-                if (auto F = module->getFunction(mangleFullyResolved(FD)); F && !F->empty()) {
-                    // It can happen that a function w/ delayed codegen is invoked by a function w/out delayed codegen,
-                    // in which case we have to avoid running codegen twice (ie int_isDelayed being false in here is not
-                    // indicative of the function actually needing codegen)
-                    continue;
-                }
-                codegen(FD);
+    for (auto funcDecl : specializedDecl->methods) {
+        if (!funcDecl->getAttributes().int_isDelayed) {
+            if (auto F = module->getFunction(mangleFullyResolved(funcDecl)); F && !F->empty()) {
+                // It can happen that a function w/ delayed codegen is invoked by a function w/out delayed codegen,
+                // in which case we have to avoid running codegen twice (ie int_isDelayed being false in here is not
+                // indicative of the function actually needing codegen)
+                continue; // TODO is this still relevant?
             }
+            codegen(funcDecl);
         }
     }
+    
+//    // Instantiate & codegen impl blocks
+//    for (auto &implBlock : specializedDecl->implBlocks) {
+//        for (auto &FD : implBlock->methods) {
+//            if (!(FD->getAttributes().int_isSynthesized || FD->getName() == kInitializerMethodName)) {
+//                FD->getAttributes().int_isDelayed = true;
+//            }
+//        }
+//
+//        auto TD = implBlock->typeDesc;
+//        implBlock->typeDesc = ast::TypeDesc::makeNominal(mangledName);
+//        registerImplBlock(implBlock);
+//        implBlock->typeDesc = TD;
+//
+//    }
+//
+//    for (auto &implBlock : specializedDecl->implBlocks) {
+//        for (auto &FD : implBlock->methods) {
+//            if (!FD->getAttributes().int_isDelayed) {
+//                if (auto F = module->getFunction(mangleFullyResolved(FD)); F && !F->empty()) {
+//                    // It can happen that a function w/ delayed codegen is invoked by a function w/out delayed codegen,
+//                    // in which case we have to avoid running codegen twice (ie int_isDelayed being false in here is not
+//                    // indicative of the function actually needing codegen)
+//                    continue;
+//                }
+//                codegen(FD);
+//            }
+//        }
+//    }
     
     return structTy;
 }

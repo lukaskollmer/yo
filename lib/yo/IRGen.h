@@ -175,11 +175,9 @@ class IRGenerator {
     // If the type is a template specialization, the key is the mangled name
     NamedScope<Type *> nominalTypes;
     
-    std::map<std::string, std::shared_ptr<ast::StructDecl>> templateStructs;
-    std::map<std::string, std::vector<std::shared_ptr<ast::FunctionDecl>>> templateFunctions;
-    
     /// All registered non-template struct types
     std::map<std::string, std::shared_ptr<ast::StructDecl>> structDecls;
+    std::map<std::string, std::shared_ptr<ast::StructDecl>> structTemplateDecls;
     
     // key: canonical function name
     std::map<std::string, std::vector<ResolvedCallable>> functions;
@@ -208,8 +206,7 @@ private:
     void preflight(const ast::AST&);
     void registerFunction(std::shared_ptr<ast::FunctionDecl>);
     StructType* registerStructDecl(std::shared_ptr<ast::StructDecl>);
-    /// Register an `impl` block for a specific struct type
-    void registerImplBlock(std::shared_ptr<ast::ImplBlock>);
+    void registerTypealias(std::shared_ptr<ast::TypealiasDecl>);
     
     
     // Debug Metadata
@@ -236,7 +233,6 @@ private:
     // ast::TopLevelStmt
     llvm::Value *codegen(std::shared_ptr<ast::FunctionDecl>);
     llvm::Value *codegen(std::shared_ptr<ast::StructDecl>);
-    llvm::Value *codegen(std::shared_ptr<ast::ImplBlock>);
     
     // ast::LocalStmt
     llvm::Value *codegen(std::shared_ptr<ast::CompoundStmt>);

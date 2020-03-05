@@ -111,16 +111,42 @@ public:
     
     std::string str() const;
     
-    Kind getKind() const { return kind; }
+    Kind getKind() const {
+        return kind;
+    }
     
-    bool isOfKind(Kind K) const { return kind == K; }
+    bool isOfKind(Kind K) const {
+        return kind == K;
+    }
     
-    bool isNominal() const { return isOfKind(Kind::Nominal); }
-    bool isPointer() const { return isOfKind(Kind::Pointer); }
-    bool isResolved() const { return isOfKind(Kind::Resolved); } // TODO should this also return true if resolvedType != nil ?
-    bool isReference() const { return isOfKind(Kind::Reference); }
-    bool isTuple() const { return isOfKind(Kind::Tuple); }
-    bool isNominalTemplated() const { return isOfKind(Kind::NominalTemplated); }
+    bool isNominal() const {
+        return isOfKind(Kind::Nominal);
+    }
+    
+    bool isPointer() const {
+        return isOfKind(Kind::Pointer);
+    }
+    
+    bool isResolved() const {
+        return isOfKind(Kind::Resolved); // TODO should this also return true if resolvedType != nil ?
+    }
+    
+    bool isReference() const {
+        return isOfKind(Kind::Reference);
+    }
+    
+    bool isTuple() const {
+        return isOfKind(Kind::Tuple);
+    }
+    
+    bool isNominalTemplated() const {
+        return isOfKind(Kind::NominalTemplated);
+    }
+    
+    bool isDecltype() const {
+        return isOfKind(Kind::Decltype);
+    }
+    
     
     const std::string& getName() const {
         LKAssert(isNominal() || isNominalTemplated());
