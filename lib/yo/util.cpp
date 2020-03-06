@@ -101,6 +101,20 @@ bool util::string::has_suffix(const std::string_view string, const std::string_v
 }
 
 
+void util::string::pad_left(std::string &str, size_t length, char c) {
+    if (str.size() < length) {
+        str.insert(0, length - str.size(), c);
+    }
+}
+
+void util::string::pad_right(std::string &str, size_t length, char c) {
+    if (str.size() < length) {
+        str.append(length - str.size(), c);
+    }
+}
+
+
+
 std::string util::string::substr_with_range(const std::string &string, Range range) {
     return string.substr(range.location, range.length);
 }

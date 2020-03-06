@@ -30,8 +30,32 @@ NS_START(yo::irgen)
 enum class Intrinsic : uint8_t;
 class IRGenerator;
 
-
 using TemplateTypeMapping = std::map<std::string, std::shared_ptr<ast::TypeDesc>>;
+
+
+StructType* getUnderlyingStruct(Type *ty);
+std::string mangleFullyResolved(const std::shared_ptr<ast::FunctionDecl>&);
+uint8_t argumentOffsetForFunctionKind(ast::FunctionKind);
+bool integerLiteralFitsInIntegralType(uint64_t, Type *);
+llvm::DIFile* DIFileForSourceLocation(llvm::DIBuilder&, const parser::TokenSourceLocation&);
+std::shared_ptr<ast::CallExpr> subscriptExprToCall(std::shared_ptr<ast::SubscriptExpr>);
+
+std::shared_ptr<ast::Ident> makeIdent(const std::string&, ast::TokenSourceLocation = ast::TokenSourceLocation());
+
+std::shared_ptr<ast::Ident> formatTupleMemberAtIndex(size_t index);
+
+
+// TODO is it a good idea to put these here?
+inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
+static const std::string kInitializerMethodName = "init";
+static const std::string kSynthesizedDeallocMethodName = "__dealloc";
+static const std::string kRetvalAllocaIdentifier = "__retval";
+static const std::string kIteratorMethodName = "iterator";
+static const std::string kIteratorHasNextMethodName = "hasNext";
+static const std::string kIteratorNextMethodName = "next";
+
+
+
 
 enum ValueKind { // TODO rename to ValueCategory?
     LValue, RValue
@@ -226,39 +250,40 @@ private:
     // CODEGEN
     //
     
-    llvm::Value *codegen(std::shared_ptr<ast::TopLevelStmt>);
-    llvm::Value *codegen(std::shared_ptr<ast::LocalStmt>);
-    llvm::Value *codegen(std::shared_ptr<ast::Expr>, ValueKind = RValue, bool insertImplicitLoadInst = true); // TODO should this really default to rvalue?
+    llvm::Value *codegenTLS(std::shared_ptr<ast::TopLevelStmt>);
+    llvm::Value *codegenLocalStmt(std::shared_ptr<ast::LocalStmt>);
+    llvm::Value *codegenExpr(std::shared_ptr<ast::Expr>, ValueKind = RValue, bool insertImplicitLoadInst = true); // TODO should this really default to rvalue?
     
     // ast::TopLevelStmt
-    llvm::Value *codegen(std::shared_ptr<ast::FunctionDecl>);
-    llvm::Value *codegen(std::shared_ptr<ast::StructDecl>);
+    llvm::Value *codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>);
+    llvm::Value *codegenStructDecl(std::shared_ptr<ast::StructDecl>);
     
     // ast::LocalStmt
-    llvm::Value *codegen(std::shared_ptr<ast::CompoundStmt>);
-    llvm::Value *codegen(std::shared_ptr<ast::ReturnStmt>);
-    llvm::Value *codegen(std::shared_ptr<ast::VarDecl>);
-    llvm::Value *codegen(std::shared_ptr<ast::Assignment>);
-    llvm::Value *codegen(std::shared_ptr<ast::IfStmt>);
-    llvm::Value *codegen(std::shared_ptr<ast::WhileStmt>);
-    llvm::Value *codegen(std::shared_ptr<ast::ForLoop>);
-    llvm::Value *codegen(std::shared_ptr<ast::BreakContStmt>);
+    llvm::Value *codegenCompoundStmt(std::shared_ptr<ast::CompoundStmt>);
+    llvm::Value *codegenReturnStmt(std::shared_ptr<ast::ReturnStmt>);
+    llvm::Value *codegenVarDecl(std::shared_ptr<ast::VarDecl>);
+    llvm::Value *codegenAssignment(std::shared_ptr<ast::Assignment>);
+    llvm::Value *codegenIfStmt(std::shared_ptr<ast::IfStmt>);
+    llvm::Value *codegenWhileStmt(std::shared_ptr<ast::WhileStmt>);
+    llvm::Value *codegenForLoop(std::shared_ptr<ast::ForLoop>);
+    llvm::Value *codegenBreakContStmt(std::shared_ptr<ast::BreakContStmt>);
+    llvm::Value *codegenExprStmt(std::shared_ptr<ast::ExprStmt>);
     
     // ast::Expr
-    llvm::Value *codegen(std::shared_ptr<ast::NumberLiteral>);
-    llvm::Value *codegen(std::shared_ptr<ast::StringLiteral>, ValueKind);
-    llvm::Value *codegen(std::shared_ptr<ast::CastExpr>);
-    llvm::Value *codegen(std::shared_ptr<ast::UnaryExpr>);
-    llvm::Value *codegen(std::shared_ptr<ast::Ident>, ValueKind);
-    llvm::Value *codegen(std::shared_ptr<ast::RawLLVMValueExpr>);
-    llvm::Value *codegen(std::shared_ptr<ast::BinOp>);
-    llvm::Value *codegen(std::shared_ptr<ast::SubscriptExpr>, ValueKind);
-    llvm::Value *codegen(std::shared_ptr<ast::MemberExpr>, ValueKind);
-    llvm::Value *codegen(std::shared_ptr<ast::ExprStmt>);
-    llvm::Value *codegen(std::shared_ptr<ast::CallExpr>, ValueKind);
-    llvm::Value *codegen(std::shared_ptr<ast::LambdaExpr>, ValueKind);
-    llvm::Value *codegen(std::shared_ptr<ast::ArrayLiteralExpr>, ValueKind);
-    llvm::Value *codegen(std::shared_ptr<ast::TupleExpr>, ValueKind);
+    llvm::Value *codegenNumberLiteral(std::shared_ptr<ast::NumberLiteral>, ValueKind);
+    llvm::Value *codegenStringLiteral(std::shared_ptr<ast::StringLiteral>, ValueKind);
+    llvm::Value *codegenCastExpr(std::shared_ptr<ast::CastExpr>, ValueKind);
+    llvm::Value *codegenUnaryExpr(std::shared_ptr<ast::UnaryExpr>, ValueKind);
+    llvm::Value *codegenIdent(std::shared_ptr<ast::Ident>, ValueKind);
+    llvm::Value *codegenRawLLVMValueExpr(std::shared_ptr<ast::RawLLVMValueExpr>, ValueKind);
+    llvm::Value *codegenBinOp(std::shared_ptr<ast::BinOp>, ValueKind);
+    llvm::Value *codegenSubscriptExpr(std::shared_ptr<ast::SubscriptExpr>, ValueKind);
+    llvm::Value *codegenMemberExpr(std::shared_ptr<ast::MemberExpr>, ValueKind);
+    llvm::Value *codegenCallExpr(std::shared_ptr<ast::CallExpr>, ValueKind);
+    llvm::Value *codegenLambdaExpr(std::shared_ptr<ast::LambdaExpr>, ValueKind);
+    llvm::Value *codegenArrayLiteralExpr(std::shared_ptr<ast::ArrayLiteralExpr>, ValueKind);
+    llvm::Value *codegenTupleExpr(std::shared_ptr<ast::TupleExpr>, ValueKind);
+    llvm::Value *codegenMatchExpr(std::shared_ptr<ast::MatchExpr>, ValueKind);
     
     // Intrinsics
     llvm::Value *codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionDecl>, std::shared_ptr<ast::CallExpr>);
@@ -266,9 +291,6 @@ private:
     llvm::Value *codegen_HandleComparisonIntrinsic(ast::Operator, std::shared_ptr<ast::CallExpr>);
     llvm::Value *codegen_HandleLogOpIntrinsic(Intrinsic, std::shared_ptr<ast::CallExpr>);
     
-    
-    // Match Expr
-    llvm::Value *codegen(std::shared_ptr<ast::MatchExpr>);
     
     struct MatchExprPatternCodegenInfo {
         Type *targetType; // type of the expression we're matching against
@@ -379,9 +401,7 @@ private:
     
     
     
-    
     // Utils
-    
     
     // TODO this seems like a bad idea?
     // Assuming this is only ever used for registering synthesized functions, what about just having a `queueSynthFunction` function that registers the llvm::Function, and then puts the FuncDecl in a queue which is handled after regular codegen finished?

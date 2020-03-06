@@ -455,6 +455,9 @@ bool allCharsMatch(std::string_view string, F &&fn) {
 bool has_prefix(const std::string_view string, const std::string_view prefix);
 bool has_suffix(const std::string_view string, const std::string_view suffix);
 
+void pad_left(std::string &, size_t length, char c);
+void pad_right(std::string &, size_t length, char c);
+
 std::string substr_from_index(const std::string &string, uint64_t index);
 
 // Returns a substring from the start of the string to the specified index

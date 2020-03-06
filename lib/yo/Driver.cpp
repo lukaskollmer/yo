@@ -12,6 +12,7 @@
 #include "IRGen.h"
 #include "Diagnostics.h"
 #include "util.h"
+#include "ASTVisitor.h"
 
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -252,6 +253,7 @@ bool driver::run(driver::Options options) {
     }
     
     auto ast = parser.parse(inputFile);
+//    ast::print_ast(ast);
     
     if (options.dumpAST) {
         std::cout << ast::description(ast) << std::endl;

@@ -46,11 +46,63 @@ public:
     }
     
     
+    bool traverse(std::shared_ptr<ast::Node> node) {
+        if (auto TLS = std::dynamic_pointer_cast<TopLevelStmt>(node)) {
+            return traverseTopLevelStmt(TLS);
+        } else if (auto localStmt = std::dynamic_pointer_cast<LocalStmt>(node)) {
+            LKFatalError("TODO");
+            //return traverseLocalStmt(localStmt);
+        } else if (auto expr = std::dynamic_pointer_cast<Expr>(node)) {
+            return traverseExpr(expr);
+        } else {
+            LKFatalError("unexpected node");
+        }
+    }
+    
+    
+    // MARK: TopLevelStmt traversal
+    
+    bool traverseTopLevelStmt(std::shared_ptr<TopLevelStmt> TLS) {
+        switch (TLS->getKind()) {
+            case NK::TypealiasDecl:
+                return traverseTypealiasDecl(llvm::cast<TypealiasDecl>(TLS));
+            case NK::FunctionDecl:
+                return traverseFunctionDecl(llvm::cast<FunctionDecl>(TLS));
+            case NK::StructDecl:
+                return traverseStructDecl(llvm::cast<StructDecl>(TLS));
+            case NK::VariantDecl:
+                return traverseVariantDecl(llvm::cast<VariantDecl>(TLS));
+            default:
+                LKFatalError("unhandled node");
+                
+        }
+    }
+    
+    
+    bool traverseTypealiasDecl(std::shared_ptr<TypealiasDecl> TD) {
+        TRY(visitTypealiasDecl(TD));
+        TRY(traverseTypeDesc(TD->type));
+        return true;
+    }
+    
     bool traverseFunctionDecl(std::shared_ptr<ast::FunctionDecl> FD) {
         TRY(visitFunctionDecl(FD));
         TRY(traverseFunctionSignature(FD->getSignature()));
         return true;
     }
+    
+    bool traverseStructDecl(std::shared_ptr<StructDecl> decl) {
+        TRY(visitStructDecl(decl));
+        // TODO
+        return true;
+    }
+    
+    bool traverseVariantDecl(std::shared_ptr<VariantDecl> decl) {
+        TRY(visitVariantDecl(decl));
+        // TODO
+        return true;
+    }
+    
     
     bool traverseFunctionSignature(FunctionSignature &signature) {
         TRY(visitFunctionSignature(signature));
@@ -60,6 +112,7 @@ public:
         TRY(traverseTypeDesc(signature.returnType));
         return true;
     }
+    
     
     bool traverseTypeDesc(std::shared_ptr<TypeDesc> typeDesc) {
         TRY(visitTypeDesc(typeDesc));
@@ -114,23 +167,61 @@ public:
     }
     
     
-    bool visitFunctionDecl(std::shared_ptr<ast::FunctionDecl>) {
-        return true;
-    }
-    bool visitFunctionSignature(FunctionSignature&) {
-        return true;
-    }
-    bool visitFunctionBody(std::shared_ptr<CompoundStmt>) {
-        return true;
-    }
-    bool visitExpr(std::shared_ptr<Expr>) {
-        return true;
-    }
-    bool visitTypeDesc(std::shared_ptr<TypeDesc>) {
-        return true;
-    }
+    
+    
+#define DEF_VISIT_FN(T) \
+bool visit##T(std::shared_ptr<T>) { return true; }
+    
+#define DEF_VISIT_FN_N(N, T) \
+bool visit##N(std::shared_ptr<T>) { return true; }
+
+#define DEF_VISIT_FN_T(N, T) \
+bool visit##N(T) { return true; }
+    
+    DEF_VISIT_FN(Node)
+    DEF_VISIT_FN(TypeDesc)
+    
+    DEF_VISIT_FN(TopLevelStmt)
+    DEF_VISIT_FN(LocalStmt)
+    DEF_VISIT_FN(Expr)
+    
+    DEF_VISIT_FN(FunctionDecl)
+    DEF_VISIT_FN_N(FunctionBody, CompoundStmt)
+    
+    DEF_VISIT_FN(StructDecl)
+    DEF_VISIT_FN(TypealiasDecl)
+    DEF_VISIT_FN(VariantDecl)
+    
+    DEF_VISIT_FN_T(FunctionSignature, FunctionSignature&)
+    
     
 };
+
+
+
+
+
+
+class ASTPrinter : public ASTVisitor<ASTPrinter> {
+public:
+    // TODO
+};
+
+
+
+void ast::print_ast(const ast::AST &ast) {
+    ASTPrinter().traverse(ast);
+    LKFatalError("");
+}
+
+
+
+
+
+
+
+
+
 
 
 
@@ -157,9 +248,28 @@ public:
 };
 
 
+// lambda returning true means that the thing we looked for was found, which means that the traverse call will return false
+template <typename F>
+class Visitor2 : public ASTVisitor<Visitor2<F>> {
+    F f;
+
+public:
+    explicit Visitor2(F&& f) : f(f) {}
+    
+    bool visitTypeDesc(std::shared_ptr<TypeDesc> typeDesc) {
+        return !f(typeDesc);
+    }
+};
+
+
 bool check_sig_ty_dep(FunctionSignature &signature, std::shared_ptr<StructDecl> decl) {
     return !Visitor1(decl).traverseFunctionSignature(signature);
-    
+}
+
+bool check_sig_tyname_dep(FunctionSignature &signature, const std::string &name) {
+    return !Visitor2([&](std::shared_ptr<TypeDesc> typeDesc) -> bool {
+        return (typeDesc->isNominal() || typeDesc->isNominalTemplated()) && typeDesc->getName() == name;
+    }).traverseFunctionSignature(signature);
 }
 
 
