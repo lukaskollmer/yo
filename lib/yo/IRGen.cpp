@@ -14,7 +14,6 @@
 #include "Attributes.h"
 #include "Diagnostics.h"
 #include "ASTVisitor.h"
-#include "SemA.h"
 
 #include <optional>
 #include <limits>
@@ -295,6 +294,12 @@ void IRGenerator::preflight(const ast::AST &inputAST) {
 //    }
     
     for (auto &node : ast) {
+        if (auto typealiasDecl = llvm::dyn_cast<ast::TypealiasDecl>(node)) {
+            registerTypealias(typealiasDecl);
+        }
+    }
+    
+    for (auto &node : ast) {
         switch (node->getKind()) {
             case NK::StructDecl:
                 registerStructDecl(llvm::cast<ast::StructDecl>(node));
@@ -305,7 +310,7 @@ void IRGenerator::preflight(const ast::AST &inputAST) {
                 break;
             
             case NK::TypealiasDecl:
-                registerTypealias(llvm::cast<ast::TypealiasDecl>(node));
+                //registerTypealias(llvm::cast<ast::TypealiasDecl>(node));
                 break;
             
             default:
@@ -960,11 +965,6 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
                     return handleResolvedTy(entry.value());
                 }
                 
-                // TODO this is a disgusting workaround!!!!!
-                // Basically the issue is that we need the mangled key for the map lookup
-//                auto structDeclForNameMangling = std::make_shared<ast::StructDecl>();
-//                structDeclForNameMangling->name = typeDesc->getName();
-//                name = mangling::mangleFullyResolved(structDeclForNameMangling);
                 name = mangling::mangleAsStruct(name);
                 
                 // If there is already an entry for that type, return that

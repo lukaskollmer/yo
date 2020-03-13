@@ -18,7 +18,6 @@ yo_add_lib(
     Mangling.h Mangling.cpp
     NamedScope.h
     Parser.h Parser.cpp
-    SemA.h SemA.cpp
     StdlibResolution.h StdlibResolution.cpp
     TemplateSpecialization.h TemplateSpecialization.cpp
     Token.h Token.cpp
