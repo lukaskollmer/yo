@@ -767,4 +767,6 @@ public:
     : Expr(Node::Kind::ArrayLiteralExpr), elements(elements) {}
 };
 
+
+#undef CLASSOF_IMP
 NS_END
