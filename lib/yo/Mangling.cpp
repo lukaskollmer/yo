@@ -318,7 +318,7 @@ std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> funcDecl) {
     mangler.appendWithCount(funcDecl->getName());
     mangler.appendEncodedType(funcDecl->getSignature().returnType->getResolvedType());
     
-    for (size_t idx = funcDecl->isOfFunctionKind(ast::FunctionKind::InstanceMethod); idx < funcDecl->getSignature().paramTypes.size(); idx++) {
+    for (size_t idx = funcDecl->isOfFunctionKind(ast::FunctionKind::InstanceMethod); idx < funcDecl->getSignature().numberOfParameters(); idx++) {
         mangler.appendEncodedType(funcDecl->getSignature().paramTypes[idx]->getResolvedType());
     }
     

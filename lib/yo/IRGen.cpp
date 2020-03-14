@@ -1025,9 +1025,9 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
 bool IRGenerator::equal(const ast::FunctionSignature &lhs, const ast::FunctionSignature &rhs) {
     if (resolveTypeDesc(lhs.returnType, false) != resolveTypeDesc(rhs.returnType, false)) return false;
     
-    if (lhs.paramTypes.size() != rhs.paramTypes.size()) return false;
+    if (lhs.numberOfParameters() != rhs.numberOfParameters()) return false;
     
-    for (size_t i = 0; i < lhs.paramTypes.size(); i++) {
+    for (size_t i = 0; i < lhs.numberOfParameters(); i++) {
         if (resolveTypeDesc(lhs.paramTypes[i], false) != resolveTypeDesc(rhs.paramTypes[i], false)) return false;
     }
     
@@ -1264,7 +1264,7 @@ llvm::DISubroutineType* IRGenerator::toDISubroutineType(const ast::FunctionSigna
     // Looking at [godbolt]( https://godbolt.org/z/EKfzqi ), it seems like the first element should be the function's return type?
     
     std::vector<llvm::Metadata *>types;
-    types.reserve(signature.paramTypes.size() + 1);
+    types.reserve(signature.numberOfParameters() + 1);
     
     types.push_back(resolveTypeDesc(signature.returnType)->getLLVMDIType());
     for (const auto& paramTy : signature.paramTypes) {

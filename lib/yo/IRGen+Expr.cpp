@@ -768,7 +768,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSig
     
     LKAssert(signature.isTemplateDecl());
     
-    if (signature.paramTypes.size() != call->arguments.size() + argumentOffset) {
+    if (signature.numberOfParameters() != call->arguments.size() + argumentOffset) {
         return std::nullopt;
     }
     
@@ -1004,7 +1004,7 @@ ResolvedCallable IRGenerator::specializeTemplateFunctionDeclForCallExpr(std::sha
     // TODO is withCleanSlate overkill here? we really just need the local scope to be empty so that we can insert the parameters
     // Not entirely true though, we also call resolveTypeDesc which otherwise might include local types defined only for the the scope of the current function
     withCleanSlate([&]() -> void {
-        for (size_t i = 0; i < specializedDecl->getSignature().paramTypes.size(); i++) {
+        for (size_t i = 0; i < specializedDecl->getSignature().numberOfParameters(); i++) {
             auto type = resolveTypeDesc(specializedDecl->getSignature().paramTypes[i]);
             auto name = specializedDecl->getParamNames()[i]->value;
             localScope.insert(name, ValueBinding(type, nullptr, []() -> llvm::Value* {
@@ -1069,7 +1069,7 @@ CandidateViabilityComparisonResult FunctionCallTargetCandidate::compare(IRGenera
     auto rhsParamTys = getResolvedParamTys(rhs);
     
     
-    for (uint32_t idx = lhs.target.argumentOffset; idx < lhs.getSignature().paramTypes.size(); idx++) {
+    for (uint32_t idx = lhs.target.argumentOffset; idx < lhs.getSignature().numberOfParameters(); idx++) {
         auto argTy = argTys[idx];
         auto lhsTy = lhsParamTys[idx];
         auto rhsTy = rhsParamTys[idx];
@@ -1443,11 +1443,11 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             continue;
         }
         
-        if (!sig.isVariadic && callExpr->arguments.size() != sig.paramTypes.size() - argumentOffset) {
+        if (!sig.isVariadic && callExpr->arguments.size() != sig.numberOfParameters() - argumentOffset) {
             rejections.emplace_back("argument count mismatch", *decl);
             continue;
         }
-        if (sig.isVariadic && (callExpr->arguments.size() < sig.paramTypes.size() - argumentOffset - !isVariadicWithCLinkage)) {
+        if (sig.isVariadic && (callExpr->arguments.size() < sig.numberOfParameters() - argumentOffset - !isVariadicWithCLinkage)) {
             rejections.emplace_back("variadic arguments count mismatch", *decl);
             continue;
         }
@@ -1466,7 +1466,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         // for example, printf(*i8...) cannot be called w/ zero arguments, since that would also leave out the format string
 
         FunctionCallTargetCandidate candidate(candidateIndexCounter.increment(), target);
-        size_t lastTypecheckedArgument = isVariadicWithCLinkage ? sig.paramTypes.size() : callExpr->arguments.size();
+        size_t lastTypecheckedArgument = isVariadicWithCLinkage ? sig.numberOfParameters() : callExpr->arguments.size();
         
         std::vector<decltype(nominalTypes)::ID> tempTypeIds;
         
@@ -1497,7 +1497,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             auto argTy = argTypes[idx + argumentOffset];
             Type *expectedTy = nullptr;
 
-            if (idx < sig.paramTypes.size()) {
+            if (idx < sig.numberOfParameters()) {
                 expectedTy = resolveTypeDesc(sig.paramTypes[idx + argumentOffset], false);
             } else {
                 LKFatalError("is this non-C-linkage varargs?");
@@ -1656,7 +1656,7 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
     };
     std::map<uint64_t, ArgumentHandlingPolicy> argumentHandlingPolicies;
     
-    for (size_t i = resolvedTarget.argumentOffset; i < resolvedTarget.signature.paramTypes.size(); i++) {
+    for (size_t i = resolvedTarget.argumentOffset; i < resolvedTarget.signature.numberOfParameters(); i++) {
         auto expectedType = resolveTypeDesc(resolvedTarget.signature.paramTypes[i]);
         auto expr = call->arguments[i - resolvedTarget.argumentOffset];
         argumentHandlingPolicies[i] = ArgumentHandlingPolicy::PassByValue;

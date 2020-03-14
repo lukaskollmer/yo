@@ -19,7 +19,7 @@ using NK = ast::Node::Kind;
 
 
 void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDecl) {
-    LKAssert(functionDecl->getParamNames().size() == functionDecl->getSignature().paramTypes.size());
+    LKAssert(functionDecl->getParamNames().size() == functionDecl->getSignature().numberOfParameters());
     
     const auto &sig = functionDecl->getSignature();
     const bool isMain = functionDecl->isOfFunctionKind(ast::FunctionKind::GlobalFunction) && functionDecl->getName() == "main";
@@ -78,9 +78,9 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     
     LKAssert(localScope.isEmpty());
     
-    std::vector<llvm::Type *> paramTypes(sig.paramTypes.size(), nullptr);
+    std::vector<llvm::Type *> paramTypes(sig.numberOfParameters(), nullptr);
     
-    for (size_t idx = 0; idx < sig.paramTypes.size(); idx++) {
+    for (size_t idx = 0; idx < sig.numberOfParameters(); idx++) {
         auto type = resolveTypeDesc(sig.paramTypes[idx]);
         auto name = functionDecl->getParamNames()[idx]->value;
         paramTypes[idx] = type->getLLVMType();
@@ -190,7 +190,7 @@ llvm::Value* IRGenerator::codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>
     
     std::vector<llvm::AllocaInst *> paramAllocas;
     
-    for (size_t i = 0; i < sig.paramTypes.size(); i++) {
+    for (size_t i = 0; i < sig.numberOfParameters(); i++) {
         auto type = resolveTypeDesc(sig.paramTypes[i]);
         auto alloca = builder.CreateAlloca(type->getLLVMType());
         const auto &name = functionDecl->getParamNames()[i]->value;
@@ -210,7 +210,7 @@ llvm::Value* IRGenerator::codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>
     }
     
     
-    for (size_t i = 0; i < sig.paramTypes.size(); i++) {
+    for (size_t i = 0; i < sig.numberOfParameters(); i++) {
         auto alloca = paramAllocas.at(i);
         builder.CreateStore(&F->arg_begin()[i], alloca);
         

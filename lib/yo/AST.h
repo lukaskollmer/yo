@@ -220,7 +220,12 @@ public:
     CLASSOF_IMP(Node::Kind::FunctionSignature)
     FunctionSignature() : Node(Node::Kind::FunctionSignature) {}
     
-    bool isTemplateDecl() const { return templateParamsDecl != nullptr; }
+    size_t numberOfParameters() const {
+        return paramTypes.size();
+    }
+    bool isTemplateDecl() const {
+        return templateParamsDecl != nullptr;
+    }
     uint64_t numberOfTemplateParameters() const {
         if (!templateParamsDecl) return 0;
         else return templateParamsDecl->size();

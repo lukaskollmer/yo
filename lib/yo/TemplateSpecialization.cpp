@@ -71,7 +71,7 @@ std::shared_ptr<ast::TypeDesc> TemplateSpecializer::resolveType(std::shared_ptr<
 ast::FunctionSignature TemplateSpecializer::specialize(const ast::FunctionSignature &signature) {
     ast::FunctionSignature specSig = signature;
     
-    for (size_t idx = 0; idx < signature.paramTypes.size(); idx++) {
+    for (size_t idx = 0; idx < signature.numberOfParameters(); idx++) {
         specSig.paramTypes[idx] = resolveType(signature.paramTypes[idx]);
     }
     specSig.returnType = resolveType(signature.returnType);
