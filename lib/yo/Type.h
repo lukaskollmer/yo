@@ -160,10 +160,13 @@ public:
     
     uint8_t getSize() const;
     uint8_t getPrimitiveSizeInBits() const;
-    bool isSigned() const;
     bool isBoolTy() const;
     bool isIntegerTy() const;
     bool isFloatTy() const;
+    bool isSigned() const;
+    bool isUnsigned() const {
+        return !isSigned();
+    }
 
     static bool classof(const Type *type) {
         return type->getTypeId() == TypeID::Numerical;
