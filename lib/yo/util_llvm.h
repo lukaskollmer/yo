@@ -26,6 +26,16 @@
 
 namespace llvm {
 
+inline llvm::raw_ostream& operator<<(llvm::raw_ostream &OS, llvm::Value *value) {
+    value->print(OS);
+    return OS;
+}
+
+inline llvm::raw_ostream& operator<<(llvm::raw_ostream &OS, llvm::Type *type) {
+    type->print(OS);
+    return OS;
+}
+
 // Specializations to llvm's casting APIs to add support for `std::shared_ptr` to `isa`, `cast`, et al
 
 template<class T> struct simplify_type<std::shared_ptr<T>> {
@@ -92,15 +102,15 @@ public:
 #pragma mark - Other
 
 namespace yo::util::llvm_utils {
-    inline llvm::raw_ostream& operator<<(llvm::raw_ostream &OS, llvm::Value *V) {
-        V->print(OS);
-        return OS;
-    }
-    
-    inline llvm::raw_ostream& operator<<(llvm::raw_ostream &OS, llvm::Type *T) {
-        T->print(OS);
-        return OS;
-    }
+//    inline llvm::raw_ostream& operator<<(llvm::raw_ostream &OS, llvm::Value *V) {
+//        V->print(OS);
+//        return OS;
+//    }
+//
+//    inline llvm::raw_ostream& operator<<(llvm::raw_ostream &OS, llvm::Type *T) {
+//        T->print(OS);
+//        return OS;
+//    }
     
     
     template <typename T>
@@ -128,6 +138,15 @@ struct yo::util::fmt::formatter<llvm::Value *> {
         OS << yo::util::llvm_utils::to_string(value);
     }
 };
+
+
+template <>
+struct yo::util::fmt::formatter<llvm::Type *> {
+    static void format(std::ostream &OS, std::string_view flags, const llvm::Type *type) {
+        OS << yo::util::llvm_utils::to_string(type);
+    }
+};
+
 
 template <>
 struct yo::util::fmt::formatter<llvm::StringRef> {

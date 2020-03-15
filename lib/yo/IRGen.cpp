@@ -705,33 +705,6 @@ llvm::Value *IRGenerator::codegenExpr(std::shared_ptr<ast::Expr> expr, ValueKind
 
 
 
-bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *expr, Type *expectedType, Type **initialTypeOfExpr) {
-    auto type = getType(*expr);
-    if (initialTypeOfExpr) *initialTypeOfExpr = type;
-    
-    if (type == expectedType) return true;
-    
-    // at this point, both are numeric? TODO how do we know this?
-    if (auto numberLiteral = llvm::dyn_cast<ast::NumberLiteral>(*expr)) {
-        if (expectedType->isReferenceTy()) {
-            expectedType = llvm::dyn_cast<ReferenceType>(expectedType)->getReferencedType();
-        }
-        
-        if (!valueIsTriviallyConvertible(numberLiteral, expectedType)) return false;
-        
-        auto loc = (*expr)->getSourceLocation();
-        *expr = std::make_shared<ast::CastExpr>(*expr, ast::TypeDesc::makeResolved(expectedType), ast::CastExpr::CastKind::StaticCast);
-        (*expr)->setSourceLocation(loc);
-        return true;
-    }
-    
-    return false;
-}
-
-
-
-
-
 #pragma mark - Globals
 
 
@@ -1318,6 +1291,75 @@ bool IRGenerator::valueIsTriviallyConvertible(std::shared_ptr<ast::NumberLiteral
     
     LKFatalError("TODO?");
 }
+
+
+
+
+bool IRGenerator::applyImplicitConversionIfNecessary(std::shared_ptr<ast::Expr> &expr, Type *dstTy) {
+    auto srcTy = getType(expr);
+    
+    if (srcTy == dstTy) {
+        return true;
+    }
+    
+    auto wrapInStaticCast = [](std::shared_ptr<ast::Expr> expr, Type *type) {
+        auto loc = expr->getSourceLocation();
+        auto ret = std::make_shared<ast::CastExpr>(expr, ast::TypeDesc::makeResolved(type), ast::CastExpr::CastKind::StaticCast);
+        ret->setSourceLocation(loc);
+        return ret;
+    };
+    
+    if (auto literal = llvm::dyn_cast<ast::NumberLiteral>(expr)) {
+        if (!dstTy->isNumericalTy()) {
+            return false;
+        }
+        if (valueIsTriviallyConvertible(literal, dstTy)) {
+            expr = wrapInStaticCast(expr, dstTy);
+            return true;
+        }
+    }
+    
+    if (auto *srcNumTy = llvm::dyn_cast<NumericalType>(srcTy), *dstNumTy = llvm::dyn_cast<NumericalType>(dstTy); srcNumTy && dstNumTy) {
+        if (srcNumTy->isSigned() && dstNumTy->isUnsigned()) {
+            return false;
+        }
+        if (srcNumTy->getSize() < dstNumTy->getSize()) {
+            expr = wrapInStaticCast(expr, dstTy);
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+
+
+
+
+
+//bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *expr, Type *expectedType, Type **initialTypeOfExpr) {
+//    auto type = getType(*expr);
+//    util::fmt::print("[typecheck&cast] <expr> of '{}' to '{}'", type, expectedType);
+//
+//    if (initialTypeOfExpr) {
+//        *initialTypeOfExpr = type;
+//    }
+//
+//    if (type == expectedType) {
+//        return true; // No conversion needed
+//    }
+//
+//    if (expectedType->isReferenceTy()) {
+//        // types don't match and we're trying to get a reference out of this
+//        return false;
+//    }
+//}
+
+
+
+
+
+
 
 
 

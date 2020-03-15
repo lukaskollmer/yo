@@ -347,13 +347,14 @@ private:
     // Version 2 does the same thing, but for binops. if necessary, it might cast either `Lhs` or `Rhs` to the type of `Rhs` or `Lhs` (respectively)
     // both return true on success
     
-    // `TypeOfExpr`: initial (unchanged) type of `Expr`
-    bool typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *expr, Type *expectedType, Type **initialTypeOfExpr = nullptr);
     
     // `{Lhs|Rhs}Ty`: type of lhs/rhs, after applying typecasts, if casts were applied
-    bool typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *lhs, std::shared_ptr<ast::Expr> *rhs, Type **lhsTy, Type **rhsTy);
+    bool typecheckAndApplyTrivialNumberTypeCastsIfNecessary_binop(std::shared_ptr<ast::Expr> *lhs, std::shared_ptr<ast::Expr> *rhs, Type **lhsTy, Type **rhsTy);
     
     bool isImplicitConversionAvailable(Type *src, Type *dst);
+    
+    // Returns false if there is no implicit conversion to the expected type
+    bool applyImplicitConversionIfNecessary(std::shared_ptr<ast::Expr> &expr, Type *expectedType);
     
     
     // Other stuff

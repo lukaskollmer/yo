@@ -82,9 +82,13 @@ llvm::Value* IRGenerator::codegenAssignment(std::shared_ptr<ast::Assignment> ass
             goto ok;
         }
         
-        Type *T;
-        if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&rhsExpr, lhsTy, &T)) {
-            auto msg = util::fmt::format("cannot assign to '{}' from incompatible type '{}'", lhsTy, T);
+//        Type *T;
+//        if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(rhsExpr, lhsTy, &T)) {
+//            auto msg = util::fmt::format("cannot assign to '{}' from incompatible type '{}'", lhsTy, T);
+//            diagnostics::emitError(assignment->getSourceLocation(), msg);
+//        }
+        if (!applyImplicitConversionIfNecessary(rhsExpr, lhsTy)) {
+            auto msg = util::fmt::format("cannot assign to '{}' from value of incompatible type '{}'", lhsTy, getType(rhsExpr));
             diagnostics::emitError(assignment->getSourceLocation(), msg);
         }
     }
@@ -265,7 +269,7 @@ llvm::Value* IRGenerator::codegenReturnStmt(std::shared_ptr<ast::ReturnStmt> ret
                 typeMismatch();
             }
         } else {
-            if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, retvalTy)) {
+            if (!applyImplicitConversionIfNecessary(expr, retvalTy)) {
                 typeMismatch();
             }
         }

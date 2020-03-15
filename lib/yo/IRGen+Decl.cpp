@@ -60,6 +60,11 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
         return;
     }
     
+//    if (auto TD = functionDecl->implTypeDesc; TD && TD->isNominal() && util::map::has_key(structTemplateDecls, TD->getName())) {
+//        // template
+//
+//    }
+    
     if (sig.isTemplateDecl() || functionDecl->getAttributes().intrinsic || functionDecl->getAttributes().int_isCtor) {
         auto canonicalName = mangling::mangleCanonicalName(functionDecl);
         

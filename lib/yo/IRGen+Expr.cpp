@@ -50,18 +50,19 @@ llvm::Value* IRGenerator::codegenExprStmt(std::shared_ptr<ast::ExprStmt> exprStm
 
 
 llvm::Value* IRGenerator::codegenNumberLiteral(std::shared_ptr<ast::NumberLiteral> numberLiteral, ValueKind VK) {
-    LKAssert(VK == RValue);
+    using NT = ast::NumberLiteral::NumberType;
     
+    LKAssert(VK == RValue);
     emitDebugLocation(numberLiteral);
     
-    using NT = ast::NumberLiteral::NumberType;
+    // TODO add a check that `numberLiteral->value` actually fits in `numberLiteral->type`
     
     switch (numberLiteral->type) {
         case NT::Boolean: {
             return llvm::ConstantInt::get(builtinTypes.llvm.i1, numberLiteral->value);
         }
         case NT::Character: {
-            LKAssert(integerLiteralFitsInIntegralType(numberLiteral->value, builtinTypes.yo.i8));
+            //LKAssert(integerLiteralFitsInIntegralType(numberLiteral->value, builtinTypes.yo.i8));
             return llvm::ConstantInt::get(builtinTypes.llvm.i8, numberLiteral->value);
         }
         case NT::Integer: {
@@ -460,14 +461,19 @@ llvm::Value* IRGenerator::codegenMatchExpr(std::shared_ptr<ast::MatchExpr> match
             }
         }
         
-        Type *_initialTy = nullptr;
-        if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&branch.expression, resultType, &_initialTy)) {
-            //diagnostics::emitError(branch.expression->getSourceLocation(),
-            //                           "Invalud match branch pattern value: Type '%s' not compatible with expected type '%s'",
-            //                           _initialTy->str().c_str(), resultType->str().c_str());
-            LKFatalError("Invalid match branch result value: Type %s not compatible with expected type %s",
-                         _initialTy->str_desc().c_str(), resultType->str_desc().c_str());
+//        Type *_initialTy = nullptr;
+//        if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(branch.expression, resultType, &_initialTy)) {
+//            //diagnostics::emitError(branch.expression->getSourceLocation(),
+//            //                           "Invalud match branch pattern value: Type '%s' not compatible with expected type '%s'",
+//            //                           _initialTy->str().c_str(), resultType->str().c_str());
+//            LKFatalError("Invalid match branch result value: Type %s not compatible with expected type %s",
+//                         _initialTy->str_desc().c_str(), resultType->str_desc().c_str());
+//        }
+        
+        if (!applyImplicitConversionIfNecessary(branch.expression, resultType)) {
+            LKFatalError("ugh");
         }
+        
         
         F->getBasicBlockList().push_back(valueBB);
         builder.SetInsertPoint(valueBB);
@@ -585,45 +591,6 @@ llvm::Value* IRGenerator::codegenBinOp(std::shared_ptr<ast::BinOp> binop, ValueK
     
 }
 
-
-
-bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary(std::shared_ptr<ast::Expr> *lhs, std::shared_ptr<ast::Expr> *rhs, Type **lhsTy_out, Type **rhsTy_out) {
-    LKAssert(lhsTy_out && rhsTy_out);
-    
-    auto lhsTy = getType(*lhs);
-    auto rhsTy = getType(*rhs);
-    
-    *lhsTy_out = lhsTy;
-    *rhsTy_out = rhsTy;
-    
-    if (lhsTy == rhsTy) {
-        return true;
-    }
-    
-    // TODO add some kind of "types are compatible for this kind of binary operation" check
-    
-    if (!lhsTy->isNumericalTy() || !rhsTy->isNumericalTy()) {
-        LKFatalError("oh no");
-    }
-    
-    if (llvm::isa<ast::NumberLiteral>(*lhs)) {
-        // lhs is literal, cast to type of ths
-        auto loc = (*lhs)->getSourceLocation();
-        *lhs = std::make_shared<ast::CastExpr>(*lhs, ast::TypeDesc::makeResolved(rhsTy), ast::CastExpr::CastKind::StaticCast);
-        (*lhs)->setSourceLocation(loc);
-        *lhsTy_out = rhsTy;
-    } else if (llvm::isa<ast::NumberLiteral>(*rhs)) {
-        // rhs is literal, cast to type of lhs
-        auto loc = (*rhs)->getSourceLocation();
-        *rhs = std::make_shared<ast::CastExpr>(*rhs, ast::TypeDesc::makeResolved(lhsTy), ast::CastExpr::CastKind::StaticCast);
-        (*rhs)->setSourceLocation(loc);
-        *rhsTy_out = lhsTy;
-    } else {
-        return false;
-    }
-    
-    return true;
-}
 
 
 
@@ -1660,8 +1627,7 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
         auto expectedType = resolveTypeDesc(resolvedTarget.signature.paramTypes[i]);
         auto expr = call->arguments[i - resolvedTarget.argumentOffset];
         argumentHandlingPolicies[i] = ArgumentHandlingPolicy::PassByValue;
-        Type *T;
-        if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&expr, expectedType, &T)) {
+        if (!applyImplicitConversionIfNecessary(expr, expectedType)) {
             auto exprTy = getType(expr);
             if (expectedType->isReferenceTy() && !exprTy->isReferenceTy() && exprTy->getReferenceTo() == expectedType) {
                 argumentHandlingPolicies[i] = ArgumentHandlingPolicy::PassByReference;
@@ -1670,8 +1636,8 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
                 argumentHandlingPolicies[i] = ArgumentHandlingPolicy::PassByValue_ExtractReference;
                 goto cont;
             }
-            
-            auto msg = util::fmt::format("incompatible type for argument #{}. Expected '{}', got '{}'", i, expectedType, T);
+
+            auto msg = util::fmt::format("incompatible type for argument #{}. Expected '{}', got '{}'", i, expectedType, exprTy);
             diagnostics::emitError(expr->getSourceLocation(), msg);
         }
         cont:
@@ -2026,7 +1992,7 @@ llvm::Value* IRGenerator::codegen_HandleArithmeticIntrinsic(ast::Operator op, st
     auto lhs = call->arguments.at(0);
     auto rhs = call->arguments.at(1);
     
-    if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary(&lhs, &rhs, &lhsTy, &rhsTy)) {
+    if (!typecheckAndApplyTrivialNumberTypeCastsIfNecessary_binop(&lhs, &rhs, &lhsTy, &rhsTy)) { // THIS
         auto msg = util::fmt::format("unable to create binop for operand types '{}' and '{}'", lhsTy, rhsTy);
         diagnostics::emitError(call->getSourceLocation(), msg);
     }
@@ -2049,6 +2015,52 @@ llvm::Value* IRGenerator::codegen_HandleArithmeticIntrinsic(ast::Operator op, st
     emitDebugLocation(call);
     return builder.CreateBinOp(llvmOp, lhsVal, rhsVal);
 }
+
+
+
+// TODO/NOTE: this function has only a single callee, so we can probably rewrite it to better fit that single use case?
+bool IRGenerator::typecheckAndApplyTrivialNumberTypeCastsIfNecessary_binop(std::shared_ptr<ast::Expr> *lhs, std::shared_ptr<ast::Expr> *rhs, Type **lhsTy_out, Type **rhsTy_out) {
+    LKAssert(lhsTy_out && rhsTy_out);
+    
+    auto lhsTy = getType(*lhs);
+    auto rhsTy = getType(*rhs);
+    
+//    util::fmt::print("[typecheck&cast] <lhs> of '{}' | <rhs> of '{}'", lhsTy, rhsTy);
+    
+    *lhsTy_out = lhsTy;
+    *rhsTy_out = rhsTy;
+    
+    if (lhsTy == rhsTy) {
+        return true;
+    }
+    
+    // TODO add some kind of "types are compatible for this kind of binary operation" check
+    
+    if (!lhsTy->isNumericalTy() || !rhsTy->isNumericalTy()) {
+        LKFatalError("oh no");
+    }
+    
+    if (llvm::isa<ast::NumberLiteral>(*lhs)) {
+        // lhs is literal, cast to type of ths
+        auto loc = (*lhs)->getSourceLocation();
+        *lhs = std::make_shared<ast::CastExpr>(*lhs, ast::TypeDesc::makeResolved(rhsTy), ast::CastExpr::CastKind::StaticCast);
+        (*lhs)->setSourceLocation(loc);
+        *lhsTy_out = rhsTy;
+    } else if (llvm::isa<ast::NumberLiteral>(*rhs)) {
+        // rhs is literal, cast to type of lhs
+        auto loc = (*rhs)->getSourceLocation();
+        *rhs = std::make_shared<ast::CastExpr>(*rhs, ast::TypeDesc::makeResolved(lhsTy), ast::CastExpr::CastKind::StaticCast);
+        (*rhs)->setSourceLocation(loc);
+        *rhsTy_out = lhsTy;
+    } else {
+        return false;
+    }
+    
+    return true;
+}
+
+
+
 
 
 
