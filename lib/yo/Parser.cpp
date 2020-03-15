@@ -100,7 +100,8 @@ static const MappedTokenSet<ast::UnaryExpr::Operation> unaryOperators = {
 
 
 std::vector<Token> lexFile(const std::string &path) {
-    return Lexer().lex(util::fs::read_file(path), path);
+    auto contents = util::fs::read_file(path);
+    return Lexer(contents, path).lex();
 }
 
 
@@ -143,7 +144,9 @@ std::string Parser::resolveImportPathRelativeToBaseDirectory(const lex::SourceLo
     }
     
     auto path = util::fmt::format("{}/{}.yo", baseDirectory, moduleName);
-    if (util::fs::file_exists(path)) return path;
+    if (util::fs::file_exists(path)) {
+        return path;
+    }
     
     diagnostics::emitError(loc, util::fmt::format("Unable to resolve import of '{}' relative to '{}'", moduleName, baseDirectory));
 }
@@ -151,7 +154,7 @@ std::string Parser::resolveImportPathRelativeToBaseDirectory(const lex::SourceLo
 
 
 void Parser::resolveImport() {
-    auto baseDirectory = util::string::excludingLastPathComponent(currentToken().getSourceLocation().filepath);
+    auto baseDirectory = util::string::excludingLastPathComponent(currentToken().getSourceLocation().getFilepath());
     assertTkAndConsume(TK::Use);
     
     auto importLoc = getCurrentSourceLocation();
@@ -166,7 +169,7 @@ void Parser::resolveImport() {
     } else if (isStdlibImport && !customStdlibRoot.has_value()) {
         importedFiles.push_back(moduleName);
         if (auto contents = stdlib_resolution::getContentsOfModuleWithName(moduleName)) {
-            newTokens = Lexer().lex(*contents, moduleName);
+            newTokens = Lexer(*contents, moduleName).lex();
         } else {
             diagnostics::emitError(importLoc, util::fmt::format("unable to resolve stdlib module '{}'", moduleName));
         }

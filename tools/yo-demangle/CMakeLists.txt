@@ -2,7 +2,7 @@ yo_add_tool(
     yo-demangle
     main.cpp
 
-    LINK_YO
+    YO_LIBS yo
     LLVM_LIBS support
 )
 

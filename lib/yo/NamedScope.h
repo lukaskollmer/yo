@@ -8,9 +8,8 @@
 
 #pragma once
 
-#include "util.h"
+#include "util/util.h"
 #include "Type.h"
-#include "llvm/IR/Value.h"
 
 #include <tuple>
 #include <vector>

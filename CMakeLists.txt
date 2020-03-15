@@ -26,11 +26,11 @@ message(STATUS "Using LLVMConfig.cmake in ${LLVM_DIR}")
 
 macro(yo_add_target)
     cmake_parse_arguments(
-        ARG         # prefix of output variables
-        "LINK_YO"   # list of names of the boolean arguments (only defined ones will be true)
-        "TYPE"      # list of names of mono-valued arguments
-        "LLVM_LIBS" # list of names of multi-valued arguments (output variables are lists)
-        ${ARGN}     # arguments of the function to parse, here we take the all original ones
+        ARG                 # output variable prefix
+        ""                  # boolean arguments
+        "TYPE"              # single-value arguments
+        "YO_LIBS;LLVM_LIBS" # multi-value arguments
+        ${ARGN}             # input
     )
     set(target_type ${ARG_TYPE})
     list(GET ARG_UNPARSED_ARGUMENTS 0 target_name)
@@ -49,13 +49,10 @@ macro(yo_add_target)
     target_include_directories(${target_name} PRIVATE SYSTEM ${LLVM_INCLUDE_DIRS})
     target_link_libraries(${target_name} ${llvm_libs})
     
-    if(${ARG_LINK_YO})
-        if(NOT ${is_bin})
-            message(FATAL_ERROR "only bin targets may specify 'LINK_YO'")
-        endif()
-        target_link_libraries(${target_name} yo)
-        target_include_directories(${target_name} PRIVATE "${PROJECT_SOURCE_DIR}/lib")
-    endif()
+    foreach(libname ${ARG_YO_LIBS})
+        target_link_libraries(${target_name} ${libname})
+    endforeach()
+    target_include_directories(${target_name} PRIVATE "${PROJECT_SOURCE_DIR}/lib")
 endmacro(yo_add_target)
 
 
@@ -68,6 +65,8 @@ macro(yo_add_tool)
 endmacro(yo_add_tool)
 
 
+add_subdirectory(lib/util)
+add_subdirectory(lib/lex)
 add_subdirectory(lib/yo)
 add_subdirectory(tools/yo-cli)
 add_subdirectory(tools/yo-demangle)

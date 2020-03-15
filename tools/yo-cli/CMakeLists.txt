@@ -7,7 +7,7 @@ yo_add_tool(
     yo-cli
     main.cpp
     Version.h
-    LINK_YO
+    YO_LIBS yo util
 )
 
 set_target_properties(yo-cli PROPERTIES OUTPUT_NAME yo)

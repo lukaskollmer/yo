@@ -8,10 +8,11 @@
 
 #pragma once
 
+#include "util/util.h"
+
 #include <string>
 #include <vector>
 #include <variant>
-#include "util.h"
 
 namespace yo {
 namespace attributes {

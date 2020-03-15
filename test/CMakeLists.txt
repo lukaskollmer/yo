@@ -28,7 +28,7 @@ add_custom_target(
 yo_add_tool(
     yo_test
     mangling.cpp
-    LINK_YO
+    YO_LIBS yo
 )
 
 add_dependencies(yo_test gtest test_mangling_input_gen)

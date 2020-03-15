@@ -8,7 +8,7 @@
 
 #include "Version.h"
 #include "yo/Driver.h"
-#include "yo/util.h"
+#include "util/util.h"
 #include "yo/util_llvm.h"
 
 #include "llvm/Support/FileSystem.h"

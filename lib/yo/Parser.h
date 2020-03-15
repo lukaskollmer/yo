@@ -8,9 +8,9 @@
 
 #pragma once
 
-#include "util.h"
-#include "Token.h"
-#include "Lexer.h"
+#include "util/util.h"
+//#include "Token.h"
+#include "lex/Lexer.h"
 #include "AST.h"
 #include "Attributes.h"
 

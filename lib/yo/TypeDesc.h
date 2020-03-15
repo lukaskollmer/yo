@@ -8,10 +8,9 @@
 
 #pragma once
 
-#include "util.h"
 #include "Type.h"
-#include "Token.h"
-//#include "AST.h"
+#include "lex/SourceLocation.h"
+#include "util/util.h"
 
 #include <string>
 #include <variant>
@@ -33,7 +32,8 @@ struct FunctionTypeInfo {
     std::shared_ptr<TypeDesc> returnType;
     std::vector<std::shared_ptr<TypeDesc>> parameterTypes;
     
-    FunctionTypeInfo(yo::irgen::CallingConvention cc, std::shared_ptr<TypeDesc> returnType, std::vector<std::shared_ptr<TypeDesc>> parameterTypes) : callingConvention(cc), returnType(returnType), parameterTypes(parameterTypes) {}
+    FunctionTypeInfo(yo::irgen::CallingConvention cc, std::shared_ptr<TypeDesc> returnType, std::vector<std::shared_ptr<TypeDesc>> parameterTypes)
+    : callingConvention(cc), returnType(returnType), parameterTypes(parameterTypes) {}
 };
 
 

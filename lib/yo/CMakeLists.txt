@@ -14,19 +14,16 @@ yo_add_lib(
     Diagnostics.h Diagnostics.cpp
     Driver.h Driver.cpp
     IRGen.h IRGen.cpp IRGen+Decl.cpp IRGen+Stmt.cpp IRGen+Expr.cpp
-    Lexer.h Lexer.cpp
     Mangling.h Mangling.cpp
     NamedScope.h
     Parser.h Parser.cpp
     StdlibResolution.h StdlibResolution.cpp
     TemplateSpecialization.h TemplateSpecialization.cpp
-    Token.h Token.cpp
     Type.h Type.cpp
     TypeDesc.h TypeDesc.cpp
-
-    util.h util.cpp
     util_llvm.h
 
+    YO_LIBS lex util
     LLVM_LIBS core support native nativecodegen passes
 )
 

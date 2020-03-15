@@ -8,10 +8,10 @@
 
 #pragma once
 
-#include "util.h"
-#include "Token.h"
+#include "lex/SourceLocation.h"
 #include "TypeDesc.h"
 #include "Attributes.h"
+#include "util/util.h"
 
 #include <memory>
 #include <iostream>

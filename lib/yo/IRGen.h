@@ -9,10 +9,11 @@
 #pragma once
 
 #include "AST.h"
+#include "Driver.h"
 #include "Type.h"
 #include "NamedScope.h"
-#include "util.h"
-#include "Driver.h"
+#include "lex/SourceLocation.h"
+#include "util/util.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"

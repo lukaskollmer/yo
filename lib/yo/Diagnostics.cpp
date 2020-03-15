@@ -16,13 +16,13 @@ void diagnostics::emit(std::string_view category, std::string_view msg) {
 }
 
 void diagnostics::emit(std::string_view category, const lex::SourceLocation &loc, std::string_view msg) {
-    if (loc.empty()) return emit(category, msg);
+    if (loc.isEmpty()) return emit(category, msg);
     
-    util::fmt::print("{}:{}:{}: {}: {}", loc.filepath, loc.line, loc.column, category, msg);
+    util::fmt::print("{}:{}:{}: {}: {}", loc.getFilepath(), loc.getLine(), loc.getColumn(), category, msg);
     
-    if (util::fs::file_exists(loc.filepath)) {
-        std::cout << util::fs::read_specific_line(loc.filepath, loc.line - 1) << std::endl;
-        for (uint64_t i = 0; i < loc.column - 1; i++) {
+    if (util::fs::file_exists(loc.getFilepath())) {
+        std::cout << util::fs::read_specific_line(loc.getFilepath(), loc.getLine() - 1) << std::endl;
+        for (uint64_t i = 0; i < loc.getColumn() - 1; i++) {
             std::cout << ' ';
         }
         std::cout << "^" << std::endl;

@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "util.h"
-#include "Token.h"
+#include "util/util.h"
+#include "lex/SourceLocation.h"
 
 #include <string>
 

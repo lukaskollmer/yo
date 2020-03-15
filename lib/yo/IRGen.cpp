@@ -140,7 +140,7 @@ std::shared_ptr<ast::CallExpr> irgen::subscriptExprToCall(std::shared_ptr<ast::S
 
 
 llvm::DIFile* irgen::DIFileForSourceLocation(llvm::DIBuilder& builder, const lex::SourceLocation& loc) {
-    const auto [directory, filename] = util::string::extractPathAndFilename(loc.filepath);
+    const auto [directory, filename] = util::string::extractPathAndFilename(loc.getFilepath());
     return builder.createFile(filename, directory);
 }
 
@@ -212,12 +212,12 @@ IRGenerator::IRGenerator(const std::string &translationUnitPath, const driver::O
 void IRGenerator::emitDebugLocation(const std::shared_ptr<ast::Node> &node) {
     if (!shouldEmitDebugInfo()) return;
     
-    if (!node || node->getSourceLocation().empty())  {
+    if (!node || node->getSourceLocation().isEmpty())  {
         builder.SetCurrentDebugLocation(llvm::DebugLoc());
         return;
     }
     const auto &SL = node->getSourceLocation();
-    builder.SetCurrentDebugLocation(llvm::DebugLoc::get(SL.line, SL.column, debugInfo.lexicalBlocks.back()));
+    builder.SetCurrentDebugLocation(llvm::DebugLoc::get(SL.getLine(), SL.getColumn(), debugInfo.lexicalBlocks.back()));
 }
 
 
@@ -1220,7 +1220,7 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
             }
             
             auto ty = builder.createStructType(scope, type->str_desc(), type->isStructTy() ? llvm::cast<llvm::DIFile>(scope) : nullptr,
-                                               type->isStructTy() ? llvm::cast<StructType>(type)->getSourceLocation().line : 0,
+                                               type->isStructTy() ? llvm::cast<StructType>(type)->getSourceLocation().getLine() : 0,
                                                DL.getTypeSizeInBits(llvmStructTy), DL.getPrefTypeAlignment(llvmStructTy),
                                                llvm::DINode::DIFlags::FlagZero, /*derivedFrom*/ nullptr, builder.getOrCreateArray(llvmMembers));
             return handle_di_type(ty);

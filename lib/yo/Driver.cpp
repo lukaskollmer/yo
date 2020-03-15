@@ -7,11 +7,10 @@
 //
 
 #include "Driver.h"
-#include "Lexer.h"
 #include "Parser.h"
 #include "IRGen.h"
 #include "Diagnostics.h"
-#include "util.h"
+#include "util/util.h"
 #include "ASTVisitor.h"
 
 #include "llvm/Analysis/TargetTransformInfo.h"

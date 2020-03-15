@@ -187,11 +187,11 @@ llvm::Value* IRGenerator::codegenVarDecl(std::shared_ptr<ast::VarDecl> varDecl) 
         auto D = debugInfo.builder.createAutoVariable(currentFunction.llvmFunction->getSubprogram(),
                                                       varDecl->getName(),
                                                       debugInfo.lexicalBlocks.back()->getFile(),
-                                                      varDecl->getSourceLocation().line,
+                                                      varDecl->getSourceLocation().getLine(),
                                                       getDIType(type));
         debugInfo.builder.insertDeclare(alloca, D,
                                         debugInfo.builder.createExpression(),
-                                        llvm::DebugLoc::get(varDecl->getSourceLocation().line, 0, currentFunction.llvmFunction->getSubprogram()),
+                                        llvm::DebugLoc::get(varDecl->getSourceLocation().getLine(), 0, currentFunction.llvmFunction->getSubprogram()),
                                         builder.GetInsertBlock());
     }
     

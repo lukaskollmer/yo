@@ -181,9 +181,9 @@ llvm::Value* IRGenerator::codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>
     if (shouldEmitDebugInfo()) {
         auto unit = DIFileForSourceLocation(debugInfo.builder, functionDecl->getSourceLocation());
         auto SP = debugInfo.builder.createFunction(unit, functionDecl->getName(), resolvedName, unit,
-                                           sig.getSourceLocation().line,
+                                           sig.getSourceLocation().getLine(),
                                            toDISubroutineType(sig),
-                                           sig.getSourceLocation().line,
+                                           sig.getSourceLocation().getLine(),
                                            llvm::DINode::FlagZero,
                                            llvm::DISubprogram::DISPFlags::SPFlagDefinition);
         emitDebugLocation(nullptr);
@@ -224,10 +224,10 @@ llvm::Value* IRGenerator::codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>
         if (shouldEmitDebugInfo()) {
             auto SP = debugInfo.lexicalBlocks.back();
             auto varInfo = debugInfo.builder.createParameterVariable(SP, alloca->getName(), i + 1, SP->getFile(),
-                                                                     paramNameDecl->getSourceLocation().line,
+                                                                     paramNameDecl->getSourceLocation().getLine(),
                                                                      resolveTypeDesc(paramTy)->getLLVMDIType());
             debugInfo.builder.insertDeclare(alloca, varInfo, debugInfo.builder.createExpression(),
-                                            llvm::DILocation::get(C, paramNameDecl->getSourceLocation().line, paramNameDecl->getSourceLocation().column, SP), entryBB);
+                                            llvm::DILocation::get(C, paramNameDecl->getSourceLocation().getLine(), paramNameDecl->getSourceLocation().getColumn(), SP), entryBB);
         }
     }
     
@@ -252,9 +252,9 @@ llvm::Value* IRGenerator::codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>
         if (shouldEmitDebugInfo()) {
             auto SP = debugInfo.lexicalBlocks.back();
             auto D = debugInfo.builder.createAutoVariable(SP, kRetvalAllocaIdentifier, SP->getFile(),
-                                                          sig.getSourceLocation().line, returnType->getLLVMDIType());
+                                                          sig.getSourceLocation().getLine(), returnType->getLLVMDIType());
             debugInfo.builder.insertDeclare(retvalAlloca, D, debugInfo.builder.createExpression(),
-                                            llvm::DebugLoc::get(sig.getSourceLocation().line, 0, SP), entryBB);
+                                            llvm::DebugLoc::get(sig.getSourceLocation().getLine(), 0, SP), entryBB);
         }
     }
     
