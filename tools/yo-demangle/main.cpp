@@ -7,7 +7,7 @@
 //
 
 #include "yo/Mangling.h"
-#include "yo/util.h"
+#include "util/util.h"
 
 #include "llvm/Support/CommandLine.h"
 
