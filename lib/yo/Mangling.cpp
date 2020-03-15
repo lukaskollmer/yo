@@ -622,7 +622,7 @@ std::string Demangler::demangleType() {
             std::ostringstream OS;
             auto numElements = extractInt();
             OS << '(';
-            for (auto idx = 0; idx < numElements; idx++) {
+            for (size_t idx = 0; idx < numElements; idx++) {
                 OS << demangleType();
                 if (idx < numElements - 1) {
                     OS << ", ";
@@ -659,7 +659,7 @@ std::string Demangler::demangleTuple() {
     std::ostringstream OS;
     OS << '(';
     
-    for (auto idx = 0; idx < numElements; idx++) {
+    for (size_t idx = 0; idx < numElements; idx++) {
         OS << demangleType();
         if (idx < numElements - 1) {
             OS << ", ";
