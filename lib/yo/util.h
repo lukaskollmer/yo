@@ -107,10 +107,11 @@ inline bool isDigit(char c) {
 }
 
 
-template <typename R, typename T>
-R bitcast(T value) {
-    static_assert(sizeof(T) == sizeof(R), "cannot bitcast types of different size");
-    return *reinterpret_cast<R*>(&value);
+template <typename To, typename From>
+auto bitcast(const From &value) -> std::enable_if_t<(sizeof(From) == sizeof(To)) && std::is_trivially_copyable_v<From> && std::is_trivial_v<To>, To> {
+    To retval;
+    std::memcpy(&retval, &value, sizeof(From));
+    return retval;
 }
 
 
