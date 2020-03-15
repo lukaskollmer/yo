@@ -16,15 +16,15 @@
 NS_START(yo::diagnostics)
 
 void emit(std::string_view category, std::string_view msg);
-void emit(std::string_view category, const parser::TokenSourceLocation&, std::string_view msg);
+void emit(std::string_view category, const lex::SourceLocation&, std::string_view msg);
 
 void emitNote(std::string_view);
-void emitNote(const parser::TokenSourceLocation&, std::string_view);
+void emitNote(const lex::SourceLocation&, std::string_view);
 
 [[noreturn]]
 void emitError(std::string_view);
 
 [[noreturn]]
-void emitError(const parser::TokenSourceLocation&, std::string_view);
+void emitError(const lex::SourceLocation&, std::string_view);
 
 NS_END

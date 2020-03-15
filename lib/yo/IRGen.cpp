@@ -46,7 +46,7 @@ uint8_t irgen::argumentOffsetForFunctionKind(ast::FunctionKind kind) {
 }
 
 
-std::shared_ptr<ast::Ident> irgen::makeIdent(const std::string& str, ast::TokenSourceLocation SL) {
+std::shared_ptr<ast::Ident> irgen::makeIdent(const std::string& str, lex::SourceLocation SL) {
     auto ident = std::make_shared<ast::Ident>(str);
     ident->setSourceLocation(SL);
     return ident;
@@ -139,7 +139,7 @@ std::shared_ptr<ast::CallExpr> irgen::subscriptExprToCall(std::shared_ptr<ast::S
 }
 
 
-llvm::DIFile* irgen::DIFileForSourceLocation(llvm::DIBuilder& builder, const parser::TokenSourceLocation& loc) {
+llvm::DIFile* irgen::DIFileForSourceLocation(llvm::DIBuilder& builder, const lex::SourceLocation& loc) {
     const auto [directory, filename] = util::string::extractPathAndFilename(loc.filepath);
     return builder.createFile(filename, directory);
 }
@@ -353,7 +353,7 @@ std::optional<ResolvedCallable> IRGenerator::getResolvedFunctionWithName(const s
 
 
 // TODO come up w/ a better implementation than this!
-StructType* UselessStructTypeForTemplateStructCtor(std::string name, const parser::TokenSourceLocation &SL) {
+StructType* UselessStructTypeForTemplateStructCtor(std::string name, const lex::SourceLocation &SL) {
     return StructType::create(name, {}, SL);
 }
 

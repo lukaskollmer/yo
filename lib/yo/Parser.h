@@ -57,32 +57,32 @@ public:
     }
     
 private:
-    std::vector<Token> tokens;
+    std::vector<lex::Token> tokens;
     int64_t position;
     std::vector<std::string> importedFiles;
     std::optional<std::string> customStdlibRoot;
     
     void resolveImport();
-    std::string resolveImportPathRelativeToBaseDirectory(const TokenSourceLocation&, const std::string &moduleName, const std::string &baseDirectory);
+    std::string resolveImportPathRelativeToBaseDirectory(const lex::SourceLocation&, const std::string &moduleName, const std::string &baseDirectory);
     
-    const Token& currentToken() { return tokens[position]; }
+    const lex::Token& currentToken() { return tokens[position]; }
     
-    Token::TokenKind currentTokenKind() {
+    lex::TokenKind currentTokenKind() {
         return currentToken().getKind();
     }
-    const Token& peek(int64_t offset = 1) {
+    const lex::Token& peek(int64_t offset = 1) {
         return tokens[position + offset];
     }
-    Token::TokenKind peekKind(int64_t offset = 1) {
+    lex::TokenKind peekKind(int64_t offset = 1) {
         return peek(offset).getKind();
     }
     void consume(int64_t count = 1) { position += count; }
     
-    const TokenSourceLocation& getCurrentSourceLocation() {
+    const lex::SourceLocation& getCurrentSourceLocation() {
         return currentToken().getSourceLocation();
     }
     
-    const TokenSourceLocation& getSourceLocation(int64_t offset = 0) {
+    const lex::SourceLocation& getSourceLocation(int64_t offset = 0) {
         return tokens[position + offset].getSourceLocation();
     }
     
@@ -90,11 +90,11 @@ private:
     // Error messages
     
     [[noreturn]]
-    void unhandledToken(const Token &);
+    void unhandledToken(const lex::Token &);
     
-    void assertTk(Token::TokenKind expected);
+    void assertTk(lex::TokenKind expected);
     
-    void assertTkAndConsume(Token::TokenKind expected) {
+    void assertTkAndConsume(lex::TokenKind expected) {
         assertTk(expected);
         consume();
     }
@@ -147,7 +147,7 @@ private:
     
     
     std::shared_ptr<ast::TupleExpr> parseTupleExpr();
-    std::vector<std::shared_ptr<ast::Expr>> parseExpressionList(Token::TokenKind delimiter);
+    std::vector<std::shared_ptr<ast::Expr>> parseExpressionList(lex::TokenKind delimiter);
     
     std::shared_ptr<ast::ArrayLiteralExpr> parseArrayLiteral();
     

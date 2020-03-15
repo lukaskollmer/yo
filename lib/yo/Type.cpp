@@ -109,7 +109,7 @@ StructType* Type::createTemporary(const std::string &name, const std::vector<Typ
     if (auto type = util::map::get_opt(templatedTemporaryTypes, name)) {
         return *type;
     }
-    auto type = StructType::create(name, {}, templateArgs, parser::TokenSourceLocation());
+    auto type = StructType::create(name, {}, templateArgs, lex::SourceLocation());
     type->setFlag(Flags::IsTemporary);
     templatedTemporaryTypes[name] = type;
     return type;

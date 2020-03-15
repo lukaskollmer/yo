@@ -16,9 +16,9 @@
 
 
 using namespace yo;
-using namespace yo::parser;
+using namespace yo::lex;
 
-using TK = Token::TokenKind;
+using TK = TokenKind;
 
 static constexpr char DOUBLE_QUOTE = '"';
 
@@ -68,7 +68,7 @@ inline bool isSingleCharToken(char c) {
 
 
 // TODO no idea if/how this would work, but it'd be cool to have a compile-time assertion that the mapping below is complete
-static const std::map<std::string, Token::TokenKind> tokenKindMappings = {
+static const std::map<std::string, TokenKind> tokenKindMappings = {
     { "(" , TK::OpeningParens },
     { ")" , TK::ClosingParens },
     { "{" , TK::OpeningCurlyBraces },
@@ -415,7 +415,7 @@ std::vector<Token> Lexer::lex(std::string_view sourceText, const std::string& fi
 }
 
 
-// this might seems stupid, but it does in fact save 2 string comparisons per identifier parsed
+// this might seem stupid, but it does in fact save 2 string comparisons per identifier parsed
 uint8_t isBoolLiteral(std::string_view str) {
     if (str == "false") return 1;
     else if (str == "true") return 2;
@@ -424,15 +424,15 @@ uint8_t isBoolLiteral(std::string_view str) {
 
 
 
-TokenSourceLocation Lexer::currentSourceLocation(int64_t offsetBy, uint64_t length) {
+SourceLocation Lexer::currentSourceLocation(int64_t offsetBy, uint64_t length) {
     int64_t column = static_cast<int64_t>(offset + 2 - lineStart - length) + offsetBy;
     LKAssert(column > 0);
-    return TokenSourceLocation(filepath, line + 1, column, length);
+    return SourceLocation(filepath, line + 1, column, length);
 }
 
 
 
-Token& Lexer::handleRawToken(const std::string& tokenSourceText, Token::TokenKind tokenKind) {
+Token& Lexer::handleRawToken(const std::string& tokenSourceText, TokenKind tokenKind) {
     Token token;
     
     if (tokenKind != TK::Unknown) {

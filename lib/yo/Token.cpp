@@ -9,10 +9,10 @@
 #include "Token.h"
 #include <map>
 
-using namespace yo::parser;
+using namespace yo::lex;
 
-std::string TokenKindToString(Token::TokenKind kind) {
-#define CASE(x) case Token::TokenKind::x: return #x;
+std::string TokenKindToString(TokenKind kind) {
+#define CASE(X) case TokenKind::X: return #X;
     switch (kind) {
         CASE(Unknown)
         CASE(EOF_)
@@ -81,30 +81,31 @@ std::string escape_char(char c) {
 }
 
 
-std::ostream &yo::parser::operator<<(std::ostream &OS, const Token::TokenKind TK) {
+std::ostream &yo::lex::operator<<(std::ostream &OS, const TokenKind TK) {
     return OS << TokenKindToString(TK);
 }
 
 
-std::ostream& yo::parser::operator<<(std::ostream &OS, const Token &T) {
+std::ostream& yo::lex::operator<<(std::ostream &OS, const Token &T) {
     OS << "<Token " << TokenKindToString(T.getKind());
     switch (T.getKind()) {
-        case Token::TokenKind::Ident:
-        case Token::TokenKind::StringLiteral:
-        case Token::TokenKind::ByteStringLiteral:
-        case Token::TokenKind::Whitespace:
+        case TokenKind::Ident:
+        case TokenKind::StringLiteral:
+        case TokenKind::ByteStringLiteral:
+        case TokenKind::Whitespace:
             OS << " '" << T.getData<std::string>() << "'";
             break;
-        case Token::TokenKind::IntegerLiteral:
+        case TokenKind::IntegerLiteral:
             OS << " " << T.getData<uint64_t>();
             break;
-        case Token::TokenKind::CharLiteral:
+        case TokenKind::CharLiteral:
             OS << " '" << escape_char(T.getData<char>()) << "'";
             break;
-        case Token::TokenKind::DoubleLiteral:
+        case TokenKind::DoubleLiteral:
             OS << " " << T.getData<double>();
             break;
-        default: break;
+        default:
+            break;
     }
     
     return OS << ">";

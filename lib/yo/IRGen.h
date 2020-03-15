@@ -37,10 +37,10 @@ StructType* getUnderlyingStruct(Type *ty);
 std::string mangleFullyResolved(const std::shared_ptr<ast::FunctionDecl>&);
 uint8_t argumentOffsetForFunctionKind(ast::FunctionKind);
 bool integerLiteralFitsInIntegralType(uint64_t, Type *);
-llvm::DIFile* DIFileForSourceLocation(llvm::DIBuilder&, const parser::TokenSourceLocation&);
+llvm::DIFile* DIFileForSourceLocation(llvm::DIBuilder&, const lex::SourceLocation&);
 std::shared_ptr<ast::CallExpr> subscriptExprToCall(std::shared_ptr<ast::SubscriptExpr>);
 
-std::shared_ptr<ast::Ident> makeIdent(const std::string&, ast::TokenSourceLocation = ast::TokenSourceLocation());
+std::shared_ptr<ast::Ident> makeIdent(const std::string&, lex::SourceLocation = lex::SourceLocation());
 
 std::shared_ptr<ast::Ident> formatTupleMemberAtIndex(size_t index);
 

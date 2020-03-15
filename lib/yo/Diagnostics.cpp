@@ -15,7 +15,7 @@ void diagnostics::emit(std::string_view category, std::string_view msg) {
     std::cout << category << ": " << msg << std::endl;
 }
 
-void diagnostics::emit(std::string_view category, const parser::TokenSourceLocation &loc, std::string_view msg) {
+void diagnostics::emit(std::string_view category, const lex::SourceLocation &loc, std::string_view msg) {
     if (loc.empty()) return emit(category, msg);
     
     util::fmt::print("{}:{}:{}: {}: {}", loc.filepath, loc.line, loc.column, category, msg);
@@ -34,7 +34,7 @@ void diagnostics::emitNote(std::string_view msg) {
     emit("note", msg);
 }
 
-void diagnostics::emitNote(const parser::TokenSourceLocation &loc, std::string_view msg) {
+void diagnostics::emitNote(const lex::SourceLocation &loc, std::string_view msg) {
     emit("note", loc, msg);
 }
 
@@ -44,7 +44,7 @@ void diagnostics::emitError(std::string_view msg) {
     util::exitOrAbort();
 }
 
-void diagnostics::emitError(const parser::TokenSourceLocation &loc, std::string_view msg) {
+void diagnostics::emitError(const lex::SourceLocation &loc, std::string_view msg) {
     emit("error", loc, msg);
     util::exitOrAbort();
 }

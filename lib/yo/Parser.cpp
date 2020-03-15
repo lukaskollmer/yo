@@ -26,7 +26,9 @@ using namespace yo;
 using namespace yo::ast;
 using namespace yo::parser;
 
-using TK = Token::TokenKind;
+using lex::Token;
+using lex::Lexer;
+using TK = lex::TokenKind;
 
 
 
@@ -123,7 +125,7 @@ void Parser::unhandledToken(const Token &token) {
     diagnostics::emitError(token.getSourceLocation(), OS.str());
 }
 
-void Parser::assertTk(Token::TokenKind expected) {
+void Parser::assertTk(TK expected) {
     if (currentTokenKind() != expected) {
         std::ostringstream OS;
         OS << "Invalid token in source code. Expected: '" << expected << "'.";
@@ -135,7 +137,7 @@ void Parser::assertTk(Token::TokenKind expected) {
 
 
 // TODO move the entire module resolution stuff somewhere else !?
-std::string Parser::resolveImportPathRelativeToBaseDirectory(const TokenSourceLocation &loc, const std::string &moduleName, const std::string &baseDirectory) {
+std::string Parser::resolveImportPathRelativeToBaseDirectory(const lex::SourceLocation &loc, const std::string &moduleName, const std::string &baseDirectory) {
     if (moduleName[0] == '/') { // absolute path
         return moduleName;
     }
@@ -956,7 +958,7 @@ std::shared_ptr<BreakContStmt> Parser::parseBreakOrContinueStmt() {
 
 // Parses a (potentially empty) list of expressions separated by commas, until Delimiter is reached
 // The delimiter is not consumed
-std::vector<std::shared_ptr<Expr>> Parser::parseExpressionList(Token::TokenKind delimiter) {
+std::vector<std::shared_ptr<Expr>> Parser::parseExpressionList(TK delimiter) {
     if (currentTokenKind() == delimiter) return {};
     
     std::vector<std::shared_ptr<Expr>> expressions;

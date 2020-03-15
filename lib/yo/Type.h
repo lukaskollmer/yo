@@ -259,41 +259,54 @@ private:
     std::string name;
     MembersT members;
     std::vector<Type *> templateArguments;
-    parser::TokenSourceLocation sourceLoc;
+    lex::SourceLocation sourceLoc;
     
-    StructType(std::string name, MembersT members, parser::TokenSourceLocation sourceLoc)
+    StructType(std::string name, MembersT members, lex::SourceLocation sourceLoc)
     : Type(Type::TypeID::Struct), name(name), members(members), sourceLoc(sourceLoc) {}
     
-    StructType(std::string name, MembersT members, std::vector<Type *> templateArgs, parser::TokenSourceLocation SL)
+    StructType(std::string name, MembersT members, std::vector<Type *> templateArgs, lex::SourceLocation SL)
     : Type(Type::TypeID::Struct), name(name), members(members), templateArguments(templateArgs), sourceLoc(SL) {}
     
 public:
-    const std::string& getName() const { return name; }
-    std::string str_mangled() const override { return name; }
+    const std::string& getName() const {
+        return name;
+    }
+    std::string str_mangled() const override {
+        return name;
+    }
     std::string str_desc() const override;
     
     bool hasMember(const std::string &name) const;
     
-    uint64_t memberCount() const { return members.size(); }
+    uint64_t memberCount() const {
+        return members.size();
+    }
     
     // Returns a tuple containing the members index and type
     // Returns {0, nullptr} if the struct does not have a member with this name
     std::pair<uint64_t, Type*> getMember(const std::string &name) const;
-    const MembersT& getMembers() const { return members; }
-    const parser::TokenSourceLocation& getSourceLocation() const { return sourceLoc; }
     
-    const std::vector<Type *>& getTemplateArguments() const { return templateArguments; }
+    const MembersT& getMembers() const {
+        return members;
+    }
+    const lex::SourceLocation& getSourceLocation() const {
+        return sourceLoc;
+    }
+    
+    const std::vector<Type *>& getTemplateArguments() const {
+        return templateArguments;
+    }
     
     bool isTemplateInstantiation() const {
         return !templateArguments.empty();
     }
     
     
-    static StructType* create(std::string name, MembersT members, parser::TokenSourceLocation sourceLoc) {
+    static StructType* create(std::string name, MembersT members, lex::SourceLocation sourceLoc) {
         return new StructType(name, members, sourceLoc);
     }
     
-    static StructType* create(std::string name, MembersT members, std::vector<Type *> templateArgs, parser::TokenSourceLocation SL) {
+    static StructType* create(std::string name, MembersT members, std::vector<Type *> templateArgs, lex::SourceLocation SL) {
         return new StructType(name, members, templateArgs, SL);
     }
     

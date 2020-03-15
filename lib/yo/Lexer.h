@@ -16,7 +16,7 @@
 #include <memory>
 
 
-NS_START(yo::parser)
+NS_START(yo::lex)
 
 class Lexer {
 public:
@@ -35,8 +35,8 @@ private:
         return offset - lineStart;
     }
     
-    TokenSourceLocation currentSourceLocation(int64_t offsetBy, uint64_t length);
-    Token& handleRawToken(const std::string& tokenSourceText, Token::TokenKind tokenKind = Token::TokenKind::Unknown);
+    SourceLocation currentSourceLocation(int64_t offsetBy, uint64_t length);
+    Token& handleRawToken(const std::string& tokenSourceText, TokenKind tokenKind = TokenKind::Unknown);
 };
 
 NS_END
