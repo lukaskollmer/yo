@@ -9,6 +9,7 @@
 #include "TypeDesc.h"
 #include "AST.h"
 #include "util/Format.h"
+#include "util/VectorUtils.h"
 
 using namespace yo::ast;
 

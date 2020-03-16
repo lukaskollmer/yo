@@ -8,6 +8,8 @@
 
 #include "Attributes.h"
 #include "util/util.h"
+#include "util/VectorUtils.h"
+
 #include <optional>
 
 using namespace yo;

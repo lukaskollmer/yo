@@ -14,6 +14,7 @@
 #include "parse/Attributes.h"
 #include "util_llvm.h"
 #include "util/llvm_casting.h"
+#include "util/MapUtils.h"
 
 #include <optional>
 #include <limits>

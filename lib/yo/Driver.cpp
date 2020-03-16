@@ -229,7 +229,7 @@ bool emitModule(const Options &options, std::unique_ptr<llvm::Module> module, co
 
 static bool shouldSigabrtOnFatalError = false;
 
-bool LKCompilerInternalOptionSigabrtOnFatalError() {
+extern "C" bool LKCompilerInternalOptionSigabrtOnFatalError() {
     return shouldSigabrtOnFatalError;
 }
 

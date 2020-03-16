@@ -9,6 +9,8 @@
 #include "TemplateSpecialization.h"
 #include "Mangling.h"
 #include "parse/Attributes.h"
+#include "util/MapUtils.h"
+#include "util/VectorUtils.h"
 
 // Template Instantiation
 

@@ -209,7 +209,7 @@ public:
 
 
 
-void ast::print_ast(const ast::AST &ast) {
+void print_ast(const ast::AST &ast) {
     ASTPrinter().traverse(ast);
     LKFatalError("");
 }

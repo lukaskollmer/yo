@@ -10,6 +10,8 @@
 
 #include "util.h"
 #include "Format.h"
+#include "Counter.h"
+#include "VectorUtils.h"
 
 #include <string>
 #include <tuple>
@@ -19,7 +21,9 @@
 #include <optional>
 
 
-NS_START(yo::util)
+namespace yo {
+namespace util {
+
 
 template <typename Value, typename Key = std::string>
 class NamedScope {
@@ -119,4 +123,5 @@ public:
 };
 
 
-NS_END // yo::util
+} // ns util
+} // ns yo

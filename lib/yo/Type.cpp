@@ -9,6 +9,8 @@
 #include "Type.h"
 #include "Mangling.h"
 #include "util/Format.h"
+#include "util/MapUtils.h"
+#include "util/VectorUtils.h"
 
 #include <string>
 #include <map>

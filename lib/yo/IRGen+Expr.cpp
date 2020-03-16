@@ -12,6 +12,7 @@
 #include "lex/Diagnostics.h"
 #include "util_llvm.h"
 #include "util/llvm_casting.h"
+#include "util/MapUtils.h"
 
 #include <string>
 #include <vector>

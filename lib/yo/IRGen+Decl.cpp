@@ -10,6 +10,8 @@
 #include "Mangling.h"
 #include "lex/Diagnostics.h"
 #include "util_llvm.h"
+#include "util/VectorUtils.h"
+#include "util/MapUtils.h"
 
 
 using namespace yo;

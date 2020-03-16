@@ -9,8 +9,9 @@
 #pragma once
 
 #include "util.h"
+
 #include <string>
-#include <ostream>
+#include <iostream>
 #include <sstream>
 
 NS_START(yo::util::fmt)

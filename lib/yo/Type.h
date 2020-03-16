@@ -11,6 +11,7 @@
 #include "lex/SourceLocation.h"
 #include "parse/TypeDesc.h"
 #include "util/util.h"
+#include "util/OptionSet.h"
 
 #include <vector>
 #include <utility>

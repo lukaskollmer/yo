@@ -13,6 +13,7 @@
 #include "yo/Mangling.h"
 #include "util/Format.h"
 #include "util/llvm_casting.h"
+#include "util/VectorUtils.h"
 
 #include <string>
 #include <vector>

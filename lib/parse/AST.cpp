@@ -8,6 +8,7 @@
 
 #include "AST.h"
 #include "yo/Mangling.h"
+#include "util/VectorUtils.h"
 
 #include <string>
 #include <iostream>

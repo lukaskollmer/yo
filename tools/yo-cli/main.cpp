@@ -10,6 +10,7 @@
 #include "yo/Driver.h"
 #include "util/util.h"
 #include "yo/util_llvm.h"
+#include "util/Format.h"
 
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/CommandLine.h"

@@ -40,19 +40,16 @@ macro(yo_add_target)
         add_library(${target_name} ${src_files})
     elseif(${target_type} STREQUAL "bin")
         add_executable(${target_name} ${src_files})
-        set(IS_BIN TRUE)
     else()
         message(FATAL_ERROR "Invalid target type '${target_type}'")
     endif()
 
+    target_link_libraries(${target_name} ${ARG_YO_LIBS})
+    target_include_directories(${target_name} PRIVATE "${PROJECT_SOURCE_DIR}/lib")
+    
     llvm_map_components_to_libnames(llvm_libs ${ARG_LLVM_LIBS})
     target_include_directories(${target_name} PRIVATE SYSTEM ${LLVM_INCLUDE_DIRS})
     target_link_libraries(${target_name} ${llvm_libs})
-    
-    foreach(libname ${ARG_YO_LIBS})
-        target_link_libraries(${target_name} ${libname})
-    endforeach()
-    target_include_directories(${target_name} PRIVATE "${PROJECT_SOURCE_DIR}/lib")
 endmacro(yo_add_target)
 
 

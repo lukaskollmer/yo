@@ -10,12 +10,16 @@
 #include "Type.h"
 #include "util/util.h"
 #include "util/Format.h"
+#include "util/MapUtils.h"
+#include "util/VectorUtils.h"
 
 #include "llvm/Support/Casting.h"
 
 #include <map>
+#include <vector>
 #include <charconv>
 #include <optional>
+#include <cmath>
 
 
 /*
@@ -466,7 +470,7 @@ private:
         
         for (size_t idx = 0; idx < count; idx++) {
             int charval = input[idx] - '0';
-            value += pow<int>(10, count - idx - 1) * charval;
+            value += std::pow<int>(10, count - idx - 1) * charval;
         }
         return {value, count};
     }

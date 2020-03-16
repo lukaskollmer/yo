@@ -9,6 +9,7 @@
 #pragma once
 
 #include "util/util.h"
+#include "util/OptionSet.h"
 
 #include <string>
 

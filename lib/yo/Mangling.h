@@ -14,7 +14,6 @@
 
 #include <string>
 #include <memory>
-#include <map>
 
 namespace yo::mangling {
     std::string mangleCanonicalName(std::shared_ptr<ast::FunctionDecl>);

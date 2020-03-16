@@ -10,6 +10,7 @@
 #include "lex/Diagnostics.h"
 #include "util_llvm.h"
 #include "util/llvm_casting.h"
+#include "util/VectorUtils.h"
 
 using namespace yo;
 using namespace yo::irgen;

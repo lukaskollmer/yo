@@ -12,24 +12,18 @@
 #include <vector>
 #include <functional>
 #include <ostream>
-#include <csignal>
-#include <map>
 #include <optional>
 #include <memory>
-#include <sstream>
-#include <iostream>
 #include <type_traits>
-#include <iomanip>
-#include <initializer_list>
+#include <cstring>
+#include <csignal>
 
 
 #define NS_START(x) namespace x {
 #define NS_END }
 
-#define let const auto
-#define var auto
 
-extern bool LKCompilerInternalOptionSigabrtOnFatalError();
+extern "C" bool LKCompilerInternalOptionSigabrtOnFatalError();
 
 NS_START(yo::util)
 
@@ -57,6 +51,7 @@ inline void exitOrAbort() {
 
 
 
+/// Print an error message to stdout and abort
 #define LKFatalError(fmt, ...)  \
 do {                            \
     printf("Fatal Error: " fmt ". func: %s, file: %s, line: %i\n", ## __VA_ARGS__ , __func__, __FILE__, __LINE__);  \
@@ -65,10 +60,12 @@ do {                            \
 } while (0)
 
 
+/// Assert that a condition is true, otherwise abort
 #define LKAssert(e) \
 do { if (__builtin_expect(!(bool)(e), 0)) { LKFatalError("LKAssert failed: %s", #e); } } while (0)
 
 
+/// Assert that a condition is true, otherwise abort w/ a custom message
 #define LKAssertMsg(e, msg_expr)                                            \
 do { if (__builtin_expect(!(bool)(e), 0)) {                                 \
     auto msg_f = [&]() -> std::string { return std::string(msg_expr); };    \
@@ -116,89 +113,17 @@ auto bitcast(const From &value) -> std::enable_if_t<(sizeof(From) == sizeof(To))
 
 
 
-template <typename T = uint64_t>
-class Counter {
-    T value;
-    
-public:
-    Counter() : value(0) {}
-    explicit Counter(T initial) : value(initial) {}
-    
-    T currentValue() const {
-        return value;
-    }
-    
-    T increment() {
-        T val = value;
-        value += 1;
-        return val;
-    }
-};
-
-
-
-template <typename Flags>
-class OptionSet {
-    using Data = std::make_unsigned_t<std::underlying_type_t<Flags>>;
-    Data data;
-    
-public:
-    OptionSet() : data(0) {}
-    
-    OptionSet(Flags flags) : data(static_cast<Data>(flags)) {}
-    
-    OptionSet(std::initializer_list<Flags> flags) {
-        for (Flags F : flags) insert(F);
-    }
-    
-    bool isEmpty() const {
-        return data == 0;
-    }
-    
-    bool contains(Flags val) const {
-        return data & static_cast<Data>(val);
-    }
-    
-    void insert(Flags val) {
-        data |= static_cast<Data>(val);
-    }
-    
-    bool remove(Flags val) {
-        data &= ~static_cast<Data>(val);
-    }
-};
-
-
-
 
 
 template <typename F>
 class DeferHandle {
     F fn;
 public:
-    explicit DeferHandle(F fn) : fn(fn) {}
+    DeferHandle(F fn) : fn(fn) {}
     ~DeferHandle() {
         fn();
     }
 };
-
-#define defer(imp) DeferHandle CONCAT(__defer_handle__, __COUNTER__)(imp);
-
-
-
-struct _LKExitHandler {
-    std::function<void()> invoke;
-    _LKExitHandler(std::function<void()> invoke) : invoke(invoke) {}
-};
-
-inline std::ostream& operator<<(std::ostream &OS, const _LKExitHandler &EH) {
-    OS << std::endl;
-    EH.invoke();
-    return OS;
-}
-
-
-#define fatalError yo::util::_LKExitHandler([]() { raise(SIGABRT); });
 
 
 
@@ -259,7 +184,7 @@ struct member_ptr<M C::*> {
 
 
 
-// TODO the typename stuff needs a rewrite!
+// TODO properly implement the typename stuff!
 
 
 template <typename T>
@@ -277,166 +202,9 @@ template <typename T>
 const std::string TypeInfo<T>::name = demangle(typeid(T).name());
 
 
-
 } // namespace typeinfo
 
 
-
-
-
-#pragma mark - vector
-
-namespace vector {
-
-template <typename T>
-inline bool contains(const std::vector<T> &vector, const T &element) {
-    return std::find(vector.begin(), vector.end(), element) != vector.end();
-}
-
-
-template <typename T, typename F>
-bool contains_where(const std::vector<T> &vector, F fn) {
-    for (const auto& elem : vector) {
-        if (fn(elem)) return true;
-    }
-    return false;
-}
-
-
-template <typename T, typename F>
-std::optional<T> first_where(const std::vector<T> &vector, F fn) {
-    for (const auto& elem : vector) {
-        if (fn(elem)) return elem;
-    }
-    return std::nullopt;
-}
-
-/// Iterate over a vector, 1st `F` parameter is the current index
-template <typename T, typename F>
-void iteri(const std::vector<T> &vec, F &&fn) {
-    for (size_t i = 0; i < vec.size(); i++) {
-        fn(i, vec[i]);
-    }
-}
-
-/// Iterate over a vector, 2nd `F` parameter  indicates whether this is the last element
-template <typename T, typename F>
-void iterl(const std::vector<T> &vec, F &&fn) {
-    for (auto it = vec.begin(); it != vec.end(); it++) {
-        fn(*it, it + 1 == vec.end());
-    }
-}
-
-
-template <typename T, typename F>
-auto map(const std::vector<T>& vec, F&& fn) {
-    std::vector<std::invoke_result_t<F, const T&>> mapped;
-    mapped.reserve(vec.size());
-    for (const auto& elem : vec) {
-        mapped.push_back(fn(elem));
-    }
-    return mapped;
-}
-
-
-template <typename T, typename F>
-auto mapi(const std::vector<T>& vec, F&& fn) {
-    std::vector<std::invoke_result_t<F, typename std::iterator_traits<typename std::vector<T>::iterator>::difference_type, const T&>> mapped;
-    mapped.reserve(vec.size());
-    for (auto it = vec.begin(); it != vec.end(); it++) {
-        auto idx = std::distance(vec.begin(), it);
-        mapped.push_back(fn(idx, *it));
-    }
-    return mapped;
-}
-
-
-template <typename T, typename F>
-std::pair<std::vector<T>, std::vector<T>> filter_keeping_all(std::vector<T> &vector, F f) {
-    std::vector<T> matched, unmatched;
-    for (const auto& element : vector) {
-        (f(element) == true ? matched : unmatched).push_back(element);
-    }
-    return {matched, unmatched};
-}
-
-
-template <typename T, typename F>
-std::vector<T> filter(const std::vector<T> &vector, F &&fn) {
-    std::vector<T> results;
-    results.reserve(vector.size());
-    for (const auto &element : vector) {
-        if (fn(element)) results.push_back(element);
-    }
-    return results;
-}
-
-
-// Different behaviour depending on whether F returns void or U
-template <template <typename...> class container, typename T, typename U, typename F>
-U reduce(const container<T> &input, U initialValue, F fn) {
-    U accumulator = initialValue;
-    for (auto it = input.begin(); it != input.end(); it++) {
-        if constexpr(std::is_void_v<std::invoke_result_t<F, U&, const T&, uint64_t>>) {
-            fn(accumulator, *it, it - input.begin());
-        } else {
-            static_assert(std::is_same_v<U, std::invoke_result_t<F, F, const U&, const T&, uint64_t>>, "");
-            accumulator = fn(accumulator, *it, it - input.begin());
-        }
-    }
-    return accumulator;
-}
-
-
-template <typename T>
-void append(std::vector<T> &dest, const std::vector<T> &src) {
-    dest.insert(dest.end(), src.begin(), src.end());
-}
-
-} // namespace vector
-
-
-
-#pragma mark - map
-
-namespace map {
-
-template <typename K, typename V>
-inline bool has_key(const std::map<K, V> &map, const K &key) {
-    return map.find(key) != map.end();
-}
-
-template <typename K, typename V>
-inline std::optional<V> get_opt(const std::map<K, V> &map, const K &key) {
-    if (has_key(map, key)) return map.at(key);
-    else return std::nullopt;
-}
-
-template <typename K, typename V>
-std::optional<K> reverse_lookup(const std::map<K, V> &map, const V &value) {
-    for (auto &[key, val] : map) {
-        if (val == value) return key;
-    }
-    return std::nullopt;
-}
-
-template <typename K, typename V, typename F>
-bool contains_where(const std::map<K, V> &map, F &&fn) {
-    for (auto &[key, value] : map) {
-        if (fn(key, value)) return true;
-    }
-    return false;
-}
-
-
-template <typename K, typename V, typename F>
-void iterl(const std::map<K, V> &map, F &&fn) {
-    for (auto it = map.begin(); it != map.end();) {
-        fn(it->first, it->second, ++it == map.end());
-    }
-}
-
-} // namespace map
 
 
 

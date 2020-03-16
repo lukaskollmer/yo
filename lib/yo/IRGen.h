@@ -15,6 +15,8 @@
 #include "util/NamedScope.h"
 #include "util/util.h"
 #include "util/Format.h"
+#include "util/Counter.h"
+#include "util/OptionSet.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"
