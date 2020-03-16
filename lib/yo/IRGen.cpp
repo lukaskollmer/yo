@@ -9,11 +9,11 @@
 #include "IRGen.h"
 
 #include "Mangling.h"
-#include "util_llvm.h"
 #include "TemplateSpecialization.h"
-#include "Attributes.h"
-#include "Diagnostics.h"
-#include "ASTVisitor.h"
+#include "lex/Diagnostics.h"
+#include "parse/Attributes.h"
+#include "util_llvm.h"
+#include "util/llvm_casting.h"
 
 #include <optional>
 #include <limits>
@@ -32,6 +32,7 @@ using NK = ast::Node::Kind;
 throw; }
 
 
+// TODO add some static asserts to make sure the llvm casting extensions return the currect types?
 
 
 uint8_t irgen::argumentOffsetForFunctionKind(ast::FunctionKind kind) {
@@ -155,7 +156,7 @@ llvm::DIFile* irgen::DIFileForSourceLocation(llvm::DIBuilder& builder, const lex
 llvm::LLVMContext IRGenerator::C;
 
 IRGenerator::IRGenerator(const std::string &translationUnitPath, const driver::Options &options)
-    : module(llvm::make_unique<llvm::Module>(util::fs::path_utils::getFilename(translationUnitPath), C)),
+    : module(llvm::make_unique<llvm::Module>(util::fs::path_get_filename(translationUnitPath), C)),
     builder(C),
     debugInfo{llvm::DIBuilder(*module), nullptr, {}},
     driverOptions(options)

@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "AST.h"
-#include "TypeDesc.h"
+#include "parse/AST.h"
+#include "parse/TypeDesc.h"
 #include "Type.h"
 
 #include <string>

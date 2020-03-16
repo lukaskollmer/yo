@@ -7,7 +7,7 @@
 //
 
 #include "ASTVisitor.h"
-#include "util_llvm.h"
+#include "util/llvm_casting.h"
 
 
 namespace yo {

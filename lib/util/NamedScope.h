@@ -8,8 +8,7 @@
 
 #pragma once
 
-#include "util/util.h"
-#include "Type.h"
+#include "util.h"
 
 #include <tuple>
 #include <vector>
@@ -105,13 +104,6 @@ public:
     
     void removeAll() {
         entries = {};
-    }
-    
-    
-    void dump() const {
-        for (auto &[name, id, elem] : entries) {
-            util::fmt::print("[{}] {}: {}", id, name, elem);
-        }
     }
 };
 

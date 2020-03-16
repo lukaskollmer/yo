@@ -7,8 +7,9 @@
 //
 
 #include "IRGen.h"
-#include "Diagnostics.h"
+#include "lex/Diagnostics.h"
 #include "util_llvm.h"
+#include "util/llvm_casting.h"
 
 using namespace yo;
 using namespace yo::irgen;

@@ -284,7 +284,7 @@ std::string util::fs::read_specific_line(const std::string& path, uint64_t lineN
 
 
 
-std::string util::fs::path_utils::getFilename(const std::string &path) {
+std::string util::fs::path_get_filename(const std::string &path) {
     if (path == "-") {
         return "<stdin>";
     }

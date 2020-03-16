@@ -8,6 +8,7 @@
 
 #include "Type.h"
 #include "Mangling.h"
+#include "util/Format.h"
 
 #include <string>
 #include <map>

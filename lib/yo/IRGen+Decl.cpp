@@ -8,7 +8,7 @@
 
 #include "IRGen.h"
 #include "Mangling.h"
-#include "Diagnostics.h"
+#include "lex/Diagnostics.h"
 #include "util_llvm.h"
 
 

@@ -9,8 +9,9 @@
 #include "IRGen.h"
 #include "Mangling.h"
 #include "TemplateSpecialization.h"
-#include "Diagnostics.h"
+#include "lex/Diagnostics.h"
 #include "util_llvm.h"
+#include "util/llvm_casting.h"
 
 #include <string>
 #include <vector>

@@ -8,12 +8,13 @@
 
 #pragma once
 
-#include "AST.h"
+#include "lex/SourceLocation.h"
+#include "parse/AST.h"
 #include "Driver.h"
 #include "Type.h"
-#include "NamedScope.h"
-#include "lex/SourceLocation.h"
+#include "util/NamedScope.h"
 #include "util/util.h"
+#include "util/Format.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/IRBuilder.h"

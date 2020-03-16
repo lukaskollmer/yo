@@ -7,13 +7,15 @@
 //
 
 #include "Mangling.h"
+#include "Type.h"
 #include "util/util.h"
+#include "util/Format.h"
+
+#include "llvm/Support/Casting.h"
+
 #include <map>
 #include <charconv>
 #include <optional>
-#include "Type.h"
-
-#include "llvm/Support/Casting.h"
 
 
 /*

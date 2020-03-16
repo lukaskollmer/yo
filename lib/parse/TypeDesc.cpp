@@ -8,13 +8,14 @@
 
 #include "TypeDesc.h"
 #include "AST.h"
+#include "util/Format.h"
 
 using namespace yo::ast;
 
 
-std::string cc_to_str(yo::irgen::CallingConvention cc) {
+std::string cc_to_str(CallingConvention cc) {
     switch (cc) {
-        case yo::irgen::CallingConvention::C: return "C";
+        case CallingConvention::C: return "C";
     }
 }
 
@@ -48,7 +49,9 @@ std::string TypeDesc::str() const {
         
         case Kind::Resolved:
             //return std::string("resolved(").append(getResolvedType()->str()).append(")");
-            return getResolvedType()->str_desc();
+            //return getResolvedType()->str_desc();
+            // TODO bring back the proper description
+            return util::fmt::format("resolved({})", static_cast<void *>(getResolvedType()));
         
         case Kind::Decltype:
             return util::fmt::format("decltype({})", getDecltypeExpr()->description());

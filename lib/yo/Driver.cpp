@@ -6,12 +6,11 @@
 //  Copyright © 2020 Lukas Kollmer. All rights reserved.
 //
 
+#include "lex/Diagnostics.h"
+#include "parse/Parser.h"
 #include "Driver.h"
-#include "Parser.h"
 #include "IRGen.h"
-#include "Diagnostics.h"
 #include "util/util.h"
-#include "ASTVisitor.h"
 
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -243,7 +242,7 @@ bool driver::run(driver::Options options) {
     }
     
     const std::string inputFile = options.inputFile;
-    const std::string inputFilename = util::fs::path_utils::getFilename(inputFile);
+    const std::string inputFilename = util::fs::path_get_filename(inputFile);
     
     parser::Parser parser;
     

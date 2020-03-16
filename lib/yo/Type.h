@@ -9,6 +9,7 @@
 #pragma once
 
 #include "lex/SourceLocation.h"
+#include "parse/TypeDesc.h"
 #include "util/util.h"
 
 #include <vector>
@@ -25,11 +26,6 @@ namespace llvm {
 NS_START(yo::irgen)
 
 
-enum class CallingConvention {
-    C
-};
-
-
 class Type;
 class NumericalType;
 class StructType;
@@ -37,6 +33,7 @@ class PointerType;
 class ReferenceType;
 class FunctionType;
 class StructType;
+using ast::CallingConvention;
 
 
 

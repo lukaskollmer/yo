@@ -7,7 +7,7 @@
 //
 
 #include "AST.h"
-#include "Mangling.h"
+#include "yo/Mangling.h"
 
 #include <string>
 #include <iostream>

@@ -65,8 +65,9 @@ macro(yo_add_tool)
 endmacro(yo_add_tool)
 
 
-add_subdirectory(lib/util)
 add_subdirectory(lib/lex)
+add_subdirectory(lib/parse)
+add_subdirectory(lib/util)
 add_subdirectory(lib/yo)
 add_subdirectory(tools/yo-cli)
 add_subdirectory(tools/yo-demangle)

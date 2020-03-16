@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include "Type.h"
 #include "lex/SourceLocation.h"
 #include "util/util.h"
 
@@ -19,6 +18,11 @@
 #include <utility>
 
 
+namespace yo::irgen {
+    class Type;
+}
+
+
 
 NS_START(yo::ast)
 
@@ -27,12 +31,17 @@ using lex::SourceLocation;
 class Expr;
 class TypeDesc;
 
+enum class CallingConvention {
+    C
+};
+
+
 struct FunctionTypeInfo {
-    yo::irgen::CallingConvention callingConvention;
+    CallingConvention callingConvention;
     std::shared_ptr<TypeDesc> returnType;
     std::vector<std::shared_ptr<TypeDesc>> parameterTypes;
     
-    FunctionTypeInfo(yo::irgen::CallingConvention cc, std::shared_ptr<TypeDesc> returnType, std::vector<std::shared_ptr<TypeDesc>> parameterTypes)
+    FunctionTypeInfo(CallingConvention cc, std::shared_ptr<TypeDesc> returnType, std::vector<std::shared_ptr<TypeDesc>> parameterTypes)
     : callingConvention(cc), returnType(returnType), parameterTypes(parameterTypes) {}
 };
 
@@ -91,7 +100,7 @@ public:
         return std::shared_ptr<TypeDesc>(new TypeDesc(Kind::Reference, pointee, loc));
     }
     
-    static std::shared_ptr<TypeDesc> makeFunction(yo::irgen::CallingConvention cc, std::shared_ptr<TypeDesc> returnTy, std::vector<std::shared_ptr<TypeDesc>> parameterTypes, SourceLocation loc = SourceLocation()) {
+    static std::shared_ptr<TypeDesc> makeFunction(CallingConvention cc, std::shared_ptr<TypeDesc> returnTy, std::vector<std::shared_ptr<TypeDesc>> parameterTypes, SourceLocation loc = SourceLocation()) {
         return std::shared_ptr<TypeDesc>(new TypeDesc(Kind::Function, FunctionTypeInfo(cc, returnTy, parameterTypes), loc));
     }
     

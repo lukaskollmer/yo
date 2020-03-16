@@ -7,6 +7,7 @@
 //
 
 #include "Diagnostics.h"
+#include "util/Format.h"
 
 using namespace yo;
 

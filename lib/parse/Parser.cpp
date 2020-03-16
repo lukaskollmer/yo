@@ -8,12 +8,11 @@
 
 #include "Parser.h"
 
-#include "Mangling.h"
 #include "StdlibResolution.h"
-#include "Diagnostics.h"
-
-#include "util_llvm.h"
-#include "llvm/Support/Casting.h"
+#include "lex/Diagnostics.h"
+#include "yo/Mangling.h"
+#include "util/Format.h"
+#include "util/llvm_casting.h"
 
 #include <string>
 #include <vector>

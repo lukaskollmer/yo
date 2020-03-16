@@ -8,7 +8,7 @@
 
 #include "TemplateSpecialization.h"
 #include "Mangling.h"
-#include "Attributes.h"
+#include "parse/Attributes.h"
 
 // Template Instantiation
 

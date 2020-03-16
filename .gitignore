@@ -28,5 +28,5 @@ stdlib_old/
 
 # Automatically generated files
 tools/yo-cli/Version.h
-lib/yo/stdlib_sources.cpp
+lib/parse/stdlib_sources.cpp
 test/*.in
