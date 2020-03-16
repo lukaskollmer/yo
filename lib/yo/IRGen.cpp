@@ -859,7 +859,7 @@ void IRGenerator::includeInStackDestruction(Type *type, llvm::Value *value) {
 }
 
 
-void IRGenerator::destructLocalScopeUntilMarker(NamedScope<ValueBinding>::Marker M, bool removeFromLocalScope) {
+void IRGenerator::destructLocalScopeUntilMarker(util::NamedScope<ValueBinding>::Marker M, bool removeFromLocalScope) {
     auto entries = localScope.getEntriesSinceMarker(M);
     
     for (auto it = entries.rbegin(); it != entries.rend(); it++) {

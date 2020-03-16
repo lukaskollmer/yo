@@ -118,11 +118,11 @@ struct FunctionState {
     llvm::BasicBlock *returnBB = nullptr;
     llvm::Value *retvalAlloca = nullptr;
     uint64_t tmpIdentCounter = 0;
-    NamedScope<ValueBinding>::Marker stackTopMarker = 0; // Beginning of function body
+    util::NamedScope<ValueBinding>::Marker stackTopMarker = 0; // Beginning of function body
     std::stack<BreakContDestinations> breakContDestinations;
     
     FunctionState() {}
-    FunctionState(std::shared_ptr<ast::FunctionDecl> decl, llvm::Function *llvmFunction, llvm::BasicBlock *returnBB, llvm::Value *retvalAlloca, NamedScope<ValueBinding>::Marker STM)
+    FunctionState(std::shared_ptr<ast::FunctionDecl> decl, llvm::Function *llvmFunction, llvm::BasicBlock *returnBB, llvm::Value *retvalAlloca, util::NamedScope<ValueBinding>::Marker STM)
     : decl(decl), llvmFunction(llvmFunction), returnBB(returnBB), retvalAlloca(retvalAlloca), stackTopMarker(STM) {}
     
     std::string getTmpIdent() {
@@ -195,11 +195,11 @@ class IRGenerator {
     const driver::Options &driverOptions;
     
     /// The local scope
-    NamedScope<ValueBinding> localScope;
+    util::NamedScope<ValueBinding> localScope;
     
     // Finalized nominal types
     // If the type is a template specialization, the key is the mangled name
-    NamedScope<Type *> nominalTypes;
+    util::NamedScope<Type *> nominalTypes;
     
     /// All registered non-template struct types
     std::map<std::string, std::shared_ptr<ast::StructDecl>> structDecls;
@@ -336,7 +336,7 @@ private:
     /// Put the value into the local scope (thus including it in stack cleanup destructor calls)
     void includeInStackDestruction(Type *, llvm::Value *);
     
-    void destructLocalScopeUntilMarker(NamedScope<ValueBinding>::Marker, bool removeFromLocalScope);
+    void destructLocalScopeUntilMarker(util::NamedScope<ValueBinding>::Marker, bool removeFromLocalScope);
     
     
     

@@ -9,7 +9,9 @@
 #pragma once
 
 #include "util.h"
+#include "Format.h"
 
+#include <string>
 #include <tuple>
 #include <vector>
 #include <functional>
@@ -17,38 +19,44 @@
 #include <optional>
 
 
-namespace yo {
+NS_START(yo::util)
 
-template <typename T>
+template <typename Value, typename Key = std::string>
 class NamedScope {
 public:
     using ID = uint64_t;
-    using Entry = std::tuple<std::string, ID, T>;
+    using Entry = std::tuple<Key, ID, Value>;
     
 private:
-    ID id = 0;
+    Counter<ID> idCounter;
     std::vector<Entry> entries;
     
 public:
     using Marker = uint64_t;
     
-    bool isEmpty() const { return entries.empty(); }
-    uint64_t size() const { return entries.size(); }
+    bool isEmpty() const {
+        return entries.empty();
+    }
     
-    ID insert(const std::string &ident, const T entry) {
-        entries.emplace_back(ident, ++id, entry);
+    uint64_t size() const {
+        return entries.size();
+    }
+    
+    ID insert(const Key &key, const Value &value) {
+        auto id = idCounter.increment();
+        entries.emplace_back(key, id, value);
         return id;
     }
     
-    bool contains(const std::string &ident) const {
-        return util::vector::contains_where(entries, [&ident](const auto &entry) {
-            return std::get<0>(entry) == ident;
+    bool contains(const Key &key) const {
+        return util::vector::contains_where(entries, [&key](const auto &entry) {
+            return std::get<0>(entry) == key;
         });
     }
     
-    std::optional<T> get(const std::string &ident) const {
+    std::optional<Value> get(const Key &key) const {
         for (auto it = entries.rbegin(); it != entries.rend(); it++) {
-            if (std::get<0>(*it) == ident) {
+            if (std::get<0>(*it) == key) {
                 return std::get<2>(*it);
             }
         }
@@ -59,21 +67,24 @@ public:
         return entries.size();
     }
     
-    const std::vector<Entry>& getEntries() const { return entries; }
+    const std::vector<Entry>& getEntries() const {
+        return entries;
+    }
     
     std::vector<Entry> getEntriesSinceMarker(Marker M) const {
         if (M >= entries.size()) return {};
         return std::vector<Entry>(entries.begin() + M, entries.end());
     }
     
-    /// Remove the most recently added entry with the specified name
-    void remove(const std::string &ident) {
-        auto it = std::find_if(entries.rbegin(), entries.rend(), [&ident](const auto &entry) -> bool {
-            return std::get<0>(entry) == ident;
+    /// Remove the most recently added entry with the specified key
+    void remove(const Key &key) {
+        auto it = std::find_if(entries.rbegin(), entries.rend(), [&key](const auto &entry) -> bool {
+            return std::get<0>(entry) == key;
         });
         
         if (it == entries.rend()) {
-            LKFatalError("Cannot delete nonexistent entry with ident '%s'", ident.c_str());
+            auto msg = fmt::format("cannot delete nonexistent entru with key '{}'", key);
+            LKFatalError("%s", msg.c_str());
         } else {
             entries.erase((it + 1).base());
         }
@@ -108,4 +119,4 @@ public:
 };
 
 
-} // end namespace yo
+NS_END // yo::util
