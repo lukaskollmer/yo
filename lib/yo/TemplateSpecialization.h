@@ -8,13 +8,13 @@
 
 #pragma once
 
+#include "parse/AST.h"
+
 #include <memory>
 #include <map>
 #include <string>
 #include <optional>
 
-#include "AST.h"
-#include "IRGen.h"
 
 
 NS_START(yo::irgen)
