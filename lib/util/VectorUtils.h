@@ -12,6 +12,9 @@
 
 #include <vector>
 #include <optional>
+#include <algorithm>
+#include <iterator>
+#include <type_traits>
 
 
 NS_START(yo::util::vector)

@@ -16,8 +16,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
-#include <functional>
-#include <utility>
+#include <algorithm>
 #include <optional>
 
 

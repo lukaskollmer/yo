@@ -10,9 +10,7 @@
 
 #include <string>
 #include <vector>
-#include <functional>
 #include <ostream>
-#include <optional>
 #include <memory>
 #include <type_traits>
 #include <cstring>

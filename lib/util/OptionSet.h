@@ -28,7 +28,9 @@ public:
     OptionSet(Flags flags) : data(static_cast<Data>(flags)) {}
     
     OptionSet(std::initializer_list<Flags> flags) {
-        for (Flags F : flags) insert(F);
+        for (Flags F : flags) {
+            insert(F);
+        }
     }
     
     bool isEmpty() const {
