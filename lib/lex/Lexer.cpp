@@ -7,6 +7,7 @@
 //
 
 #include "Lexer.h"
+#include "Diagnostics.h"
 #include "util/util.h"
 
 #include <map>
@@ -474,8 +475,7 @@ void Lexer::lexNumberLiteral() {
     
     if (length != rawValue.length()) {
         auto loc = getSourceLoc(length, rawValue.length());
-        //diagnostics::emitError(loc, "Invalid character in number literal");
-        LKFatalError(""); // TODO emit diag
+        diagnostics::emitError(loc, "Invalid character in number literal");
     }
     
     auto &token = addToken(isFloat ? TokenKind::DoubleLiteral : TokenKind::IntegerLiteral, rawValue);
