@@ -174,6 +174,7 @@ public:
     
     bool numericalTypeIdEquals(NumericalTypeID ID) const { return numericalTypeId == ID; }
     
+    /// the type's size, in bytes
     uint8_t getSize() const;
     uint8_t getPrimitiveSizeInBits() const;
     bool isBoolTy() const;

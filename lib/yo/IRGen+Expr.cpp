@@ -1893,8 +1893,20 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
             auto argTy = getType(arg);
             auto V = codegenExpr(arg, RValue);
             
+            if (auto refTy = llvm::dyn_cast<ReferenceType>(argTy)) {
+                V = builder.CreateLoad(V);
+                argTy = refTy->getReferencedType();
+            }
+            
+            LKAssert(argTy->isPointerTy() || argTy->isNumericalTy());
+            
             if (argTy == builtinTypes.yo.f32) {
                 V = builder.CreateFPCast(V, builtinTypes.llvm.Double);
+            
+            } else if (auto numTy = llvm::dyn_cast<NumericalType>(argTy)) {
+                if (numTy->getSize() < builtinTypes.yo.i32->getSize()) {
+                    V = builder.CreateIntCast(V, builtinTypes.llvm.i32, numTy->isSigned());
+                }
             }
             
             args.push_back(V);
