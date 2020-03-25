@@ -7,7 +7,7 @@ struct ArrayIterator<Element> {
     idx: i64
 }
 
-impl ArrayIterator {
+impl<Element> ArrayIterator<Element> {
     fn init(self: &Self, array: &Array<Element>) {
         self.init(array, 0);
     }
@@ -31,7 +31,7 @@ struct Array<Element> {
     capacity: i64
 }
 
-impl Array {
+impl<Element> Array<Element> {
     fn init(self: &Self) {
         self.data = alloc<Element>(10);
         self.capacity = 10;

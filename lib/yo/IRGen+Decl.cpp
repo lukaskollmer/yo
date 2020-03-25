@@ -12,6 +12,7 @@
 #include "util_llvm.h"
 #include "util/VectorUtils.h"
 #include "util/MapUtils.h"
+#include "util/llvm_casting.h"
 
 
 using namespace yo;
@@ -20,20 +21,132 @@ using NK = ast::Node::Kind;
 
 
 
-void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDecl) {
+
+void IRGenerator::registerNamedDecl(NamedDeclInfo &declInfo) {
+    if (declInfo.isRegistered) {
+        return;
+    }
+    
+    switch (declInfo.decl->getKind()) {
+        case NK::FunctionDecl:
+            registerFunction(llvm::cast<ast::FunctionDecl>(declInfo.decl), declInfo);
+            break;
+        
+        case NK::VariantDecl:
+            registerVariantDecl(llvm::cast<ast::VariantDecl>(declInfo.decl), declInfo);
+            break;
+        
+        case NK::StructDecl:
+            registerStructDecl(llvm::cast<ast::StructDecl>(declInfo.decl), declInfo);
+            break;
+        
+        case NK::TypealiasDecl:
+            registerTypealias(llvm::cast<ast::TypealiasDecl>(declInfo.decl), declInfo);
+            break;
+        
+        default:
+            LKFatalError("ugh %s", ast::nodeKindToString(declInfo.decl->getKind()).c_str());
+    }
+}
+
+
+
+void IRGenerator::registerTypealias(std::shared_ptr<ast::TypealiasDecl> decl, NamedDeclInfo &declInfo) {
+    // TODO add support for typealias templates!!
+    
+    auto type = resolveTypeDesc(decl->type);
+    nominalTypes.insert(decl->name, type);
+    
+    declInfo.isRegistered = true;
+    declInfo.type = type;
+}
+
+
+
+VariantType* IRGenerator::registerVariantDecl(std::shared_ptr<ast::VariantDecl> decl, NamedDeclInfo &declInfo) {
+//    std::ostringstream OS;
+//    util::fmt::format_imp(OS, "variant '{}, with members:\n", decl->name->value);
+//    for (auto member : decl->members) {
+//        LKAssertImplication(member.params, member.params->isTuple());
+//        util::fmt::format_imp(OS, "- {}", member.name->value);
+//        if (member.params) {
+//            util::fmt::format_imp(OS, "{}", member.params);
+//        }
+//        OS << "\n";
+//    }
+//    std::cout << OS.str();
+    
+    
+    if (decl->isTemplateDecl() && !decl->isInstantiatedTemplateDecl()) {
+        LKFatalError("TODO");
+        return nullptr;
+    }
+    
+    
+    auto name = mangling::mangleFullyResolved(decl);
+    bool hasAssociatedData = false;
+    VariantType::Elements elements;
+//    StructType *underlyingType = nullptr;
+    
+    for (auto &member : decl->members) {
+        TupleType *associatedData = nullptr;
+        if (auto params = member.params) {
+            LKAssert(params->isTuple());
+            if (params->getTupleMembers().size() < 1) {
+                LKFatalError("variant case associated data cannot be empty");
+            }
+            hasAssociatedData = true;
+            associatedData = llvm::cast<TupleType>(resolveTypeDesc(member.params));
+        }
+        elements.push_back(std::make_pair(member.name->value, associatedData));
+    }
+    
+//    if (!hasAssociatedData) {
+//        auto caseType = decl->members.size() < std::numeric_limits<uint8_t>::max() ? builtinTypes.yo.u8 : builtinTypes.yo.u64;
+//        StructType::MembersT members = {
+//            std::make_pair("__index", caseType)
+//        };
+//        underlyingType = StructType::create(name, members, {}, decl->getSourceLocation());
+//    } else {
+//        LKFatalError("TODO");
+//    }
+    
+    auto variantType = new VariantType(name, elements, decl->getSourceLocation());
+    nominalTypes.insert(decl->name->value, variantType);
+    
+    declInfo.isRegistered = true;
+    declInfo.type = variantType;
+    
+    
+    return variantType;
+}
+
+
+
+
+
+
+
+
+
+llvm::Function* IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDecl, NamedDeclInfo &declInfo) {
+    declInfo.isRegistered = true;
+    EmptyScopeHandle ESH(*this);
+    
     LKAssert(functionDecl->getParamNames().size() == functionDecl->getSignature().numberOfParameters());
     
     const auto &sig = functionDecl->getSignature();
-    const bool isMain = functionDecl->isOfFunctionKind(ast::FunctionKind::GlobalFunction) && functionDecl->getName() == "main";
+    auto &attrs = functionDecl->getAttributes();
+    bool isMain = functionDecl->isOfFunctionKind(ast::FunctionKind::GlobalFunction) && functionDecl->getName() == "main";
     
-    const auto argumentOffset = argumentOffsetForFunctionKind(functionDecl->getFunctionKind());
+    bool hasImplicitSelfArg = functionDecl->isOfFunctionKind(ast::FunctionKind::InstanceMethod);
     
-    if (functionDecl->getAttributes().extern_) {
-        functionDecl->getAttributes().no_mangle = true;
+    if (attrs.extern_) {
+        attrs.no_mangle = true;
     }
     
     if (isMain) {
-        functionDecl->getAttributes().no_mangle = true;
+        attrs.no_mangle = true;
         
         // Check signature
         if (sig.paramTypes.empty() && resolveTypeDesc(sig.returnType) != builtinTypes.yo.i32) {
@@ -50,33 +163,24 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
         }
     }
     
-    
     // TODO insert more signature checks:
     // - initializers have to return void, as do dealloc functions
     // - subscript operators can only have 1 parameter
     // - ...
     
     
-    if (functionDecl->implTypeDesc && !functionDecl->implType) {
-        // has an impl type desc, but does not have a resolved impl type -> member function of a templated type
-        return;
-    }
-    
-//    if (auto TD = functionDecl->implTypeDesc; TD && TD->isNominal() && util::map::has_key(structTemplateDecls, TD->getName())) {
-//        // template
-//
-//    }
-    
-    if (sig.isTemplateDecl() || functionDecl->getAttributes().intrinsic || functionDecl->getAttributes().int_isCtor) {
+    if (sig.isTemplateDecl() || attrs.intrinsic || attrs.int_isCtor) {
+        // TODO detect ambiguous template declarations (ie, same name w/ same signature, etc)
         auto canonicalName = mangling::mangleCanonicalName(functionDecl);
         
-        if (functionDecl->getAttributes().int_isCtor && !functions[canonicalName].empty()) {
-            // Prevent multiple ambiguous (and unnecessary) overloads for template instantiations
-            return;
+        if (attrs.int_isCtor && !functions[canonicalName].empty()) {
+            // Prevent multiple ambiguous (and unnecessary) overloads for compiler-generated template instantiations
+//            LKFatalError("when/why do we reach here?");
+            return nullptr;
         }
         
-        functions[canonicalName].push_back(ResolvedCallable(sig, functionDecl, nullptr, argumentOffset));
-        return;
+        functions[canonicalName].push_back(ResolvedCallable(sig, functionDecl, nullptr, hasImplicitSelfArg));
+        return nullptr;
     }
     
     
@@ -85,12 +189,14 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     
     LKAssert(localScope.isEmpty());
     
-    std::vector<llvm::Type *> paramTypes(sig.numberOfParameters(), nullptr);
+    std::vector<Type *> paramTypes(sig.numberOfParameters(), nullptr);
+    std::vector<llvm::Type *> llvmParamTypes(sig.numberOfParameters(), nullptr);
     
     for (size_t idx = 0; idx < sig.numberOfParameters(); idx++) {
         auto type = resolveTypeDesc(sig.paramTypes[idx]);
         auto name = functionDecl->getParamNames()[idx]->value;
-        paramTypes[idx] = type->getLLVMType();
+        paramTypes[idx] = type;
+        llvmParamTypes[idx] = type->getLLVMType();
         localScope.insert(name, ValueBinding(type, nullptr, []() -> llvm::Value* {
             LKFatalError("invalid operation");
         }, [](llvm::Value *) {
@@ -102,39 +208,78 @@ void IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl> functionDe
     localScope.removeAll();
     
     
-    const std::string canonicalName = mangling::mangleCanonicalName(functionDecl);
-    const std::string resolvedName = functionDecl->getAttributes().extern_ ? canonicalName : mangleFullyResolved(functionDecl);
+    auto canonicalName = mangling::mangleCanonicalName(functionDecl);
+    auto resolvedName = attrs.extern_ ? canonicalName : mangleFullyResolved(functionDecl);
     
-    if (auto otherDecl = getResolvedFunctionWithName(resolvedName); otherDecl && (otherDecl->funcDecl->getAttributes().extern_ || functionDecl->getAttributes().extern_)) {
-        if (!(otherDecl->funcDecl->getAttributes().extern_ && functionDecl->getAttributes().extern_)) {
-            diagnostics::emitNote(otherDecl->funcDecl->getSourceLocation(), "identical signature already declared here");
-            diagnostics::emitError(functionDecl->getSourceLocation(), "only external functions can have multiple identical declarations");
+    
+    if (util::map::has_key(resolvedFunctions, resolvedName)) {
+        auto &otherRC = resolvedFunctions.at(resolvedName);
+        const auto &otherAttrs = otherRC.funcDecl->getAttributes();
+        
+        // TODO is this assert really necessary/good?
+        LKAssert(equal(sig, otherRC.signature) && "how can there be multiple decls w/ the same resolved name, but different signatures?");
+        
+        if (attrs.extern_ || otherAttrs.extern_) {
+            // if one of multiple decls is extern, all must be, and they must have the same signature
+            if (attrs.extern_ != otherAttrs.extern_) { // TODO replace w/ `attrs != otherAttrs` to check for full equality
+                diagnostics::emitNote(otherRC.funcDecl->getSourceLocation(), "other declaration here");
+                auto msg = util::fmt::format("multiple declarations of function '{}' with different attribute lists", resolvedName);
+                diagnostics::emitError(functionDecl->getSourceLocation(), msg);
+            }
+            return llvm::cast<llvm::Function>(otherRC.llvmValue);
+        
+        } else if (attrs.int_isFwdDecl || otherAttrs.int_isFwdDecl) {
+            if (attrs.int_isFwdDecl == otherAttrs.int_isFwdDecl) {
+                if (functionDecl->getName() == otherRC.funcDecl->getName() && functionDecl->getName() == kSynthesizedDeallocMethodName) {
+                    functionDecl->getAttributes().int_skipCodegen = true;
+                    return llvm::cast<llvm::Function>(otherRC.llvmValue);
+                }
+                // Note: if we end up here, that indicates a bug in the compiler's function synthesis?
+                LKFatalError("multiple fwd decls for the same function '%s'", resolvedName.c_str());
+            }
+            
+            // one of the two functions is a fwd decl and the other isn't
+            // -> we keep the one which is not, and discard the other one
+            
+            if (attrs.int_isFwdDecl) {
+                // trying to register a fwd decl for an already existing function
+                attrs.int_skipCodegen = true;
+//                LKFatalError("");
+                return llvm::cast<llvm::Function>(otherRC.llvmValue);
+            } else {
+                // trying to register a function for which there exists a forward decl
+                // essentially, we just swap out the declarations
+                ResolvedCallable RC(functionDecl, otherRC.llvmValue, hasImplicitSelfArg);
+                resolvedFunctions.insert_or_assign(resolvedName, RC);
+                
+                std::vector<ResolvedCallable> &RCs = functions[canonicalName];
+                for (size_t idx = 0; idx < RCs.size(); idx++) {
+                    if (RCs[idx].funcDecl == otherRC.funcDecl) {
+                        RCs[idx] = RC;
+                    }
+                }
+                return llvm::cast<llvm::Function>(RC.llvmValue);
+            }
+            
+        } else {
+            diagnostics::emitNote(otherRC.funcDecl->getSourceLocation(), "other declaration here");
+            diagnostics::emitError(functionDecl->getSourceLocation(), "multiple function declarations w/ same signature");
         }
-        const auto &otherSig = otherDecl->funcDecl->getSignature();
-        if (!equal(sig, otherSig)) {
-            diagnostics::emitNote(otherDecl->funcDecl->getSourceLocation(), "other declaration here");
-            diagnostics::emitError(functionDecl->getSourceLocation(), "multiple forward declarations w/ non-matching signatures");
-        }
-        return;
     }
     
-    if (auto RC = util::map::get_opt(resolvedFunctions, resolvedName)) {
-        if (RC->funcDecl->getAttributes().int_isFwdDecl && equal(RC->signature, sig)) {
-            RC->funcDecl->getAttributes().int_isFwdDecl = false; // TODO this shouldn't be in here!!!!!
-            return;
-        }
-        diagnostics::emitNote(RC->funcDecl->getSourceLocation(), "already declared here");
-        diagnostics::emitError(functionDecl->getSourceLocation(), "multiple declarations w/ same signature");
-    }
     
-    auto FT = llvm::FunctionType::get(returnType->getLLVMType(), paramTypes, functionDecl->getSignature().isVariadic);
-    auto F = llvm::Function::Create(FT, llvm::Function::LinkageTypes::ExternalLinkage, resolvedName, *module);
+    auto FT = FunctionType::get(returnType, paramTypes, sig.isVariadic);
+    auto F = llvm::Function::Create(llvm::cast<llvm::FunctionType>(getLLVMType(FT)), llvm::Function::LinkageTypes::ExternalLinkage, resolvedName, *module);
     F->setDSOLocal(!functionDecl->getAttributes().extern_);
     
-    ResolvedCallable RC(functionDecl, F, argumentOffset); // TODO set the correct argument offset here ?!
+    ResolvedCallable RC(functionDecl, F, hasImplicitSelfArg);
     LKAssert(!util::map::has_key(resolvedFunctions, resolvedName));
     resolvedFunctions.emplace(resolvedName, RC);
     functions[canonicalName].push_back(RC);
+    
+    declInfo.llvmValue = F;
+    declInfo.type = FT;
+    return F;
 }
 
 
@@ -145,17 +290,21 @@ llvm::Value* IRGenerator::codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>
     const auto &attr = functionDecl->getAttributes();
     
     LKAssert(!attr.int_isDelayed);
+    LKAssert(localScope.isEmpty());
     
     if (attr.extern_ || attr.intrinsic || attr.int_isCtor || sig.isTemplateDecl()) {
         return nullptr;
     }
     
-    LKAssert(localScope.isEmpty());
     auto resolvedName = mangleFullyResolved(functionDecl);
     
     auto F = module->getFunction(resolvedName);
     if (!F) {
         LKFatalError("Unable to find function '%s'", resolvedName.c_str());
+    }
+    
+    if (attr.int_skipCodegen) {
+        return F;
     }
     
     if (attr.inline_) {
@@ -169,8 +318,20 @@ llvm::Value* IRGenerator::codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>
 //        F->addFnAttr(llvm::Attribute::NoInline);
 //    }
     
-    LKAssert(F->empty());
     
+    if (functionDecl->getAttributes().int_isFwdDecl && !F->empty()) {
+        return F;
+    }
+    
+    if (!F->empty()) {
+        F->print(llvm::outs());
+        std::cout << functionDecl->description() << std::endl;
+        std::cout << F->getName().str() << std::endl;
+        std::cout << mangling::demangle(F->getName().str()) << std::endl;
+    }
+    
+    
+    LKAssert(F->empty());
     
     // for now, assign just the function decl, so that shouldEmitDebugInfo can access the current function's attributes
     // the proper `currentFunction` is assigned before function body codegen
@@ -300,23 +461,3 @@ llvm::Value* IRGenerator::codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>
     
     return F;
 }
-
-
-
-
-llvm::Value* IRGenerator::codegenStructDecl(std::shared_ptr<ast::StructDecl> structDecl) {
-    if (structDecl->isTemplateDecl()) return nullptr;
-    
-//    for (auto &implBlock : structDecl->implBlocks) {
-//        for (auto &FD : implBlock->methods) {
-//            codegen(FD);
-//        }
-//    }
-    for (auto FD : structDecl->methods) {
-        codegenFunctionDecl(FD);
-    }
-    
-    return nullptr;
-}
-
-

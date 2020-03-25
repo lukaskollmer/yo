@@ -196,8 +196,8 @@ void Parser::resolveImport() {
 
 // Attempts to extract a calling convention from a type's attributes list
 // If no calling convention is explicitly specified, the default calling convention is returned
-yo::irgen::CallingConvention extractCallingConventionAttribute(const std::vector<attributes::Attribute> &attributes) {
-    using CC = yo::irgen::CallingConvention;
+ast::CallingConvention extractCallingConventionAttribute(const std::vector<attributes::Attribute> &attributes) {
+    using CC = ast::CallingConvention;
     
     if (auto attr = util::vector::first_where(attributes, [](auto& attr) { return attr.getKey() == "convention"; })) {
         auto value = attr.value().getData<std::string>();
@@ -234,14 +234,12 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
         }
             
         case TK::Ampersand: {
-            const auto loc = getCurrentSourceLocation();
             consume();
-            return TypeDesc::makeReference(parseType(), loc);
+            return TypeDesc::makeReference(parseType(), SL);
         }
         case TK::Asterisk: {
-            auto loc = getCurrentSourceLocation();
             consume();
-            return TypeDesc::makePointer(parseType(), loc);
+            return TypeDesc::makePointer(parseType(), SL);
         }
         case TK::Ident: {
             // Issue: we have to be careful here. consider the following code:
@@ -252,7 +250,6 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
             
             save_pos(fallback);
             
-            auto loc = getCurrentSourceLocation();
             auto name = parseIdentAsString();
             if (currentTokenKind() == TK::Colon) {
                 LKFatalError("TODO implement?");
@@ -279,13 +276,12 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
                     return nullptr;
                 }
                 
-                return TypeDesc::makeNominalTemplated(name, paramTys, loc);
+                return TypeDesc::makeNominalTemplated(name, paramTys, SL);
             }
             
-            return TypeDesc::makeNominal(name, loc);
+            return TypeDesc::makeNominal(name, SL);
         }
         case TK::OpeningParens: {
-            auto loc = getCurrentSourceLocation();
             consume();
             std::vector<std::shared_ptr<TypeDesc>> types;
             while (currentTokenKind() != TK::ClosingParens) {
@@ -305,13 +301,13 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
                 consume(2);
                 auto cc = extractCallingConventionAttribute(attributes);
                 auto returnType = parseType();
-                return TypeDesc::makeFunction(cc, returnType, types, loc);
+                return TypeDesc::makeFunction(cc, returnType, types, SL);
             } else {
                 // Tuple type
-                if (types.size() == 1) {
-                    return types[0];
-                }
-                return TypeDesc::makeTuple(types, loc);
+                //if (types.size() == 1) {
+                //    return types[0];
+                //}
+                return TypeDesc::makeTuple(types, SL);
             }
         }
         default:
@@ -423,10 +419,17 @@ std::shared_ptr<StructDecl> Parser::parseStructDecl(attributes::StructAttributes
 std::shared_ptr<ImplBlock> Parser::parseImplBlock() {
     assertTkAndConsume(TK::Impl);
     
+    std::shared_ptr<ast::TemplateParamDeclList> templateParamsDecl;
+    
+    if (currentTokenKind() == TK::OpeningAngledBracket) {
+        templateParamsDecl = parseTemplateParamDeclList();
+    }
+    
     auto typeDesc = parseType();
     assertTkAndConsume(TK::OpeningCurlyBraces);
     
     auto implBlock = std::make_shared<ImplBlock>(typeDesc);
+    implBlock->templateParamsDecl = templateParamsDecl;
     
     while (currentTokenKind() == TK::Fn || currentTokenKind() == TK::Hashtag) {
         std::vector<attributes::Attribute> attributes;
@@ -565,20 +568,19 @@ std::shared_ptr<VariantDecl> Parser::parseVariantDecl() {
     assertTkAndConsume(TK::Variant);
     
     auto decl = std::make_shared<VariantDecl>(parseIdent());
-    decl->templateParams = parseTemplateParamDeclList();
+    decl->templateParamsDecl = parseTemplateParamDeclList();
     
     assertTkAndConsume(TK::OpeningCurlyBraces);
     
     while (true) {
         auto name = parseIdent();
+        std::shared_ptr<TypeDesc> type;
         if (currentTokenKind() == TK::OpeningParens) {
-            auto ty = parseType();
-            LKAssert(ty);
-//            if (!ty->isTuple()) {
-//                ty = TypeDesc::makeTuple({ty}, ty->getSourceLocation());
-//            }
-            decl->members.emplace_back(name, ty);
+            type = parseType();
+            LKAssert(type && type->isTuple());
         }
+        decl->members.emplace_back(name, type);
+        
         if (currentTokenKind() == TK::Comma) {
             consume();
             continue;

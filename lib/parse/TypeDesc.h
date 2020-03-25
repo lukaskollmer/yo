@@ -31,6 +31,8 @@ using lex::SourceLocation;
 class Expr;
 class TypeDesc;
 
+
+// not really used atm
 enum class CallingConvention {
     C
 };
@@ -118,6 +120,7 @@ public:
         return std::shared_ptr<TypeDesc>(new TypeDesc(Kind::Decltype, expr, loc));
     }
     
+    
     std::string str() const;
     
     Kind getKind() const {
@@ -188,6 +191,9 @@ public:
     
     const SourceLocation& getSourceLocation() const {
         return srcLoc;
+    }
+    void setSourceLocation(SourceLocation SL) {
+        srcLoc = SL;
     }
     
     std::shared_ptr<Expr> getDecltypeExpr() const {

@@ -93,13 +93,15 @@ llvm::Value* IRGenerator::codegenStringLiteral(std::shared_ptr<ast::StringLitera
             if (!nominalTypes.contains(mangling::mangleAsStruct("String"))) {
                 diagnostics::emitError(stringLiteral->getSourceLocation(), "unable to find 'String' type");
             }
-            auto target = makeIdent("String"); //std::make_shared<ast::Ident>(mangling::mangleCanonicalName("String", "String", ast::FunctionKind::StaticMethod));
-            target->setSourceLocation(stringLiteral->getSourceLocation());
+            auto &loc = stringLiteral->getSourceLocation();
+            auto target = makeIdent("String");
+            target->setSourceLocation(loc);
             auto callExpr = std::make_shared<ast::CallExpr>(target);
             callExpr->arguments = {
                 std::make_shared<ast::RawLLVMValueExpr>(builder.CreateGlobalStringPtr(stringLiteral->value), builtinTypes.yo.i8Ptr)
             };
-            callExpr->setSourceLocation(stringLiteral->getSourceLocation());
+            callExpr->setSourceLocation(loc);
+            callExpr->arguments[0]->setSourceLocation(loc);
             return codegenExpr(callExpr, VK);
         }
     }
@@ -114,11 +116,11 @@ llvm::Value* IRGenerator::codegenIdent(std::shared_ptr<ast::Ident> ident, ValueK
     if (!binding) {
         diagnostics::emitError(ident->getSourceLocation(), util::fmt::format("use of undeclared identifier '{}'", ident->value));
     }
-    
+
     switch (returnValueKind) {
         case LValue:
             return binding->value;
-        
+
         case RValue:
             if (!binding->hasFlag(ValueBinding::Flags::CanRead)) {
                 auto msg = util::fmt::format("value binding for ident '{}' in local scope does not allow reading", ident->value);
@@ -130,7 +132,7 @@ llvm::Value* IRGenerator::codegenIdent(std::shared_ptr<ast::Ident> ident, ValueK
 
 
 llvm::Value* IRGenerator::codegenCastExpr(std::shared_ptr<ast::CastExpr> castExpr, ValueKind VK) {
-    LKAssert(VK == RValue && "TODO: implement");
+    LKAssert(VK == RValue && "TODO: implement?");
     
     using LLVMCastOp = llvm::Instruction::CastOps;
     constexpr auto invalidCastOp = static_cast<LLVMCastOp>(-1); // TODO is -1 a good invalid value?
@@ -218,42 +220,113 @@ llvm::Value* IRGenerator::codegenCastExpr(std::shared_ptr<ast::CastExpr> castExp
 
 
 
-llvm::Value* IRGenerator::codegenMemberExpr(std::shared_ptr<ast::MemberExpr> memberExpr, ValueKind returnValueKind) {
-    const auto targetTy = getType(memberExpr->target);
+llvm::Value* IRGenerator::codegenMemberExpr(std::shared_ptr<ast::MemberExpr> memberExpr, ValueKind returnValueKind, SkipCodegenOption skipCodegenOption, Type **outType) {
+    auto skipCodegen = skipCodegenOption == kSkipCodegen;
     
+    
+    auto setOutType = [&](Type *type) {
+        if (outType) *outType = type;
+    };
+    
+    
+    if (auto targetIdent = llvm::dyn_cast<ast::Ident>(memberExpr->target)) {
+        if (localScope.contains(targetIdent->value)) {
+            goto handle_as_expr;
+        
+        } else if (auto ty = nominalTypes.get(targetIdent->value)) {
+            auto type = *ty;
+            
+            switch (type->getTypeId()) {
+                case Type::TypeID::Variant: {
+                    LKAssert(returnValueKind == RValue);
+                    memberExpr->isKnownAsTemporary = true;
+                    auto variantTy = llvm::cast<VariantType>(type);
+                    if (!variantTy->hasElement(memberExpr->memberName)) {
+                        auto msg = util::fmt::format("variant type '{}' does not contain element '{}'", variantTy, memberExpr->memberName);
+                        diagnostics::emitError(memberExpr->getSourceLocation(), msg);
+                    }
+                    
+                    if (variantTy->elementHasAssociatedData(memberExpr->memberName)) {
+                        // TODO fetch the function generated for constructing this element
+                        LKFatalError("");
+                    } else {
+                        setOutType(variantTy);
+                        if (skipCodegen) {
+                            return nullptr;
+                        } else {
+                            return constructVariant(variantTy, memberExpr->memberName);
+                        }
+                    }
+                    
+                    break;
+                }
+                case Type::TypeID::Struct:
+                case Type::TypeID::Pointer:
+                case Type::TypeID::Numerical:
+                case Type::TypeID::Reference:
+                case Type::TypeID::Void:
+                case Type::TypeID::Function:
+                case Type::TypeID::Tuple:
+                    LKFatalError("TODO");
+            }
+            LKFatalError("TODO");
+        
+        } else {
+            // targetIdent is not a type, but also not in the local scope
+            LKFatalError("TODO");
+        }
+    
+    } else {
+        // target is not an identifier
+        goto handle_as_expr;
+    }
+    
+// the member expr target is an expression
+handle_as_expr:
+    
+    const auto targetTy = getType(memberExpr->target);
+
     StructType *structTy = nullptr;
     const bool needsLoad = targetTy->isPointerTy() || targetTy->isReferenceTy();
-        
+
     structTy = getUnderlyingStruct(targetTy);
-    
+
     if (!structTy) {
         auto msg = util::fmt::format("invalid member expr base type: '{}'", targetTy);
         diagnostics::emitError(memberExpr->getSourceLocation(), msg);
     }
-    
+
     const auto [memberIndex, memberType] = structTy->getMember(memberExpr->memberName);
-    LKAssert(memberType != nullptr && "member does not exist");
+    if (!memberType) {
+        auto msg = util::fmt::format("unable to find member '{}' in type '{}'", memberExpr->memberName, structTy);
+        diagnostics::emitError(memberExpr->getSourceLocation(), msg);
+    }
     
+    setOutType(memberType);
+    if (skipCodegen) {
+        return nullptr;
+    }
+
     llvm::Value *offsets[] = {
         llvm::ConstantInt::get(builtinTypes.llvm.i32, 0),
         llvm::ConstantInt::get(builtinTypes.llvm.i32, memberIndex)
     };
-    
+
     auto targetV = codegenExpr(memberExpr->target, LValue, /*insertImplicitLoadInst*/ false);
-    
+
     if (isTemporary(memberExpr->target)) {
         LKFatalError("TODO");
         // TODO should this come after the load below?
         includeInStackDestruction(targetTy, targetV);
     }
-    
+
     emitDebugLocation(memberExpr);
     if (needsLoad) {
         targetV = builder.CreateLoad(targetV);
     }
-    
+
     auto V = builder.CreateGEP(targetV, offsets);
-    
+
     switch (returnValueKind) {
         case LValue:
             return V;
@@ -275,24 +348,23 @@ llvm::Value* IRGenerator::codegenSubscriptExpr(std::shared_ptr<ast::SubscriptExp
             diagnostics::emitError(subscript->target->getSourceLocation(), msg);
         }
         
-        if (TT->isTupleTy()) {
+        if (TT->isTupleTy() || (TT->isReferenceTy() && llvm::cast<ReferenceType>(TT)->getReferencedType()->isTupleTy())) {
             size_t index = llvm::cast<ast::NumberLiteral>(subscript->offset)->value;
             auto memberName = formatTupleMemberAtIndex(index)->value;
             auto memberExpr = std::make_shared<ast::MemberExpr>(subscript->target, memberName);
             memberExpr->setSourceLocation(subscript->getSourceLocation());
             return codegenExpr(memberExpr, returnValueKind);
         } else {
+            subscript->isKnownAsTemporary = true;
             return codegenExpr(subscriptExprToCall(subscript), returnValueKind);
         }
     }
     LKAssert(TT->isPointerTy());
     
-    
     if (TT->isPointerTy() && (!OT->isNumericalTy() || !llvm::dyn_cast<NumericalType>(OT)->isIntegerTy())) {
         auto msg = util::fmt::format("expected integral type, got '{}'", OT);
         diagnostics::emitError(subscript->offset->getSourceLocation(), msg);
     }
-    
     
     auto target = codegenExpr(subscript->target);
     auto offset = codegenExpr(subscript->offset);
@@ -309,7 +381,9 @@ llvm::Value* IRGenerator::codegenSubscriptExpr(std::shared_ptr<ast::SubscriptExp
 
 
 bool isValidUnaryOpLogicalNegType(Type *ty) {
-    if (ty == Type::getBoolType() || ty->isPointerTy()) return true;
+    if (ty == Type::getBoolType() || ty->isPointerTy()) {
+        return true;
+    }
     
     if (auto numTy = llvm::dyn_cast<NumericalType>(ty)) {
         return numTy->isIntegerTy();
@@ -524,7 +598,7 @@ StructType* IRGenerator::synthesizeUnderlyingStructTypeForTupleType(TupleType *t
         SD->members.push_back(std::make_shared<ast::VarDecl>(name, type));
     }
     
-    auto ST = withCleanSlate([this, SD] { return registerStructDecl(SD); });
+    auto ST = withCleanSlate(*this, [this, SD] { return addAndRegisterStructDecl(SD); });
     tupleTy->setUnderlyingStructType(ST);
     return ST;
 }
@@ -643,11 +717,11 @@ StructType* IRGenerator::synthesizeLambdaExpr(std::shared_ptr<ast::LambdaExpr> l
         SD->members.push_back(decl);
     }
     
-    auto ST = withCleanSlate([&] { return registerStructDecl(SD); });
+    auto ST = withCleanSlate(*this, [&] { return addAndRegisterStructDecl(SD); });
     lambdaExpr->_structType = ST;
     
     auto &sig = lambdaExpr->signature;
-//    resolveTypeDesc(sig.returnType);
+//    resolveTypeDesc(sig.returnType); // TODO is this necessary? (probably yes, bc we want the lambda to pick up the types declated in its scope?)
 //    for (auto &TD : sig.paramTypes) {
 //        resolveTypeDesc(TD);
 //    }
@@ -663,10 +737,7 @@ StructType* IRGenerator::synthesizeLambdaExpr(std::shared_ptr<ast::LambdaExpr> l
     imp->setImplType(ST);
     imp->setSourceLocation(SL);
     
-    withCleanSlate([&] {
-        registerFunction(imp);
-        codegenFunctionDecl(imp);
-    });
+    addAndRegisterFunction(imp);
     
     return ST;
 }
@@ -719,25 +790,14 @@ IRGenerator::resolveStructTemplateParametersFromExplicitTemplateArgumentList(std
 
 
 
-uint8_t IRGenerator::argumentOffsetForCallingConvention(CallingConvention cc) {
-    switch (cc) {
-        case CallingConvention::C: return 0;
-    }
-    
-    LKFatalError("unknown calling convention (raw value: %i)", static_cast<int>(cc));
-}
-
-
-
-
 // TODO this should somehow return an error message explaining why the template deduction failed (eg "too many template arguments", etc)
 std::optional<TemplateTypeMapping>
-IRGenerator::attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSignature &signature, std::shared_ptr<ast::CallExpr> call, unsigned int argumentOffset) {
+IRGenerator::attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSignature &signature, std::shared_ptr<ast::CallExpr> call, const std::vector<std::pair<Type *, std::shared_ptr<ast::Expr>>>& args) {
     using TDK = ast::TypeDesc::Kind;
     
     LKAssert(signature.isTemplateDecl());
     
-    if (signature.numberOfParameters() != call->arguments.size() + argumentOffset) {
+    if (signature.numberOfParameters() != args.size()) {
         return std::nullopt;
     }
     
@@ -781,7 +841,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSig
     // Handle explicitly specified types
     for (uint64_t idx = 0; idx < std::min<uint64_t>(signature.templateParamsDecl->size(), call->numberOfExplicitTemplateArgs()); idx++) {
         auto &param = signature.templateParamsDecl->getParams()[idx];
-        mapping[param.name->value] = { resolveTypeDesc(call->explicitTemplateArgs->elements[idx]), DeductionReason::Explicit };
+        mapping[param.name->value] = { resolveTypeDesc(call->explicitTemplateArgs->elements[idx], false), DeductionReason::Explicit };
     }
     
     
@@ -790,7 +850,8 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSig
     
     // retval: true -> success, false -> failure
     auto imp = [&](std::string name, Type *ty, uint64_t argIdx) -> bool {
-        auto reason = call->arguments[argIdx]->isOfKind(NK::NumberLiteral) ? DR::Literal : DR::Expr;
+        auto &arg = args[argIdx].second;
+        auto reason = arg->isOfKind(NK::NumberLiteral) ? DR::Literal : DR::Expr;
         
         if (!util::map::has_key(mapping, name)) {
             mapping[name] = { ty, reason };
@@ -804,7 +865,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSig
         
         } else if (prevDeduction.reason != reason && reason == DeductionReason::Literal) {
             // Prev wasn't a literal, but current is
-            auto argExpr = llvm::dyn_cast<ast::NumberLiteral>(call->arguments[argIdx]);
+            auto argExpr = llvm::dyn_cast<ast::NumberLiteral>(arg);
             return valueIsTriviallyConvertible(argExpr, prevDeduction.type);
         
         } else if (prevDeduction.reason == DeductionReason::Literal && reason != prevDeduction.reason) {
@@ -873,18 +934,30 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSig
                 return true;
             }
             
+            case TDK::Tuple: {
+                auto tupleTy = llvm::dyn_cast<TupleType>(ty);
+                if (!tupleTy || tupleTy->memberCount() != typeDesc->getTupleMembers().size()) {
+                    return false;
+                }
+                for (size_t idx = 0; idx < typeDesc->getTupleMembers().size(); idx++) {
+                    if (!handle(typeDesc->getTupleMembers().at(idx), tupleTy->getMembers().at(idx), argIdx)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            
             case TDK::Function:
             case TDK::Decltype:
-            case TDK::Tuple:
             case TDK::Resolved:
                 LKFatalError("TODO");
         }
     };
     
     
-    for (size_t idx = 0; idx < call->arguments.size(); idx++) {
-        auto sigTypeDesc = signature.paramTypes[idx + argumentOffset];
-        auto argTy = getType(call->arguments[idx]);
+    for (size_t idx = 0; idx < args.size(); idx++) {
+        auto sigTypeDesc = signature.paramTypes[idx];
+        auto argTy = args[idx].first;
         
         if (llvm::isa<ReferenceType>(argTy)) {
             argTy = llvm::dyn_cast<ReferenceType>(argTy)->getReferencedType();
@@ -899,7 +972,9 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSig
     // Make sure all parameters were resolved, apply default values where necessary
     
     for (auto &param : signature.templateParamsDecl->getParams()) {
-        if (util::map::has_key(mapping, param.name->value)) continue;
+        if (util::map::has_key(mapping, param.name->value)) {
+            continue;
+        }
         
         if (auto defaultTy = param.defaultType) {
             // TODO this resolves the default type in a different context than the one it was declared in!
@@ -911,7 +986,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSig
             // fn bar<A>() { foo(); }
             // ```
             // In this case, even though foo's default type specified the global struct `A`, it'd get resolved to the locally shadowing template parameter
-            mapping[param.name->value] = { resolveTypeDesc(defaultTy), DR::Default };
+            mapping[param.name->value] = { resolveTypeDesc(defaultTy, false), DR::Default };
         } else {
             // no entry for type, and no default value
             return std::nullopt;
@@ -952,7 +1027,7 @@ ast::FunctionSignature makeFunctionSignatureFromFunctionTypeInfo(const FunctionT
 
 
 
-ResolvedCallable IRGenerator::specializeTemplateFunctionDeclForCallExpr(std::shared_ptr<ast::FunctionDecl> funcDecl, TemplateTypeMapping templateArgMapping, uint8_t argumentOffset, SkipCodegenOption codegenOption) {
+ResolvedCallable IRGenerator::specializeTemplateFunctionDeclForCallExpr(std::shared_ptr<ast::FunctionDecl> funcDecl, TemplateTypeMapping templateArgMapping, bool hasImplicitSelfArg, SkipCodegenOption codegenOption) {
     auto specializedDecl = TemplateSpecializer::specializeWithMapping(funcDecl, templateArgMapping);
     
     std::vector<Type *> templateArgTypes;
@@ -972,7 +1047,7 @@ ResolvedCallable IRGenerator::specializeTemplateFunctionDeclForCallExpr(std::sha
     // We need the function's types fully resolved for the `mangleFullyResolved` call below
     // TODO is withCleanSlate overkill here? we really just need the local scope to be empty so that we can insert the parameters
     // Not entirely true though, we also call resolveTypeDesc which otherwise might include local types defined only for the the scope of the current function
-    withCleanSlate([&]() -> void {
+    withCleanSlate(*this, [&]() -> void {
         for (size_t i = 0; i < specializedDecl->getSignature().numberOfParameters(); i++) {
             auto type = resolveTypeDesc(specializedDecl->getSignature().paramTypes[i]);
             auto name = specializedDecl->getParamNames()[i]->value;
@@ -989,19 +1064,16 @@ ResolvedCallable IRGenerator::specializeTemplateFunctionDeclForCallExpr(std::sha
     auto mangled = mangleFullyResolved(specializedDecl);
     if (auto decl = getResolvedFunctionWithName(mangled)) {
         if (this->equal(specializedDecl->getSignature(), decl->funcDecl->getSignature())) {
-            return decl.value();
+            return *decl;
         }
     }
     
     llvm::Function *llvmFunction = nullptr;
     if (codegenOption == kRunCodegen && !specializedDecl->getAttributes().intrinsic) {
-        llvmFunction = withCleanSlate([&]() {
-            specializedDecl->getAttributes().int_isDelayed = false;
-            registerFunction(specializedDecl);
-            return llvm::dyn_cast_or_null<llvm::Function>(codegenFunctionDecl(specializedDecl));
-        });
+        specializedDecl->getAttributes().int_isDelayed = false; // TODO what does this do?
+        llvmFunction = addAndRegisterFunction(specializedDecl);
     }
-    return ResolvedCallable(specializedDecl, llvmFunction, argumentOffset);
+    return ResolvedCallable(specializedDecl, llvmFunction, hasImplicitSelfArg);
 }
 
 
@@ -1017,9 +1089,11 @@ bool IRGenerator::isImplicitConversionAvailable(Type *src, Type *dst) {
 
 
 /// This function assumes that both targets match the call (ie, are valid targets)
-CandidateViabilityComparisonResult FunctionCallTargetCandidate::compare(IRGenerator &irgen, const FunctionCallTargetCandidate &other, std::shared_ptr<ast::CallExpr> callExpr, const std::vector<Type *> &argTys) const {
+CandidateViabilityComparisonResult FunctionCallTargetCandidate::compare(IRGenerator &irgen, const FunctionCallTargetCandidate &other, const std::vector<std::pair<Type *, std::shared_ptr<ast::Expr>>> &args) const {
     const auto &lhs = *this;
     const auto &rhs = other;
+    
+    LKAssert(lhs.target.hasImplicitSelfArg == rhs.target.hasImplicitSelfArg);
     
     auto getResolvedParamTys = [&](const FunctionCallTargetCandidate &candidate) -> std::vector<Type *> {
         std::vector<decltype(irgen.nominalTypes)::ID> tempTypeIds;
@@ -1038,8 +1112,8 @@ CandidateViabilityComparisonResult FunctionCallTargetCandidate::compare(IRGenera
     auto rhsParamTys = getResolvedParamTys(rhs);
     
     
-    for (uint32_t idx = lhs.target.argumentOffset; idx < lhs.getSignature().numberOfParameters(); idx++) {
-        auto argTy = argTys[idx];
+    for (uint32_t idx = lhs.target.hasImplicitSelfArg; idx < lhs.getSignature().numberOfParameters(); idx++) {
+        auto argTy = args[idx].first;
         auto lhsTy = lhsParamTys[idx];
         auto rhsTy = rhsParamTys[idx];
         
@@ -1047,7 +1121,12 @@ CandidateViabilityComparisonResult FunctionCallTargetCandidate::compare(IRGenera
         
         if (argTy == lhsTy && argTy == rhsTy) {
             continue;
-        } else if (callExpr->arguments[idx]->isOfKind(NK::NumberLiteral)) {
+        } else if (args[idx].second->isOfKind(NK::NumberLiteral)) {
+            util::fmt::print("lhs: {}", lhs.getSignature());
+            util::fmt::print("rhs: {}", rhs.getSignature());
+            diagnostics::emitNote(lhs.target.funcDecl->getSourceLocation(), "");
+            diagnostics::emitNote(rhs.target.funcDecl->getSourceLocation(), "");
+            diagnostics::emitNote(args[idx].second->getSourceLocation(), "");
             LKFatalError("TODO");
         } else {
             continue;
@@ -1079,7 +1158,7 @@ CandidateViabilityComparisonResult FunctionCallTargetCandidate::compare(IRGenera
         // clearly, the best target for the call to `f` is the second overload
         
         
-        auto imp = [&irgen](const FunctionCallTargetCandidate &lhs, const FunctionCallTargetCandidate &rhs) -> bool {
+        auto imp = [&](const FunctionCallTargetCandidate &lhs, const FunctionCallTargetCandidate &rhs) -> bool {
             uint64_t counter = 0;
             TemplateTypeMapping mapping;
             std::vector<std::pair<Type *, decltype(irgen.nominalTypes)::ID>> tmpTypes;
@@ -1098,14 +1177,16 @@ CandidateViabilityComparisonResult FunctionCallTargetCandidate::compare(IRGenera
                 tmpTypes.emplace_back(type, irgen.nominalTypes.insert(name, type));
             }
             
-            auto argTys = util::vector::map(specSig.paramTypes, [&irgen](auto TD) { return irgen.resolveTypeDesc(TD, false); });
-            
-            auto tmpCallExpr = std::make_shared<ast::CallExpr>(nullptr);
-            tmpCallExpr->arguments = util::vector::map(argTys, [](Type *type) -> std::shared_ptr<ast::Expr> {
-                return std::make_shared<ast::RawLLVMValueExpr>(nullptr, type);
+            auto argTys = util::vector::map(specSig.paramTypes, [&irgen](auto TD) {
+                return irgen.resolveTypeDesc(TD, false);
             });
             
-            auto deduction = irgen.attemptToResolveTemplateArgumentTypesForCall(rhs.getSignature(), tmpCallExpr, rhs.target.argumentOffset);
+            auto tmpCallExpr = std::make_shared<ast::CallExpr>(nullptr);
+            auto args = util::vector::map(argTys, [](Type *type) -> std::pair<Type *, std::shared_ptr<ast::Expr>> {
+                return std::make_pair(type, std::make_shared<ast::RawLLVMValueExpr>(nullptr, type));
+            });
+            
+            auto deduction = irgen.attemptToResolveTemplateArgumentTypesForCall(rhs.getSignature(), tmpCallExpr, args);
             
             std::function<bool(Type *, std::set<Type *> &)> collectTempTypes;
             collectTempTypes = [&](Type *type, std::set<Type *> &found) -> bool {
@@ -1118,9 +1199,8 @@ CandidateViabilityComparisonResult FunctionCallTargetCandidate::compare(IRGenera
                 
                 switch (type->getTypeId()) {
                     case Type::TypeID::Void:
-                        break;
-                    
                     case Type::TypeID::Numerical:
+                    case Type::TypeID::Variant:
                         break;
                     
                     case Type::TypeID::Pointer: {
@@ -1205,11 +1285,9 @@ CandidateViabilityComparisonResult FunctionCallTargetCandidate::compare(IRGenera
         } else if (r2l) {
             return CandidateViabilityComparisonResult::MoreViable;
         }
-        
-        
-        LKFatalError("TODO");
+            
+        LKFatalError("unreachable?");
     }
-    
     
     return CandidateViabilityComparisonResult::LessViable;
 }
@@ -1218,9 +1296,59 @@ CandidateViabilityComparisonResult FunctionCallTargetCandidate::compare(IRGenera
 
 
 
+ResolvedCallable
+IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExpr, SkipCodegenOption codegenOption) {
+    std::vector<FunctionCallTargetCandidate> candidates;
+    std::vector<CallTargetRejectionReason> rejections;
+    ResolveCallResultStatus result;
+    
+    auto target = resolveCall_imp(callExpr, codegenOption, candidates, rejections, result);
+    
+    switch (result) {
+        case ResolveCallResultStatus::Success:
+            return *target;
+        
+        case ResolveCallResultStatus::NoCandidates: {
+            for (const auto &rejection : rejections) {
+                diagnostics::emitNote(rejection.decl->getSourceLocation(), util::fmt::format("[{}] not viable: {}", rejection.decl->signature, rejection.reason));
+            }
+            diagnostics::emitError(callExpr->getSourceLocation(), util::fmt::format("unable to resolve call"));
+        }
+        
+        case ResolveCallResultStatus::AmbiguousCandidates: {
+            for (const auto &candidate : candidates) {
+                std::ostringstream OS;
+                OS << "potential target";
+                if (candidate.getSignature().isTemplateDecl()) {
+                    OS << " [with ";
+                    util::map::iterl(candidate.templateArgumentMapping, [&OS](auto &name, auto &typeDesc, bool isLast) {
+                        OS << name << " = " << typeDesc->str();
+                        if (!isLast) OS << ", ";
+                    });
+                    OS << "]";
+                }
+                diagnostics::emitNote(candidate.getSignature().getSourceLocation(), OS.str());
+            }
+            diagnostics::emitError(callExpr->getSourceLocation(), "ambiguous call");
+        }
+    }
+}
+
+
+bool IRGenerator::canResolveCall(std::shared_ptr<ast::CallExpr> callExpr) {
+    std::vector<FunctionCallTargetCandidate> candidates;
+    std::vector<CallTargetRejectionReason> rejections;
+    ResolveCallResultStatus status;
+    resolveCall_imp(callExpr, kSkipCodegen, candidates, rejections, status);
+    return status == ResolveCallResultStatus::Success;
+}
+
+
 
 // This function will only return if the call can be resolved
-ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExpr, SkipCodegenOption codegenOption) {
+// TODO add a string& parameter "descriptive target name", which then can be used in error messages like "cant resolve call to {}" (eg "operator +", etc)
+std::optional<ResolvedCallable>
+IRGenerator::resolveCall_imp(std::shared_ptr<ast::CallExpr> callExpr, SkipCodegenOption codegenOption, std::vector<FunctionCallTargetCandidate> &candidates, std::vector<CallTargetRejectionReason> &rejections, ResolveCallResultStatus &resultStatus) {
     // TODO this function is rather long, refactor!!!
     
     const bool skipCodegen = codegenOption == kSkipCodegen;
@@ -1228,196 +1356,236 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     auto targetKind = ast::FunctionKind::GlobalFunction;
     
     
-    if (auto ident = llvm::dyn_cast<ast::Ident>(callExpr->target)) {
-        targetName = ident->value;
-        
-        // this is in here because at this point targetName is still just an identifier
-        if (auto valueBinding = localScope.get(targetName)) {
-            auto ty = valueBinding->type;
-            if (ty->isFunctionTy()) {
-                auto fnTy = llvm::dyn_cast<FunctionType>(ty);
-                return ResolvedCallable(makeFunctionSignatureFromFunctionTypeInfo(fnTy), nullptr,
-                                        skipCodegen ? nullptr : codegenExpr(ident),
-                                        argumentOffsetForCallingConvention(fnTy->getCallingConvention()));
-            } else if (implementsInstanceMethod(ty, mangling::encodeOperator(ast::Operator::FnCall))) {
-                // calling a local variable of a type which happens to overload the `()` operator
-                targetName = mangling::mangleCanonicalName(getUnderlyingStruct(ty)->getName(),
-                                                           mangling::encodeOperator(ast::Operator::FnCall),
-                                                           ast::FunctionKind::InstanceMethod);
-                targetKind = ast::FunctionKind::InstanceMethod;
-            } else {
-                diagnostics::emitError(callExpr->getSourceLocation(), "unable to resolve call target");
-            }
-        }
-        
-    } else if (auto staticDeclRefExpr = llvm::dyn_cast<ast::StaticDeclRefExpr>(callExpr->target)) {
-        // <typename>::<methodname>()
-        
-        auto TD = staticDeclRefExpr->typeDesc;
-        
-        if (TD->isNominal()) {
-            targetName = mangling::mangleCanonicalName(mangling::mangleAsStruct(TD->getName()),
-                                                       staticDeclRefExpr->memberName,
-                                                       ast::FunctionKind::StaticMethod);
-        } else if (TD->isNominalTemplated()) {
-            if (auto structDecl = util::map::get_opt(structTemplateDecls, TD->getName())) {
-                // TODO can we do better if `codegenOption = kSkipCodegen`?
-                // at the end of the day, it doesn't really matter, but still ...
-                auto structTy = withCleanSlate([&]() { return instantiateTemplateStruct(*structDecl, TD); });
-                targetName = mangling::mangleCanonicalName(structTy->getName(),
-                                                           staticDeclRefExpr->memberName,
-                                                           ast::FunctionKind::StaticMethod);
-            
-            } else {
-                diagnostics::emitError(staticDeclRefExpr->getSourceLocation(),
-                                       util::fmt::format("unable to resolve type '{}'", TD->getName()));
-            }
-            
-        } else {
-            // TODO what about decltypes that resolve to nominal types?
-            // TODO once `impl`s are typedesc-based, all types should support static methods
-            LKFatalError("unsupported type desc");
-        }
-        
-    } else if (auto memberExpr = llvm::dyn_cast<ast::MemberExpr>(callExpr->target)) {
-        // TODO does this take overloaded instance methods into account?
-
-        // <memberExpr>()
-        // two options:
-        // - calling a method
-        // - calling a property that happens to be a function
-
-        auto targetTy = getType(memberExpr->target);
-        
-        // TODO can this use `getUnderlyingType`?
-        StructType *structTy = nullptr;
-        switch (targetTy->getTypeId()) {
-            case Type::TypeID::Struct:
-                structTy = static_cast<StructType *>(targetTy);
-                break;
-            case Type::TypeID::Pointer:
-                structTy = llvm::dyn_cast<StructType>(llvm::dyn_cast<PointerType>(targetTy)->getPointee());
-                break;
-            case Type::TypeID::Reference:
-                structTy = llvm::dyn_cast<StructType>(llvm::dyn_cast<ReferenceType>(targetTy)->getReferencedType());
-                break;
-            default:
-                diagnostics::emitError(memberExpr->getSourceLocation(), "invalid call target member expr target type");
-        }
-
-        LKAssert(structTy);
-        
-        auto structName = structTy->getName();
-
-        if (auto [memberIndex, memberTy] = structTy->getMember(memberExpr->memberName); memberTy != nullptr) {
-            if (implementsInstanceMethod(structTy, memberExpr->memberName)) {
-                // TODO prevent this when registering instance methods!
-                diagnostics::emitError(callExpr->getSourceLocation(), "call target ambiguous");
-            }
-            if (memberTy->isFunctionTy()) {
-                // calling a struct property, which is a function pointer
-                // struct properties cannot be overloaded, simply return what we found
-                auto fnTy = llvm::dyn_cast<FunctionType>(memberTy);
-                return ResolvedCallable(makeFunctionSignatureFromFunctionTypeInfo(fnTy), nullptr,
-                                        skipCodegen ? nullptr : codegenExpr(memberExpr),
-                                        argumentOffsetForCallingConvention(fnTy->getCallingConvention()));
-            } else {
-                // calling a struct property of a type which overloads the `()` operator
-                targetName = mangling::mangleCanonicalName(getUnderlyingStruct(memberTy)->getName(),
-                                                           mangling::encodeOperator(ast::Operator::FnCall),
-                                                           ast::FunctionKind::InstanceMethod);
-                targetKind = ast::FunctionKind::InstanceMethod;
-            }
-        } else {
-            // calling an instance method
-            targetName = mangling::mangleCanonicalName(structName, memberExpr->memberName, ast::FunctionKind::InstanceMethod);
-            targetKind = ast::FunctionKind::InstanceMethod;
-        }
-    } else {
-        diagnostics::emitError(callExpr->getSourceLocation(), "unable to resolve call target");
-    }
+//    if (auto ident = llvm::dyn_cast<ast::Ident>(callExpr->target)) {
+//        targetName = ident->value;
+//
+//        // this is in here because at this point targetName is still just an identifier
+//        if (auto valueBinding = localScope.get(targetName)) {
+//            auto ty = valueBinding->type;
+//            if (ty->isFunctionTy()) {
+//                auto fnTy = llvm::dyn_cast<FunctionType>(ty);
+//                return ResolvedCallable(makeFunctionSignatureFromFunctionTypeInfo(fnTy), nullptr,
+//                                        skipCodegen ? nullptr : codegenExpr(ident),
+//                                        argumentOffsetForCallingConvention(fnTy->getCallingConvention()));
+//            } else if (implementsInstanceMethod(ty, mangling::encodeOperator(ast::Operator::FnCall))) {
+//                // calling a local variable of a type which happens to overload the `()` operator
+//                targetName = mangling::mangleCanonicalName(getUnderlyingStruct(ty)->getName(),
+//                                                           mangling::encodeOperator(ast::Operator::FnCall),
+//                                                           ast::FunctionKind::InstanceMethod);
+//                targetKind = ast::FunctionKind::InstanceMethod;
+//            } else {
+//                diagnostics::emitError(callExpr->getSourceLocation(), "unable to resolve call target");
+//            }
+//        }
+//
+//    } else if (auto staticDeclRefExpr = llvm::dyn_cast<ast::StaticDeclRefExpr>(callExpr->target)) {
+//        // <typename>::<methodname>()
+//
+//        auto TD = staticDeclRefExpr->typeDesc;
+//
+//        if (TD->isNominal()) {
+//            targetName = mangling::mangleCanonicalName(mangling::mangleAsStruct(TD->getName()),
+//                                                       staticDeclRefExpr->memberName,
+//                                                       ast::FunctionKind::StaticMethod);
+//        } else if (TD->isNominalTemplated()) {
+//            if (auto structDecl = util::map::get_opt(structTemplateDecls, TD->getName())) {
+//                // TODO can we do better if `codegenOption = kSkipCodegen`?
+//                // at the end of the day, it doesn't really matter, but still ...
+//                auto structTy = withCleanSlate([&]() { return instantiateTemplateStruct(*structDecl, TD); });
+//                targetName = mangling::mangleCanonicalName(structTy->getName(),
+//                                                           staticDeclRefExpr->memberName,
+//                                                           ast::FunctionKind::StaticMethod);
+//
+//            } else {
+//                diagnostics::emitError(staticDeclRefExpr->getSourceLocation(),
+//                                       util::fmt::format("unable to resolve type '{}'", TD->getName()));
+//            }
+//
+//        } else {
+//            // TODO what about decltypes that resolve to nominal types?
+//            // TODO once `impl`s are typedesc-based, all types should support static methods
+//            LKFatalError("unsupported type desc");
+//        }
+//
+//    } else if (auto memberExpr = llvm::dyn_cast<ast::MemberExpr>(callExpr->target)) {
+//        // TODO does this take overloaded instance methods into account?
+//
+//        // <memberExpr>()
+//        // two options:
+//        // - calling a method
+//        // - calling a property that happens to be a function
+//
+//        auto targetTy = getType(memberExpr->target);
+//
+//        // TODO can this use `getUnderlyingType`?
+//        StructType *structTy = nullptr;
+//        switch (targetTy->getTypeId()) {
+//            case Type::TypeID::Struct:
+//                structTy = static_cast<StructType *>(targetTy);
+//                break;
+//            case Type::TypeID::Pointer:
+//                structTy = llvm::dyn_cast<StructType>(llvm::dyn_cast<PointerType>(targetTy)->getPointee());
+//                break;
+//            case Type::TypeID::Reference:
+//                structTy = llvm::dyn_cast<StructType>(llvm::dyn_cast<ReferenceType>(targetTy)->getReferencedType());
+//                break;
+//            default:
+//                diagnostics::emitError(memberExpr->getSourceLocation(), "invalid call target member expr target type");
+//        }
+//
+//        LKAssert(structTy);
+//
+//        auto structName = structTy->getName();
+//
+//        if (auto [memberIndex, memberTy] = structTy->getMember(memberExpr->memberName); memberTy != nullptr) {
+//            if (implementsInstanceMethod(structTy, memberExpr->memberName)) {
+//                // TODO prevent this when registering instance methods!
+//                diagnostics::emitError(callExpr->getSourceLocation(), "call target ambiguous");
+//            }
+//            if (memberTy->isFunctionTy()) {
+//                // calling a struct property, which is a function pointer
+//                // struct properties cannot be overloaded, simply return what we found
+//                auto fnTy = llvm::dyn_cast<FunctionType>(memberTy);
+//                return ResolvedCallable(makeFunctionSignatureFromFunctionTypeInfo(fnTy), nullptr,
+//                                        skipCodegen ? nullptr : codegenExpr(memberExpr),
+//                                        argumentOffsetForCallingConvention(fnTy->getCallingConvention()));
+//            } else {
+//                // calling a struct property of a type which overloads the `()` operator
+//                targetName = mangling::mangleCanonicalName(getUnderlyingStruct(memberTy)->getName(),
+//                                                           mangling::encodeOperator(ast::Operator::FnCall),
+//                                                           ast::FunctionKind::InstanceMethod);
+//                targetKind = ast::FunctionKind::InstanceMethod;
+//            }
+//        } else {
+//            // calling an instance method
+//            targetName = mangling::mangleCanonicalName(structName, memberExpr->memberName, ast::FunctionKind::InstanceMethod);
+//            targetKind = ast::FunctionKind::InstanceMethod;
+//        }
+//    } else {
+//        diagnostics::emitError(callExpr->getSourceLocation(), "unable to resolve call target");
+//    }
     
     
-    auto argumentOffset = argumentOffsetForFunctionKind(targetKind);
     
-    // TODO does this mean we might miss another potential target
-    // Not if the compiler disallows free functions w/ the same name as a defined type
-    //if (nominalTypes.get(mangling::mangleAsStruct(targetName)) || util::map::has_key(templateStructs, targetName)) {
-    if (bool isNominalTy = nominalTypes.get(mangling::mangleAsStruct(targetName)).has_value(), isTemplate = util::map::has_key(structTemplateDecls, targetName);isNominalTy || isTemplate) {
-        if (isNominalTy) targetName = mangling::mangleAsStruct(targetName); // TODO this is awful!!!
-        auto mangledTargetName = mangling::mangleCanonicalName(targetName, targetName, ast::FunctionKind::StaticMethod);
-        
-        const auto &targets = functions[mangledTargetName];
-        if (targets.size() != 1) {
-            diagnostics::emitError(callExpr->getSourceLocation(), "umable to resolve struct constructor");
-        }
-        auto target = targets.front();
-        LKAssert(target.funcDecl->getAttributes().int_isCtor);
-        
-        if (target.funcDecl->getSignature().isTemplateDecl()) {
-            auto templateDecl = structTemplateDecls.at(targetName);
-            // TODO what about initializer-based type deduction here?
-            auto mapping = resolveStructTemplateParametersFromExplicitTemplateArgumentList(templateDecl, callExpr->explicitTemplateArgs);
-            return specializeTemplateFunctionDeclForCallExpr(target.funcDecl, mapping, argumentOffset, codegenOption);
-        }
-        return target;
-    }
+    std::vector<ResolvedCallable> possibleTargets; // TODO rename to potential targets !?
     
+    std::vector<std::pair<Type *, std::shared_ptr<ast::Expr>>> allArgs;
+    allArgs.reserve(callExpr->arguments.size());
+    bool didAddImplicitSelfArgToArgsList = false;
     
-    // find a matching target
-    
-    const auto &possibleTargets = functions[targetName];
-    
-    if (possibleTargets.empty()) {
-        diagnostics::emitError(callExpr->getSourceLocation(), util::fmt::format("unable to resolve call to '{}'", targetName)); // TODO demangle targetName
-    }
-    
-    
-    struct TargetRejectionInfo {
-        std::string reason;
-        const ast::FunctionDecl &decl; // using a reference should be fine since the rejection info objects never leave the current scope
-        
-        TargetRejectionInfo(std::string reason, const ast::FunctionDecl &decl) : reason(reason), decl(decl) {}
+    auto addImplicitSelfArg = [&](std::shared_ptr<ast::Expr> expr) {
+        targetKind = ast::FunctionKind::InstanceMethod;
+        allArgs.push_back(std::make_pair(getType(expr), expr));
+        didAddImplicitSelfArgToArgsList = true;
     };
     
-    util::Counter<> candidateIndexCounter;
-    std::vector<TargetRejectionInfo> rejections;
-    std::vector<FunctionCallTargetCandidate> candidates;
     
-    // Q: Why are the argument types fetched up here?
-    // A: If we were to call `getType` in the check loop below, this might get messed up
-    //    by the resolved template mapping temporarily inserted into the nominal types list
-    std::vector<Type *> argTypes;
-    argTypes.reserve(callExpr->arguments.size() + argumentOffsetForFunctionKind(targetKind));
-    if (targetKind == ast::FunctionKind::InstanceMethod) {
-        if (auto memberExpr = llvm::dyn_cast<ast::MemberExpr>(callExpr->target)) {
-            argTypes.push_back(getType(memberExpr->target));
-        } else {
-            argTypes.push_back(getType(callExpr->target));
+    
+    auto registerNamedDeclsAndSelectMatching = [&](const std::string &name) {
+        registerNamedDecls(name);
+        util::vector::append(possibleTargets, functions[name]);
+    };
+    
+    
+    if (auto ident = llvm::dyn_cast<ast::Ident>(callExpr->target)) {
+        // <ident>(...)
+        // calling an identifier, which can be either:
+        // - some value lying around in the local scope
+        // - a global function
+        // - a typename, in which case this becomes a constructor call
+        
+        targetName = ident->value;
+        
+        if (auto binding = localScope.get(targetName)) {
+            auto ty = binding->type;
+            if (auto fnTy = llvm::dyn_cast<FunctionType>(ty)) {
+                possibleTargets.push_back(ResolvedCallable(makeFunctionSignatureFromFunctionTypeInfo(fnTy),
+                                                           nullptr, skipCodegen ? nullptr : codegenExpr(ident), 0));
+            } else if (implementsInstanceMethod(ty, mangling::encodeOperator(ast::Operator::FnCall))) {
+                // calling a local variable of a type which happens to overload the `()` operator
+                auto canName = mangling::mangleCanonicalInstanceMethodName(mangling::encodeOperator(ast::Operator::FnCall));
+                util::vector::append(possibleTargets, functions[canName]);
+                addImplicitSelfArg(ident);
+            }
         }
+        
+        registerNamedDeclsAndSelectMatching(targetName);
+        
+        if (auto ty = nominalTypes.get(mangling::mangleAsStruct(targetName))) {
+            auto structTy = llvm::cast<StructType>(*ty);
+            auto ctorTargetName = mangling::mangleCanonicalName(structTy->getName(), structTy->getName(), ast::FunctionKind::StaticMethod);
+            
+            const auto &targets = functions[ctorTargetName];
+            LKAssert(targets.size() == 1);
+            // TODO both here and in the branch below, it'd be nice to append the ctor to the list of other functions and have it go through the normal overload selection process, instead of simply returning and ignoring everything else
+            // The issue w/ this of course is that we'd somehow need to signal via the returned target that this is a call to `A()` instead of `a.init()`
+            resultStatus = ResolveCallResultStatus::Success;
+            return targets[0];
+            
+        } else if (auto tmplDecl = util::map::get_opt(structTemplateDecls, targetName)) {
+            auto ctorTargetName = mangling::mangleCanonicalName(targetName, targetName, ast::FunctionKind::StaticMethod);
+            const auto &targets = functions[ctorTargetName];
+            LKAssert(targets.size() == 1);
+            auto &target = targets[0];
+            LKAssert(target.signature.isTemplateDecl() && target.funcDecl->getSignature().isTemplateDecl());
+            LKAssert(target.funcDecl->getAttributes().int_isCtor);
+            
+            auto tmplMapping = resolveStructTemplateParametersFromExplicitTemplateArgumentList(*tmplDecl, callExpr->explicitTemplateArgs);
+            resultStatus = ResolveCallResultStatus::Success;
+            return specializeTemplateFunctionDeclForCallExpr(target.funcDecl, tmplMapping, 0, codegenOption);
+        }
+    
+    } else if (auto memberExpr = llvm::dyn_cast<ast::MemberExpr>(callExpr->target)) {
+        // TODO support static member functions and struct members of a type with an overloaded call operator
+        targetName = mangling::mangleCanonicalName("", memberExpr->memberName, ast::FunctionKind::InstanceMethod);
+        registerNamedDeclsAndSelectMatching(targetName);
+        addImplicitSelfArg(memberExpr->target);
+        
+//        auto type = getType(memberExpr);
+//        util::fmt::print("{}", type);
+//        LKFatalError("");
+        
     } else {
-        LKAssert(argumentOffset == 0); // just to make sure we don't miss anything
+        LKFatalError("unhandled call target");
     }
+    
+    
+    
+
+    // find a matching target
+    
+    
+    if (possibleTargets.empty()) {
+        resultStatus = ResolveCallResultStatus::NoCandidates;
+        return std::nullopt;
+    }
+    
+    
+    util::Counter<> candidateIndexCounter;
+    
     for (auto argExpr : callExpr->arguments) {
-        argTypes.push_back(getType(argExpr));
+        allArgs.emplace_back(getType(argExpr), argExpr);
     }
     
     
     for (const auto &target : possibleTargets) {
-        const auto &decl = target.funcDecl;
+        auto &decl = target.funcDecl;
         auto &sig = decl->getSignature();
         bool isVariadicWithCLinkage = sig.isVariadic && target.funcDecl->getAttributes().extern_;
+        LKAssertImplication(target.hasImplicitSelfArg, didAddImplicitSelfArgToArgsList);
+        
+        auto args = std::vector(allArgs.begin() + (target.hasImplicitSelfArg ? 0 : (didAddImplicitSelfArgToArgsList)), allArgs.end());
         
         if (decl->isTemplateInstantiation()) {
             continue;
         }
         
-        if (!sig.isVariadic && callExpr->arguments.size() != sig.numberOfParameters() - argumentOffset) {
-            rejections.emplace_back("argument count mismatch", *decl);
+        if (!sig.isVariadic && args.size() != sig.numberOfParameters()) {
+            rejections.emplace_back("argument count mismatch", decl);
             continue;
         }
-        if (sig.isVariadic && (callExpr->arguments.size() < sig.numberOfParameters() - argumentOffset - !isVariadicWithCLinkage)) {
-            rejections.emplace_back("variadic arguments count mismatch", *decl);
+        if (sig.isVariadic && (args.size() < sig.numberOfParameters() - !isVariadicWithCLinkage)) {
+            rejections.emplace_back("variadic arguments count mismatch", decl);
             continue;
         }
         if (decl->getName() != kInitializerMethodName && !sig.isTemplateDecl() && callExpr->numberOfExplicitTemplateArgs() > 0) {
@@ -1425,7 +1593,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             // The sole exception here are calls to initializers, since in this case the call expression
             // is being reused by the compiler, with the original target (the ctor) replaced w/ the initializer
             if (!decl->isTemplateInstantiation()) {
-                rejections.emplace_back("cannot pass explicit template arguments to non-template target", *decl);
+                rejections.emplace_back("cannot pass explicit template arguments to non-template target", decl);
             }
             continue;
         }
@@ -1435,19 +1603,19 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         // for example, printf(*i8...) cannot be called w/ zero arguments, since that would also leave out the format string
 
         FunctionCallTargetCandidate candidate(candidateIndexCounter.increment(), target);
-        size_t lastTypecheckedArgument = isVariadicWithCLinkage ? sig.numberOfParameters() : callExpr->arguments.size();
+        size_t lastTypecheckedArgument = isVariadicWithCLinkage ? sig.numberOfParameters() : args.size();
         
         std::vector<decltype(nominalTypes)::ID> tempTypeIds;
         
         if (sig.isTemplateDecl()) {
-            if (auto mapping = attemptToResolveTemplateArgumentTypesForCall(decl->getSignature(), callExpr, argumentOffset)) {
+            if (auto mapping = attemptToResolveTemplateArgumentTypesForCall(decl->getSignature(), callExpr, args)) {
                 candidate.templateArgumentMapping = *mapping;
                 for (const auto &[name, typeDesc] : *mapping) {
                     LKAssert(typeDesc->isResolved());
                     tempTypeIds.push_back(nominalTypes.insert(name, typeDesc->getResolvedType()));
                 }
             } else {
-                rejections.emplace_back("unable to resolve template parameter types", *decl);
+                rejections.emplace_back("unable to resolve template parameter types", decl);
                 goto discard_potential_match;
             }
             
@@ -1460,14 +1628,11 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
         }
         
         for (size_t idx = 0; idx < lastTypecheckedArgument; idx++) {
-            // These checks deliberately ignore the implicit self parameter.
-            // Since the list of possible targets was fetched based on the receiver type, this isn't an issue
-            auto arg = callExpr->arguments[idx];
-            auto argTy = argTypes[idx + argumentOffset];
+            auto [argTy, arg] = args[idx];
             Type *expectedTy = nullptr;
 
             if (idx < sig.numberOfParameters()) {
-                expectedTy = resolveTypeDesc(sig.paramTypes[idx + argumentOffset], false);
+                expectedTy = resolveTypeDesc(sig.paramTypes[idx], false);
             } else {
                 LKFatalError("is this non-C-linkage varargs?");
             }
@@ -1479,28 +1644,37 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
             }
             
             if (arg->isOfKind(NK::NumberLiteral)) {
-                auto numberLiteral = llvm::dyn_cast<ast::NumberLiteral>(arg);
+                auto numberLiteral = llvm::cast<ast::NumberLiteral>(arg);
                 if (valueIsTriviallyConvertible(numberLiteral, expectedTy)) {
                     candidate.implicitConversionArgumentIndices.push_back(idx);
                     continue;
                 } else {
                     auto str = util::fmt::format("argument #{} not trivially convertible from '{}' to '{}'", idx, argTy, expectedTy);
-                    rejections.emplace_back(str, *decl);
+                    rejections.emplace_back(str, decl);
                     goto discard_potential_match;
                 }
             }
             
             if (expectedTy->isReferenceTy()) {
-                if (!isTemporary(arg) && !argTy->isReferenceTy() && argTy->getReferenceTo() == expectedTy) {
-                    continue;
-                } // TODO if we reach here bc we're passing an arg that cannot become an lvalue to a function expecting an lvalue reference, add that to the reason!
+                if (!argTy->isReferenceTy() && argTy->getReferenceTo() == expectedTy) {
+                    // argument: `T`, expected: `&T`
+                    if (!isTemporary(arg) || (idx == 0 && target.hasImplicitSelfArg)) {
+                        // the argument is either:
+                        // - not a temporary (meaning we can turn it into a reference)
+                        // - a temporary, but this is an instance method call and we're dealing with the implicit self parameter
+                        continue;
+                    }
+                }
+                // TODO  we reach here bc we're passing an arg that cannot become an lvalue to a function expecting an lvalue reference, add that to the reason!
             } else if (!expectedTy->isReferenceTy() && argTy->isReferenceTy()) {
                 if (llvm::dyn_cast<ReferenceType>(argTy)->getReferencedType() == expectedTy) {
                     continue;
                 }
             }
             
-            rejections.emplace_back(util::fmt::format("argument #{} of type '{}' incompatible with expected type '{}'", idx, argTy, expectedTy), *decl);
+            // TODO if this is an instance method call, and the target (clearly) belongs to another type, don't add it to the list of rejected targets
+            // obviously this only applies if the non-matching argument is the 1st one
+            rejections.emplace_back(util::fmt::format("argument #{} of type '{}' incompatible with expected type '{}'", idx, argTy, expectedTy), decl);
             goto discard_potential_match;
         }
         
@@ -1514,7 +1688,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     std::map<FunctionCallTargetCandidate::ID, std::vector<FunctionCallTargetCandidate::ID>> ambiguousCandidates;
     
     std::sort(candidates.begin(), candidates.end(), [&](const FunctionCallTargetCandidate &lhs, const FunctionCallTargetCandidate &rhs) -> bool {
-        switch (lhs.compare(*this, rhs, callExpr, argTypes)) {
+        switch (lhs.compare(*this, rhs, allArgs)) {
             case CandidateViabilityComparisonResult::MoreViable:
                 return true;
             case CandidateViabilityComparisonResult::LessViable:
@@ -1528,49 +1702,40 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     
     
     if (candidates.empty()) {
-        for (const auto &rejection : rejections) {
-            diagnostics::emitNote(rejection.decl.getSourceLocation(), util::fmt::format("not viable: {}", rejection.reason));
-        }
-        diagnostics::emitError(callExpr->getSourceLocation(), util::fmt::format("unable to resolve call to '{}'", targetName));
+        resultStatus = ResolveCallResultStatus::NoCandidates;
+        return std::nullopt;
     }
     
     
     if (candidates.size() > 1 && !ambiguousCandidates[candidates[0].id].empty()) {
-        for (const auto &candidate : candidates) {
-            std::ostringstream OS;
-            OS << "potential target";
-            if (candidate.getSignature().isTemplateDecl()) {
-                OS << " [with ";
-                util::map::iterl(candidate.templateArgumentMapping, [&OS](auto &name, auto &typeDesc, bool isLast) {
-                    OS << name << " = " << typeDesc->str();
-                    if (!isLast) OS << ", ";
-                });
-                OS << "]";
-            }
-            diagnostics::emitNote(candidate.getSignature().getSourceLocation(), OS.str());
-        }
-        
-        auto msg = util::fmt::format("ambiguous call to '{}'", mangling::demangleCanonicalName(targetName));
-        diagnostics::emitError(callExpr->getSourceLocation(), msg);
+        resultStatus = ResolveCallResultStatus::AmbiguousCandidates;
+        return std::nullopt;
     }
     
     
     
     auto bestMatch = candidates.front();
+    auto hasImplicitSelfArg = targetKind == ast::FunctionKind::InstanceMethod;
     
     if (auto &attr = bestMatch.target.funcDecl->getAttributes();
         !skipCodegen && attr.int_isDelayed && !bestMatch.getSignature().isTemplateDecl())
     {
         attr.int_isDelayed = false;
-        withCleanSlate([&]() {
-            codegenFunctionDecl(bestMatch.target.funcDecl);
-        });
+//        withCleanSlate(*this, [&]() {
+//            codegenFunctionDecl(bestMatch.target.funcDecl);
+//        });
+        EmptyScopeHandle ESH(*this);
+        codegenFunctionDecl(bestMatch.target.funcDecl);
     }
     
+    
     if (bestMatch.getSignature().isTemplateDecl() && !bestMatch.target.llvmValue) {
-        return specializeTemplateFunctionDeclForCallExpr(bestMatch.target.funcDecl, bestMatch.templateArgumentMapping, argumentOffset, codegenOption);
+        resultStatus = ResolveCallResultStatus::Success;
+        return specializeTemplateFunctionDeclForCallExpr(bestMatch.target.funcDecl, bestMatch.templateArgumentMapping, hasImplicitSelfArg, codegenOption);
     }
-    return ResolvedCallable(bestMatch.target.funcDecl, bestMatch.target.llvmValue, argumentOffset);
+    
+    resultStatus = ResolveCallResultStatus::Success;
+    return ResolvedCallable(bestMatch.target.funcDecl, bestMatch.target.llvmValue, hasImplicitSelfArg);
 }
 
 
@@ -1587,7 +1752,9 @@ bool callerCalleeSideEffectsCompatible(const std::vector<yo::attributes::SideEff
     }
     
     for (const auto& sideEffect : calleeSideEffects) {
-        if (!util::vector::contains(callerSideEffects, sideEffect)) return false;
+        if (!util::vector::contains(callerSideEffects, sideEffect)) {
+            return false;
+        }
     }
     
     return true;
@@ -1623,11 +1790,12 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
         PassByValue_ExtractReference,
         PassByReference
     };
-    std::map<uint64_t, ArgumentHandlingPolicy> argumentHandlingPolicies;
+    std::map<size_t, ArgumentHandlingPolicy> argumentHandlingPolicies;
+    // vector<> X(resolvedTarget.signature.numberOfParameters())
     
-    for (size_t i = resolvedTarget.argumentOffset; i < resolvedTarget.signature.numberOfParameters(); i++) {
+    for (size_t i = resolvedTarget.hasImplicitSelfArg; i < resolvedTarget.signature.numberOfParameters(); i++) {
         auto expectedType = resolveTypeDesc(resolvedTarget.signature.paramTypes[i]);
-        auto expr = call->arguments[i - resolvedTarget.argumentOffset];
+        auto expr = call->arguments[i - resolvedTarget.hasImplicitSelfArg];
         argumentHandlingPolicies[i] = ArgumentHandlingPolicy::PassByValue;
         if (!applyImplicitConversionIfNecessary(expr, expectedType)) {
             auto exprTy = getType(expr);
@@ -1644,9 +1812,8 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
         }
         cont:
         // TODO is modifying the arguments in-place necessarily a good idea?
-        call->arguments[i - resolvedTarget.argumentOffset] = expr;
+        call->arguments[i - resolvedTarget.hasImplicitSelfArg] = expr;
     }
-    
     
     if (resolvedTarget.funcDecl && resolvedTarget.funcDecl->getAttributes().intrinsic) {
         emitDebugLocation(call);
@@ -1658,19 +1825,18 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
     auto llvmFunctionTy = llvm::dyn_cast<llvm::FunctionType>(llvmFunction->getType()->getContainedType(0));
     auto isVariadic = llvmFunctionTy->isVarArg();
     
-    LKAssert(call->arguments.size() >= llvmFunctionTy->getNumParams() - resolvedTarget.argumentOffset - isVariadic);
+    LKAssert(call->arguments.size() >= llvmFunctionTy->getNumParams() - resolvedTarget.hasImplicitSelfArg - isVariadic);
     
-    std::vector<llvm::Value *> args(resolvedTarget.argumentOffset, nullptr);
-    auto numFixedArgs = llvmFunctionTy->getNumParams() - resolvedTarget.argumentOffset;
+    std::vector<llvm::Value *> args(resolvedTarget.hasImplicitSelfArg, nullptr);
+    auto numFixedArgs = llvmFunctionTy->getNumParams() - resolvedTarget.hasImplicitSelfArg;
 
     
     // TODO what about just adding the implicit argument(s) to the callExpr and getting rid of the whole argumentOffset dance?
-    for (uint64_t i = resolvedTarget.argumentOffset; i < llvmFunctionTy->getNumParams(); i++) {
-        auto expr = call->arguments[i - resolvedTarget.argumentOffset];
+    for (uint64_t i = resolvedTarget.hasImplicitSelfArg; i < llvmFunctionTy->getNumParams(); i++) {
+        auto expr = call->arguments[i - resolvedTarget.hasImplicitSelfArg];
         auto argTy = getType(expr);
         auto expectedTy = resolveTypeDesc(resolvedTarget.signature.paramTypes[i]);
-        
-        const auto policy = argumentHandlingPolicies[i];
+        auto policy = argumentHandlingPolicies[i];
         
         if (policy == ArgumentHandlingPolicy::PassByReference) {
             args.push_back(codegenExpr(expr, LValue));
@@ -1687,13 +1853,14 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
         if (policy == ArgumentHandlingPolicy::PassByValue_ExtractReference) {
             LKAssert(argTy->isReferenceTy());
             if (!didConstructCopy) {
-                V = builder.CreateLoad(V); // TODO only insert this load if no copy was made? (otherwise, the copy constructor already returns a non-reference object)
+                //  only insert a load if no copy was made. otherwise, the copy constructor already returns a non-reference object
+                V = builder.CreateLoad(V);
             }
         }
         args.push_back(V);
     }
     
-    if (resolvedTarget.argumentOffset == kInstanceMethodCallArgumentOffset) {
+    if (resolvedTarget.hasImplicitSelfArg == kInstanceMethodCallArgumentOffset) {
         // TODO this is missing checks to make sure selfTy actually matches / is convertible to the expected argument type !?
         std::shared_ptr<ast::Expr> implicitSelfArg;
         
@@ -1705,9 +1872,8 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
         
         auto selfArgTy = getType(implicitSelfArg);
         
-        
         if (isTemporary(implicitSelfArg)) {
-            // if an instance method call target is a temporary, we need to make sure the object outlives the call
+            // if a call target is a temporary, we need to make sure the object outlives the call
             // we do this by putting it on the stack, thus implicitly registering it for destruction once we leave the current scope
             // TODO the object should be destructed immediately after the call returns / at the end of the enclosing statement !
             auto ident = makeIdent(currentFunction.getTmpIdent(), implicitSelfArg->getSourceLocation());
@@ -1715,12 +1881,6 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
             args[0] = codegenVarDecl(varDecl);
         } else {
             args[0] = codegenExpr(implicitSelfArg, LValue);
-        }
-        
-        if (selfArgTy->isPointerTy()) {
-            args[0]->print(llvm::outs());
-            std::cout << '\n';
-//            LKFatalError("ugh");
         }
     }
     
@@ -1986,7 +2146,6 @@ bool isValidFloatArithBinop(ast::Operator op) {
 
 
 llvm::Value* IRGenerator::codegen_HandleArithmeticIntrinsic(ast::Operator op, std::shared_ptr<ast::CallExpr> call) {
-    //emitDebugLocation(lhs);
     LKAssert(call->arguments.size() == 2);
     
     Type *lhsTy = nullptr, *rhsTy = nullptr;

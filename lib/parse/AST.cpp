@@ -8,6 +8,7 @@
 
 #include "AST.h"
 #include "yo/Mangling.h"
+#include "util/Format.h"
 #include "util/VectorUtils.h"
 
 #include <string>
@@ -41,6 +42,14 @@ const std::string& VarDecl::getName() const {
 
 
 #pragma mark - AST Printing
+
+template <>
+struct util::fmt::formatter<std::shared_ptr<ast::Ident>> {
+    static void format(std::ostream &OS, std::string_view flags, const std::shared_ptr<ast::Ident> &ident) {
+        OS << ident->value;
+    }
+};
+
 
 std::ostream& ast::operator<<(std::ostream &OS, const ast::FunctionSignature &signature) {
     if (signature.isTemplateDecl()) {
@@ -518,7 +527,7 @@ Mirror Reflect(const ast::ExprStmt *exprStmt) {
 
 Mirror Reflect(const ast::TypealiasDecl *typealias) {
     return {
-        { "name", typealias->typename_ },
+        { "name", typealias->name },
         { "type", typealias->type }
     };
 }
@@ -538,6 +547,13 @@ Mirror Reflect(const ast::RawLLVMValueExpr *rawLLVMExpr) {
     };
 }
 
+Mirror Reflect(const ast::ForLoop *forLoop) {
+    return {
+        { "ident", util::fmt::format("{}{}", forLoop->capturesByReference ? "&" : "", forLoop->ident) },
+        { "expr", forLoop->expr },
+        { "body", forLoop->body }
+    };
+}
 
 Mirror Reflect(const Node *node) {
 #define CASE(ty) case NK::ty: return Reflect(static_cast<const ty *>(node));
@@ -571,6 +587,7 @@ Mirror Reflect(const Node *node) {
         CASE(TypealiasDecl)
         CASE(BinOp)
         CASE(RawLLVMValueExpr)
+        CASE(ForLoop)
         default:
             std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::getTypename(*node) << std::endl;
             LKFatalError("");

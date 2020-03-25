@@ -34,7 +34,6 @@ class PointerType;
 class ReferenceType;
 class FunctionType;
 class StructType;
-using ast::CallingConvention;
 
 
 
@@ -47,7 +46,8 @@ public:
         Reference,
         Function,
         Struct,
-        Tuple
+        Tuple,
+        Variant
     };
     
     enum class Flags : uint8_t {
@@ -97,13 +97,30 @@ public:
     virtual std::string str_desc() const;
     
     
-    bool isVoidTy() const { return typeId == TypeID::Void; }
-    bool isPointerTy() const { return typeId == TypeID::Pointer; }
-    bool isNumericalTy() const { return typeId == TypeID::Numerical; }
-    bool isFunctionTy() const { return typeId == TypeID::Function; }
-    bool isStructTy() const { return typeId == TypeID::Struct; }
-    bool isReferenceTy() const { return typeId == TypeID::Reference; }
-    bool isTupleTy() const { return typeId == TypeID::Tuple; }
+    bool isVoidTy() const {
+        return typeId == TypeID::Void;
+    }
+    bool isPointerTy() const {
+        return typeId == TypeID::Pointer;
+    }
+    bool isNumericalTy() const {
+        return typeId == TypeID::Numerical;
+    }
+    bool isFunctionTy() const {
+        return typeId == TypeID::Function;
+    }
+    bool isStructTy() const {
+        return typeId == TypeID::Struct;
+    }
+    bool isReferenceTy() const {
+        return typeId == TypeID::Reference;
+    }
+    bool isTupleTy() const {
+        return typeId == TypeID::Tuple;
+    }
+    bool isVariantTy() const {
+        return typeId == TypeID::Variant;
+    }
         
     PointerType* getPointerTo();
     ReferenceType* getReferenceTo();
@@ -223,22 +240,31 @@ class FunctionType : public Type {
     
     Type *returnType;
     std::vector<Type *> parameterTypes;
-    CallingConvention callingConvention;
+    bool _isVariadic;
     
-    FunctionType(Type *retTy, std::vector<Type *> paramTys, CallingConvention cc)
-    : Type(Type::TypeID::Function), returnType(retTy), parameterTypes(paramTys), callingConvention(cc) {}
+    FunctionType(Type *retTy, std::vector<Type *> paramTys, bool isVariadic)
+    : Type(Type::TypeID::Function), returnType(retTy), parameterTypes(paramTys), _isVariadic(isVariadic) {}
     
 public:
-    Type* getReturnType() const { return returnType; }
-    uint64_t getNumberOfParameters() const { return parameterTypes.size(); }
-    const std::vector<Type *>& getParameterTypes() const { return parameterTypes; }
-    CallingConvention getCallingConvention() const { return callingConvention; }
+    Type* getReturnType() const {
+        return returnType;
+    }
+    
+    uint64_t getNumberOfParameters() const {
+        return parameterTypes.size();
+    }
+    
+    const std::vector<Type *>& getParameterTypes() const {
+        return parameterTypes;
+    }
+    
+    bool isVariadic() const {
+        return _isVariadic;
+    }
     
     std::string str_desc() const override;
     
-    static FunctionType* create(Type *returnType, std::vector<Type *> parameterTypes, CallingConvention cc) {
-        return new FunctionType(returnType, parameterTypes, cc);
-    }
+    static FunctionType* get(Type *returnType, std::vector<Type *> parameterTypes, bool isVariadic);
     
     static bool classof(const Type *type) {
         return type->getTypeId() == TypeID::Function;
@@ -352,6 +378,74 @@ public:
 
     static bool classof(const Type *type) {
         return type->getTypeId() == TypeID::Tuple;
+    }
+};
+
+
+
+class VariantType : public Type {
+public:
+    using Elements = std::vector<std::pair<std::string, TupleType *>>;
+    
+private:
+    std::string name;
+    Elements elements;
+    bool _hasAssociatedData = false;
+    lex::SourceLocation sourceLoc;
+    
+    void assertHasElement(const std::string&) const;
+    
+public:
+    VariantType(const std::string &N, Elements E, lex::SourceLocation);
+    
+    const std::string& getName() const {
+        return name;
+    }
+    
+    std::string str_desc() const override;
+    
+    /// whether any of the variant's elements have associated data
+    bool hasAssociatedData() const {
+        return _hasAssociatedData;
+    }
+    
+    /// whether the variant contains an element with this name
+    bool hasElement(const std::string&) const;
+    
+    /// the index of the element with this name
+    /// only call this function if the name is actually valid for this variant
+    uint64_t getIndexOfElement(const std::string&) const;
+    
+    /// returns `elements.end()` if the variant does not contain an element with this name
+    Elements::const_iterator getElement(const std::string&) const;
+    
+    /// get the tuple associated with an element
+    /// returns `nullptr` if the element does not have any associated data
+    TupleType* getAssociatedDataForElement(const std::string &name) const {
+        assertHasElement(name);
+        return getElement(name)->second;
+    }
+    
+    /// whether an element has associated data
+    bool elementHasAssociatedData(const std::string &name) const {
+        return getAssociatedDataForElement(name) != nullptr;
+    }
+    
+    
+    size_t numberOfElements() const {
+        return elements.size();
+    }
+    
+    const Elements& getElements() const {
+        return elements;
+    }
+    
+    const lex::SourceLocation& getSourceLoc() const {
+        return sourceLoc;
+    }
+    
+    static bool classof(const Type *type) {
+        return type->getTypeId() == TypeID::Variant;
     }
 };
 

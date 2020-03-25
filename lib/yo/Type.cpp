@@ -253,6 +253,18 @@ std::string ReferenceType::str_desc() const {
 
 #pragma mark - FunctionType
 
+static std::vector<FunctionType *> allFunctionTypes;
+
+FunctionType* FunctionType::get(Type *returnType, std::vector<Type *> parameterTypes, bool isVariadic) {
+    for (auto FT : allFunctionTypes) {
+        if (FT->returnType == returnType && FT->parameterTypes == parameterTypes && FT->_isVariadic == isVariadic) {
+            return FT;
+        }
+    }
+    auto FT = new FunctionType(returnType, parameterTypes, isVariadic);
+    allFunctionTypes.push_back(FT);
+    return FT;
+}
 
 std::string FunctionType::str_desc() const {
     std::ostringstream OS;
@@ -313,4 +325,56 @@ std::string TupleType::str_desc() const {
     OS << ")";
     
     return OS.str();
+}
+
+
+#pragma mark - Variant
+
+VariantType::VariantType(const std::string &name, Elements elements, lex::SourceLocation loc)
+: Type(TypeID::Variant), name(name), elements(elements), sourceLoc(loc)
+{
+    std::vector<std::string> names;
+    for (auto &[name, type] : elements) {
+        if (util::vector::contains(names, name)) {
+            LKFatalError("variant elements cannot contain duplicates");
+        }
+        names.push_back(name);
+        
+        if (type) {
+            _hasAssociatedData = true;
+        }
+    }
+}
+
+
+VariantType::Elements::const_iterator VariantType::getElement(const std::string &name) const {
+    for (auto it = elements.begin(); it != elements.end(); it++) {
+        if (it->first == name) {
+            return it;
+        }
+    }
+    return elements.end();
+}
+
+bool VariantType::hasElement(const std::string &name) const {
+    return getElement(name) != elements.end();
+}
+
+void VariantType::assertHasElement(const std::string &name) const {
+    if (!hasElement(name)) {
+        LKFatalError("variant type '%s' does not contain an element named '%s'", this->name.c_str(), name.c_str());
+    }
+}
+
+
+
+uint64_t VariantType::getIndexOfElement(const std::string &name) const {
+    assertHasElement(name);
+    return std::distance(elements.begin(), getElement(name));
+}
+
+
+std::string VariantType::str_desc() const {
+    // TODO what about also including the associated types?
+    return name;
 }

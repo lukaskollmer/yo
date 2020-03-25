@@ -26,8 +26,11 @@ using NK = ast::Node::Kind;
 
 
 std::shared_ptr<ast::TypeDesc> TemplateSpecializer::resolveType(std::shared_ptr<ast::TypeDesc> typeDesc) {
-    if (!typeDesc) return nullptr;
     using TDK = ast::TypeDesc::Kind;
+    
+    if (!typeDesc) {
+        return nullptr;
+    }
     
     const auto &loc = typeDesc->getSourceLocation();
     
@@ -52,16 +55,20 @@ std::shared_ptr<ast::TypeDesc> TemplateSpecializer::resolveType(std::shared_ptr<
             return ast::TypeDesc::makeDecltype(specialize(typeDesc->getDecltypeExpr()), loc);
         
         case TDK::NominalTemplated: {
-            auto resolvedTemplateArgs = util::vector::map(typeDesc->getTemplateArgs(), [this](auto &ty) { return resolveType(ty); });
+            auto resolvedTemplateArgs = util::vector::map(typeDesc->getTemplateArgs(), [this](auto &ty) {
+                return resolveType(ty);
+            });
             return ast::TypeDesc::makeNominalTemplated(typeDesc->getName(), resolvedTemplateArgs, loc);
         }
         
-//        case TDK::Tuple: {
-//            auto resolvedTys = util::vector::map(typeDesc->getTupleMembers(), [this](auto &ty) { return resolveType(ty); });
-//            return ast::TypeDesc::makeTuple(resolvedTys, loc);
-//        }
         
-        case TDK::Tuple:
+        case TDK::Tuple: {
+            auto resolvedTypes = util::vector::map(typeDesc->getTupleMembers(), [this](auto &type) {
+                return resolveType(type);
+            });
+            return ast::TypeDesc::makeTuple(resolvedTypes, loc);
+        }
+        
         case TDK::Function:
             LKFatalError("TODO");
         
@@ -126,14 +133,9 @@ std::shared_ptr<ast::StructDecl> TemplateSpecializer::specialize(std::shared_ptr
     specDecl->name = SD->getName();
     specDecl->attributes = SD->attributes;
     specDecl->members.reserve(SD->members.size());
-    specDecl->methods.reserve(SD->methods.size());
     
     for (auto member : SD->members) {
         specDecl->members.push_back(specialize(member));
-    }
-    
-    for (auto func : SD->methods) {
-        specDecl->methods.push_back(specialize(func));
     }
     
     return specDecl;

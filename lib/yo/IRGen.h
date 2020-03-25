@@ -27,6 +27,7 @@
 #include <stack>
 #include <memory>
 #include <optional>
+#include <utility>
 
 
 NS_START(yo::irgen)
@@ -39,13 +40,10 @@ using TemplateTypeMapping = std::map<std::string, std::shared_ptr<ast::TypeDesc>
 
 StructType* getUnderlyingStruct(Type *ty);
 std::string mangleFullyResolved(const std::shared_ptr<ast::FunctionDecl>&);
-uint8_t argumentOffsetForFunctionKind(ast::FunctionKind);
 bool integerLiteralFitsInIntegralType(uint64_t, Type *);
 llvm::DIFile* DIFileForSourceLocation(llvm::DIBuilder&, const lex::SourceLocation&);
 std::shared_ptr<ast::CallExpr> subscriptExprToCall(std::shared_ptr<ast::SubscriptExpr>);
-
 std::shared_ptr<ast::Ident> makeIdent(const std::string&, lex::SourceLocation = lex::SourceLocation());
-
 std::shared_ptr<ast::Ident> formatTupleMemberAtIndex(size_t index);
 
 
@@ -63,6 +61,12 @@ static const std::string kIteratorNextMethodName = "next";
 
 enum ValueKind { // TODO rename to ValueCategory?
     LValue, RValue
+};
+
+// Whether a function should skip actual codegen
+enum SkipCodegenOption {
+    kRunCodegen,
+    kSkipCodegen
 };
 
 
@@ -95,17 +99,16 @@ struct ValueBinding {
 
 
 struct ResolvedCallable {
-    // TODO add a "kind of callable" field (global function, instance/static method, lambda, etc). that could also replace the argumentOffset field
-    ast::FunctionSignature signature;
+    ast::FunctionSignature signature; // TODO can this be a `FunctionType *` instead?
     std::shared_ptr<ast::FunctionDecl> funcDecl; // only nonnull if the callable is a function decl
     llvm::Value *llvmValue; // nullptr if this is a yet to be instantiated function template
-    uint8_t argumentOffset;
+    bool hasImplicitSelfArg;
     
-    ResolvedCallable(ast::FunctionSignature sig, std::shared_ptr<ast::FunctionDecl> funcDecl, llvm::Value *llvmValue, uint8_t argumentOffset)
-    : signature(sig), funcDecl(funcDecl), llvmValue(llvmValue), argumentOffset(argumentOffset) {}
+    ResolvedCallable(ast::FunctionSignature sig, std::shared_ptr<ast::FunctionDecl> funcDecl, llvm::Value *llvmValue, bool hasImplicitSelfArg)
+    : signature(sig), funcDecl(funcDecl), llvmValue(llvmValue), hasImplicitSelfArg(hasImplicitSelfArg) {}
     
-    ResolvedCallable(std::shared_ptr<ast::FunctionDecl> funcDecl, llvm::Value *llvmValue, uint8_t argumentOffset)
-    : signature(funcDecl->getSignature()), funcDecl(funcDecl), llvmValue(llvmValue), argumentOffset(argumentOffset) {}
+    ResolvedCallable(std::shared_ptr<ast::FunctionDecl> funcDecl, llvm::Value *llvmValue, bool hasImplicitSelfArg)
+    : signature(funcDecl->getSignature()), funcDecl(funcDecl), llvmValue(llvmValue), hasImplicitSelfArg(hasImplicitSelfArg) {}
 };
 
 
@@ -159,16 +162,35 @@ struct FunctionCallTargetCandidate {
         return target.signature;
     }
     
-    CandidateViabilityComparisonResult compare(IRGenerator &irgen, const FunctionCallTargetCandidate &other, std::shared_ptr<ast::CallExpr>, const std::vector<Type *> &argTys) const;
+    CandidateViabilityComparisonResult compare(IRGenerator &irgen, const FunctionCallTargetCandidate &other, const std::vector<std::pair<Type *, std::shared_ptr<ast::Expr>>>&) const;
 };
 
 
 
 
+/// a named decl is a named declaration
+struct NamedDeclInfo {
+    bool isRegistered = false;
+    std::shared_ptr<ast::TopLevelStmt> decl;
+    Type *type = nullptr;
+    llvm::Value *llvmValue = nullptr; // only nonnull for functions?
+    
+    NamedDeclInfo(std::shared_ptr<ast::TopLevelStmt> decl) : decl(decl) {}
+};
+
+
+
 
 class IRGenerator {
+public:
+    // this is public since some of the temp-clean-scope stuff is declared outside the irgen class
+    class EmptyScopeHandle;
+
+private:
+    friend class EmptyScopeHandle;
     friend struct FunctionCallTargetCandidate;
     
+    ast::AST &ast;
     std::unique_ptr<llvm::Module> module;
     llvm::IRBuilder<> builder;
     
@@ -203,6 +225,9 @@ class IRGenerator {
     // If the type is a template specialization, the key is the mangled name
     util::NamedScope<Type *> nominalTypes;
     
+    // key: canonical name
+    std::map<std::string, std::vector<NamedDeclInfo>> namedDeclInfos;
+    
     /// All registered non-template struct types
     std::map<std::string, std::shared_ptr<ast::StructDecl>> structDecls;
     std::map<std::string, std::shared_ptr<ast::StructDecl>> structTemplateDecls;
@@ -220,21 +245,59 @@ class IRGenerator {
 public:
     static llvm::LLVMContext C;
     
-    IRGenerator(const std::string& translationUnitPath, const driver::Options&);
+    IRGenerator(ast::AST&, const std::string& translationUnitPath, const driver::Options&);
     
-    void codegen(const ast::AST&);
+    void runCodegen();
     
     std::unique_ptr<llvm::Module> getModule() {
         return std::move(module);
     }
     
     
-    
 private:
-    void preflight(const ast::AST&);
-    void registerFunction(std::shared_ptr<ast::FunctionDecl>);
-    StructType* registerStructDecl(std::shared_ptr<ast::StructDecl>);
-    void registerTypealias(std::shared_ptr<ast::TypealiasDecl>);
+    void preflight();
+    void preflightImplBlock(std::shared_ptr<ast::ImplBlock>);
+    
+    void registerNamedDecl(NamedDeclInfo &);
+    llvm::Function* registerFunction(std::shared_ptr<ast::FunctionDecl>, NamedDeclInfo &);
+    StructType* registerStructDecl(std::shared_ptr<ast::StructDecl>, NamedDeclInfo &);
+    void registerTypealias(std::shared_ptr<ast::TypealiasDecl>, NamedDeclInfo &);
+    VariantType* registerVariantDecl(std::shared_ptr<ast::VariantDecl>, NamedDeclInfo &);
+    
+    llvm::Function* addAndRegisterFunction(std::shared_ptr<ast::FunctionDecl> decl) {
+        ast.push_back(decl);
+        auto &info = namedDeclInfos[decl->getName()].emplace_back(decl);
+        return registerFunction(decl, info);
+    }
+    
+    StructType* addAndRegisterStructDecl(std::shared_ptr<ast::StructDecl> decl) {
+        ast.push_back(decl);
+        auto &info = namedDeclInfos[decl->name].emplace_back(decl);
+        return registerStructDecl(decl, info);
+    }
+    
+    /// register all names decls for a given name
+    void registerNamedDecls(const std::string &name) {
+        for (auto &[declName, declInfos] : namedDeclInfos) {
+            if (declName != name) continue;
+            for (auto &declInfo : declInfos) {
+                registerNamedDecl(declInfo);
+            }
+        }
+    }
+    
+    /// register all names decls for a given name, depending on a predicate
+    template <typename F>
+    void registerNamedDecls(const std::string &name, F &&fn) {
+        for (auto &[declName, declInfos] : namedDeclInfos) {
+            if (declName != name) continue;
+            for (auto &declInfo : declInfos) {
+                if (fn(declInfo.decl)) {
+                    registerNamedDecl(declInfo);
+                }
+            }
+        }
+    }
     
     
     // Debug Metadata
@@ -260,7 +323,6 @@ private:
     
     // ast::TopLevelStmt
     llvm::Value *codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>);
-    llvm::Value *codegenStructDecl(std::shared_ptr<ast::StructDecl>);
     
     // ast::LocalStmt
     llvm::Value *codegenCompoundStmt(std::shared_ptr<ast::CompoundStmt>);
@@ -282,7 +344,7 @@ private:
     llvm::Value *codegenRawLLVMValueExpr(std::shared_ptr<ast::RawLLVMValueExpr>, ValueKind);
     llvm::Value *codegenBinOp(std::shared_ptr<ast::BinOp>, ValueKind);
     llvm::Value *codegenSubscriptExpr(std::shared_ptr<ast::SubscriptExpr>, ValueKind);
-    llvm::Value *codegenMemberExpr(std::shared_ptr<ast::MemberExpr>, ValueKind);
+    llvm::Value *codegenMemberExpr(std::shared_ptr<ast::MemberExpr>, ValueKind, SkipCodegenOption = kRunCodegen, Type ** = nullptr);
     llvm::Value *codegenCallExpr(std::shared_ptr<ast::CallExpr>, ValueKind);
     llvm::Value *codegenLambdaExpr(std::shared_ptr<ast::LambdaExpr>, ValueKind);
     llvm::Value *codegenArrayLiteralExpr(std::shared_ptr<ast::ArrayLiteralExpr>, ValueKind);
@@ -311,7 +373,6 @@ private:
     llvm::Type* getLLVMType(Type *);
     llvm::DIType* getDIType(Type *);
     llvm::DISubroutineType* toDISubroutineType(const ast::FunctionSignature&);
-    uint8_t argumentOffsetForCallingConvention(CallingConvention cc);
     Type* resolvePrimitiveType(std::string_view name);
     
     bool isTemporary(std::shared_ptr<ast::Expr>);
@@ -325,6 +386,8 @@ private:
     
     llvm::Value* constructStruct(StructType *, std::shared_ptr<ast::CallExpr> ctorCall, bool putInLocalScope, ValueKind);
     llvm::Value* constructCopyIfNecessary(Type *, std::shared_ptr<ast::Expr>, bool *didConstructCopy = nullptr);
+    
+    llvm::Value* constructVariant(VariantType *, const std::string &elementName);
     
     /// Destructs a value by invoking the type's `dealloc` method, if defined
     /// value parameter should be the value's memory location
@@ -363,21 +426,35 @@ private:
     
     // Other stuff
     std::optional<ResolvedCallable> getResolvedFunctionWithName(const std::string &name);
+    
+    ResolvedCallable specializeTemplateFunctionDeclForCallExpr(std::shared_ptr<ast::FunctionDecl>, TemplateTypeMapping, bool hasImplicitSelfArg, SkipCodegenOption);
+    
+    struct CallTargetRejectionReason {
+        std::string reason;
+        std::shared_ptr<ast::FunctionDecl> decl;
         
-    // Whether a function should skip actual codegen
-    enum SkipCodegenOption {
-        kRunCodegen,
-        kSkipCodegen
+        CallTargetRejectionReason(std::string reason, std::shared_ptr<ast::FunctionDecl> decl) : reason(reason), decl(decl) {}
     };
     
-    ResolvedCallable specializeTemplateFunctionDeclForCallExpr(std::shared_ptr<ast::FunctionDecl>, TemplateTypeMapping, uint8_t argumentOffset, SkipCodegenOption);
+    enum class ResolveCallResultStatus {
+        Success,
+        NoCandidates,
+        AmbiguousCandidates
+    };
+    std::optional<ResolvedCallable> resolveCall_imp(std::shared_ptr<ast::CallExpr>, SkipCodegenOption,
+                                                    std::vector<FunctionCallTargetCandidate>&,
+                                                    std::vector<CallTargetRejectionReason>&, ResolveCallResultStatus&);
     ResolvedCallable resolveCall(std::shared_ptr<ast::CallExpr>, SkipCodegenOption);
+    
+    // returns true if the call can be resolved, otherwise false.
+    // does not emit IR for the call
+    bool canResolveCall(std::shared_ptr<ast::CallExpr>);
     
     
     TemplateTypeMapping resolveStructTemplateParametersFromExplicitTemplateArgumentList(std::shared_ptr<ast::StructDecl>, std::shared_ptr<ast::TemplateParamArgList>);
     
     std::optional<TemplateTypeMapping>
-    attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSignature&, std::shared_ptr<ast::CallExpr> call, unsigned argumentOffset);
+    attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSignature&, std::shared_ptr<ast::CallExpr>, const std::vector<std::pair<Type *, std::shared_ptr<ast::Expr>>>&);
     
     /// Instantiate a template struct, using a fully resolved typeDesc to resolve the template parameters
     StructType* instantiateTemplateStruct(std::shared_ptr<ast::StructDecl>, std::shared_ptr<ast::TypeDesc>);
@@ -397,6 +474,9 @@ private:
     
     // Types
     
+    // basically, whether `targetTy().name(argTys...)` exists
+    bool memberFunctionCallResolves(Type *targetTy, std::string name, const std::vector<Type *> &argTys);
+    
     llvm::Value* synthesizeDefaultMemberwiseInitializer(std::shared_ptr<ast::StructDecl>, SkipCodegenOption);
     llvm::Value* synthesizeDefaultCopyConstructor(std::shared_ptr<ast::StructDecl>, SkipCodegenOption);
     llvm::Value* synthesizeDefaultDeallocMethod(std::shared_ptr<ast::StructDecl>, SkipCodegenOption);
@@ -410,24 +490,62 @@ private:
     
     // TODO this seems like a bad idea?
     // Assuming this is only ever used for registering synthesized functions, what about just having a `queueSynthFunction` function that registers the llvm::Function, and then puts the FuncDecl in a queue which is handled after regular codegen finished?
+//    template <typename F>
+//    std::invoke_result_t<F> withCleanSlate(F &&fn) {
+//        // TODO this also need to take debugInfo.lexicalBlocks into account !!!!!!!!!!
+//        auto prevLocalScope = localScope;
+//        auto prevCurrentFunction = currentFunction;
+//        auto prevInsertBlock = builder.GetInsertBlock();
+//
+//        localScope = {};
+//        currentFunction = {};
+//
+//        util::DeferHandle H([&]() {
+//            localScope = prevLocalScope;
+//            currentFunction = prevCurrentFunction;
+//            builder.SetInsertPoint(prevInsertBlock);
+//        });
+//
+//        return fn();
+//    }
+};
+
+
+class IRGenerator::EmptyScopeHandle {
+    // TODO this also need to take debugInfo.lexicalBlocks into account !!!!!!!!!!
+    IRGenerator &irgen;
+    decltype(irgen.localScope) prevLocalScope;
+    decltype(irgen.currentFunction) prevCurrentFunction;
+    decltype(irgen.builder.GetInsertBlock()) prevInsertBlock;
+    
+public:
+    explicit EmptyScopeHandle(IRGenerator &irgen)
+    : irgen(irgen), prevLocalScope(irgen.localScope), prevCurrentFunction(irgen.currentFunction), prevInsertBlock(irgen.builder.GetInsertBlock()) {
+        irgen.localScope = {};
+        irgen.currentFunction = {};
+    }
+    
+    ~EmptyScopeHandle() {
+        irgen.localScope = prevLocalScope;
+        irgen.currentFunction = prevCurrentFunction;
+        irgen.builder.SetInsertPoint(prevInsertBlock);
+    }
+    
+    
+    /// Invokes the lambda with a clean scope, and returns whatever the lambda returns
     template <typename F>
-    std::invoke_result_t<F> withCleanSlate(F &&fn) {
-        // TODO this also need to take debugInfo.lexicalBlocks into account !!!!!!!!!!
-        auto prevLocalScope = localScope;
-        auto prevCurrentFunction = currentFunction;
-        auto prevInsertBlock = builder.GetInsertBlock();
-        
-        localScope = {};
-        currentFunction = {};
-        
-        util::DeferHandle H([&]() {
-            localScope = prevLocalScope;
-            currentFunction = prevCurrentFunction;
-            builder.SetInsertPoint(prevInsertBlock);
-        });
-        
+    static std::invoke_result_t<F> invoke(IRGenerator &irgen, F &&fn) {
+        EmptyScopeHandle ESH(irgen);
         return fn();
     }
 };
+
+
+// TODO remove this and use EmptyScopeHandle::invoke instead
+template <typename F>
+std::invoke_result_t<F> withCleanSlate(IRGenerator &irgen, F &&fn) {
+    IRGenerator::EmptyScopeHandle ESH(irgen);
+    return fn();
+}
 
 NS_END

@@ -8,8 +8,10 @@
 
 #include "TypeDesc.h"
 #include "AST.h"
+#include "util/util.h"
 #include "util/Format.h"
 #include "util/VectorUtils.h"
+#include "yo/Type.h"
 
 using namespace yo::ast;
 
@@ -49,10 +51,8 @@ std::string TypeDesc::str() const {
         }
         
         case Kind::Resolved:
-            //return std::string("resolved(").append(getResolvedType()->str()).append(")");
-            //return getResolvedType()->str_desc();
-            // TODO bring back the proper description
-            return util::fmt::format("resolved({})", static_cast<void *>(getResolvedType()));
+            return getResolvedType()->str_desc();
+            //return std::string("resolved(").append(getResolvedType()->str_desc()).append(")");
         
         case Kind::Decltype:
             return util::fmt::format("decltype({})", getDecltypeExpr()->description());

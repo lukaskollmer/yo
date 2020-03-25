@@ -34,10 +34,14 @@ public:
     Attribute(std::string_view key, const std::string &value) : key(key), dataKind(DataKind::String), data(value) {}
     Attribute(std::string_view key, const std::vector<std::string> &elements) : key(key), dataKind(DataKind::Array), data(elements) {}
     
-    std::string_view getKey() const { return key; }
+    std::string_view getKey() const {
+        return key;
+    }
     
     template <typename T>
-    const T& getData() const { return std::get<T>(data); }
+    const T& getData() const {
+        return std::get<T>(data);
+    }
 };
 
 
@@ -48,6 +52,12 @@ enum class SideEffect {
 };
 
 struct FunctionAttributes {
+    bool int_isCtor = false;
+    bool int_isFwdDecl = false;
+    bool int_isDelayed = false;
+    bool int_isSynthesized = false;
+    bool int_skipCodegen = false;
+    
     bool no_mangle = false;
     bool intrinsic = false;
     bool extern_ = false;
@@ -55,17 +65,12 @@ struct FunctionAttributes {
     bool always_inline = false;
     bool startup = false;
     bool shutdown = false;
-    bool int_isCtor = false;
-    bool int_isFwdDecl = false;
-    bool int_isDelayed = false;
-    bool int_isSynthesized = false;
     bool no_debug_info = false;
     std::string mangledName = "";
     std::vector<SideEffect> side_effects = { SideEffect::Unknown };
     
     FunctionAttributes() {}
     explicit FunctionAttributes(const std::vector<Attribute>&);
-    
 };
 
 
@@ -92,7 +97,7 @@ struct VarDeclAttributes {
     
     explicit VarDeclAttributes(const std::vector<Attribute>&);
     
-    bool operator ==(const VarDeclAttributes &other) const {
+    bool operator==(const VarDeclAttributes &other) const {
         return constexpr_ == other.constexpr_;
     }
 };

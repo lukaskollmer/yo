@@ -131,6 +131,7 @@ inline constexpr char kMangledTemplateArgsListPrefix = 'T';
 inline constexpr char kMangledTypeStructPrefix = 'A';
 inline constexpr char kMangledTypeStructIsTemplatePrefix = 't';
 inline constexpr char kMangledTypeTuplePrefix = 'B';
+inline constexpr char kMangledTypePrefixVariant = 'C';
 
 inline constexpr char kMangledTypePointerPrefix = 'P';
 inline constexpr char kMangledTypeReferencePrefix = 'R';
@@ -174,32 +175,26 @@ public:
 
 
 std::string mangleCanonicalName(std::string_view type, std::string_view method, ast::FunctionKind kind) {
-    using FK = ast::FunctionKind;
-    
-    ManglingStringBuilder mangler;
-    
     switch (kind) {
         case ast::FunctionKind::GlobalFunction:
             return std::string(method);
             
-        case FK::OperatorOverload:
-            mangler.append(kCanonicalPrefixOperatorOverload);
-            mangler.append(method);
-            return mangler.str();
+        case ast::FunctionKind::OperatorOverload:
+            return ManglingStringBuilder(kCanonicalPrefixOperatorOverload)
+                .append(method)
+                .str();
         
-        case FK::StaticMethod:
-            mangler.append(kCanonicalPrefixStaticMethod);
-            break;
+        case ast::FunctionKind::StaticMethod:
+            return ManglingStringBuilder(kCanonicalPrefixStaticMethod)
+                .appendWithCount(type)
+                .appendWithCount(method)
+                .str();
         
-        case FK::InstanceMethod:
-            mangler.append(kCanonicalPrefixInstanceMethod);
-            break;
+        case ast::FunctionKind::InstanceMethod:
+            return ManglingStringBuilder("__I")
+                .appendWithCount(method)
+                .str();
     }
-    
-    return mangler
-        .appendWithCount(type)
-        .appendWithCount(method)
-        .str();
 }
 
 
@@ -209,7 +204,7 @@ std::string mangleCanonicalName(std::shared_ptr<ast::FunctionDecl> funcDecl) {
         return funcDecl->getAttributes().mangledName;
     }
     std::string typeName;
-    if (funcDecl->isOfFunctionKind(ast::FunctionKind::StaticMethod) || funcDecl->isOfFunctionKind(ast::FunctionKind::InstanceMethod)) {
+    if (funcDecl->isOfFunctionKind(ast::FunctionKind::StaticMethod)) {
         typeName = funcDecl->getImplType()->getName();
     }
     return mangleCanonicalName(typeName, funcDecl->getName(), funcDecl->getFunctionKind());
@@ -260,6 +255,10 @@ ManglingStringBuilder& ManglingStringBuilder::appendEncodedType(const irgen::Typ
             return append(kMangledTypeReferencePrefix).appendEncodedType(refTy->getReferencedType());
         }
         
+        case TypeID::Variant: {
+            return append(llvm::cast<irgen::VariantType>(ty)->getName());
+        }
+            
         case TypeID::Function:
             LKFatalError("TODO");
         
@@ -302,10 +301,13 @@ std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> funcDecl) {
             mangler.append(kPrefixOperatorOverload);
             break;
         
-        case ast::FunctionKind::InstanceMethod:
+        case ast::FunctionKind::InstanceMethod: {
             mangler.append(kPrefixInstanceMethod);
-            mangler.appendEncodedType(funcDecl->getImplType());
+//            mangler.appendEncodedType(funcDecl->getImplType());
+            auto selfTy = llvm::cast<irgen::ReferenceType>(funcDecl->getSignature().paramTypes[0]->getResolvedType())->getReferencedType();
+            mangler.appendEncodedType(selfTy);
             break;
+        }
         
         case ast::FunctionKind::StaticMethod:
             mangler.append(kPrefixStaticMethod);
@@ -345,26 +347,65 @@ std::string mangleAsStruct(std::string_view name) {
     return ManglingStringBuilder(kMangledTypeStructPrefix).appendWithCount(name).str();
 }
 
-// TODO rewrite to use an irgen::StructType* object instead!!!!
-std::string mangleFullyResolved(std::shared_ptr<ast::StructDecl> SD) {
-    ManglingStringBuilder mangler(kMangledTypeStructPrefix);
-    bool isTemplate = SD->resolvedTemplateArgTypes.size() > 0;
+
+
+std::string mangleTemplateDeclFullyResolved(char prefix, std::string_view name, const ast::TemplateDecl &decl) {
+    ManglingStringBuilder mangler(prefix);
     
-    if (isTemplate) {
+    if (decl.isInstantiatedTemplateDecl()) {
         mangler.append(kMangledTypeStructIsTemplatePrefix);
     }
     
-    mangler.appendWithCount(SD->name);
+    mangler.appendWithCount(name);
     
-    if (isTemplate) {
+    if (decl.isInstantiatedTemplateDecl()) {
         mangler.append(kMangledTemplateArgsListPrefix);
-        mangler.append(SD->resolvedTemplateArgTypes.size());
-        for (auto &ty : SD->resolvedTemplateArgTypes) {
+        mangler.append(decl.templateInstantiationArguments.size());
+        for (auto &ty : decl.templateInstantiationArguments) {
             mangler.appendEncodedType(ty);
         }
     }
     
     return mangler.str();
+}
+
+
+// TODO rewrite to use an irgen::StructType* object instead!!!!
+std::string mangleFullyResolved(std::shared_ptr<ast::StructDecl> SD) {
+//    ManglingStringBuilder mangler(kMangledTypeStructPrefix);
+//    //bool isTemplate = SD->templateInstantiationArguments.size() > 0;
+//
+//    if (SD->isInstantiatedTemplateDecl()) {
+//        mangler.append(kMangledTypeStructIsTemplatePrefix);
+//    }
+//
+//    mangler.appendWithCount(SD->name);
+//
+//    if (SD->isInstantiatedTemplateDecl()) {
+//        mangler.append(kMangledTemplateArgsListPrefix);
+//        mangler.append(SD->templateInstantiationArguments.size());
+//        for (auto &ty : SD->templateInstantiationArguments) {
+//            mangler.appendEncodedType(ty);
+//        }
+//    }
+//
+//    return mangler.str();
+    return mangleTemplateDeclFullyResolved(kMangledTypeStructPrefix, SD->name, *SD);
+}
+
+
+
+std::string mangleFullyResolved(std::shared_ptr<ast::VariantDecl> decl) {
+//    ManglingStringBuilder mangler(kMangledTypePrefixVariant);
+//
+//    if (decl->isInstantiatedTemplateDecl()) {
+//        LKFatalError("TODO");
+//    }
+//
+//    mangler.appendWithCount(decl->name->value);
+//
+//    if (SD->)
+    return mangleTemplateDeclFullyResolved(kMangledTypePrefixVariant, decl->name->value, *decl);
 }
 
 

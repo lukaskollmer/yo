@@ -257,8 +257,8 @@ bool driver::run(driver::Options options) {
         std::cout << ast::description(ast) << std::endl;
     }
     
-    irgen::IRGenerator irgen(inputFile, options);
-    irgen.codegen(ast);
+    irgen::IRGenerator irgen(ast, inputFile, options);
+    irgen.runCodegen();
     
     std::unique_ptr<llvm::Module> M = irgen.getModule();
     

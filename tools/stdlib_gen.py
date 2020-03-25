@@ -12,7 +12,7 @@ STDLIB_PARENT = os.path.dirname(STDLIB_PATH)
 filename_pattern = re.compile(r'/|\.')
 
 print(CMAKE_BINARY_DIR)
-f = open(os.path.join(CMAKE_BINARY_DIR, 'lib', 'yo', 'stdlib_sources.cpp'), 'w')
+f = open(os.path.join(CMAKE_BINARY_DIR, 'lib', 'parse', 'stdlib_sources.cpp'), 'w')
 
 f.write(
 f"""//

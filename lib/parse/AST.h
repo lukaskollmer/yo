@@ -143,6 +143,11 @@ protected:
 class Expr : public Node {
 protected:
     Expr(Kind kind) : Node(kind) {}
+
+public:
+    /// true if we know for a fact that this expression will always evaluate to a temporary value
+    /// TODO introducing this variable is a terrible fix for this problem and it should be removed asap
+    bool isKnownAsTemporary = false;
 };
 
 
@@ -210,11 +215,30 @@ public:
 
 
 
-class FunctionSignature : public Node {
+
+// Helper class used for implementing functionality common to all declarations which can be templates
+class TemplateDecl {
+public:
+    std::shared_ptr<TemplateParamDeclList> templateParamsDecl;
+    std::vector<irgen::Type *> templateInstantiationArguments;
+    
+    bool isTemplateDecl() const {
+        return templateParamsDecl != nullptr;
+    }
+    
+    bool isInstantiatedTemplateDecl() const {
+        return !templateInstantiationArguments.empty();
+    }
+};
+
+
+
+
+class FunctionSignature : public Node, public TemplateDecl {
 public:
     std::shared_ptr<TypeDesc> returnType;
     std::vector<std::shared_ptr<TypeDesc>> paramTypes;
-    std::shared_ptr<TemplateParamDeclList> templateParamsDecl;
+//    std::shared_ptr<TemplateParamDeclList> templateParamsDecl;
     bool isVariadic = false;
 
     CLASSOF_IMP(Node::Kind::FunctionSignature)
@@ -223,9 +247,9 @@ public:
     size_t numberOfParameters() const {
         return paramTypes.size();
     }
-    bool isTemplateDecl() const {
-        return templateParamsDecl != nullptr;
-    }
+//    bool isTemplateDecl() const {
+//        return templateParamsDecl != nullptr;
+//    }
     uint64_t numberOfTemplateParameters() const {
         if (!templateParamsDecl) return 0;
         else return templateParamsDecl->size();
@@ -253,7 +277,6 @@ public:
     std::string name;
     
     // context
-    std::shared_ptr<TypeDesc> implTypeDesc;
     irgen::StructType *implType = nullptr; // Only nonnull if this is a type member function
     /// The template arguments this function was instantiated with
     std::vector<yo::irgen::Type *> resolvedTemplateArgTypes;
@@ -312,31 +335,22 @@ public:
 
 
 
-class StructDecl : public TopLevelStmt {
+class StructDecl : public TopLevelStmt, public TemplateDecl {
 public:
     std::string name;
     std::vector<std::shared_ptr<VarDecl>> members;
-    std::shared_ptr<TemplateParamDeclList> templateParamsDecl;
     attributes::StructAttributes attributes;
-    
-    /// The template arguments this struct was instantiated with
-    std::vector<yo::irgen::Type *> resolvedTemplateArgTypes;
-    
-    /// The `impl` blocks belonging to this struct
-    //std::vector<std::shared_ptr<ImplBlock>> implBlocks;
-    std::vector<std::shared_ptr<FunctionDecl>> methods;
-    
     
     CLASSOF_IMP(Node::Kind::StructDecl)
     StructDecl() : TopLevelStmt(Node::Kind::StructDecl) {}
-    
-    bool isTemplateDecl() { return templateParamsDecl != nullptr; }
     
     const std::string& getName() const { return name; }
 };
 
 
-class ImplBlock : public TopLevelStmt {
+
+
+class ImplBlock : public TopLevelStmt, public TemplateDecl {
 public:
     std::shared_ptr<ast::TypeDesc> typeDesc;
     std::vector<std::shared_ptr<FunctionDecl>> methods;
@@ -347,31 +361,32 @@ public:
 };
 
 
+
+
+
 class TypealiasDecl : public TopLevelStmt {
 public:
-    std::string typename_;
+    std::string name;
     std::shared_ptr<TypeDesc> type;
     
     CLASSOF_IMP(Node::Kind::TypealiasDecl)
-    TypealiasDecl(std::string typename_, std::shared_ptr<TypeDesc> type) : TopLevelStmt(Node::Kind::TypealiasDecl), typename_(typename_), type(type) {}
+    TypealiasDecl(std::string name, std::shared_ptr<TypeDesc> type) : TopLevelStmt(Node::Kind::TypealiasDecl), name(name), type(type) {}
 };
 
 
 
 /// A variant type declaration
-class VariantDecl : public TopLevelStmt {
+class VariantDecl : public TopLevelStmt, public TemplateDecl {
 public:
     struct MemberDecl {
         std::shared_ptr<Ident> name;
         std::shared_ptr<TypeDesc> params; // Should be a tuple type (TODO!)
         
-        MemberDecl(std::shared_ptr<Ident> N, std::shared_ptr<TypeDesc> P) : name(N), params(P) {
-            //LKAssert(P->isTuple());
-        }
+        MemberDecl(std::shared_ptr<Ident> N, std::shared_ptr<TypeDesc> P) : name(N), params(P) {}
     };
     
     std::shared_ptr<Ident> name;
-    std::shared_ptr<TemplateParamDeclList> templateParams;
+//    std::shared_ptr<TemplateParamDeclList> templateParams;
     std::vector<MemberDecl> members;
     
     CLASSOF_IMP(Node::Kind::VariantDecl)
