@@ -2,28 +2,6 @@ use ":std/core";
 use ":std/memory";
 use ":std/range";
 
-struct ArrayIterator<Element> {
-    array: &Array<Element>,
-    idx: i64
-}
-
-impl<Element> ArrayIterator<Element> {
-    fn init(self: &Self, array: &Array<Element>) {
-        self.init(array, 0);
-    }
-
-    fn hasNext(self: &Self) -> bool {
-        return self.idx < self.array.size;
-    }
-
-    fn next(self: &Self) -> &Element {
-        let &elem = self.array[self.idx];
-        self.idx += 1;
-        return elem;
-    }
-}
-
-
 
 struct Array<Element> {
     data: *Element,
@@ -46,13 +24,15 @@ impl<Element> Array<Element> {
         }
     }
 
-    fn operator [] (self: &Self, index: i64) -> &Element {
-        assert((0..<self.size).contains(index), "index out of bounds");
-        return self.data[index];
-    }
 
     fn iterator(self: &Self) -> ArrayIterator<Element> {
         return ArrayIterator<Element>(self);
+    }
+
+
+    fn operator [] (self: &Self, index: i64) -> &Element {
+        assert((0..<self.size).contains(index), "index out of bounds");
+        return self.data[index];
     }
 
 
@@ -185,5 +165,27 @@ fn operator == <T>(lhs: &Array<T>, rhs: &Array<T>) -> bool {
         }
     }
     return true;
+}
+
+
+struct ArrayIterator<Element> {
+    array: &Array<Element>,
+    idx: i64
+}
+
+impl<Element> ArrayIterator<Element> {
+    fn init(self: &Self, array: &Array<Element>) {
+        self.init(array, 0);
+    }
+
+    fn hasNext(self: &Self) -> bool {
+        return self.idx < self.array.size;
+    }
+
+    fn next(self: &Self) -> &Element {
+        let &elem = self.array[self.idx];
+        self.idx += 1;
+        return elem;
+    }
 }
 

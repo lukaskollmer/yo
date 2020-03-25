@@ -273,7 +273,8 @@ llvm::Value* IRGenerator::codegenMemberExpr(std::shared_ptr<ast::MemberExpr> mem
         
         } else {
             // targetIdent is not a type, but also not in the local scope
-            LKFatalError("TODO");
+            auto msg = util::fmt::format("unable to resolve '{}'", targetIdent->value);
+            diagnostics::emitError(targetIdent->getSourceLocation(), msg);
         }
     
     } else {
