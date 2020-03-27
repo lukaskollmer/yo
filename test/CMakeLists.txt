@@ -1,4 +1,3 @@
-set(TEST_DIR "${CMAKE_BINARY_DIR}/test")
 include(FetchContent)
 
 enable_testing()
@@ -21,8 +20,8 @@ message(STATUS "Processing test input files")
 
 add_custom_target(
     test_mangling_input_gen
-    COMMAND cat "${TEST_DIR}/mangling_input.txt" | xxd "-i" > "${TEST_DIR}/mangling_input.txt.in"
-    BYPRODUCTS "${TEST_DIR}/mangling_input.txt.in"
+    COMMAND cat "${CMAKE_CURRENT_SOURCE_DIR}/mangling_input.txt" | xxd "-i" > "${CMAKE_CURRENT_BINARY_DIR}/mangling_input.txt.in"
+    BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/mangling_input.txt.in"
 )
 
 yo_add_tool(
@@ -30,6 +29,7 @@ yo_add_tool(
     mangling.cpp
     YO_LIBS yo util
 )
+target_include_directories(yo_test PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 add_dependencies(yo_test gtest test_mangling_input_gen)
 target_link_libraries(yo_test gtest_main)

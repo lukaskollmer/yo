@@ -1,32 +1,4 @@
-# CMake
-CMakeLists.txt.user
-CMakeCache.txt
-CMakeFiles
-CMakeScripts
-Testing
-Makefile
-cmake_install.cmake
-install_manifest.txt
-compile_commands.json
-CTestTestfile.cmake
-_deps
-
-# Xcode
-*.xcodeproj/
-
-# Other
-.DS_Store
+build/
 temp/
-*.build/
-Debug/
-Release/
-a.out
 ideas.md
 .tabnineignore
-
-stdlib_old/
-
-# Automatically generated files
-tools/yo-cli/Version.h
-lib/parse/stdlib_sources.cpp
-test/*.in

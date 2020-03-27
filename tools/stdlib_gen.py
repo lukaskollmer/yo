@@ -5,32 +5,30 @@ import sys
 import re
 import subprocess
 
-CMAKE_BINARY_DIR = sys.argv[1]
-STDLIB_PATH = os.path.join(os.getcwd(), sys.argv[2])
-STDLIB_PARENT = os.path.dirname(STDLIB_PATH)
+STDLIB_DIRECTORY =  sys.argv[1]
+OUTPUT_FILE_PATH =  sys.argv[2]
+STDLIB_PARENT = os.path.dirname(STDLIB_DIRECTORY)
 
 filename_pattern = re.compile(r'/|\.')
 
-print(CMAKE_BINARY_DIR)
-f = open(os.path.join(CMAKE_BINARY_DIR, 'lib', 'parse', 'stdlib_sources.cpp'), 'w')
+f = open(OUTPUT_FILE_PATH, 'w')
 
 f.write(
 f"""//
-//  stdlib_sources.cpp
+//  {os.path.basename(OUTPUT_FILE_PATH)}
 //  yo
 //
-//  Created by Lukas Kollmer on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.
+//  Generated {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.
 //  Copyright © {datetime.datetime.now().year} Lukas Kollmer. All rights reserved.
 //
 
 #include <map>
 #include <string_view>
-
 """)
 
 module_symbols = {}
 
-for filename in glob.iglob(f'{STDLIB_PATH}/**/*.yo', recursive=True):
+for filename in glob.iglob(f'{STDLIB_DIRECTORY}/**/*.yo', recursive=True):
      f.write(f"\n\n// File at {filename}\n")
      filename = filename.replace(STDLIB_PARENT + '/', '')
      module_symbols[filename] = filename_pattern.sub('_', filename)
