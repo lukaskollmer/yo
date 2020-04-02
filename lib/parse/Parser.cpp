@@ -537,8 +537,6 @@ std::shared_ptr<FunctionDecl> Parser::parseFunctionDecl(attributes::FunctionAttr
         if (!op.has_value()) {
             diagnostics::emitError(loc, "Unable to parse operator");
         }
-        
-        functionKind = FunctionKind::OperatorOverload;
         name = mangling::encodeOperator(op.value());
     }
     

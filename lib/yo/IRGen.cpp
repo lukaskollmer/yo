@@ -375,6 +375,7 @@ void IRGenerator::preflightImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) 
             return false;
         }
         auto &fstParam = sig.paramTypes[0];
+        // TODO can we relax this requirement?
         if (fstParam->isReference() && fstParam->getPointee()->isNominal() && fstParam->getPointee()->getName() == "Self" && decl->paramNames[0]->value == "self") {
             return true;
         }
@@ -382,17 +383,18 @@ void IRGenerator::preflightImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) 
     };
     
     for (auto &funcDecl : implBlock->methods) {
+        // invoking the template specializer w/ an empty mapping to get a deep copy of the impl block's type desc
+        // using a copy is important so that each function gets its own typedesc, and they don't interfere w/ each other
+        auto implTypeDesc = TemplateSpecializer({}).resolveType(implBlock->typeDesc);
+        
         if (isInstanceMethod(funcDecl)) {
             assertIsValidMemberFunction(*funcDecl, implBlock->templateParamsDecl);
             
             // TODO if this is a type desc which for some reason cannot be resolved, the diag when registering a function will point to the impl block, instead of the func decl
             funcDecl->setFunctionKind(ast::FunctionKind::InstanceMethod);
             
-            // invoking the template specializer w/ an empty mapping to get a deep copy of the impl block's type desc
-            // using a copy is important so that each function gets its own typedesc, and they don't interfere w/ each other
-            auto implTypeDesc = TemplateSpecializer({}).resolveType(implBlock->typeDesc);
-            
             // substitute all uses of `Self` in the function
+            // TODO this will mess up functions w/ a template parameter named "Self"
             funcDecl = TemplateSpecializer::specializeWithMapping(funcDecl, {
                 { "Self", implTypeDesc }
             });
@@ -407,10 +409,17 @@ void IRGenerator::preflightImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) 
                     funcDecl->getSignature().templateParamsDecl->addParam(param);
                 }
             }
-        } else {
-            // static method
-            diagnostics::emitError(funcDecl->getSourceLocation(), "static member functions not (yet?) supported");
-            LKFatalError("TODO");
+        } else { // static method
+            // TODO assert that the function's template parameters (if any) are distinct and don't shadow any of the impl block's
+            auto insert_front = [](auto &vec, const auto &elem) {
+                vec.insert(vec.begin(), elem);
+            };
+            
+            funcDecl->setFunctionKind(ast::FunctionKind::StaticMethod);
+            insert_front(funcDecl->signature.paramTypes, implTypeDesc);
+            insert_front(funcDecl->paramNames, makeIdent("__unused"));
+            
+            LKAssert(funcDecl->signature.numberOfParameters() > 0);
         }
         
         ast.push_back(funcDecl);
@@ -496,7 +505,17 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
     }
     
     auto structTy = StructType::create(structName, structMembers, structDecl->templateInstantiationArguments, structDecl->getSourceLocation());
-    nominalTypes.insert(structName, structTy);
+    structDecl->type = structTy;
+    if (structDecl->attributes.int_isSynthesized) {
+        structTy->setFlag(Type::Flags::IsSynthesized);
+    }
+    
+    // TOOD should this insert using a canonical name? (so that all nominal types have the same name scheme) (also, this would be a good point to take type scopes into account?
+    if (structDecl->isInstantiatedTemplateDecl()) {
+        nominalTypes.insert(structName, structTy);
+    } else {
+        nominalTypes.insert(structDecl->name, structTy);
+    }
     
     LKAssert(!util::map::has_key(structDecls, structName));
     structDecls[structName] = structDecl;
@@ -679,13 +698,14 @@ llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<
                          module->getDataLayout().getTypeAllocSize(alloca->getAllocatedType()),
                          alloca->getAlignment());
     
-    localScope.insert(ident, ValueBinding(structTy, alloca, [=]() {
+    auto id = localScope.insert(ident, ValueBinding(structTy, alloca, [=]() {
         emitDebugLocation(call);
         return builder.CreateLoad(alloca);
     }, [=](llvm::Value *V) {
         LKFatalError("use references to write to object?");
     }, ValueBinding::Flags::ReadWrite));
     
+    // TODO rewrite to use an rawllvmvalue as self param instead of temporarily inserting this into the local scope!
     auto callTarget = std::make_shared<ast::MemberExpr>(makeIdent(ident), kInitializerMethodName);
     auto callExpr = std::make_shared<ast::CallExpr>(*call);
     callExpr->target = callTarget;
@@ -693,13 +713,13 @@ llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<
     codegenExpr(callExpr);
     
     if (!putInLocalScope) {
-        localScope.remove(ident);
+        localScope.remove(id);
     }
     
     // TODO should this even be allowed to return anything but an RValue?
     switch (VK) {
         case LValue:
-            LKFatalError("why?");
+//            LKFatalError("why?");
             return alloca;
         case RValue:
             return builder.CreateLoad(alloca);
@@ -740,7 +760,7 @@ std::shared_ptr<ast::LocalStmt> IRGenerator::createDestructStmtIfDefined(Type *t
 
 std::shared_ptr<ast::LocalStmt> IRGenerator::createDestructStmtIfDefined(Type *type, std::shared_ptr<ast::Expr> expr, bool includeReferences) {
     if (includeReferences && type->isReferenceTy()) {
-        type = static_cast<ReferenceType *>(type)->getReferencedType();
+        type = llvm::cast<ReferenceType>(type)->getReferencedType();
     }
     
     auto structTy = llvm::dyn_cast<StructType>(type);
@@ -799,7 +819,12 @@ llvm::Value* IRGenerator::constructVariant(VariantType *type, const std::string 
         return llvm::ConstantInt::get(intType, tagValue);
     }
     
-    LKFatalError("TODO");
+    auto underlyingStructType = llvm::cast<StructType>(type->getUnderlyingType());
+    auto alloca = builder.CreateAlloca(getLLVMType(underlyingStructType));
+    auto ptr = builder.CreateStructGEP(alloca, 0);
+    auto TagType = llvm::cast<llvm::IntegerType>(getLLVMType(underlyingStructType->getMember("__index").second)); // todo extract __index into a global constant!
+    builder.CreateStore(llvm::ConstantInt::get(TagType, tagValue), ptr);
+    return alloca;
 }
 
 
@@ -882,9 +907,9 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
                     return handleResolvedTy(*entry);
                 }
                 // TODO there must be a better solution than this !!!!!!
-                if (auto entry = nominalTypes.get(mangling::mangleAsStruct(name))) {
-                    return handleResolvedTy(*entry);
-                }
+//                if (auto entry = nominalTypes.get(mangling::mangleAsStruct(name))) {
+//                    return handleResolvedTy(*entry);
+//                }
                 
                 diagnostics::emitError(typeDesc->getSourceLocation(), util::fmt::format("unable to resolve nominal type '{}'", name));
             }
@@ -1046,16 +1071,16 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
         
         case Type::TypeID::Variant: {
             auto variantTy = llvm::cast<VariantType>(type);
-            
-            if (!variantTy->hasAssociatedData()) {
-                if (variantTy->numberOfElements() < std::numeric_limits<uint8_t>::max()) {
-                    return handle_llvm_type(builtinTypes.llvm.i8);
-                } else {
-                    return handle_llvm_type(builtinTypes.llvm.i64);
-                }
-            } else {
-                LKFatalError("TODO");
-            }
+            return handle_llvm_type(getLLVMType(variantTy->getUnderlyingType()));
+//            if (!variantTy->hasAssociatedData()) {
+//                if (variantTy->numberOfElements() < std::numeric_limits<uint8_t>::max()) {
+//                    return handle_llvm_type(builtinTypes.llvm.i8);
+//                } else {
+//                    return handle_llvm_type(builtinTypes.llvm.i64);
+//                }
+//            } else {
+//                LKFatalError("TODO");
+//            }
         }
     }
     
@@ -1171,24 +1196,23 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
         }
         
         case Type::TypeID::Variant: {
+            // TODO can this use the DIBuilder.createVariant functions?
             auto variantTy = llvm::cast<VariantType>(type);
-            auto underlyingLLVMType = variantTy->getLLVMType();
+            return handle_di_type(getDIType(variantTy->getUnderlyingType()));
             
             //scope = DIFileForSourceLocation(builder, variantTy->getSourceLoc());
             
-            // TODO use the DIBuilder.createVariant functions instead?
-            
-            if (underlyingLLVMType->isIntegerTy()) {
-                if (underlyingLLVMType == builtinTypes.llvm.i8) {
-                    return handle_di_type(getDIType(builtinTypes.yo.u8));
-                } else if (underlyingLLVMType == builtinTypes.llvm.i64) {
-                    return handle_di_type(getDIType(builtinTypes.yo.u64));
-                } else {
-                    LKFatalError("");
-                }
-            } else {
-                LKFatalError("TODO");
-            }
+//            if (underlyingLLVMType->isIntegerTy()) {
+//                if (underlyingLLVMType == builtinTypes.llvm.i8) {
+//                    return handle_di_type(getDIType(builtinTypes.yo.u8));
+//                } else if (underlyingLLVMType == builtinTypes.llvm.i64) {
+//                    return handle_di_type(getDIType(builtinTypes.yo.u64));
+//                } else {
+//                    LKFatalError("");
+//                }
+//            } else {
+//                LKFatalError("TODO");
+//            }
         }
     }
     
@@ -1299,6 +1323,78 @@ bool IRGenerator::applyImplicitConversionIfNecessary(std::shared_ptr<ast::Expr> 
 
 
 
+//enum class NLResultKind {
+//    Type,
+////    LocalVar
+//};
+//
+//struct irgen::NameLookupInfo {
+//    NLResultKind kind;
+//    std::variant<Type *> data;
+//
+//    template <typename T>
+//    NameLookupInfo(NLResultKind K, const T &D) : kind(K), data(D) {}
+//
+//    template <typename T>
+//    const T& get_data() const {
+//        return std::get<T>(data);
+//    }
+//
+//    std::string to_str() const;
+//    void to_str(std::ostream&) const; // private
+//};
+//
+//
+//std::ostream& irgen::operator<<(std::ostream &OS, const NameLookupInfo &NLI) {
+//    NLI.to_str(OS);
+//    return OS;
+//}
+//
+//std::string NameLookupInfo::to_str() const {
+//    std::ostringstream OS;
+//    to_str(OS);
+//    return OS.str();
+//}
+//
+//void NameLookupInfo::to_str(std::ostream &OS) const {
+//    switch (kind) {
+//        case NLResultKind::Type: {
+//            auto ty = get_data<Type *>();
+//            OS << "T(" << ty->str_desc() << ")";
+//            return;
+//        }
+//    }
+//}
+//
+//
+//NameLookupInfo* IRGenerator::lookupDeclName(std::shared_ptr<ast::Expr> expr) {
+//    LKAssert(expr->isOfKind(NK::Ident) || expr->isOfKind(NK::MemberExpr));
+//
+//    std::cout << expr->description() << std::endl;
+//
+//    if (auto ident = llvm::dyn_cast<ast::Ident>(expr)) {
+//        LKFatalError("TODO");
+//
+//    } else if (auto memberExpr = llvm::dyn_cast<ast::MemberExpr>(expr)) {
+//        util::fmt::print("{}", memberExpr->memberName);
+//        NameLookupInfo *targetInfo;
+//        if (auto rawExpr = llvm::dyn_cast<ast::RawLLVMValueExpr>(memberExpr->target)) {
+//            // if the member expr's target is a raw expr, we're looking up a member function call
+//            // ^^ do we really know that for sure?
+//            targetInfo = new NameLookupInfo(NLResultKind::Type, rawExpr->type);
+//
+//        } else {
+//            targetInfo = lookupDeclName(memberExpr->target);
+//        }
+//
+//        util::fmt::print("memberExpr target: '{}'", targetInfo->to_str());
+//        LKFatalError("TODO");
+//
+//    }
+//
+//    LKFatalError("");
+//}
+
 
 
 
@@ -1321,7 +1417,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
                 case SLK::ByteString:
                     return builtinTypes.yo.i8Ptr;
                 case SLK::NormalString: {
-                    if (auto StringTy = nominalTypes.get(mangling::mangleAsStruct("String"))) {
+                    if (auto StringTy = nominalTypes.get("String")) {
                         return *StringTy;
                     } else {
                         diagnostics::emitError(expr->getSourceLocation(), "unable to find 'String' type");
@@ -1440,6 +1536,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
         case NK::BinOp: {
             auto binopExpr = llvm::cast<ast::BinOp>(expr);
             auto mangledCanonicalName = mangling::mangleCanonicalName(binopExpr->getOperator());
+//            auto mangledCanonicalName = mangling::encodeOperator(binopExpr->getOperator());
             // TODO don't allocate an object for every check!
             auto tempCallExpr = std::make_shared<ast::CallExpr>(makeIdent(mangledCanonicalName),
                                                                 std::vector<std::shared_ptr<ast::Expr>>{ binopExpr->getLhs(), binopExpr->getRhs() });
@@ -1596,6 +1693,16 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
 // TODO there's a lot of duplicate code in the functions below!
 
 
+StructType* IRGenerator::synth_getStructDeclStructType(const std::shared_ptr<ast::StructDecl> &decl) {
+    if (auto ty = decl->type) {
+        return ty;
+    } else if (decl->isInstantiatedTemplateDecl()) {
+        return llvm::cast<StructType>(*nominalTypes.get(mangling::mangleFullyResolved(decl)));
+    } else {
+        return llvm::cast<StructType>(*nominalTypes.get(decl->name));
+    }
+}
+
 
 bool IRGenerator::memberFunctionCallResolves(Type *targetTy, std::string name, const std::vector<Type *> &argTys) {
     auto expr_for_type = [](Type *type) {
@@ -1615,11 +1722,19 @@ bool IRGenerator::memberFunctionCallResolves(Type *targetTy, std::string name, c
 llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr<ast::StructDecl> structDecl, SkipCodegenOption codegenOption) {
     // TODO set the source location for all nodes generated in here!
         
-    auto &SL = structDecl->getSourceLocation();
-    auto ST = llvm::dyn_cast<StructType>(*nominalTypes.get(mangling::mangleFullyResolved(structDecl)));
+    const auto &SL = structDecl->getSourceLocation();
+//    StructType *ST;
+//    if (auto ty = structDecl->type) {
+//        ST = ty;
+//    } else if (structDecl->isInstantiatedTemplateDecl()) {
+//        ST = llvm::cast<StructType>(*nominalTypes.get(mangling::mangleFullyResolved(structDecl)));
+//    } else {
+//        ST = llvm::cast<StructType>(*nominalTypes.get(structDecl->name));
+//    }
+    auto ST = synth_getStructDeclStructType(structDecl);
     auto &SM = ST->getMembers();
     
-    if (memberFunctionCallResolves(ST->getReferenceTo(), kInitializerMethodName, util::vector::map(SM, [](auto pair) { return pair.second; }))) {
+    if (!ST->hasFlag(Type::Flags::IsSynthesized) && memberFunctionCallResolves(ST->getReferenceTo(), kInitializerMethodName, util::vector::map(SM, [](auto pair) { return pair.second; }))) {
         return nullptr;
     }
     
@@ -1679,10 +1794,10 @@ llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
 
 llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::StructDecl> structDecl, SkipCodegenOption codegenOption) {
     auto &SL = structDecl->getSourceLocation();
-    auto ST = llvm::dyn_cast<StructType>(*nominalTypes.get(mangling::mangleFullyResolved(structDecl)));
+    auto ST = synth_getStructDeclStructType(structDecl);
     auto &SM = ST->getMembers();
     
-    if (memberFunctionCallResolves(ST->getReferenceTo(), kInitializerMethodName, { ST->getReferenceTo() })) {
+    if (!ST->hasFlag(Type::Flags::IsSynthesized) && memberFunctionCallResolves(ST->getReferenceTo(), kInitializerMethodName, { ST->getReferenceTo() })) {
         return nullptr;
     }
     
@@ -1741,7 +1856,7 @@ llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::
 
 llvm::Value* IRGenerator::synthesizeDefaultDeallocMethod(std::shared_ptr<ast::StructDecl> structDecl, SkipCodegenOption codegenOption) {
     auto &SL = structDecl->getSourceLocation();
-    auto ST = llvm::dyn_cast<StructType>(*nominalTypes.get(mangling::mangleFullyResolved(structDecl)));
+    auto ST = synth_getStructDeclStructType(structDecl);
     auto &SM = ST->getMembers();
     
     auto selfIdent = makeIdent("self", SL);
@@ -1777,11 +1892,11 @@ llvm::Value* IRGenerator::synthesizeDefaultDeallocMethod(std::shared_ptr<ast::St
     
     
     // Invoke a custom destructor, if defined
-    if (memberFunctionCallResolves(ST, kSynthesizedDeallocMethodName, {})) {
+    if (!ST->hasFlag(Type::Flags::IsSynthesized) && memberFunctionCallResolves(ST, kDeallocMethodName, {})) {
         auto setSL = [&SL](auto node) {
             node->setSourceLocation(SL);
         };
-        auto target = std::make_shared<ast::MemberExpr>(selfIdent, "dealloc");
+        auto target = std::make_shared<ast::MemberExpr>(selfIdent, kDeallocMethodName);
         auto call = std::make_shared<ast::CallExpr>(target);
         auto stmt = std::make_shared<ast::ExprStmt>(call);
         body->statements.push_back(stmt);

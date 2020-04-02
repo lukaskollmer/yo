@@ -91,7 +91,9 @@ ast::FunctionSignature TemplateSpecializer::specialize(const ast::FunctionSignat
         specSig.templateParamsDecl->setSourceLocation(signature.templateParamsDecl->getSourceLocation());
         
         for (auto &param : signature.templateParamsDecl->getParams()) {
-            if (!util::map::has_key(templateArgumentMapping, param.name->value)) {
+            if (auto argTy = util::map::get_opt(templateArgumentMapping, param.name->value)) {
+                specSig.templateInstantiationArguments.push_back((*argTy)->getResolvedType());
+            } else {
                 specSig.templateParamsDecl->addParam({ param.name, resolveType(param.defaultType) });
             }
         }

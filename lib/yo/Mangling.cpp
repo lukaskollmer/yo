@@ -178,15 +178,9 @@ std::string mangleCanonicalName(std::string_view type, std::string_view method, 
     switch (kind) {
         case ast::FunctionKind::GlobalFunction:
             return std::string(method);
-            
-        case ast::FunctionKind::OperatorOverload:
-            return ManglingStringBuilder(kCanonicalPrefixOperatorOverload)
-                .append(method)
-                .str();
         
         case ast::FunctionKind::StaticMethod:
-            return ManglingStringBuilder(kCanonicalPrefixStaticMethod)
-                .appendWithCount(type)
+            return ManglingStringBuilder("__S")
                 .appendWithCount(method)
                 .str();
         
@@ -205,7 +199,7 @@ std::string mangleCanonicalName(std::shared_ptr<ast::FunctionDecl> funcDecl) {
     }
     std::string typeName;
     if (funcDecl->isOfFunctionKind(ast::FunctionKind::StaticMethod)) {
-        typeName = funcDecl->getImplType()->getName();
+//        typeName = funcDecl->getImplType()->getName();
     }
     return mangleCanonicalName(typeName, funcDecl->getName(), funcDecl->getFunctionKind());
 }
@@ -297,13 +291,8 @@ std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> funcDecl) {
             mangler.append(kPrefixGlobalFunction);
             break;
         
-        case ast::FunctionKind::OperatorOverload:
-            mangler.append(kPrefixOperatorOverload);
-            break;
-        
         case ast::FunctionKind::InstanceMethod: {
             mangler.append(kPrefixInstanceMethod);
-//            mangler.appendEncodedType(funcDecl->getImplType());
             auto selfTy = llvm::cast<irgen::ReferenceType>(funcDecl->getSignature().paramTypes[0]->getResolvedType())->getReferencedType();
             mangler.appendEncodedType(selfTy);
             break;
@@ -311,7 +300,7 @@ std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> funcDecl) {
         
         case ast::FunctionKind::StaticMethod:
             mangler.append(kPrefixStaticMethod);
-            mangler.appendEncodedType(funcDecl->getImplType());
+            mangler.appendEncodedType(funcDecl->getSignature().paramTypes[0]->getResolvedType());
             break;
     }
     
@@ -326,14 +315,14 @@ std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> funcDecl) {
     mangler.appendWithCount(funcDecl->getName());
     mangler.appendEncodedType(funcDecl->getSignature().returnType->getResolvedType());
     
-    for (size_t idx = funcDecl->isOfFunctionKind(ast::FunctionKind::InstanceMethod); idx < funcDecl->getSignature().numberOfParameters(); idx++) {
+    for (size_t idx = funcDecl->isInstanceMethod() || funcDecl->isStaticMethod(); idx < funcDecl->getSignature().numberOfParameters(); idx++) {
         mangler.appendEncodedType(funcDecl->getSignature().paramTypes[idx]->getResolvedType());
     }
     
-    if (!funcDecl->getResolvedTemplateArgTypes().empty()) {
+    if (funcDecl->getSignature().isInstantiatedTemplateDecl()) {
         mangler.append(kMangledTemplateArgsListPrefix);
-        mangler.append(funcDecl->getResolvedTemplateArgTypes().size());
-        for (auto &ty : funcDecl->getResolvedTemplateArgTypes()) {
+        mangler.append(funcDecl->getSignature().templateInstantiationArguments.size());
+        for (auto &ty : funcDecl->getSignature().templateInstantiationArguments) {
             mangler.appendEncodedType(ty);
         }
     }
@@ -417,10 +406,11 @@ std::string encodeOperator(ast::Operator op) {
 
 
 std::string mangleCanonicalName(ast::Operator op) {
-    std::string str;
-    str.push_back(kCanonicalPrefixOperatorOverload);
-    str.append(encodeOperator(op));
-    return str;
+//    std::string str;
+//    str.push_back(kCanonicalPrefixOperatorOverload);
+//    str.append(encodeOperator(op));
+//    return str;
+    return encodeOperator(op);
 }
 
 

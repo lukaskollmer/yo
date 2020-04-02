@@ -277,7 +277,7 @@ llvm::Value* IRGenerator::codegenReturnStmt(std::shared_ptr<ast::ReturnStmt> ret
         }
         
     handle:
-        if (returnType->isReferenceTy() && retvalTy->isReferenceTy()) {
+        if (returnType->isReferenceTy()) {
             auto V = codegenExpr(expr, LValue);
             emitDebugLocation(returnStmt);
             builder.CreateStore(V, currentFunction.retvalAlloca);

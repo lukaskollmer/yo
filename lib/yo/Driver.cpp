@@ -31,6 +31,7 @@
 #include <sstream>
 #include <iostream>
 #include <memory>
+#include <filesystem>
 
 
 using namespace yo;
@@ -131,7 +132,7 @@ bool emitModule(const Options &options, std::unique_ptr<llvm::Module> module, co
     module->setTargetTriple(targetTriple);
     
     
-//    llvm::outs() << *module << '\n';
+    llvm::outs() << *module << '\n';
     
     // Create and run passes
     
@@ -235,6 +236,9 @@ extern "C" bool LKCompilerInternalOptionSigabrtOnFatalError() {
 
 
 bool driver::run(driver::Options options) {
+    auto cwd = std::filesystem::current_path();
+    std::cout << "cwd: " << cwd << std::endl;
+    
     shouldSigabrtOnFatalError = options.int_trapOnFatalError;
     
     if (!util::fs::file_exists(options.inputFile)) {

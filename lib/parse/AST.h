@@ -162,8 +162,7 @@ public:
 enum class FunctionKind {
     GlobalFunction,   // A free global function
     StaticMethod,     // A static type member method
-    InstanceMethod,   // A type instance method
-    OperatorOverload
+    InstanceMethod    // A type instance method
 };
 
 
@@ -238,7 +237,6 @@ class FunctionSignature : public Node, public TemplateDecl {
 public:
     std::shared_ptr<TypeDesc> returnType;
     std::vector<std::shared_ptr<TypeDesc>> paramTypes;
-//    std::shared_ptr<TemplateParamDeclList> templateParamsDecl;
     bool isVariadic = false;
 
     CLASSOF_IMP(Node::Kind::FunctionSignature)
@@ -247,12 +245,13 @@ public:
     size_t numberOfParameters() const {
         return paramTypes.size();
     }
-//    bool isTemplateDecl() const {
-//        return templateParamsDecl != nullptr;
-//    }
-    uint64_t numberOfTemplateParameters() const {
-        if (!templateParamsDecl) return 0;
-        else return templateParamsDecl->size();
+    
+    size_t numberOfTemplateParameters() const {
+        if (!templateParamsDecl) {
+            return 0;
+        } else {
+            return templateParamsDecl->size();
+        }
     }
 };
 
@@ -279,7 +278,7 @@ public:
     // context
     irgen::StructType *implType = nullptr; // Only nonnull if this is a type member function
     /// The template arguments this function was instantiated with
-    std::vector<yo::irgen::Type *> resolvedTemplateArgTypes;
+//    std::vector<yo::irgen::Type *> resolvedTemplateArgTypes;
 
     
 public:
@@ -298,8 +297,8 @@ public:
     irgen::StructType* getImplType() const { return implType; }
     void setImplType(irgen::StructType *ty) { implType = ty; }
     
-    const auto& getResolvedTemplateArgTypes() const { return resolvedTemplateArgTypes; }
-    void setResolvedTemplateArgTypes(std::vector<yo::irgen::Type *> tys) { resolvedTemplateArgTypes = tys; }
+//    const auto& getResolvedTemplateArgTypes() const { return resolvedTemplateArgTypes; }
+//    void setResolvedTemplateArgTypes(std::vector<yo::irgen::Type *> tys) { resolvedTemplateArgTypes = tys; }
     
     const std::vector<std::shared_ptr<Ident>>& getParamNames() const { return paramNames; }
     void setParamNames(std::vector<std::shared_ptr<Ident>> names) { paramNames = names; }
@@ -314,6 +313,14 @@ public:
         return funcKind == kind;
     }
     
+    bool isInstanceMethod() const {
+        return funcKind == FunctionKind::InstanceMethod;
+    }
+    
+    bool isStaticMethod() const {
+        return funcKind == FunctionKind::StaticMethod;
+    }
+    
     bool isOperatorOverload() const;
     bool isOperatorOverloadFor(Operator) const;
     
@@ -326,9 +333,9 @@ public:
     }
     
     /// Whether the function is a compiler-generated instantiation of a function template
-    bool isTemplateInstantiation() const {
-        return !resolvedTemplateArgTypes.empty();
-    }
+//    bool isTemplateInstantiation() const {
+//        return !resolvedTemplateArgTypes.empty();
+//    }
 };
 
 
@@ -340,6 +347,8 @@ public:
     std::string name;
     std::vector<std::shared_ptr<VarDecl>> members;
     attributes::StructAttributes attributes;
+    
+    irgen::StructType *type = nullptr; // the irgen type for this struct decl
     
     CLASSOF_IMP(Node::Kind::StructDecl)
     StructDecl() : TopLevelStmt(Node::Kind::StructDecl) {}

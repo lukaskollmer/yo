@@ -12,6 +12,7 @@
 #include "parse/AST.h"
 #include "Driver.h"
 #include "Type.h"
+#include "NameLookup.h"
 #include "util/NamedScope.h"
 #include "util/util.h"
 #include "util/Format.h"
@@ -50,6 +51,7 @@ std::shared_ptr<ast::Ident> formatTupleMemberAtIndex(size_t index);
 // TODO is it a good idea to put these here?
 inline constexpr unsigned kInstanceMethodCallArgumentOffset = 1;
 static const std::string kInitializerMethodName = "init";
+static const std::string kDeallocMethodName = "dealloc";
 static const std::string kSynthesizedDeallocMethodName = "__dealloc";
 static const std::string kRetvalAllocaIdentifier = "__retval";
 static const std::string kIteratorMethodName = "iterator";
@@ -179,6 +181,8 @@ struct NamedDeclInfo {
 };
 
 
+struct NameLookupInfo;
+std::ostream& operator<<(std::ostream&, const NameLookupInfo&);
 
 
 class IRGenerator {
@@ -187,6 +191,7 @@ public:
     class EmptyScopeHandle;
 
 private:
+    friend class NameLookup;
     friend class EmptyScopeHandle;
     friend struct FunctionCallTargetCandidate;
     
@@ -246,6 +251,9 @@ public:
     static llvm::LLVMContext C;
     
     IRGenerator(ast::AST&, const std::string& translationUnitPath, const driver::Options&);
+    
+    IRGenerator(const IRGenerator&) = delete;
+    IRGenerator& operator=(const IRGenerator&) = delete;
     
     void runCodegen();
     
@@ -404,6 +412,7 @@ private:
     void destructLocalScopeUntilMarker(util::NamedScope<ValueBinding>::Marker, bool removeFromLocalScope);
     
     
+//    NameLookupInfo* lookupDeclName(std::shared_ptr<ast::Expr>);
     
     
     // Applying trivial number literal casts
@@ -443,7 +452,7 @@ private:
     };
     std::optional<ResolvedCallable> resolveCall_imp(std::shared_ptr<ast::CallExpr>, SkipCodegenOption,
                                                     std::vector<FunctionCallTargetCandidate>&,
-                                                    std::vector<CallTargetRejectionReason>&, ResolveCallResultStatus&);
+                                                    std::vector<CallTargetRejectionReason>&, ResolveCallResultStatus&, bool lookingForZeroResults);
     ResolvedCallable resolveCall(std::shared_ptr<ast::CallExpr>, SkipCodegenOption);
     
     // returns true if the call can be resolved, otherwise false.
@@ -476,6 +485,8 @@ private:
     
     // basically, whether `targetTy().name(argTys...)` exists
     bool memberFunctionCallResolves(Type *targetTy, std::string name, const std::vector<Type *> &argTys);
+    
+    StructType* synth_getStructDeclStructType(const std::shared_ptr<ast::StructDecl>&);
     
     llvm::Value* synthesizeDefaultMemberwiseInitializer(std::shared_ptr<ast::StructDecl>, SkipCodegenOption);
     llvm::Value* synthesizeDefaultCopyConstructor(std::shared_ptr<ast::StructDecl>, SkipCodegenOption);

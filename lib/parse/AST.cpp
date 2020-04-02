@@ -129,7 +129,6 @@ std::string FunctionKindToString(FunctionKind kind) {
         CASE(GlobalFunction)
         CASE(StaticMethod)
         CASE(InstanceMethod)
-        CASE(OperatorOverload)
     }
 }
 
@@ -268,7 +267,7 @@ std::string ast::description(const AST& ast) {
 
 template <typename T>
 std::string to_string(T arg) {
-    if constexpr(std::is_pointer_v<T> || util::typeinfo::is_shared_ptr_v<T>) {
+    if constexpr(std::is_pointer_v<std::remove_cv_t<T>> || util::typeinfo::is_shared_ptr_v<T>) {
         if (!arg) return "<nullptr>";
     }
     
@@ -543,7 +542,7 @@ Mirror Reflect(const ast::BinOp *binop) {
 Mirror Reflect(const ast::RawLLVMValueExpr *rawLLVMExpr) {
     return {
         { "type", ast::TypeDesc::makeResolved(rawLLVMExpr->type) },
-        { "value", "TODO" },
+        { "value", "" }
     };
 }
 

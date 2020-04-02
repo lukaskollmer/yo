@@ -76,6 +76,7 @@ VariantType* IRGenerator::registerVariantDecl(std::shared_ptr<ast::VariantDecl> 
 //    }
 //    std::cout << OS.str();
     
+    declInfo.isRegistered = true;
     
     if (decl->isTemplateDecl() && !decl->isInstantiatedTemplateDecl()) {
         LKFatalError("TODO");
@@ -86,7 +87,7 @@ VariantType* IRGenerator::registerVariantDecl(std::shared_ptr<ast::VariantDecl> 
     auto name = mangling::mangleFullyResolved(decl);
     bool hasAssociatedData = false;
     VariantType::Elements elements;
-//    StructType *underlyingType = nullptr;
+    Type *underlyingType = nullptr;
     
     for (auto &member : decl->members) {
         TupleType *associatedData = nullptr;
@@ -101,22 +102,50 @@ VariantType* IRGenerator::registerVariantDecl(std::shared_ptr<ast::VariantDecl> 
         elements.push_back(std::make_pair(member.name->value, associatedData));
     }
     
-//    if (!hasAssociatedData) {
-//        auto caseType = decl->members.size() < std::numeric_limits<uint8_t>::max() ? builtinTypes.yo.u8 : builtinTypes.yo.u64;
-//        StructType::MembersT members = {
-//            std::make_pair("__index", caseType)
-//        };
-//        underlyingType = StructType::create(name, members, {}, decl->getSourceLocation());
-//    } else {
-//        LKFatalError("TODO");
-//    }
+    Type *indexType = decl->members.size() < std::numeric_limits<uint8_t>::max() ? builtinTypes.yo.u8 : builtinTypes.yo.u64;
     
-    auto variantType = new VariantType(name, elements, decl->getSourceLocation());
+    if (!hasAssociatedData) {
+        underlyingType = indexType;
+    
+    } else {
+        using ElementType = VariantType::Elements::value_type;
+        
+        auto largestMember = std::max_element(elements.begin(), elements.end(), [&](const ElementType &lhs, const ElementType &rhs) -> bool {
+            auto lhsTy = lhs.second;
+            auto rhsTy = rhs.second;
+            
+            if (!lhsTy && !rhsTy) {
+                return false;
+            } else if (lhsTy && !rhsTy) {
+                return false;
+            } else if (!lhsTy && rhsTy) {
+                return true;
+            } else {
+                auto &DL = module->getDataLayout();
+                return DL.getTypeStoreSize(getLLVMType(lhsTy)) < DL.getTypeStoreSize(getLLVMType(rhsTy));
+            }
+        });
+        LKAssert(largestMember != elements.end());
+        
+        StructType::MembersT members = {
+            std::make_pair("__index", indexType),
+            std::make_pair("__data", largestMember->second)
+        };
+        underlyingType = StructType::create("__variant_impl", members, decl->getSourceLocation());
+    }
+    
+    auto variantType = new VariantType(name, elements, underlyingType, decl->getSourceLocation());
     nominalTypes.insert(decl->name->value, variantType);
     
-    declInfo.isRegistered = true;
-    declInfo.type = variantType;
+    for (const auto &[elemName, elemType] : elements) {
+        if (TupleType *assocData = elemType) {
+            // element w/ associated data
+//            auto funcDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::)
+            //ast::FunctionDecl(<#FunctionKind kind#>, <#std::string name#>, <#FunctionSignature sig#>, <#attributes::FunctionAttributes attr#>)
+        }
+    }
     
+    declInfo.type = variantType;
     
     return variantType;
 }
@@ -139,7 +168,7 @@ llvm::Function* IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl>
     auto &attrs = functionDecl->getAttributes();
     bool isMain = functionDecl->isOfFunctionKind(ast::FunctionKind::GlobalFunction) && functionDecl->getName() == "main";
     
-    bool hasImplicitSelfArg = functionDecl->isOfFunctionKind(ast::FunctionKind::InstanceMethod);
+    bool hasImplicitSelfArg = functionDecl->isInstanceMethod() || functionDecl->isStaticMethod();
     
     if (attrs.extern_) {
         attrs.no_mangle = true;
@@ -168,6 +197,10 @@ llvm::Function* IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl>
     // - subscript operators can only have 1 parameter
     // - ...
     
+//    if (functionDecl->isOfFunctionKind(ast::FunctionKind::StaticMethod)) {
+//        util::fmt::print("canName: {}", mangling::mangleCanonicalName(functionDecl));
+//        LKFatalError("");
+//    }
     
     if (sig.isTemplateDecl() || attrs.intrinsic || attrs.int_isCtor) {
         // TODO detect ambiguous template declarations (ie, same name w/ same signature, etc)
@@ -202,6 +235,11 @@ llvm::Function* IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl>
         }, [](llvm::Value *) {
             LKFatalError("invalid operation");
         }, ValueBinding::Flags::None));
+    }
+    
+    if (functionDecl->isOfFunctionKind(ast::FunctionKind::StaticMethod)) {
+        paramTypes.erase(paramTypes.begin());
+        llvmParamTypes.erase(llvmParamTypes.begin());
     }
     
     auto returnType = resolveTypeDesc(sig.returnType);
@@ -355,10 +393,13 @@ llvm::Value* IRGenerator::codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>
         debugInfo.lexicalBlocks.push_back(SP);
     }
     
+    // static methods have an unused implicitly inserted first parameter which must be ignored during codegen
+    size_t paramsOffset = functionDecl->isStaticMethod();
     
     std::vector<llvm::AllocaInst *> paramAllocas;
+    paramAllocas.reserve(sig.numberOfParameters() - paramsOffset);
     
-    for (size_t i = 0; i < sig.numberOfParameters(); i++) {
+    for (size_t i = paramsOffset; i < sig.numberOfParameters(); i++) {
         auto type = resolveTypeDesc(sig.paramTypes[i]);
         auto alloca = builder.CreateAlloca(type->getLLVMType());
         const auto &name = functionDecl->getParamNames()[i]->value;
@@ -377,16 +418,15 @@ llvm::Value* IRGenerator::codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>
         paramAllocas.push_back(alloca);
     }
     
-    
-    for (size_t i = 0; i < sig.numberOfParameters(); i++) {
-        auto alloca = paramAllocas.at(i);
-        builder.CreateStore(&F->arg_begin()[i], alloca);
+    for (size_t i = paramsOffset; i < sig.numberOfParameters(); i++) {
+        auto alloca = paramAllocas.at(i - paramsOffset);
+        builder.CreateStore(&F->arg_begin()[i - paramsOffset], alloca);
         
         const auto &paramTy = sig.paramTypes.at(i);
         const auto &paramNameDecl = functionDecl->getParamNames().at(i);
         if (shouldEmitDebugInfo()) {
             auto SP = debugInfo.lexicalBlocks.back();
-            auto varInfo = debugInfo.builder.createParameterVariable(SP, alloca->getName(), i + 1, SP->getFile(),
+            auto varInfo = debugInfo.builder.createParameterVariable(SP, alloca->getName(), i - paramsOffset + 1, SP->getFile(),
                                                                      paramNameDecl->getSourceLocation().getLine(),
                                                                      resolveTypeDesc(paramTy)->getLLVMDIType());
             debugInfo.builder.insertDeclare(alloca, varInfo, debugInfo.builder.createExpression(),

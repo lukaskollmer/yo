@@ -330,8 +330,8 @@ std::string TupleType::str_desc() const {
 
 #pragma mark - Variant
 
-VariantType::VariantType(const std::string &name, Elements elements, lex::SourceLocation loc)
-: Type(TypeID::Variant), name(name), elements(elements), sourceLoc(loc)
+VariantType::VariantType(const std::string &name, Elements elements, Type *UT, lex::SourceLocation loc)
+: Type(TypeID::Variant), name(name), elements(elements), underlyingType(UT), sourceLoc(loc)
 {
     std::vector<std::string> names;
     for (auto &[name, type] : elements) {

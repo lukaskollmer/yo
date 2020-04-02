@@ -78,6 +78,7 @@ struct FunctionAttributes {
 #pragma mark - Struct Attributes
 
 struct StructAttributes {
+    bool int_isSynthesized = false;
     bool no_init = false;
     bool no_debug_info = false;
     bool trivial = false;
