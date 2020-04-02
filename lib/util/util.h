@@ -211,7 +211,12 @@ const std::string TypeInfo<T>::name = demangle(typeid(T).name());
 
 namespace string {
 
-bool contains(const std::string_view string, const std::string_view other);
+inline bool contains(std::string_view str, char c) {
+    return str.find(c) != std::string_view::npos;
+}
+inline bool contains(std::string_view string, std::string_view other) {
+    return string.find(other) != std::string_view::npos;
+}
 
 template <typename F>
 bool allCharsMatch(std::string_view string, F &&fn) {

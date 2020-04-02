@@ -74,10 +74,6 @@ std::string util::typeinfo::demangle(const char *name) {
 
 #pragma mark - util::string
 
-bool util::string::contains(const std::string_view string, const std::string_view other) {
-    return string.find(other) != std::string_view::npos;
-}
-
 
 bool util::string::has_prefix(const std::string_view string, const std::string_view prefix) {
     if (prefix.length() > string.length()) {
