@@ -55,12 +55,13 @@ inline bool isIdentStartChar(char c) {
 }
 
 inline bool isIdentChar(char c) {
-    return isIdentStartChar(c) || isDecimalDigitChar(c);
+    static std::string_view otherIdentChars = "'";
+    return isIdentStartChar(c) || isDecimalDigitChar(c) || util::string::contains(otherIdentChars, c);
 }
 
 inline bool isSingleCharToken(char c) {
     static std::string_view singleCharTokens = ".,+-*/;:=<>%!&^#|~(){}[]@";
-    return singleCharTokens.find(c) != std::string_view::npos;
+    return util::string::contains(singleCharTokens, c);
 }
 
 
