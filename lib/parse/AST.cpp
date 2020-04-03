@@ -554,6 +554,13 @@ Mirror Reflect(const ast::ForLoop *forLoop) {
     };
 }
 
+Mirror Reflect(const ast::VariantDecl *decl) {
+    return {
+        { "name", decl->name },
+        { "elements", "..." }
+    };
+}
+
 Mirror Reflect(const Node *node) {
 #define CASE(ty) case NK::ty: return Reflect(static_cast<const ty *>(node));
 #define CASE2(c, ty) case NK::c: return Reflect(static_cast<const ty *>(node));
@@ -587,6 +594,7 @@ Mirror Reflect(const Node *node) {
         CASE(BinOp)
         CASE(RawLLVMValueExpr)
         CASE(ForLoop)
+        CASE(VariantDecl)
         default:
             std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::getTypename(*node) << std::endl;
             LKFatalError("");
