@@ -9,6 +9,7 @@
 #include "NameLookup.h"
 #include "IRGen.h"
 #include "Type.h"
+#include "Mangling.h"
 
 #include "util/util.h"
 #include "util/Format.h"
@@ -29,9 +30,18 @@ std::ostream& irgen::operator<<(std::ostream &OS, const ValueInfo &VI) {
         case ValueInfo::Kind::TypeRef:
             return OS << "TypeRef[" << VI.getTypeRef() << "]";
         
+        case ValueInfo::Kind::TypeRefTmpl:
+            return OS << "TypeRefTmpl[...]";
+        
         case ValueInfo::Kind::Property: {
-            auto &[parTy, ty] = VI.getPropertyInfo();
-            return OS << "property[" << parTy << "." << ty << "]";
+            auto &info = VI.getPropertyInfo();
+            OS << "property[" << info.parentType;
+            if (VI.isStaticMember) {
+                OS << "::";
+            } else {
+                OS << ".";
+            }
+            return OS << info.name << ": " << info.type << "]";
         }
         
         case ValueInfo::Kind::LocalVar: {
@@ -64,9 +74,33 @@ std::vector<ValueInfo> NameLookup::lookup(const std::shared_ptr<ast::Expr> &expr
                 results.push_back(ValueInfo::typeRef(*type));
             }
             
-            if (auto functions = util::map::get_opt(irgen.functions, ident->value)) {
-                for (const auto &RC : *functions) {
-                    results.push_back(ValueInfo::function(nullptr, RC.funcDecl)); // TODO just pass along the RC?!
+            if (auto declInfos = util::map::get_opt(irgen.namedDeclInfos, ident->value)) {
+                for (const NamedDeclInfo &declInfo : *declInfos) {
+                    switch (declInfo.decl->getKind()) {
+                        case NK::FunctionDecl:
+                            // TODO just pass along the RC?!
+                            results.push_back(ValueInfo::function(nullptr, llvm::cast<ast::FunctionDecl>(declInfo.decl)));
+                            break;
+                        case NK::StructDecl: {
+                            auto SD = llvm::cast<ast::StructDecl>(declInfo.decl);
+                            if (SD->isTemplateDecl()) {
+                                results.push_back(ValueInfo::typeRefTmpl(SD));
+                            }
+                            break;
+                        }
+                        case NK::VariantDecl: {
+                            auto VD = llvm::cast<ast::VariantDecl>(declInfo.decl);
+                            if (VD->isTemplateDecl()) {
+                                results.push_back(ValueInfo::typeRefTmpl(VD));
+                            }
+                            break;
+                        }
+                        case NK::TypealiasDecl:
+                            LKFatalError("");
+                        
+                        default:
+                            LKFatalError("");
+                    }
                 }
             }
             
@@ -90,6 +124,7 @@ std::vector<ValueInfo> NameLookup::lookup(const std::shared_ptr<ast::Expr> &expr
             
             auto handleForType = [&](Type *type) {
                 auto membersTable = computeMemberTableForType(type);
+                membersTable.dump();
                 if (auto members = util::map::get_opt(membersTable.members, memberExpr->memberName)) {
                     util::vector::append(results, *members);
                 }
@@ -106,22 +141,27 @@ std::vector<ValueInfo> NameLookup::lookup(const std::shared_ptr<ast::Expr> &expr
                         break;
                     
                     case ValueInfo::Kind::Property:
-                        handleForType(L.getPropertyInfo().second);
+                        handleForType(L.getPropertyInfo().type);
                         break;
                     
                     case ValueInfo::Kind::Function:
                         LKFatalError("");
                         break;
+                    
+                    case ValueInfo::Kind::TypeRefTmpl:
+                        // static member on a templated type, but we don't have the template arguments, and therefore cant resolve the ty0e in here
+                        LKFatalError("");
                 }
             }
             return results;
         }
     } else if (auto callExpr = llvm::dyn_cast<ast::CallExpr>(expr)) {
         // not really a name lookup, just return the call result type
-        
-        auto target = irgen.resolveCall(callExpr, kSkipCodegen);
-        auto retType = irgen.resolveTypeDesc(target.signature.returnType, false);
-        return { ValueInfo::typeRef(retType) };
+        if (auto target = irgen.resolveCall_opt(callExpr, kSkipCodegen)) {
+            auto retType = irgen.resolveTypeDesc(target->signature.returnType, false);
+            return { ValueInfo::typeRef(retType) };
+        }
+        return {};
     }
     
     LKFatalError("unhandled node?");
@@ -140,6 +180,13 @@ TypeMembersTable NameLookup::computeMemberTableForType(Type *type) {
     if (auto structTy = llvm::dyn_cast<StructType>(type)) {
         for (auto &[memberName, memberType] : structTy->getMembers()) {
             membersTable.addProperty(type, memberName, memberType);
+        }
+    } else if (auto variantTy = llvm::dyn_cast<VariantType>(type)) {
+        for (auto &[elemName, elemType] : variantTy->getElements()) {
+            // elements w/ associated data get static functions generated
+            if (!elemType) {
+                membersTable.addProperty(type, elemName, type, true);
+            }
         }
     }
     

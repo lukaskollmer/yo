@@ -1357,12 +1357,13 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
 }
 
 
-bool IRGenerator::canResolveCall(std::shared_ptr<ast::CallExpr> callExpr) {
+
+std::optional<ResolvedCallable>
+IRGenerator::resolveCall_opt(std::shared_ptr<ast::CallExpr> callExpr, SkipCodegenOption codegenOption) {
     std::vector<FunctionCallTargetCandidate> candidates;
     std::vector<CallTargetRejectionReason> rejections;
     ResolveCallResultStatus status;
-    resolveCall_imp(callExpr, kSkipCodegen, candidates, rejections, status, true);
-    return status == ResolveCallResultStatus::Success;
+    return resolveCall_imp(callExpr, kSkipCodegen, candidates, rejections, status, codegenOption);
 }
 
 
@@ -1447,6 +1448,7 @@ IRGenerator::resolveCall_imp(std::shared_ptr<ast::CallExpr> callExpr, SkipCodege
                 
                 switch (funcDecl->funcKind) {
                     case ast::FunctionKind::GlobalFunction: {
+                        LKAssert(selfTy == nullptr);
                         potentialTargets.push_back(getRC(funcDecl));
                         break;
                     }
@@ -1476,12 +1478,14 @@ IRGenerator::resolveCall_imp(std::shared_ptr<ast::CallExpr> callExpr, SkipCodege
                 auto type = result.getTypeRef();
                 if (auto structTy = llvm::dyn_cast<StructType>(type)) {
                     if (auto type = util::map::get_opt(namedDeclInfos, structTy->getName())) {
-                        auto ctorName = mangling::mangleCanonicalName("", structTy->getName(), ast::FunctionKind::StaticMethod);
+                        auto ctorName = mangling::mangleCanonicalName(ast::FunctionKind::StaticMethod, structTy->getName());
                         if (auto ctorCandidates = util::map::get_opt(functions, ctorName)) {
                             auto ctor = util::vector::first_where(*ctorCandidates, [](const ResolvedCallable &RC) {
                                 return RC.funcDecl->getAttributes().int_isCtor;
                             });
-                            resultStatus = ResolveCallResultStatus::Success;
+                            if (ctor.has_value()) {
+                                resultStatus = ResolveCallResultStatus::Success;
+                            }
                             return ctor;
                         } else {
                             LKFatalError("unable to find compiler-generated constructor decl");
@@ -1492,6 +1496,33 @@ IRGenerator::resolveCall_imp(std::shared_ptr<ast::CallExpr> callExpr, SkipCodege
                     }
                 }
                 LKFatalError("");
+            }
+            
+            case ValueInfo::Kind::TypeRefTmpl: {
+                auto &decl = result.getTypeRefTmplDecl();
+                
+                switch (decl->getKind()) {
+                    case NK::StructDecl: {
+                        auto structDecl = llvm::cast<ast::StructDecl>(decl);
+                        auto ctorTargetName = mangling::mangleCanonicalName(ast::FunctionKind::StaticMethod, structDecl->getName());
+                        const auto &targets = functions[ctorTargetName];
+                        LKAssert(targets.size() == 1);
+                        auto &target = targets[0];
+
+                        LKAssert(target.signature.isTemplateDecl() && target.funcDecl->getSignature().isTemplateDecl());
+                        LKAssert(target.funcDecl->getAttributes().int_isCtor);
+                        auto tmplMapping = resolveStructTemplateParametersFromExplicitTemplateArgumentList(structDecl, callExpr->explicitTemplateArgs);
+                        auto specDecl = specializeTemplateFunctionDeclForCallExpr(target.funcDecl, tmplMapping, 0, kRunCodegen); // since this is a ctor, there won't be any codegen, it'll just register the function
+                        resultStatus = ResolveCallResultStatus::Success;
+                        return specDecl;
+                    }
+                    case NK::TypealiasDecl:
+                    case NK::VariantDecl:
+                        LKFatalError("");
+                    
+                    default:
+                        LKFatalError("");
+                }
             }
         }
     }

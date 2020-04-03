@@ -15,6 +15,7 @@
 #include <ostream>
 #include <variant>
 #include <map>
+#include <tuple>
 #include <utility>
 
 namespace yo {
@@ -25,20 +26,27 @@ class IRGenerator;
 
 
 /// Info about a (named) value
-// TOOD this is atrocious
+// TOOD rewrite, this is atrocious
 struct ValueInfo {
-    using PropertyInfo = std::pair<Type *, Type *>;
+    using TypeTmplInfo = std::shared_ptr<ast::TopLevelStmt>;
+//    using PropertyInfo = std::tuple<Type *, Type *, std::string>;
     using FunctionInfo = std::pair<Type *, std::shared_ptr<ast::FunctionDecl>>;
+    struct PropertyInfo {
+        Type *type;       // type of the property
+        Type *parentType; // the type this property is a member of // TODO come up w/ a better name
+        std::string name;
+    };
     
     enum class Kind {
         TypeRef,
+        TypeRefTmpl,
         LocalVar,
         Property,
         Function,
     };
     
     Kind kind;
-    std::variant<Type *, PropertyInfo, FunctionInfo> data;
+    std::variant<Type *, TypeTmplInfo, PropertyInfo, FunctionInfo> data;
     bool isStaticMember;
 
     template <typename T>
@@ -51,6 +59,10 @@ struct ValueInfo {
     
     Type* getTypeRef() const {
         return std::get<Type *>(data);
+    }
+    
+    const TypeTmplInfo& getTypeRefTmplDecl() const {
+        return std::get<TypeTmplInfo>(data);
     }
     
     const PropertyInfo& getPropertyInfo() const {
@@ -66,49 +78,24 @@ struct ValueInfo {
         return ValueInfo(Kind::TypeRef, type, false);
     }
     
+    static ValueInfo typeRefTmpl(std::shared_ptr<ast::TopLevelStmt> decl) {
+        return ValueInfo(Kind::TypeRefTmpl, decl, false);
+    }
+    
     static ValueInfo localVar(Type *type) {
         return ValueInfo(Kind::LocalVar, type, false);
     }
     
-    static ValueInfo property(Type *parentType, Type *type) {
-        return ValueInfo(Kind::Property, std::make_pair(parentType, type), false);
+    static ValueInfo property(Type *parentType, Type *type, const std::string &name, bool isStatic = false) {
+        return ValueInfo(Kind::Property, PropertyInfo{parentType, type, name}, isStatic);
     }
     
-    static ValueInfo function(Type *selfType, std::shared_ptr<ast::FunctionDecl> func) {
-        return ValueInfo(Kind::Function, std::make_pair(selfType, func), false);
+    static ValueInfo function(Type *selfType, std::shared_ptr<ast::FunctionDecl> func, bool isStatic = false) {
+        return ValueInfo(Kind::Function, std::make_pair(selfType, func), isStatic);
     }
 };
 
 std::ostream& operator<<(std::ostream&, const ValueInfo&);
-
-
-
-
-//struct ValueInfo {
-//    enum class Kind {
-//        Function,
-//        Property,
-//        LocalVar
-//    };
-//
-//    const Kind kind;
-//    explicit ValueInfo(Kind k) : kind(k) {}
-//    virtual ~ValueInfo() = default;
-//};
-//
-//
-//struct FunctionValueInfo : public ValueInfo {
-//    ResolvedCallable RC;
-//
-//    // if this is a member function (static or instance), the type it is a member of
-//    Type *type = nullptr;
-//
-//    FunctionValueInfo(ResolvedCallable RC, Type *type) : ValueInfo(Kind::Function), RC(RC), type(type) {}
-//};
-//
-//
-//struct Property
-
 
 
 
@@ -118,12 +105,12 @@ struct TypeMembersTable {
     
     explicit TypeMembersTable(Type *ty) : type(ty) {}
     
-    void addProperty(Type *parentTy, const std::string &name, Type *type) {
-        members[name].push_back(ValueInfo::property(parentTy, type));
+    void addProperty(Type *parentTy, const std::string &name, Type *type, bool isStatic = false) {
+        members[name].push_back(ValueInfo::property(parentTy, type, name, isStatic));
     }
     
-    void addMemberFunction(Type *selfType, const std::shared_ptr<ast::FunctionDecl> &funcDecl) {
-        members[funcDecl->getName()].push_back(ValueInfo::function(selfType, funcDecl));
+    void addMemberFunction(Type *selfType, const std::shared_ptr<ast::FunctionDecl> &funcDecl, bool isStatic = false) {
+        members[funcDecl->getName()].push_back(ValueInfo::function(selfType, funcDecl, isStatic));
     }
     
     bool contains(const std::string &name) const {

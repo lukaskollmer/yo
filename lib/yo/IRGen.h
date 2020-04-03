@@ -450,9 +450,13 @@ private:
                                                     std::vector<CallTargetRejectionReason>&, ResolveCallResultStatus&, bool lookingForZeroResults);
     ResolvedCallable resolveCall(std::shared_ptr<ast::CallExpr>, SkipCodegenOption);
     
+    std::optional<ResolvedCallable> resolveCall_opt(std::shared_ptr<ast::CallExpr>, SkipCodegenOption);
+    
     // returns true if the call can be resolved, otherwise false.
-    // does not emit IR for the call
-    bool canResolveCall(std::shared_ptr<ast::CallExpr>);
+    // does not emit IR for the call?
+    bool canResolveCall(std::shared_ptr<ast::CallExpr> expr) {
+        return resolveCall_opt(expr, kSkipCodegen).has_value();
+    }
     
     
     TemplateTypeMapping resolveStructTemplateParametersFromExplicitTemplateArgumentList(std::shared_ptr<ast::StructDecl>, std::shared_ptr<ast::TemplateParamArgList>);
@@ -490,30 +494,7 @@ private:
     StructType* synthesizeLambdaExpr(std::shared_ptr<ast::LambdaExpr>);
     StructType* synthesizeUnderlyingStructTypeForTupleType(TupleType *tupleTy);
     
-    
-    
-    // Utils
-    
-    // TODO this seems like a bad idea?
-    // Assuming this is only ever used for registering synthesized functions, what about just having a `queueSynthFunction` function that registers the llvm::Function, and then puts the FuncDecl in a queue which is handled after regular codegen finished?
-//    template <typename F>
-//    std::invoke_result_t<F> withCleanSlate(F &&fn) {
-//        // TODO this also need to take debugInfo.lexicalBlocks into account !!!!!!!!!!
-//        auto prevLocalScope = localScope;
-//        auto prevCurrentFunction = currentFunction;
-//        auto prevInsertBlock = builder.GetInsertBlock();
-//
-//        localScope = {};
-//        currentFunction = {};
-//
-//        util::DeferHandle H([&]() {
-//            localScope = prevLocalScope;
-//            currentFunction = prevCurrentFunction;
-//            builder.SetInsertPoint(prevInsertBlock);
-//        });
-//
-//        return fn();
-//    }
+    void synthesizeVariantConstructor(VariantType *, const VariantType::Elements::value_type &);
 };
 
 
