@@ -181,8 +181,6 @@ struct NamedDeclInfo {
 };
 
 
-struct NameLookupInfo;
-std::ostream& operator<<(std::ostream&, const NameLookupInfo&);
 
 
 class IRGenerator {
@@ -410,9 +408,6 @@ private:
     void includeInStackDestruction(Type *, llvm::Value *);
     
     void destructLocalScopeUntilMarker(util::NamedScope<ValueBinding>::Marker, bool removeFromLocalScope);
-    
-    
-//    NameLookupInfo* lookupDeclName(std::shared_ptr<ast::Expr>);
     
     
     // Applying trivial number literal casts
