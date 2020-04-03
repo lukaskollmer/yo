@@ -174,19 +174,19 @@ public:
 #pragma mark - Canonical Mangling
 
 
-std::string mangleCanonicalName(std::string_view type, std::string_view method, ast::FunctionKind kind) {
+std::string mangleCanonicalName(ast::FunctionKind kind, std::string_view name) {
     switch (kind) {
         case ast::FunctionKind::GlobalFunction:
-            return std::string(method);
+            return std::string(name);
         
         case ast::FunctionKind::StaticMethod:
             return ManglingStringBuilder("__S")
-                .appendWithCount(method)
+                .appendWithCount(name)
                 .str();
         
         case ast::FunctionKind::InstanceMethod:
             return ManglingStringBuilder("__I")
-                .appendWithCount(method)
+                .appendWithCount(name)
                 .str();
     }
 }
@@ -197,11 +197,7 @@ std::string mangleCanonicalName(std::shared_ptr<ast::FunctionDecl> funcDecl) {
     if (!funcDecl->getAttributes().mangledName.empty()) {
         return funcDecl->getAttributes().mangledName;
     }
-    std::string typeName;
-    if (funcDecl->isOfFunctionKind(ast::FunctionKind::StaticMethod)) {
-//        typeName = funcDecl->getImplType()->getName();
-    }
-    return mangleCanonicalName(typeName, funcDecl->getName(), funcDecl->getFunctionKind());
+    return mangleCanonicalName(funcDecl->getFunctionKind(), funcDecl->getName());
 }
 
 

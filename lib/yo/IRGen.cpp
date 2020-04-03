@@ -768,7 +768,7 @@ std::shared_ptr<ast::LocalStmt> IRGenerator::createDestructStmtIfDefined(Type *t
         return nullptr;
     }
     
-    auto canonicalDeallocName = mangling::mangleCanonicalName(structTy->getName(), kSynthesizedDeallocMethodName, ast::FunctionKind::InstanceMethod);
+    auto canonicalDeallocName = mangling::mangleCanonicalName(ast::FunctionKind::InstanceMethod, kSynthesizedDeallocMethodName);
     if (!util::map::has_key(functions, canonicalDeallocName)) {
         return nullptr;
     }
@@ -1533,7 +1533,7 @@ bool IRGenerator::typeIsSubscriptable(Type *ty) {
 
 bool IRGenerator::implementsInstanceMethod(Type *ty, std::string_view methodName) {
     if (auto ST = getUnderlyingStruct(ty)) {
-        auto canonicalName = mangling::mangleCanonicalName(ST->getName(), methodName, ast::FunctionKind::InstanceMethod);
+        auto canonicalName = mangling::mangleCanonicalName(ast::FunctionKind::InstanceMethod, methodName);
         return util::map::has_key(functions, canonicalName);
     } else {
         return false;

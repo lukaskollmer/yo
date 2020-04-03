@@ -17,11 +17,7 @@
 
 namespace yo::mangling {
     std::string mangleCanonicalName(std::shared_ptr<ast::FunctionDecl>);
-    std::string mangleCanonicalName(std::string_view type, std::string_view method, ast::FunctionKind kind);
-    
-    inline std::string mangleCanonicalInstanceMethodName(std::string_view name) {
-        return mangleCanonicalName("", name, ast::FunctionKind::InstanceMethod);
-    }
+    std::string mangleCanonicalName(ast::FunctionKind kind, std::string_view name);
     
     std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl>);
     std::string mangleFullyResolved(std::shared_ptr<ast::StructDecl>);
