@@ -923,8 +923,8 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSig
         auto sigTypeDesc = signature.paramTypes[idx];
         auto argTy = args[idx].first;
         
-        if (llvm::isa<ReferenceType>(argTy)) {
-            argTy = llvm::dyn_cast<ReferenceType>(argTy)->getReferencedType();
+        if (auto refTy = llvm::dyn_cast<ReferenceType>(argTy)) {
+            argTy = refTy->getReferencedType();
         }
         
         if (!handle(sigTypeDesc, argTy, idx)) {
@@ -1764,7 +1764,7 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
     
     llvm::Value *llvmFunction = resolvedTarget.llvmValue;
     LKAssert(llvmFunction->getType()->isPointerTy() && llvmFunction->getType()->getContainedType(0)->isFunctionTy());
-    auto llvmFunctionTy = llvm::dyn_cast<llvm::FunctionType>(llvmFunction->getType()->getContainedType(0));
+    auto llvmFunctionTy = llvm::cast<llvm::FunctionType>(llvmFunction->getType()->getContainedType(0));
     auto isVariadic = llvmFunctionTy->isVarArg();
     
     LKAssert(call->arguments.size() >= llvmFunctionTy->getNumParams() - resolvedTarget.hasImplicitSelfArg - isVariadic);
@@ -1814,7 +1814,7 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
             implicitSelfArg = call->target;
         }
         
-        auto selfArgTy = getType(implicitSelfArg);
+        //auto selfArgTy = getType(implicitSelfArg);
         
         if (isTemporary(implicitSelfArg)) {
             // if a call target is a temporary, we need to make sure the object outlives the call
@@ -2123,7 +2123,7 @@ llvm::Value* IRGenerator::codegen_HandleArithmeticIntrinsic(ast::Operator op, st
     
     LKAssert(lhsTy->isNumericalTy() && rhsTy->isNumericalTy());
     LKAssert(lhsTy == rhsTy);
-    auto numTy = llvm::dyn_cast<NumericalType>(lhsTy);
+    auto numTy = llvm::cast<NumericalType>(lhsTy);
     
     if (numTy->isIntegerTy() || numTy->isBoolTy()) {
         LKAssert(isValidIntArithBinop(op));
@@ -2260,8 +2260,8 @@ llvm::Value* IRGenerator::codegen_HandleComparisonIntrinsic(ast::Operator op, st
     llvm::CmpInst::Predicate pred;
     llvm::Value *lhsVal, *rhsVal;
     
-    auto numTyLhs = llvm::dyn_cast<NumericalType>(lhsTy);
-    auto numTyRhs = llvm::dyn_cast<NumericalType>(rhsTy);
+    auto numTyLhs = llvm::cast<NumericalType>(lhsTy);
+    auto numTyRhs = llvm::cast<NumericalType>(rhsTy);
     
     if (numTyLhs == numTyRhs) {
         pred = getMatchingLLVMCmpInstPredicateForComparisonOperator_Int(op, numTyLhs->isSigned());

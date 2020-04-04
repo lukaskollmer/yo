@@ -26,7 +26,7 @@ public:
     
     OptionSet(Flags flags) : data(static_cast<Data>(flags)) {}
     
-    OptionSet(std::initializer_list<Flags> flags) {
+    OptionSet(std::initializer_list<Flags> flags) : data(0) {
         for (Flags F : flags) {
             insert(F);
         }

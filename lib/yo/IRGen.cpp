@@ -101,7 +101,7 @@ bool irgen::integerLiteralFitsInIntegralType(uint64_t value, Type *type) {
 #define HANDLE(size_expr, signed_t, unsigned_t) if (size == (size_expr)) { return isSigned ? value_fits_in_type<signed_t>(value) : value_fits_in_type<unsigned_t>(value); }
     
     LKAssert(type->isNumericalTy());
-    auto *numTy = llvm::dyn_cast<NumericalType>(type);
+    auto *numTy = llvm::cast<NumericalType>(type);
     LKAssert(numTy->isIntegerTy());
     auto size = numTy->getSize();
     bool isSigned = numTy->isSigned();
@@ -1024,7 +1024,7 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
         case Type::TypeID::Numerical: {
             using NTID = NumericalType::NumericalTypeID;
             
-            auto numTy = llvm::dyn_cast<NumericalType>(type);
+            auto numTy = llvm::cast<NumericalType>(type);
             switch (numTy->getNumericalTypeID()) {
                 case NTID::Bool:
                     return handle_llvm_type(builtinTypes.llvm.i1);
@@ -1056,13 +1056,13 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
         case Type::TypeID::Pointer:
         case Type::TypeID::Reference: {
             Type *pointee = type->isPointerTy()
-                ? llvm::dyn_cast<PointerType>(type)->getPointee()
-                : llvm::dyn_cast<ReferenceType>(type)->getReferencedType();
+                ? llvm::cast<PointerType>(type)->getPointee()
+                : llvm::cast<ReferenceType>(type)->getReferencedType();
             return handle_llvm_type(getLLVMType(pointee)->getPointerTo());
         }
         
         case Type::TypeID::Struct: {
-            auto structTy = llvm::dyn_cast<StructType>(type);
+            auto structTy = llvm::cast<StructType>(type);
             auto llvmStructTy = llvm::StructType::create(C, structTy->getName());
             llvmStructTy->setBody(util::vector::map(structTy->getMembers(), [this](const auto &member) -> llvm::Type* {
                 return getLLVMType(member.second);
@@ -1080,7 +1080,7 @@ llvm::Type *IRGenerator::getLLVMType(Type *type) {
         }
         
         case Type::TypeID::Function: {
-            auto fnTy = llvm::dyn_cast<FunctionType>(type);
+            auto fnTy = llvm::cast<FunctionType>(type);
             auto paramTypes = util::vector::map(fnTy->getParameterTypes(), [this](auto ty) { return getLLVMType(ty); });
             auto llvmFnTy = llvm::FunctionType::get(getLLVMType(fnTy->getReturnType()), paramTypes, fnTy->isVariadic()); // TODO support variadic function types?
             return handle_llvm_type(llvmFnTy);
@@ -1137,13 +1137,13 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
         case Type::TypeID::Pointer:
         case Type::TypeID::Reference: {
             Type *pointee = type->isPointerTy()
-                ? llvm::dyn_cast<PointerType>(type)->getPointee()
-                : llvm::dyn_cast<ReferenceType>(type)->getReferencedType();
+                ? llvm::cast<PointerType>(type)->getPointee()
+                : llvm::cast<ReferenceType>(type)->getReferencedType();
             return handle_di_type(builder.createPointerType(getDIType(pointee), pointerWidth));
         }
         
         case Type::TypeID::Numerical: {
-            auto numTy = llvm::dyn_cast<NumericalType>(type);
+            auto numTy = llvm::cast<NumericalType>(type);
             unsigned int encoding = 0;
             
             if (numTy->isBoolTy())         encoding = llvm::dwarf::DW_ATE_boolean;
@@ -1156,7 +1156,7 @@ llvm::DIType* IRGenerator::getDIType(Type *type) {
         }
         
         case Type::TypeID::Function: {
-            auto fnTy = llvm::dyn_cast<FunctionType>(type);
+            auto fnTy = llvm::cast<FunctionType>(type);
             
             std::vector<llvm::Metadata *> paramTypes;
             paramTypes.reserve(fnTy->getNumberOfParameters());

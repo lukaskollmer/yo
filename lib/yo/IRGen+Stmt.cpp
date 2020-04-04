@@ -164,7 +164,7 @@ llvm::Value* IRGenerator::codegenVarDecl(std::shared_ptr<ast::VarDecl> varDecl) 
     if (varDecl->declaresUntypedReference && !type->isReferenceTy()) {
         type = type->getReferenceTo();
     } else if (type->isReferenceTy() && hasInferredType && !varDecl->declaresUntypedReference) {
-        type = llvm::dyn_cast<ReferenceType>(type)->getReferencedType();
+        type = llvm::cast<ReferenceType>(type)->getReferencedType();
     }
     
     if (type->isReferenceTy()) {
@@ -349,7 +349,7 @@ llvm::Value* IRGenerator::codegenIfStmt(std::shared_ptr<ast::IfStmt> ifStmt) {
             builder.SetInsertPoint(BB);
         }
         
-        auto condTy = getType(branch->condition);
+        //auto condTy = getType(branch->condition);
         
 //        if (auto BoolTy = builtinTypes.yo.Bool; condTy != BoolTy && condTy != BoolTy->getReferenceTo()) {
 //            auto msg = util::fmt::format("type of expression ('{}') incompatible with expected type '{}'", condTy, BoolTy);
@@ -365,7 +365,7 @@ llvm::Value* IRGenerator::codegenIfStmt(std::shared_ptr<ast::IfStmt> ifStmt) {
         if (i == 0 && llvm::isa<llvm::ConstantInt>(condV) && condV->getType() == builtinTypes.llvm.i1
             && branch->kind == BK::If && (ifStmt->branches.size() == 1 || ifStmt->branches[1]->kind == BK::Else)
         ) {
-            auto value = llvm::dyn_cast<llvm::ConstantInt>(condV)->getLimitedValue();
+            auto value = llvm::cast<llvm::ConstantInt>(condV)->getLimitedValue();
             if (value == 1) {
                 constevalResult = ConstevalResult::FirstBranch;
                 builder.CreateBr(branchBodyBlocks[i]);
