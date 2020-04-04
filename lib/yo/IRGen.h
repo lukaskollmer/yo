@@ -467,7 +467,7 @@ private:
     };
     std::optional<ResolvedCallable> resolveCall_imp(std::shared_ptr<ast::CallExpr>, SkipCodegenOption,
                                                     std::vector<FunctionCallTargetCandidate>&,
-                                                    std::vector<CallTargetRejectionReason>&, ResolveCallResultStatus&, bool lookingForZeroResults);
+                                                    std::vector<CallTargetRejectionReason>&, ResolveCallResultStatus&);
     ResolvedCallable resolveCall(std::shared_ptr<ast::CallExpr>, SkipCodegenOption);
     
     std::optional<ResolvedCallable> resolveCall_opt(std::shared_ptr<ast::CallExpr>, SkipCodegenOption);

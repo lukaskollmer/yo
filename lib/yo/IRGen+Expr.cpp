@@ -1263,7 +1263,7 @@ ResolvedCallable IRGenerator::resolveCall(std::shared_ptr<ast::CallExpr> callExp
     std::vector<CallTargetRejectionReason> rejections;
     ResolveCallResultStatus result;
     
-    auto target = resolveCall_imp(callExpr, codegenOption, candidates, rejections, result, false);
+    auto target = resolveCall_imp(callExpr, codegenOption, candidates, rejections, result);
     
     switch (result) {
         case ResolveCallResultStatus::Success:
@@ -1305,14 +1305,14 @@ IRGenerator::resolveCall_opt(std::shared_ptr<ast::CallExpr> callExpr, SkipCodege
     std::vector<FunctionCallTargetCandidate> candidates;
     std::vector<CallTargetRejectionReason> rejections;
     ResolveCallResultStatus status;
-    return resolveCall_imp(callExpr, kSkipCodegen, candidates, rejections, status, codegenOption);
+    return resolveCall_imp(callExpr, kSkipCodegen, candidates, rejections, status);
 }
 
 
 // This function will only return if the call can be resolved
 // TODO add a string& parameter "descriptive target name", which then can be used in error messages like "cant resolve call to {}" (eg "operator +", etc)
 std::optional<ResolvedCallable>
-IRGenerator::resolveCall_imp(std::shared_ptr<ast::CallExpr> callExpr, SkipCodegenOption codegenOption, std::vector<FunctionCallTargetCandidate> &candidates, std::vector<CallTargetRejectionReason> &rejections, ResolveCallResultStatus &resultStatus, bool lookingForZeroResults) {
+IRGenerator::resolveCall_imp(std::shared_ptr<ast::CallExpr> callExpr, SkipCodegenOption codegenOption, std::vector<FunctionCallTargetCandidate> &candidates, std::vector<CallTargetRejectionReason> &rejections, ResolveCallResultStatus &resultStatus) {
     // TODO this function is rather long, refactor!!!
     
     const bool skipCodegen = codegenOption == kSkipCodegen;
