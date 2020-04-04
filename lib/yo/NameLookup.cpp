@@ -10,6 +10,7 @@
 #include "IRGen.h"
 #include "Type.h"
 #include "Mangling.h"
+#include "TemplateSpecialization.h"
 
 #include "util/util.h"
 #include "util/Format.h"
@@ -45,7 +46,7 @@ std::ostream& irgen::operator<<(std::ostream &OS, const ValueInfo &VI) {
         }
         
         case ValueInfo::Kind::LocalVar: {
-            LKFatalError("");
+            return OS << "localVar[" << VI.getTypeRef() << "]";
         }
         
         case ValueInfo::Kind::Function: {
@@ -66,47 +67,50 @@ std::vector<ValueInfo> NameLookup::lookup(const std::shared_ptr<ast::Expr> &expr
     if (auto ident = llvm::dyn_cast<ast::Ident>(expr)) {
         if (auto binding = irgen.localScope.get(ident->value)) {
             return { ValueInfo::localVar(binding->type) };
-        } else {
-            std::vector<ValueInfo> results;
-            irgen.registerNamedDecls(ident->value);
-            
-            if (auto type = irgen.nominalTypes.get(ident->value)) {
-                results.push_back(ValueInfo::typeRef(*type));
-            }
-            
-            if (auto declInfos = util::map::get_opt(irgen.namedDeclInfos, ident->value)) {
-                for (const NamedDeclInfo &declInfo : *declInfos) {
-                    switch (declInfo.decl->getKind()) {
-                        case NK::FunctionDecl:
-                            // TODO just pass along the RC?!
+        }
+        
+        std::vector<ValueInfo> results;
+        irgen.registerNamedDecls(ident->value);
+        
+        if (auto type = irgen.nominalTypes.get(ident->value)) {
+            results.push_back(ValueInfo::typeRef(*type));
+        }
+        
+        if (auto declInfos = util::map::get_opt(irgen.namedDeclInfos, ident->value)) {
+            for (const NamedDeclInfo &declInfo : *declInfos) {
+                switch (declInfo.decl->getKind()) {
+                    case NK::FunctionDecl: {
+                        // TODO just pass along the RC?!
+                        auto FD = llvm::cast<ast::FunctionDecl>(declInfo.decl);
+                        if (FD->isGlobalFunction()) {
+                            // the idea here is that it it's an ident, it can only refer to a global function (since there is no implicit self (yet?))
                             results.push_back(ValueInfo::function(nullptr, llvm::cast<ast::FunctionDecl>(declInfo.decl)));
-                            break;
-                        case NK::StructDecl: {
-                            auto SD = llvm::cast<ast::StructDecl>(declInfo.decl);
-                            if (SD->isTemplateDecl()) {
-                                results.push_back(ValueInfo::typeRefTmpl(SD));
-                            }
-                            break;
                         }
-                        case NK::VariantDecl: {
-                            auto VD = llvm::cast<ast::VariantDecl>(declInfo.decl);
-                            if (VD->isTemplateDecl()) {
-                                results.push_back(ValueInfo::typeRefTmpl(VD));
-                            }
-                            break;
-                        }
-                        case NK::TypealiasDecl:
-                            LKFatalError("");
-                        
-                        default:
-                            LKFatalError("");
+                        break;
                     }
+                    case NK::StructDecl: {
+                        auto SD = llvm::cast<ast::StructDecl>(declInfo.decl);
+                        if (SD->isTemplateDecl()) {
+                            results.push_back(ValueInfo::typeRefTmpl(SD));
+                        }
+                        break;
+                    }
+                    case NK::VariantDecl: {
+                        auto VD = llvm::cast<ast::VariantDecl>(declInfo.decl);
+                        if (VD->isTemplateDecl()) {
+                            results.push_back(ValueInfo::typeRefTmpl(VD));
+                        }
+                        break;
+                    }
+                    case NK::TypealiasDecl:
+                        LKFatalError("");
+                    
+                    default:
+                        LKFatalError("");
                 }
             }
-            
-            return results;
         }
-        LKFatalError("unreachable?");
+        return results;
     
     } else if (auto memberExpr = llvm::dyn_cast<ast::MemberExpr>(expr)) {
         if (auto rawExpr = llvm::dyn_cast<ast::RawLLVMValueExpr>(memberExpr->target)) {
@@ -124,13 +128,17 @@ std::vector<ValueInfo> NameLookup::lookup(const std::shared_ptr<ast::Expr> &expr
             
             auto handleForType = [&](Type *type) {
                 auto membersTable = computeMemberTableForType(type);
-                membersTable.dump();
                 if (auto members = util::map::get_opt(membersTable.members, memberExpr->memberName)) {
                     util::vector::append(results, *members);
                 }
             };
             
-            for (auto &L : lookup(memberExpr->target)) {
+            auto targetLookupResults = lookup(memberExpr->target);
+            if (targetLookupResults.empty()) {
+                handleForType(irgen.getType(memberExpr->target));
+            }
+            
+            for (auto &L : targetLookupResults) {
                 switch (L.kind) {
                     case ValueInfo::Kind::TypeRef:
                         handleForType(L.getTypeRef());
@@ -164,12 +172,14 @@ std::vector<ValueInfo> NameLookup::lookup(const std::shared_ptr<ast::Expr> &expr
         return {};
     }
     
-    LKFatalError("unhandled node?");
+    return {};
 }
 
 
 
-
+// TODO should these be cached?
+// Pro: def faster, this function gets called at least twice for each call expr
+// Con: we might miss some decls which only get added later (TODO are there such decls?)
 TypeMembersTable NameLookup::computeMemberTableForType(Type *type) {
     if (auto refTy = llvm::dyn_cast<ReferenceType>(type)) {
         type = refTy->getReferencedType();
@@ -195,7 +205,6 @@ TypeMembersTable NameLookup::computeMemberTableForType(Type *type) {
         for (const NamedDeclInfo &declInfo : declInfos) {
             if (auto funcDecl = llvm::dyn_cast<ast::FunctionDecl>(declInfo.decl)) {
                 // collect all instance methods which, as their first parameter, can accept the type
-//                util::fmt::print("decl->name: {} of sig '{}'", funcDecl->name, funcDecl->signature);
                 
                 auto shouldAdd = [&]() -> bool {
                     if (!(funcDecl->isInstanceMethod() || funcDecl->isStaticMethod())) {
@@ -218,15 +227,30 @@ TypeMembersTable NameLookup::computeMemberTableForType(Type *type) {
         }
     }
     
+//    membersTable.dump();
     return membersTable;
 }
 
 bool NameLookup::isAcceptableFirstParam(Type *type, const std::shared_ptr<ast::FunctionDecl> &decl) {
     LKAssert(decl->getSignature().numberOfParameters() > 0);
     
-    if (decl->getSignature().isTemplateDecl()) {
-        ast::FunctionSignature sig = decl->getSignature();
+    if (!decl->isInstanceMethod()) { // TODO is this too strict?
+        return false;
+    }
+    
+    
+    if (decl->hasInsertedImplBlockTemplateParams) {
+        // if the function has template params inserted from its impl block (ie, template params which are used in the first argument),
+        // remove all other data from the signature and see whether the first argument can resolve to the type
+        
+        auto sig = TemplateSpecializer({}).specialize(decl->getSignature());
+        LKAssert(sig.isTemplateDecl());
+        // remove all parameters except the first (implicit self)
         sig.paramTypes.erase(sig.paramTypes.begin() + 1, sig.paramTypes.end());
+        
+        // remove all template parameters except those added from the instance function's impl block
+        auto &P = sig.templateParamsDecl->getParams();
+        sig.templateParamsDecl->setParams(std::vector(P.begin() + decl->implBlockTmplParamsStartIndex, P.end()));
 
         auto callExpr = std::make_shared<ast::CallExpr>(nullptr);
 
@@ -238,13 +262,12 @@ bool NameLookup::isAcceptableFirstParam(Type *type, const std::shared_ptr<ast::F
     
     
     auto typeDesc = decl->getSignature().paramTypes[0];
-//    util::fmt::print("type: {}, typeDesc: {}", type, typeDesc);
     
     if (auto resolved = typeDesc->getResolvedType()) {
         if (resolved == type) {
             return true;
-        } else if (auto refTy = llvm::dyn_cast<ReferenceType>(resolved)) {
-            return refTy->getReferencedType() == type;
+        } else if (auto resolvedRefTy = llvm::dyn_cast<ReferenceType>(resolved)) {
+            return resolvedRefTy->getReferencedType() == type;
         }
         return false;
     }
@@ -253,41 +276,63 @@ bool NameLookup::isAcceptableFirstParam(Type *type, const std::shared_ptr<ast::F
         typeDesc = typeDesc->getPointee();
     }
     
-    // TODO this resolves all types, thus maybe instantiating templates we nay not (yet?) want instantiated
-    // the switch below, at the end of the day, does the same thing, but before tries to return false early in some cases where its clear that the types don't match
-    return irgen.resolveTypeDesc(typeDesc, false) == type;
+    if (auto resolved = typeDesc->getResolvedType()) {
+        return resolved == type;
+    }
+    // essentially, what we're trying to figure out here is whether the type could potentially be represented using the typedesc
     
-//    switch (type->getTypeId()) {
-//        case Type::TypeID::Struct: {
-//            auto ST = llvm::cast<StructType>(type);
-//            if (!(typeDesc->isNominal() || typeDesc->isNominalTemplated())) {
-//                // non-nominal typedesc cannot resolve to a nominal type (note that the other way around is very much possible)
-//                return false;
-//            }
-//            if (ST->isTemplateInstantiation() != typeDesc->isNominalTemplated()) {
-//                return false;
-//            }
-//            return irgen.resolveTypeDesc(typeDesc, false) == type;
-//        }
-//
-//        case Type::TypeID::Tuple: {
-//            LKFatalError("");
-//        }
-//
-//        case Type::TypeID::Variant: {
+    bool couldResolveIntoAnything = typeDesc->isNominal() || typeDesc->isNominalTemplated() || typeDesc->isDecltype();
+    
+    switch (type->getTypeId()) {
+        case Type::TypeID::Struct: {
+            auto ST = llvm::cast<StructType>(type);
+            if (!(typeDesc->isNominal() || typeDesc->isNominalTemplated())) {
+                // non-nominal typedesc cannot resolve to a nominal type (note that the other way around is very much possible)
+                return false;
+            }
+            if (ST->isTemplateInstantiation() != typeDesc->isNominalTemplated()) {
+                return false;
+            }
+            return irgen.resolveTypeDesc(typeDesc, false) == type;
+        }
+
+        case Type::TypeID::Tuple: {
+            if (typeDesc->isTuple()) {
+                auto tupleTy = llvm::cast<TupleType>(type);
+                if (typeDesc->getTupleMembers().size() != tupleTy->memberCount()) {
+                    // both are tuples but the number of members doesn't match
+                    return false;
+                } // TODO if they have the same #members, run resolveTD(member) == tt[i] so that, if a single member doesnt match we dont have to instantiate the whole tuple?
+                // (same for functions)
+            } else if (!couldResolveIntoAnything) {
+                // typeDesc is neither a tuple, nor nominal (and therefore couldn't resolve into a tuple)
+                return false;
+            } else {
+                // typedesc might resolve into a tuple
+            }
+            break;
+        }
+
+        case Type::TypeID::Variant: {
 //            auto variantTy = llvm::cast<VariantType>(type);
-//            LKFatalError("");
-//        }
-//        case Type::TypeID::Void:
-//        case Type::TypeID::Numerical:
-//        case Type::TypeID::Pointer:
-//        case Type::TypeID::Reference:
-//        case Type::TypeID::Function:
-//            LKFatalError("");
-//    }
+            LKFatalError("");
+        }
+        
+        case Type::TypeID::Numerical:
+            if (!couldResolveIntoAnything) {
+                return false;
+            }
+            break;
+        
+        case Type::TypeID::Void:
+        case Type::TypeID::Pointer:
+        case Type::TypeID::Reference:
+        case Type::TypeID::Function:
+            LKFatalError("");
+    }
     
-    //LKFatalError("type: '%s', typeDesc: '%s'", type->str_desc().c_str(), typeDesc->str().c_str());
-    LKFatalError("");
+    // TODO this resolves all types, thus maybe instantiating templates we nay not (yet?) want instantiated
+    return irgen.resolveTypeDesc(typeDesc, false) == type;
 }
 
 

@@ -1085,7 +1085,8 @@ PrecedenceGroup getOperatorPrecedenceGroup(Operator op) {
 
 // Tokens that, if they appear on their own, mark the end of an expression
 static const TokenSet expressionDelimitingTokens = {
-    TK::ClosingParens, TK::Semicolon, TK::Comma, TK::OpeningCurlyBraces, TK::ClosingSquareBrackets, TK::EqualsSign, TK::ClosingCurlyBraces
+    TK::ClosingParens, TK::Semicolon, TK::Comma, TK::OpeningCurlyBraces, TK::ClosingSquareBrackets, TK::EqualsSign, TK::ClosingCurlyBraces,
+    TK::If // in match patterns
 };
 
 
@@ -1233,9 +1234,13 @@ std::shared_ptr<Expr> Parser::parseExpression(PrecedenceGroup precedenceGroupCon
         if (currentTokenKind() == TK::OpeningSquareBrackets) {
             auto loc = getCurrentSourceLocation();
             consume();
-            auto offsetExpr = parseExpression();
+//            auto offsetExpr = parseExpression();
+//            assertTkAndConsume(TK::ClosingSquareBrackets);
+//            expr = std::make_shared<ast::SubscriptExpr>(expr, offsetExpr);
+//            expr->setSourceLocation(loc);
+            auto args = parseExpressionList(TK::ClosingSquareBrackets);
             assertTkAndConsume(TK::ClosingSquareBrackets);
-            expr = std::make_shared<ast::SubscriptExpr>(expr, offsetExpr);
+            expr = std::make_shared<ast::SubscriptExpr>(expr, args);
             expr->setSourceLocation(loc);
         }
         
@@ -1494,19 +1499,38 @@ static const TokenSet memberAccessSeparatingTokens = {
 
 
 
+ast::MatchExprPattern Parser::parseMatchExprPattern() {
+    std::shared_ptr<ast::Expr> expr, cond;
+    expr = parseExpression();
+    if (currentTokenKind() == TK::If) {
+        consume();
+        cond = parseExpression();
+    }
+    auto pattern = ast::MatchExprPattern(expr, cond);
+    pattern.setSourceLocation(expr->getSourceLocation());
+    return pattern;
+}
+
+
 
 std::shared_ptr<ast::MatchExpr> Parser::parseMatchExpr() {
     assertTkAndConsume(TK::Match);
     auto target = parseExpression();
     assertTkAndConsume(TK::OpeningCurlyBraces);
-    std::vector<MatchExpr::MatchExprBranch> branches;
+    std::vector<MatchExprBranch> branches;
     
     while (true) {
-        auto patterns = parseExpressionList(TK::Minus);
+        //auto patterns = parseExpressionList(TK::Minus);
+        std::vector<ast::MatchExprPattern> patterns;
+        patterns.push_back(parseMatchExprPattern());
+        while (currentTokenKind() == TK::Comma) {
+            patterns.push_back(parseMatchExprPattern());
+        }
+        
         assertTkAndConsume(TK::Minus);
         assertTkAndConsume(TK::ClosingAngledBracket);
         auto expr = parseExpression();
-        branches.push_back(MatchExpr::MatchExprBranch(patterns, expr));
+        branches.push_back(MatchExprBranch(patterns, expr));
         
         switch (currentTokenKind()) {
             case TK::Comma:

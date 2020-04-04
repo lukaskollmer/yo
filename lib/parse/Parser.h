@@ -155,6 +155,8 @@ private:
     std::shared_ptr<ast::Ident> parseIdent();
     
     std::shared_ptr<ast::MatchExpr> parseMatchExpr();
+    ast::MatchExprPattern parseMatchExprPattern();
+    
     std::shared_ptr<ast::LambdaExpr> parseLambdaExpr();
     
     std::shared_ptr<ast::NumberLiteral> parseNumberLiteral();

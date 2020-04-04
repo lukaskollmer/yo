@@ -126,4 +126,9 @@ void append(std::vector<T> &dest, const std::vector<T> &src) {
     dest.insert(dest.end(), src.begin(), src.end());
 }
 
+template <typename T>
+void insert_at_front(std::vector<T> &vec, const T &elem) {
+    vec.insert(vec.begin(), elem);
+}
+
 NS_END // yo::util::vector

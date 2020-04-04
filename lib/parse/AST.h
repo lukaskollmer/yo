@@ -101,7 +101,7 @@ public:
         BinOp, CallExpr, CompOp, Ident, LogicalOp, MatchExpr, MemberExpr, NumberLiteral, RawLLVMValueExpr, StaticDeclRefExpr,
         StringLiteral, SubscriptExpr, CastExpr, UnaryExpr, LambdaExpr, ArrayLiteralExpr, TupleExpr,
         
-        TemplateParamDeclList, TemplateParamArgList, FunctionSignature, IfStmtBranch, MatchExprBranch
+        TemplateParamDeclList, TemplateParamArgList, FunctionSignature, IfStmtBranch, MatchExprBranch, MatchExprPattern
     };
     
     Kind getKind() const { return kind; }
@@ -173,7 +173,8 @@ public:
     struct Param {
         std::shared_ptr<Ident> name;
         std::shared_ptr<ast::TypeDesc> defaultType;
-        Param(std::shared_ptr<Ident> name, std::shared_ptr<ast::TypeDesc> defaultType = nullptr) : name(name), defaultType(defaultType) {}
+        
+        explicit Param(std::shared_ptr<Ident> name, std::shared_ptr<ast::TypeDesc> defaultType = nullptr) : name(name), defaultType(defaultType) {}
     };
     
 private:
@@ -183,11 +184,21 @@ public:
     CLASSOF_IMP(Node::Kind::TemplateParamDeclList)
     TemplateParamDeclList() : Node(Node::Kind::TemplateParamDeclList) {}
     
-    void addParam(Param P) { elements.push_back(P); }
-    void setParams(std::vector<Param> E) { elements = E; }
-    const std::vector<Param>& getParams() const { return elements; }
-    bool isEmpty() const { return elements.empty(); }
-    size_t size() const { return elements.size(); }
+    void addParam(Param P) {
+        elements.push_back(P);
+    }
+    void setParams(std::vector<Param> E) {
+        elements = E;
+    }
+    const std::vector<Param>& getParams() const {
+        return elements;
+    }
+    bool isEmpty() const {
+        return elements.empty();
+    }
+    size_t size() const {
+        return elements.size();
+    }
 };
 
 
@@ -222,11 +233,20 @@ public:
     std::vector<irgen::Type *> templateInstantiationArguments;
     
     bool isTemplateDecl() const {
+        LKAssertImplication(templateParamsDecl, templateParamsDecl->size() > 0);
         return templateParamsDecl != nullptr;
     }
     
     bool isInstantiatedTemplateDecl() const {
         return !templateInstantiationArguments.empty();
+    }
+    
+    size_t numberOfTemplateParameters() const {
+        if (!templateParamsDecl) {
+            return 0;
+        } else {
+            return templateParamsDecl->size();
+        }
     }
 };
 
@@ -245,14 +265,6 @@ public:
     size_t numberOfParameters() const {
         return paramTypes.size();
     }
-    
-    size_t numberOfTemplateParameters() const {
-        if (!templateParamsDecl) {
-            return 0;
-        } else {
-            return templateParamsDecl->size();
-        }
-    }
 };
 
 std::ostream& operator<<(std::ostream&, const ast::FunctionSignature&);
@@ -265,8 +277,6 @@ std::ostream& operator<<(std::ostream&, const ast::FunctionSignature&);
 /// A Function Declaration
 class FunctionDecl : public TopLevelStmt {
 public:
-    // TODO somehow enforce that these cannot be arbitrarily changed
-    // what about intruducing the general concept of "finalized" nodes, which cannot be mutated?
     FunctionSignature signature;
     std::vector<std::shared_ptr<ast::Ident>> paramNames;
     std::shared_ptr<ast::CompoundStmt> body;
@@ -275,10 +285,14 @@ public:
     FunctionKind funcKind;
     std::string name;
     
-    // context
+    // TODO remove this!!!
     irgen::StructType *implType = nullptr; // Only nonnull if this is a type member function
-    /// The template arguments this function was instantiated with
-//    std::vector<yo::irgen::Type *> resolvedTemplateArgTypes;
+    
+    /// whether the function was declared as part of a templated impl block, and, as such, had additional parameters inserted into its template parameter list
+    bool hasInsertedImplBlockTemplateParams = false;
+    
+    /// if this is a function declared w/in an impl block with template parameters, the start index of the impl block's template parameters
+    size_t implBlockTmplParamsStartIndex = 0;
 
     
 public:
@@ -297,8 +311,6 @@ public:
     irgen::StructType* getImplType() const { return implType; }
     void setImplType(irgen::StructType *ty) { implType = ty; }
     
-//    const auto& getResolvedTemplateArgTypes() const { return resolvedTemplateArgTypes; }
-//    void setResolvedTemplateArgTypes(std::vector<yo::irgen::Type *> tys) { resolvedTemplateArgTypes = tys; }
     
     const std::vector<std::shared_ptr<Ident>>& getParamNames() const { return paramNames; }
     void setParamNames(std::vector<std::shared_ptr<Ident>> names) { paramNames = names; }
@@ -313,10 +325,12 @@ public:
         return funcKind == kind;
     }
     
+    bool isGlobalFunction() const {
+        return funcKind == FunctionKind::GlobalFunction;
+    }
     bool isInstanceMethod() const {
         return funcKind == FunctionKind::InstanceMethod;
     }
-    
     bool isStaticMethod() const {
         return funcKind == FunctionKind::StaticMethod;
     }
@@ -331,11 +345,6 @@ public:
     bool isSubscriptOperatorOverload() const {
         return isOperatorOverloadFor(Operator::Subscript);
     }
-    
-    /// Whether the function is a compiler-generated instantiation of a function template
-//    bool isTemplateInstantiation() const {
-//        return !resolvedTemplateArgTypes.empty();
-//    }
 };
 
 
@@ -665,10 +674,11 @@ public:
 class SubscriptExpr : public Expr {
 public:
     std::shared_ptr<ast::Expr> target;
-    std::shared_ptr<ast::Expr> offset;
+    std::vector<std::shared_ptr<ast::Expr>> args;
     
     CLASSOF_IMP(Node::Kind::SubscriptExpr)
-    SubscriptExpr(std::shared_ptr<ast::Expr> target, std::shared_ptr<ast::Expr> offset) : Expr(Node::Kind::SubscriptExpr), target(target), offset(offset) {}
+    SubscriptExpr(std::shared_ptr<ast::Expr> target, std::vector<std::shared_ptr<ast::Expr>> args)
+    : Expr(Node::Kind::SubscriptExpr), target(target), args(args) {}
 };
 
 
@@ -695,19 +705,42 @@ public:
 
 
 
+class MatchExprPattern : public Node {
+public:
+    std::shared_ptr<ast::Expr> expr;
+    std::shared_ptr<ast::Expr> cond;
+    
+    MatchExprPattern() : Node(Kind::MatchExprPattern) {}
+    
+    CLASSOF_IMP(Node::Kind::MatchExprPattern)
+    MatchExprPattern(std::shared_ptr<ast::Expr> PE, std::shared_ptr<ast::Expr> CE)
+    : Node(Kind::MatchExprPattern), expr(PE), cond(CE) {}
+    
+    bool hasCondition() const {
+        return cond != nullptr;
+    }
+};
+
+
+
+
+class MatchExprBranch : public Node {
+public:
+    std::vector<MatchExprPattern> patterns;
+    std::shared_ptr<Expr> expr;
+    
+    MatchExprBranch() : Node(Node::Kind::MatchExprBranch) {}
+    
+    CLASSOF_IMP(Node::Kind::MatchExprBranch)
+    MatchExprBranch(std::vector<MatchExprPattern> patterns, std::shared_ptr<Expr> expr)
+    : Node(Node::Kind::MatchExprBranch), patterns(patterns), expr(expr) {}
+};
+
+
+
+
 class MatchExpr : public Expr {
 public:
-    class MatchExprBranch : public Node {
-    public:
-        std::vector<std::shared_ptr<Expr>> patterns;
-        std::shared_ptr<Expr> expression;
-        
-        MatchExprBranch() : Node(Node::Kind::MatchExprBranch) {}
-        
-        CLASSOF_IMP(Node::Kind::MatchExprBranch)
-        MatchExprBranch(std::vector<std::shared_ptr<Expr>> patterns, std::shared_ptr<Expr> expression)
-        : Node(Node::Kind::MatchExprBranch), patterns(patterns), expression(expression) {}
-    };
     
     std::shared_ptr<Expr> target;
     std::vector<MatchExprBranch> branches;

@@ -41,6 +41,9 @@
 /// Whether the type is constructible
 #[intrinsic] fn __is_constructible<T>() -> bool;
 
+/// Whether the type is copy-constructible
+#[intrinsic] fn __is_copy_constructible<T>() -> bool;
+
 /// Whether the type is destructible
 #[intrinsic] fn __is_destructible<T>() -> bool;
 

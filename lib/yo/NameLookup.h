@@ -29,11 +29,10 @@ class IRGenerator;
 // TOOD rewrite, this is atrocious
 struct ValueInfo {
     using TypeTmplInfo = std::shared_ptr<ast::TopLevelStmt>;
-//    using PropertyInfo = std::tuple<Type *, Type *, std::string>;
     using FunctionInfo = std::pair<Type *, std::shared_ptr<ast::FunctionDecl>>;
     struct PropertyInfo {
-        Type *type;       // type of the property
         Type *parentType; // the type this property is a member of // TODO come up w/ a better name
+        Type *type;       // type of the property
         std::string name;
     };
     
@@ -131,9 +130,9 @@ public:
     explicit NameLookup(IRGenerator &irgen) : irgen(irgen) {}
     
     std::vector<ValueInfo> lookup(const std::shared_ptr<ast::Expr>&);
+    TypeMembersTable computeMemberTableForType(Type *type);
     
 private:
-    TypeMembersTable computeMemberTableForType(Type *type);
     bool isAcceptableFirstParam(Type *, const std::shared_ptr<ast::FunctionDecl>&);
 };
 

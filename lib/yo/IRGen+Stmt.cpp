@@ -340,7 +340,9 @@ llvm::Value* IRGenerator::codegenIfStmt(std::shared_ptr<ast::IfStmt> ifStmt) {
     for (size_t i = 0; i < ifStmt->branches.size(); i++) {
         const auto &branch = ifStmt->branches[i];
         
-        if (branch->kind == BK::Else) break;
+        if (branch->kind == BK::Else) {
+            break;
+        }
         if (i > 0) {
             auto BB = branchConditionBlocks[i];
             F->getBasicBlockList().push_back(BB);
@@ -349,15 +351,16 @@ llvm::Value* IRGenerator::codegenIfStmt(std::shared_ptr<ast::IfStmt> ifStmt) {
         
         auto condTy = getType(branch->condition);
         
-        if (auto BoolTy = builtinTypes.yo.Bool; condTy != BoolTy && condTy != BoolTy->getReferenceTo()) {
-            auto msg = util::fmt::format("type of expression ('{}') incompatible with expected type '{}'", condTy, BoolTy);
-            diagnostics::emitError(branch->getSourceLocation(), msg);
-        }
+//        if (auto BoolTy = builtinTypes.yo.Bool; condTy != BoolTy && condTy != BoolTy->getReferenceTo()) {
+//            auto msg = util::fmt::format("type of expression ('{}') incompatible with expected type '{}'", condTy, BoolTy);
+//            diagnostics::emitError(branch->getSourceLocation(), msg);
+//        }
         
-        auto condV = codegenExpr(branch->condition);
-        if (condTy == builtinTypes.yo.Bool->getReferenceTo()) {
-            condV = builder.CreateLoad(condV);
-        }
+//        auto condV = codegenExpr(branch->condition);
+//        if (condTy == builtinTypes.yo.Bool->getReferenceTo()) {
+//            condV = builder.CreateLoad(condV);
+//        }
+        auto condV = codegenBoolComp(branch->condition);
         
         if (i == 0 && llvm::isa<llvm::ConstantInt>(condV) && condV->getType() == builtinTypes.llvm.i1
             && branch->kind == BK::If && (ifStmt->branches.size() == 1 || ifStmt->branches[1]->kind == BK::Else)
@@ -472,7 +475,7 @@ std::shared_ptr<ast::CallExpr> makeInstanceMethodCallExpr(std::shared_ptr<ast::E
 llvm::Value* IRGenerator::codegenForLoop(std::shared_ptr<ast::ForLoop> forLoop) {
     auto targetTy = getType(forLoop->expr);
     
-    if (!implementsInstanceMethod(targetTy, kIteratorMethodName)) {
+    if (!memberFunctionCallResolves(targetTy, kIteratorMethodName, {})) {
         auto msg = util::fmt::format("expression of type '{}' is not iterable", targetTy);
         diagnostics::emitError(forLoop->expr->getSourceLocation(), msg);
     }

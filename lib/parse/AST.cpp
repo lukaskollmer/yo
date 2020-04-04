@@ -120,6 +120,7 @@ std::string ast::nodeKindToString(Node::Kind kind) {
         CASE(FunctionSignature)
         CASE(IfStmtBranch)
         CASE(MatchExprBranch)
+        CASE(MatchExprPattern)
     }
 }
 
@@ -458,10 +459,17 @@ Mirror Reflect(const MatchExpr *matchExpr) {
     };
 }
 
-Mirror Reflect(const MatchExpr::MatchExprBranch *branch) {
+Mirror Reflect(const MatchExprBranch *branch) {
     return {
         { "patterns", branch->patterns },
-        { "expr", branch->expression }
+        { "expr", branch->expr }
+    };
+}
+
+Mirror Reflect(const ast::MatchExprPattern *pattern) {
+    return {
+        { "expr", pattern->expr },
+        { "cond", pattern->cond }
     };
 }
 
@@ -514,7 +522,7 @@ Mirror Reflect(const ast::WhileStmt *whileStmt) {
 Mirror Reflect(const ast::SubscriptExpr *subscriptExpr) {
     return {
         { "target", subscriptExpr->target },
-        { "offset", subscriptExpr->offset },
+        { "args", subscriptExpr->args },
     };
 }
 
@@ -561,6 +569,12 @@ Mirror Reflect(const ast::VariantDecl *decl) {
     };
 }
 
+Mirror Reflect(const LambdaExpr *expr) {
+    return {
+        { "TODO", "TODO" }
+    };
+}
+
 Mirror Reflect(const Node *node) {
 #define CASE(ty) case NK::ty: return Reflect(static_cast<const ty *>(node));
 #define CASE2(c, ty) case NK::c: return Reflect(static_cast<const ty *>(node));
@@ -583,7 +597,7 @@ Mirror Reflect(const Node *node) {
         CASE(FunctionSignature)
         CASE(UnaryExpr)
         CASE(MatchExpr)
-        CASE2(MatchExprBranch, MatchExpr::MatchExprBranch)
+        CASE(MatchExprBranch)
         CASE(CallExpr)
         CASE(MemberExpr)
         CASE(StaticDeclRefExpr)
@@ -595,6 +609,8 @@ Mirror Reflect(const Node *node) {
         CASE(RawLLVMValueExpr)
         CASE(ForLoop)
         CASE(VariantDecl)
+        CASE(MatchExprPattern)
+        CASE(LambdaExpr)
         default:
             std::cout << "[Reflect] Unhandled Node: " << util::typeinfo::getTypename(*node) << std::endl;
             LKFatalError("");

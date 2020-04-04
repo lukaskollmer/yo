@@ -10,6 +10,8 @@ yo_add_lib(
     IRGen+Expr.cpp
     Mangling.h
     Mangling.cpp
+    MatchMaker.h
+    MatchMaker.cpp
     NameLookup.h
     NameLookup.cpp
     TemplateSpecialization.h

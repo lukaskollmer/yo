@@ -11,6 +11,11 @@
 #include "parse/Attributes.h"
 #include "util/MapUtils.h"
 #include "util/VectorUtils.h"
+#include "util/llvm_casting.h"
+
+#include "llvm/Support/Casting.h"
+
+#include <memory>
 
 // Template Instantiation
 
@@ -78,23 +83,24 @@ std::shared_ptr<ast::TypeDesc> TemplateSpecializer::resolveType(std::shared_ptr<
 
 
 ast::FunctionSignature TemplateSpecializer::specialize(const ast::FunctionSignature &signature) {
-    ast::FunctionSignature specSig = signature;
+    ast::FunctionSignature specSig;
     
-    for (size_t idx = 0; idx < signature.numberOfParameters(); idx++) {
-        specSig.paramTypes[idx] = resolveType(signature.paramTypes[idx]);
+    specSig.setSourceLocation(signature.getSourceLocation());
+    specSig.paramTypes.reserve(signature.numberOfParameters());
+    for (auto &paramTypeDesc : signature.paramTypes) {
+        specSig.paramTypes.push_back(resolveType(paramTypeDesc));
     }
     specSig.returnType = resolveType(signature.returnType);
-    specSig.setSourceLocation(signature.getSourceLocation());
     
     if (signature.numberOfTemplateParameters() > 0) {
         specSig.templateParamsDecl = std::make_shared<ast::TemplateParamDeclList>();
         specSig.templateParamsDecl->setSourceLocation(signature.templateParamsDecl->getSourceLocation());
         
-        for (auto &param : signature.templateParamsDecl->getParams()) {
+        for (const auto &param : signature.templateParamsDecl->getParams()) {
             if (auto argTy = util::map::get_opt(templateArgumentMapping, param.name->value)) {
                 specSig.templateInstantiationArguments.push_back((*argTy)->getResolvedType());
             } else {
-                specSig.templateParamsDecl->addParam({ param.name, resolveType(param.defaultType) });
+                specSig.templateParamsDecl->addParam(ast::TemplateParamDeclList::Param(param.name, resolveType(param.defaultType)));
             }
         }
     }
@@ -278,10 +284,13 @@ std::shared_ptr<ast::CallExpr> TemplateSpecializer::specialize(std::shared_ptr<a
 }
 
 
-std::shared_ptr<ast::SubscriptExpr> TemplateSpecializer::specialize(std::shared_ptr<ast::SubscriptExpr> subscript) {
-    auto X = std::make_shared<ast::SubscriptExpr>(specialize(subscript->target), specialize(subscript->offset));
-    X->setSourceLocation(subscript->getSourceLocation());
-    return X;
+std::shared_ptr<ast::SubscriptExpr> TemplateSpecializer::specialize(std::shared_ptr<ast::SubscriptExpr> expr) {
+    auto specArgs = util::vector::map(expr->args, [&](const auto &arg) {
+        return specialize(arg);
+    });
+    auto spec = std::make_shared<ast::SubscriptExpr>(specialize(expr->target), specArgs);
+    spec->setSourceLocation(expr->getSourceLocation());
+    return spec;
 }
 
 std::shared_ptr<ast::MemberExpr> TemplateSpecializer::specialize(std::shared_ptr<ast::MemberExpr> memberExpr) {
@@ -304,10 +313,15 @@ std::shared_ptr<ast::MatchExpr> TemplateSpecializer::specialize(std::shared_ptr<
     // TODO file a radar ?!
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-lambda-capture"
-    std::vector<ast::MatchExpr::MatchExprBranch> branches = util::vector::map(matchExpr->branches, [this] (const auto& branch) {
-        auto x = ast::MatchExpr::MatchExprBranch(util::vector::map(branch.patterns, [this](auto p) {return specialize(p); }), specialize(branch.expression));
-        x.setSourceLocation(branch.getSourceLocation());
-        return x;
+    std::vector<ast::MatchExprBranch> branches = util::vector::map(matchExpr->branches, [this] (const auto& branch) {
+        std::vector<ast::MatchExprPattern> patterns = util::vector::map(branch.patterns, [this](const ast::MatchExprPattern &pattern) {
+            auto specPattern = ast::MatchExprPattern(specialize(pattern.expr), specialize(pattern.cond));
+            specPattern.setSourceLocation(pattern.getSourceLocation());
+            return specPattern;
+        });
+        auto specBranch = ast::MatchExprBranch(patterns, specialize(branch.expr));
+        specBranch.setSourceLocation(branch.getSourceLocation());
+        return specBranch;
     });
 #pragma clang diagnostic pop
     auto X = std::make_shared<ast::MatchExpr>(specialize(matchExpr->target), branches);
@@ -351,18 +365,36 @@ std::shared_ptr<ast::LambdaExpr> TemplateSpecializer::specialize(std::shared_ptr
 
 
 
-std::shared_ptr<ast::TemplateParamDeclList> TemplateSpecializer::specialize(std::shared_ptr<ast::TemplateParamDeclList> templateDecls) {
-    if (!templateDecls) return nullptr;
-    LKFatalError("TODO");
+std::shared_ptr<ast::TemplateParamDeclList> TemplateSpecializer::specialize(std::shared_ptr<ast::TemplateParamDeclList> tmplParamsDecl) {
+    if (!tmplParamsDecl) {
+        return nullptr;
+    }
+    
+    auto specDecl = std::make_shared<ast::TemplateParamDeclList>();
+    specDecl->setSourceLocation(tmplParamsDecl->getSourceLocation());
+    for (auto &param : tmplParamsDecl->getParams()) {
+        specDecl->addParam(specialize(param));
+    }
+    return specDecl;
+}
+
+
+ast::TemplateParamDeclList::Param TemplateSpecializer::specialize(const ast::TemplateParamDeclList::Param &param) {
+    auto name = specialize(param.name);
+    return ast::TemplateParamDeclList::Param(llvm::cast<ast::Ident>(name), resolveType(param.defaultType));
 }
 
 
 
-std::shared_ptr<ast::TemplateParamArgList> TemplateSpecializer::specialize(std::shared_ptr<ast::TemplateParamArgList> argList) {
-    if (!argList) return nullptr;
+std::shared_ptr<ast::TemplateParamArgList> TemplateSpecializer::specialize(std::shared_ptr<ast::TemplateParamArgList> tmplArgs) {
+    if (!tmplArgs) {
+        return nullptr;
+    }
     
-    auto spec = std::make_shared<ast::TemplateParamArgList>();
-    spec->setSourceLocation(argList->getSourceLocation());
-    spec->elements = util::vector::map(argList->elements, [&](const auto &elem) { return resolveType(elem); });
-    return spec;
+    auto specDecl = std::make_shared<ast::TemplateParamArgList>();
+    specDecl->setSourceLocation(tmplArgs->getSourceLocation());
+    specDecl->elements = util::vector::map(tmplArgs->elements, [&](const auto &elem) {
+        return resolveType(elem);
+    });
+    return specDecl;
 }

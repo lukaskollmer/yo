@@ -64,8 +64,8 @@ void format_imp(std::ostream &OS, std::string_view format, T &&arg, Ts&&... args
 }
 
 
-
 template <typename... Ts>
+[[nodiscard]]
 std::string format(std::string_view format, Ts &&...args) {
     // TODO would be cool it this somehow worked
     //static_assert((format.find('{') != std::string_view::npos) == (sizeof...(args) > 0), "invalid format arguments");

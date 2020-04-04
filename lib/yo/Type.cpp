@@ -100,19 +100,19 @@ ReferenceType* Type::getReferenceTo() {
 
 
 
-Type* Type::createTemporary(const std::string &name) {
-    auto ty = StructType::create(name, {}, {});
+Type* Type::createTemporary(const std::string &name, const std::string &canonicalName) {
+    auto ty = StructType::create(name, canonicalName, {}, {});
     ty->flags.insert(Flags::IsTemporary);
     return ty;
 }
 
 static std::map<std::string, StructType *> templatedTemporaryTypes;
 
-StructType* Type::createTemporary(const std::string &name, const std::vector<Type *> &templateArgs) {
+StructType* Type::createTemporary(const std::string &name, const std::string &canonicalName, const std::vector<Type *> &templateArgs) {
     if (auto type = util::map::get_opt(templatedTemporaryTypes, name)) {
         return *type;
     }
-    auto type = StructType::create(name, {}, templateArgs, lex::SourceLocation());
+    auto type = StructType::create(name, canonicalName, {}, templateArgs, lex::SourceLocation());
     type->setFlag(Flags::IsTemporary);
     templatedTemporaryTypes[name] = type;
     return type;

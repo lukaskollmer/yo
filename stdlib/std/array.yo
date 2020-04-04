@@ -64,7 +64,7 @@ impl<Element> Array<Element> {
 
     // Inserts a new element, invoking the copy constructor if necessary
     fn _constructInPlace(self: &Self, index: i64, element: &Element) {
-        if __is_constructible<Element>() {
+        if __is_copy_constructible<Element>() {
             self.data[index].init(element);
         } else {
             self.data[index] = element;

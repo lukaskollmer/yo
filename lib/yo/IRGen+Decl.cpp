@@ -64,18 +64,6 @@ void IRGenerator::registerTypealias(std::shared_ptr<ast::TypealiasDecl> decl, Na
 
 
 VariantType* IRGenerator::registerVariantDecl(std::shared_ptr<ast::VariantDecl> decl, NamedDeclInfo &declInfo) {
-//    std::ostringstream OS;
-//    util::fmt::format_imp(OS, "variant '{}, with members:\n", decl->name->value);
-//    for (auto member : decl->members) {
-//        LKAssertImplication(member.params, member.params->isTuple());
-//        util::fmt::format_imp(OS, "- {}", member.name->value);
-//        if (member.params) {
-//            util::fmt::format_imp(OS, "{}", member.params);
-//        }
-//        OS << "\n";
-//    }
-//    std::cout << OS.str();
-    
     declInfo.isRegistered = true;
     
     if (decl->isTemplateDecl() && !decl->isInstantiatedTemplateDecl()) {
@@ -102,7 +90,12 @@ VariantType* IRGenerator::registerVariantDecl(std::shared_ptr<ast::VariantDecl> 
         elements.push_back(std::make_pair(member.name->value, associatedData));
     }
     
-    Type *indexType = decl->members.size() < std::numeric_limits<uint8_t>::max() ? builtinTypes.yo.u8 : builtinTypes.yo.u64;
+    NumericalType *indexType;
+    if (decl->members.size() < std::numeric_limits<uint8_t>::max()) {
+        indexType = builtinTypes.yo.u8;
+    } else {
+        indexType = builtinTypes.yo.u64;
+    }
     
     if (!hasAssociatedData) {
         underlyingType = indexType;
@@ -131,27 +124,47 @@ VariantType* IRGenerator::registerVariantDecl(std::shared_ptr<ast::VariantDecl> 
             std::make_pair("__index", indexType),
             std::make_pair("__data", largestMember->second)
         };
-        underlyingType = StructType::create("__variant_impl", members, decl->getSourceLocation());
+        underlyingType = StructType::create("__variant_impl", "", members, decl->getSourceLocation());
     }
     
     auto variantType = new VariantType(name, elements, underlyingType, decl->getSourceLocation());
     nominalTypes.insert(decl->name->value, variantType);
     
-    for (const auto &[elemName, elemType] : elements) {
-        if (TupleType *assocData = elemType) {
-            // element w/ associated data
-//            auto funcDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::)
-            //ast::FunctionDecl(<#FunctionKind kind#>, <#std::string name#>, <#FunctionSignature sig#>, <#attributes::FunctionAttributes attr#>)
+    for (const auto &element : variantType->getElements()) {
+        if (element.second) {
+            synthesizeVariantConstructor(variantType, element);
         }
     }
     
     declInfo.type = variantType;
-    
     return variantType;
 }
 
 
+void IRGenerator::synthesizeVariantConstructor(VariantType *variantTy, const VariantType::Elements::value_type &elem) {
+    auto &[name, data] = elem;
+    
+    ast::FunctionSignature sig;
+    sig.returnType = ast::TypeDesc::makeResolved(variantTy);
+    sig.paramTypes = { ast::TypeDesc::makeResolved(variantTy) };
+    for (auto ty : data->getMembers()) {
+        sig.paramTypes.push_back(ast::TypeDesc::makeResolved(ty));
+    }
+    attributes::FunctionAttributes attr;
 
+    auto funcDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::StaticMethod, name, sig, attr);
+    funcDecl->paramNames = { makeIdent("__unused") };
+    for (size_t idx = 0; idx < data->memberCount(); idx++) {
+        funcDecl->paramNames.push_back(makeIdent(util::fmt::format("__arg{}", idx)));
+    }
+    
+    funcDecl->body = std::make_shared<ast::CompoundStmt>();
+    auto &B = funcDecl->body->statements;
+    
+    auto callExpr = std::make_shared<ast::CallExpr>(makeIdent("__trap"));
+    B.push_back(std::make_shared<ast::ExprStmt>(callExpr));
+    addAndRegisterFunction(funcDecl);
+}
 
 
 
@@ -264,6 +277,12 @@ llvm::Function* IRGenerator::registerFunction(std::shared_ptr<ast::FunctionDecl>
                 auto msg = util::fmt::format("multiple declarations of function '{}' with different attribute lists", resolvedName);
                 diagnostics::emitError(functionDecl->getSourceLocation(), msg);
             }
+            // TODO we should to remove the other decl from namedDeclInfos (otherwise there can be duplicates in name lookup)!
+//            auto &declInfos = namedDeclInfos[canonicalName];
+//            auto it = std::find_if(declInfos.begin(), declInfos.end(), [&](const NamedDeclInfo &declInfo) -> bool {
+//                return declInfo.decl == functionDecl;
+//            });
+//            declInfos.erase(it);
             return llvm::cast<llvm::Function>(otherRC.llvmValue);
         
         } else if (attrs.int_isFwdDecl || otherAttrs.int_isFwdDecl) {

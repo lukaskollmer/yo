@@ -13,6 +13,7 @@
 #include "Driver.h"
 #include "Type.h"
 #include "NameLookup.h"
+#include "MatchMaker.h"
 #include "util/NamedScope.h"
 #include "util/util.h"
 #include "util/Format.h"
@@ -38,6 +39,13 @@ class IRGenerator;
 
 using TemplateTypeMapping = std::map<std::string, std::shared_ptr<ast::TypeDesc>>;
 
+inline void dump_tmpl_mapping(const TemplateTypeMapping &M) {
+    util::fmt::print("Template Type Mapping:");
+    for (const auto &[name, typeDesc] : M) {
+        util::fmt::print("- {}: {}", name, typeDesc);
+    }
+}
+
 
 StructType* getUnderlyingStruct(Type *ty);
 std::string mangleFullyResolved(const std::shared_ptr<ast::FunctionDecl>&);
@@ -45,7 +53,10 @@ bool integerLiteralFitsInIntegralType(uint64_t, Type *);
 llvm::DIFile* DIFileForSourceLocation(llvm::DIBuilder&, const lex::SourceLocation&);
 std::shared_ptr<ast::CallExpr> subscriptExprToCall(std::shared_ptr<ast::SubscriptExpr>);
 std::shared_ptr<ast::Ident> makeIdent(const std::string&, lex::SourceLocation = lex::SourceLocation());
-std::shared_ptr<ast::Ident> formatTupleMemberAtIndex(size_t index);
+
+inline std::string formatTupleMemberAtIndex(size_t index) {
+    return util::fmt::format("__{}", index);
+}
 
 
 // TODO is it a good idea to put these here?
@@ -61,7 +72,7 @@ static const std::string kIteratorNextMethodName = "next";
 
 
 
-enum ValueKind { // TODO rename to ValueCategory?
+enum ValueKind : uint8_t { // TODO rename to ValueCategory?
     LValue, RValue
 };
 
@@ -191,6 +202,7 @@ public:
 private:
     friend class NameLookup;
     friend class EmptyScopeHandle;
+    friend class MatchMaker;
     friend struct FunctionCallTargetCandidate;
     
     ast::AST &ast;
@@ -349,13 +361,17 @@ private:
     llvm::Value *codegenIdent(std::shared_ptr<ast::Ident>, ValueKind);
     llvm::Value *codegenRawLLVMValueExpr(std::shared_ptr<ast::RawLLVMValueExpr>, ValueKind);
     llvm::Value *codegenBinOp(std::shared_ptr<ast::BinOp>, ValueKind);
-    llvm::Value *codegenSubscriptExpr(std::shared_ptr<ast::SubscriptExpr>, ValueKind);
+    llvm::Value *codegenSubscriptExpr(std::shared_ptr<ast::SubscriptExpr>, ValueKind, SkipCodegenOption = kRunCodegen, Type ** = nullptr);
     llvm::Value *codegenMemberExpr(std::shared_ptr<ast::MemberExpr>, ValueKind, SkipCodegenOption = kRunCodegen, Type ** = nullptr);
     llvm::Value *codegenCallExpr(std::shared_ptr<ast::CallExpr>, ValueKind);
     llvm::Value *codegenLambdaExpr(std::shared_ptr<ast::LambdaExpr>, ValueKind);
     llvm::Value *codegenArrayLiteralExpr(std::shared_ptr<ast::ArrayLiteralExpr>, ValueKind);
     llvm::Value *codegenTupleExpr(std::shared_ptr<ast::TupleExpr>, ValueKind);
     llvm::Value *codegenMatchExpr(std::shared_ptr<ast::MatchExpr>, ValueKind);
+    
+    /// codegen the expr as a boolean comparison
+    /// always returns an rvalue
+    llvm::Value *codegenBoolComp(std::shared_ptr<ast::Expr>);
     
     // Intrinsics
     llvm::Value *codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionDecl>, std::shared_ptr<ast::CallExpr>);
@@ -364,14 +380,14 @@ private:
     llvm::Value *codegen_HandleLogOpIntrinsic(Intrinsic, std::shared_ptr<ast::CallExpr>);
     
     
-    struct MatchExprPatternCodegenInfo {
-        Type *targetType; // type of the expression we're matching against
-        std::shared_ptr<ast::Expr> targetExpr; // the expression we're matching against
-        llvm::Value *targetLLVMValue; // Codegen result for TargetExpr
-        std::shared_ptr<ast::Expr> patternExpr;
-    };
-    // TODO? this should be the central point that handles all pattern checks and returns the correct expressions, based on the input types
-    llvm::Value *codegen_HandleMatchPatternExpr(MatchExprPatternCodegenInfo);
+//    struct MatchExprPatternCodegenInfo {
+//        Type *targetType; // type of the expression we're matching against
+//        std::shared_ptr<ast::Expr> targetExpr; // the expression we're matching against
+//        llvm::Value *targetLLVMValue; // Codegen result for TargetExpr
+//        std::shared_ptr<ast::Expr> patternExpr;
+//    };
+//    // TODO? this should be the central point that handles all pattern checks and returns the correct expressions, based on the input types
+//    llvm::Value *codegen_HandleMatchPatternExpr(MatchExprPatternCodegenInfo);
     
     
     // Types
@@ -384,11 +400,9 @@ private:
     bool isTemporary(std::shared_ptr<ast::Expr>);
     
     bool typeIsConstructible(Type *);
+    bool typeIsCopyConstructible(Type *);
     bool typeIsDestructible(Type *);
-    bool typeIsSubscriptable(Type *);
     
-    /// Whether a specific instance method can be invoked on a value of a type
-    bool implementsInstanceMethod(Type *, std::string_view);
     
     llvm::Value* constructStruct(StructType *, std::shared_ptr<ast::CallExpr> ctorCall, bool putInLocalScope, ValueKind);
     llvm::Value* constructCopyIfNecessary(Type *, std::shared_ptr<ast::Expr>, bool *didConstructCopy = nullptr);
@@ -483,7 +497,7 @@ private:
     // Types
     
     // basically, whether `targetTy().name(argTys...)` exists
-    bool memberFunctionCallResolves(Type *targetTy, std::string name, const std::vector<Type *> &argTys);
+    bool memberFunctionCallResolves(Type *targetTy, const std::string &name, const std::vector<Type *> &argTys);
     
     StructType* synth_getStructDeclStructType(const std::shared_ptr<ast::StructDecl>&);
     

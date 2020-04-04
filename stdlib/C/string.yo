@@ -1,4 +1,5 @@
 // Forward declarations for string.h
+use ":std/core";
 
 #[extern] fn strlen(*i8) -> size_t;
 #[extern] fn strdup(*i8) -> *i8;

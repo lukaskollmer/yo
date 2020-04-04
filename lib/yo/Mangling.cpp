@@ -25,6 +25,8 @@
 /*
  // TODO move this to the documentation and make it part of the website?
  
+ // this is somewhat outdated
+ 
  # Mangling reference:
  
  ## Functions
@@ -289,7 +291,7 @@ std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> funcDecl) {
         
         case ast::FunctionKind::InstanceMethod: {
             mangler.append(kPrefixInstanceMethod);
-            auto selfTy = llvm::cast<irgen::ReferenceType>(funcDecl->getSignature().paramTypes[0]->getResolvedType())->getReferencedType();
+            auto selfTy = llvm::cast<irgen::ReferenceType>(funcDecl->getSignature().paramTypes[0]->getResolvedType());
             mangler.appendEncodedType(selfTy);
             break;
         }
@@ -300,12 +302,8 @@ std::string mangleFullyResolved(std::shared_ptr<ast::FunctionDecl> funcDecl) {
             break;
     }
     
-    
-    if (funcDecl->isOperatorOverload() && funcDecl->isOfFunctionKind(ast::FunctionKind::InstanceMethod)) {
-        // instance method which is an operator overload
+    if (funcDecl->isOperatorOverload()) {
         mangler.append(kPrefixOperatorOverload);
-    } else if (funcDecl->isOperatorOverload() && funcDecl->isOfFunctionKind(ast::FunctionKind::StaticMethod)) {
-        LKFatalError("TODO support this as well?");
     }
     
     mangler.appendWithCount(funcDecl->getName());
@@ -554,9 +552,20 @@ std::string Demangler::demangleFunction() {
     std::optional<std::string> selfTy;
     std::vector<std::string> paramsTys, templateArgTys;
     
+    auto extractFunctionName = [&]() {
+        if (input[0] == kPrefixOperatorOverload) {
+            input.remove_prefix(2); // 'O' and length of operator encoding (we know that the length is only 1 digit, since there are only a handful of operators (ie, never enough operators that the number of operators would be a number exceeding 9 digits)
+            auto op = static_cast<ast::Operator>(extractInt());
+            OS << "operator" << demangleOperatorIntoSymbol(op);
+        } else {
+            OS << extractString();
+        }
+    };
+    
     switch (functionKind) {
         case kPrefixGlobalFunction:
-            OS << extractString();
+            //OS << extractString();
+            extractFunctionName();
             break;
         
         case kPrefixStaticMethod:
@@ -569,26 +578,12 @@ std::string Demangler::demangleFunction() {
                 LKAssert(functionKind == kPrefixInstanceMethod);
                 OS << '.';
             }
-            if (input[0] == kPrefixOperatorOverload) {
-                input.remove_prefix(2); // 'O' and length of operator encoding (we know that the length is only 1 digit, since there are only a handful of operators (ie, never enough operators that the number of operators would be a number exceeding 9 digits)
-                auto op = static_cast<ast::Operator>(extractInt());
-                OS << "operator" << demangleOperatorIntoSymbol(op);
-            } else {
-                OS << extractString();
-            }
-            break;
-        }
-        
-        case kPrefixOperatorOverload: {
-            input.remove_prefix(1); // remove length of operator encoding
-            auto op = static_cast<ast::Operator>(extractInt());
-            OS << "operator" << demangleOperatorIntoSymbol(op);
+            extractFunctionName();
             break;
         }
         
         default:
-            util::fmt::print("FUCK {}", input);
-            LKFatalError("");
+            LKFatalError("ugh");
     }
     
     returnTy = demangleType();
@@ -608,7 +603,7 @@ std::string Demangler::demangleFunction() {
     
     OS << '(';
     if (selfTy.has_value()) {
-        OS << '&' << *selfTy;
+        OS << *selfTy;
         if (!paramsTys.empty()) {
             OS << ", ";
         }

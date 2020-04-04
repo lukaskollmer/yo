@@ -49,6 +49,7 @@ struct FunctionTypeInfo {
 
 
 /// Describes a type, as expressed in the AST
+// TODO why does this not inherit from ast::Node?
 class TypeDesc {
 public:
     enum class Kind {

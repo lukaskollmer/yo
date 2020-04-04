@@ -55,7 +55,8 @@ std::string TypeDesc::str() const {
             //return std::string("resolved(").append(getResolvedType()->str_desc()).append(")");
         
         case Kind::Decltype:
-            return util::fmt::format("decltype({})", getDecltypeExpr()->description());
+            //return util::fmt::format("decltype({})", getDecltypeExpr()->description());
+            return "decltype(<expr>)";
         
         case Kind::NominalTemplated: {
             auto &[name, types] = std::get<NominalTemplatedDataT>(this->data);

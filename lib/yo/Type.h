@@ -142,8 +142,8 @@ public:
     static NumericalType* getFloat32Type(); // An IEEE 754 binary64 floating point type
     static NumericalType* getFloat64Type(); // An IEEE 754 binary64 floating point type
     
-    static Type* createTemporary(const std::string& name);
-    static StructType* createTemporary(const std::string& name, const std::vector<Type *> &templateArgs);
+    static Type* createTemporary(const std::string& name, const std::string &canonicalName);
+    static StructType* createTemporary(const std::string& name, const std::string &canonicalName, const std::vector<Type *> &templateArgs);
 
     
     static bool classof(const Type *type) {
@@ -284,23 +284,30 @@ public:
 
 private:
     std::string name;
+    std::string canonicalName;
     MembersT members;
     std::vector<Type *> templateArguments;
     lex::SourceLocation sourceLoc;
     
-    StructType(std::string name, MembersT members, lex::SourceLocation sourceLoc)
-    : Type(Type::TypeID::Struct), name(name), members(members), sourceLoc(sourceLoc) {}
+    StructType(std::string name, std::string canonicalName, MembersT members, lex::SourceLocation sourceLoc)
+    : Type(Type::TypeID::Struct), name(name), canonicalName(canonicalName), members(members), sourceLoc(sourceLoc) {}
     
-    StructType(std::string name, MembersT members, std::vector<Type *> templateArgs, lex::SourceLocation SL)
-    : Type(Type::TypeID::Struct), name(name), members(members), templateArguments(templateArgs), sourceLoc(SL) {}
+    StructType(std::string name, std::string canonicalName, MembersT members, std::vector<Type *> templateArgs, lex::SourceLocation SL)
+    : Type(Type::TypeID::Struct), name(name), canonicalName(canonicalName), members(members), templateArguments(templateArgs), sourceLoc(SL) {}
     
 public:
     const std::string& getName() const {
         return name;
     }
+    
+    const std::string& getCanonicalName() const {
+        return canonicalName;
+    }
+    
     std::string str_mangled() const override {
         return name;
     }
+    
     std::string str_desc() const override;
     
     bool hasMember(const std::string &name) const;
@@ -329,12 +336,12 @@ public:
     }
     
     
-    static StructType* create(std::string name, MembersT members, lex::SourceLocation sourceLoc) {
-        return new StructType(name, members, sourceLoc);
+    static StructType* create(std::string name, std::string canonicalName, MembersT members, lex::SourceLocation sourceLoc) {
+        return new StructType(name, canonicalName, members, sourceLoc);
     }
     
-    static StructType* create(std::string name, MembersT members, std::vector<Type *> templateArgs, lex::SourceLocation SL) {
-        return new StructType(name, members, templateArgs, SL);
+    static StructType* create(std::string name, std::string canonicalName, MembersT members, std::vector<Type *> templateArgs, lex::SourceLocation SL) {
+        return new StructType(name, canonicalName, members, templateArgs, SL);
     }
     
     static bool classof(const Type *type) {
@@ -419,7 +426,7 @@ public:
     /// whether the variant contains an element with this name
     bool hasElement(const std::string&) const;
     
-    /// the index of the element with this name
+    /// the index of the element with this name.
     /// only call this function if the name is actually valid for this variant
     uint64_t getIndexOfElement(const std::string&) const;
     

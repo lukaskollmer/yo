@@ -47,10 +47,6 @@ std::shared_ptr<ast::Ident> irgen::makeIdent(const std::string& str, lex::Source
     return ident;
 }
 
-std::shared_ptr<ast::Ident> irgen::formatTupleMemberAtIndex(size_t index) {
-    return makeIdent(util::fmt::format("__{}", index));
-}
-
 
 std::string irgen::mangleFullyResolved(const std::shared_ptr<ast::FunctionDecl>& functionDecl) {
     if (functionDecl->getAttributes().no_mangle) {
@@ -128,7 +124,7 @@ std::shared_ptr<ast::CallExpr> irgen::subscriptExprToCall(std::shared_ptr<ast::S
     
     auto callExpr = std::make_shared<ast::CallExpr>(callTarget);
     callExpr->setSourceLocation(subscriptExpr->getSourceLocation());
-    callExpr->arguments = { subscriptExpr->offset };
+    callExpr->arguments = subscriptExpr->args;
     
     return callExpr;
 }
@@ -234,6 +230,11 @@ void IRGenerator::runCodegen() {
     
     handleStartupAndShutdownFunctions();
     debugInfo.builder.finalize();
+    
+//    for (llvm::Function &F : *module) {
+//        util::fmt::print("\n{}", F.getName());
+//        util::fmt::print("{}", mangling::demangle(F.getName().str()));
+//    }
 }
 
 
@@ -400,6 +401,8 @@ void IRGenerator::preflightImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) 
             });
             
             if (implBlock->isTemplateDecl()) {
+                funcDecl->hasInsertedImplBlockTemplateParams = true;
+                funcDecl->implBlockTmplParamsStartIndex = funcDecl->signature.numberOfTemplateParameters();
                 if (!funcDecl->getSignature().templateParamsDecl) {
                     funcDecl->getSignature().templateParamsDecl = std::make_shared<ast::TemplateParamDeclList>();
                 }
@@ -444,7 +447,7 @@ std::optional<ResolvedCallable> IRGenerator::getResolvedFunctionWithName(const s
 
 // TODO come up w/ a better implementation than this!
 StructType* UselessStructTypeForTemplateStructCtor(std::string name, const lex::SourceLocation &SL) {
-    return StructType::create(name, {}, SL);
+    return StructType::create(name, "", {}, SL);
 }
 
 
@@ -456,6 +459,7 @@ StructType* UselessStructTypeForTemplateStructCtor(std::string name, const lex::
 StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> structDecl, NamedDeclInfo &declInfo) {
     declInfo.isRegistered = true;
     
+    auto canonicalName = structDecl->name;
     auto structName = structDecl->name;
     
     if (structDecl->attributes.trivial && structDecl->isTemplateDecl()) {
@@ -474,6 +478,7 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         ctorSig.returnType = ast::TypeDesc::makeNominalTemplated(structName, util::vector::map(structDecl->templateParamsDecl->getParams(), [](auto &param) {
             return ast::TypeDesc::makeNominal(param.name->value);
         }));
+        ctorSig.paramTypes = { TemplateSpecializer({}).resolveType(ctorSig.returnType) };
         ctorSig.templateParamsDecl = std::make_shared<ast::TemplateParamDeclList>(*structDecl->templateParamsDecl);
         ctorSig.setSourceLocation(structDecl->getSourceLocation());
 
@@ -484,6 +489,7 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         ctorFnDecl->setSourceLocation(structDecl->getSourceLocation());
         ctorFnDecl->getAttributes().int_isCtor = true;
         ctorFnDecl->getAttributes().int_isSynthesized = true;
+        ctorFnDecl->paramNames = { makeIdent("__unused") };
 
         addAndRegisterFunction(ctorFnDecl);
         return nullptr;
@@ -504,7 +510,7 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         structMembers.push_back({ varDecl->getName(), type });
     }
     
-    auto structTy = StructType::create(structName, structMembers, structDecl->templateInstantiationArguments, structDecl->getSourceLocation());
+    auto structTy = StructType::create(structName, canonicalName, structMembers, structDecl->templateInstantiationArguments, structDecl->getSourceLocation());
     structDecl->type = structTy;
     if (structDecl->attributes.int_isSynthesized) {
         structTy->setFlag(Type::Flags::IsSynthesized);
@@ -522,6 +528,7 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
     
     if (!structDecl->attributes.no_init) {
         ast::FunctionSignature signature;
+        signature.paramTypes = { ast::TypeDesc::makeResolved(structTy) };
         signature.returnType = ast::TypeDesc::makeResolved(structTy);
         signature.setSourceLocation(structDecl->getSourceLocation());
 
@@ -534,6 +541,7 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         ctorFnDecl->setSourceLocation(structDecl->getSourceLocation());
         ctorFnDecl->getAttributes().int_isCtor = true;
         ctorFnDecl->getAttributes().int_isSynthesized = true;
+        ctorFnDecl->paramNames = { makeIdent("__unused") };
 
         addAndRegisterFunction(ctorFnDecl);
 
@@ -1376,53 +1384,60 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
         case NK::CallExpr:
             return resolveTypeDesc(resolveCall(llvm::cast<ast::CallExpr>(expr), kSkipCodegen).signature.returnType);
         
-        case NK::MatchExpr:
-            return getType(llvm::cast<ast::MatchExpr>(expr)->branches.front().expression); // TODO add a check somewhere to make sure all branches return the same type
+        case NK::MatchExpr: {
+            // TODO re-implement this to infer the return type using the match maker
+            return getType(llvm::cast<ast::MatchExpr>(expr)->branches.at(0).expr);
+        }
         
         case NK::RawLLVMValueExpr:
             return llvm::cast<ast::RawLLVMValueExpr>(expr)->type;
         
         case NK::SubscriptExpr: {
-            auto subscriptExpr = llvm::dyn_cast<ast::SubscriptExpr>(expr);
-            auto targetTy = getType(subscriptExpr->target);
-            
-            // Note: `typeIsSubscriptable` also returns true for pointers, but we have a separate check
-            // since pointer subscripts shouldn't get resolved to custom subscript overloads (same for tuples)
-            if (targetTy->isPointerTy()) {
-                return llvm::cast<PointerType>(targetTy)->getPointee()->getReferenceTo();
-            
-            } else if (targetTy->isTupleTy() || (targetTy->isReferenceTy() && llvm::cast<ReferenceType>(targetTy)->getReferencedType()->isTupleTy())) {
-                auto diag_invalid_offset = [&]() {
-                    diagnostics::emitError(subscriptExpr->getSourceLocation(), "tuple subscript offset expression must be an integer literal");
-                };
-                
-                if (auto offsetExprNumLiteral = llvm::dyn_cast<ast::NumberLiteral>(subscriptExpr->offset)) {
-                    if (offsetExprNumLiteral->type != ast::NumberLiteral::NumberType::Integer) {
-                        diag_invalid_offset();
-                    }
-                    //auto tupleTy = llvm::cast<TupleType>(targetTy);
-                    TupleType *tupleTy = llvm::cast<TupleType>(targetTy->isTupleTy() ? targetTy : llvm::cast<ReferenceType>(targetTy)->getReferencedType());
-                    auto index = offsetExprNumLiteral->value;
-                    
-                    if (auto ty = tupleTy->getTypeOfElementAtIndex(index)) {
-                        return ty;
-                    } else {
-                        auto msg = util::fmt::format("tuple type '{}' has no member at index {}", tupleTy, index);
-                        diagnostics::emitError(subscriptExpr->getSourceLocation(), msg);
-                    }
-                    
-                } else {
-                    diag_invalid_offset();
-                }
-            
-            } else if (typeIsSubscriptable(targetTy)) {
-                auto callExpr = subscriptExprToCall(subscriptExpr);
-                return resolveTypeDesc(resolveCall(callExpr, kSkipCodegen).signature.returnType);
-            
-            } else {
-                auto msg = util::fmt::format("type '{}' is not subscriptable", targetTy);
-                diagnostics::emitError(subscriptExpr->getSourceLocation(), msg);
-            }
+//            auto subscriptExpr = llvm::dyn_cast<ast::SubscriptExpr>(expr);
+//            auto targetTy = getType(subscriptExpr->target);
+//
+//            // Note: `typeIsSubscriptable` also returns true for pointers, but we have a separate check
+//            // since pointer subscripts shouldn't get resolved to custom subscript overloads (same for tuples)
+//            if (targetTy->isPointerTy()) {
+//                return llvm::cast<PointerType>(targetTy)->getPointee()->getReferenceTo();
+//
+//            } else if (targetTy->isTupleTy() || (targetTy->isReferenceTy() && llvm::cast<ReferenceType>(targetTy)->getReferencedType()->isTupleTy())) {
+//                auto diag_invalid_offset = [&]() {
+//                    diagnostics::emitError(subscriptExpr->getSourceLocation(), "tuple subscript offset expression must be an integer literal");
+//                };
+//
+//                if (auto offsetExprNumLiteral = llvm::dyn_cast<ast::NumberLiteral>(subscriptExpr->offset)) {
+//                    if (offsetExprNumLiteral->type != ast::NumberLiteral::NumberType::Integer) {
+//                        diag_invalid_offset();
+//                    }
+//                    //auto tupleTy = llvm::cast<TupleType>(targetTy);
+//                    TupleType *tupleTy = llvm::cast<TupleType>(targetTy->isTupleTy() ? targetTy : llvm::cast<ReferenceType>(targetTy)->getReferencedType());
+//                    auto index = offsetExprNumLiteral->value;
+//
+//                    if (auto ty = tupleTy->getTypeOfElementAtIndex(index)) {
+//                        return ty;
+//                    } else {
+//                        auto msg = util::fmt::format("tuple type '{}' has no member at index {}", tupleTy, index);
+//                        diagnostics::emitError(subscriptExpr->getSourceLocation(), msg);
+//                    }
+//
+//                } else {
+//                    diag_invalid_offset();
+//                }
+//
+//            //} else if (typeIsSubscriptable(targetTy)) {
+//            } else if (memberFunctionCallResolves(targetTy, mangling::encodeOperator(ast::Operator::Subscript), {subscriptExpr->offset})) {
+//                auto callExpr = subscriptExprToCall(subscriptExpr);
+//                return resolveTypeDesc(resolveCall(callExpr, kSkipCodegen).signature.returnType);
+//
+//            } else {
+//                auto msg = util::fmt::format("type '{}' is not subscriptable", targetTy);
+//                diagnostics::emitError(subscriptExpr->getSourceLocation(), msg);
+//            }
+            auto subscriptExpr = llvm::cast<ast::SubscriptExpr>(expr);
+            Type *type = nullptr;
+            codegenSubscriptExpr(subscriptExpr, RValue, kSkipCodegen, &type);
+            return type;
         }
         
         // <target>.<member>
@@ -1518,26 +1533,16 @@ bool IRGenerator::isTemporary(std::shared_ptr<ast::Expr> expr) {
 
 
 
-bool IRGenerator::typeIsConstructible(Type *ty) {
-    return implementsInstanceMethod(ty, kInitializerMethodName);
+bool IRGenerator::typeIsConstructible(Type *type) {
+    return memberFunctionCallResolves(type, kInitializerMethodName, {});
 }
 
-bool IRGenerator::typeIsDestructible(Type *ty) {
-    return implementsInstanceMethod(ty, kSynthesizedDeallocMethodName);
+bool IRGenerator::typeIsCopyConstructible(Type *type) {
+    return memberFunctionCallResolves(type, kInitializerMethodName, { type->getReferenceTo() });
 }
 
-bool IRGenerator::typeIsSubscriptable(Type *ty) {
-    return ty->isPointerTy() || ty->isTupleTy() || implementsInstanceMethod(ty, mangling::encodeOperator(ast::Operator::Subscript));
-}
-
-
-bool IRGenerator::implementsInstanceMethod(Type *ty, std::string_view methodName) {
-    if (auto ST = getUnderlyingStruct(ty)) {
-        auto canonicalName = mangling::mangleCanonicalName(ast::FunctionKind::InstanceMethod, methodName);
-        return util::map::has_key(functions, canonicalName);
-    } else {
-        return false;
-    }
+bool IRGenerator::typeIsDestructible(Type *type) {
+    return memberFunctionCallResolves(type, kSynthesizedDeallocMethodName, {});
 }
 
 
@@ -1599,7 +1604,7 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
         return TD->getResolvedType() && TD->getResolvedType()->hasFlag(Type::Flags::IsTemporary);
     });
     if (isTemporary) {
-        return Type::createTemporary(mangledName, specializedDecl->templateInstantiationArguments);
+        return Type::createTemporary(mangledName, specializedDecl->name, specializedDecl->templateInstantiationArguments);
     }
     
     if (auto ST = nominalTypes.get(mangledName)) {
@@ -1631,7 +1636,7 @@ StructType* IRGenerator::synth_getStructDeclStructType(const std::shared_ptr<ast
 }
 
 
-bool IRGenerator::memberFunctionCallResolves(Type *targetTy, std::string name, const std::vector<Type *> &argTys) {
+bool IRGenerator::memberFunctionCallResolves(Type *targetTy, const std::string &name, const std::vector<Type *> &argTys) {
     auto expr_for_type = [](Type *type) {
         return std::make_shared<ast::RawLLVMValueExpr>(nullptr, type);
     };
@@ -1661,7 +1666,8 @@ llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
     auto ST = synth_getStructDeclStructType(structDecl);
     auto &SM = ST->getMembers();
     
-    if (!ST->hasFlag(Type::Flags::IsSynthesized) && memberFunctionCallResolves(ST->getReferenceTo(), kInitializerMethodName, util::vector::map(SM, [](auto pair) { return pair.second; }))) {
+    if (//!ST->hasFlag(Type::Flags::IsSynthesized) &&
+        memberFunctionCallResolves(ST->getReferenceTo(), kInitializerMethodName, util::vector::map(SM, [](auto pair) { return pair.second; }))) {
         return nullptr;
     }
     
@@ -1724,7 +1730,8 @@ llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::
     auto ST = synth_getStructDeclStructType(structDecl);
     auto &SM = ST->getMembers();
     
-    if (!ST->hasFlag(Type::Flags::IsSynthesized) && memberFunctionCallResolves(ST->getReferenceTo(), kInitializerMethodName, { ST->getReferenceTo() })) {
+    if (//!ST->hasFlag(Type::Flags::IsSynthesized) &&
+        memberFunctionCallResolves(ST->getReferenceTo(), kInitializerMethodName, { ST->getReferenceTo() })) {
         return nullptr;
     }
     

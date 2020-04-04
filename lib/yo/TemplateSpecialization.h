@@ -67,6 +67,7 @@ public:
     
     std::shared_ptr<ast::TemplateParamArgList> specialize(std::shared_ptr<ast::TemplateParamArgList>);
     std::shared_ptr<ast::TemplateParamDeclList> specialize(std::shared_ptr<ast::TemplateParamDeclList>);
+    ast::TemplateParamDeclList::Param specialize(const ast::TemplateParamDeclList::Param&);
 };
 
 NS_END
