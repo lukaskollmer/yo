@@ -285,9 +285,6 @@ public:
     FunctionKind funcKind;
     std::string name;
     
-    // TODO remove this!!!
-    irgen::StructType *implType = nullptr; // Only nonnull if this is a type member function
-    
     /// whether the function was declared as part of a templated impl block, and, as such, had additional parameters inserted into its template parameter list
     bool hasInsertedImplBlockTemplateParams = false;
     
@@ -307,10 +304,6 @@ public:
     
     FunctionSignature& getSignature() { return signature; }
     const FunctionSignature& getSignature() const { return signature; }
-    
-    irgen::StructType* getImplType() const { return implType; }
-    void setImplType(irgen::StructType *ty) { implType = ty; }
-    
     
     const std::vector<std::shared_ptr<Ident>>& getParamNames() const { return paramNames; }
     void setParamNames(std::vector<std::shared_ptr<Ident>> names) { paramNames = names; }

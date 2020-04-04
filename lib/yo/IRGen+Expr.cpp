@@ -692,7 +692,6 @@ StructType* IRGenerator::synthesizeLambdaExpr(std::shared_ptr<ast::LambdaExpr> l
     util::vector::insert_at_front(imp->getSignature().paramTypes, ast::TypeDesc::makeReference(ast::TypeDesc::makeResolved(ST)));
     imp->setParamNames(lambdaExpr->paramNames);
     util::vector::insert_at_front(imp->paramNames, makeIdent("self", SL));
-    imp->setImplType(ST);
     imp->setSourceLocation(SL);
     
     addAndRegisterFunction(imp);
@@ -1711,7 +1710,7 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
     auto resolvedTarget = resolveCall(call, kRunCodegen);
     
     if (resolvedTarget.funcDecl->getAttributes().int_isCtor) {
-        auto structTy = llvm::dyn_cast<StructType>(resolvedTarget.funcDecl->getImplType()); // TODO get the struct type from the implicit first parameter instead?
+        auto structTy = llvm::cast<StructType>(resolvedTarget.signature.paramTypes.at(0)->getResolvedType());
         return constructStruct(structTy, call, /*putInLocalScope*/ false, VK); // TODO should `putInLocalScope` be true?
     }
     

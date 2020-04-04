@@ -329,7 +329,7 @@ void ensureTemplateParametersDontShadow(std::initializer_list<std::shared_ptr<as
 }
 
 
-void assertIsValidMemberFunction(const ast::FunctionDecl &FD, std::shared_ptr<ast::TemplateParamDeclList> implTypeTemplateParams = nullptr) {
+void assertIsValidMemberFunction(const ast::FunctionDecl &FD, std::shared_ptr<ast::TemplateParamDeclList> implBlockTemplateParams = nullptr) {
     auto &sig = FD.getSignature();
     auto &attr = FD.getAttributes();
     
@@ -343,8 +343,8 @@ void assertIsValidMemberFunction(const ast::FunctionDecl &FD, std::shared_ptr<as
     
     if (sig.isTemplateDecl()) {
         ensureTemplateParametersAreDistinct(*sig.templateParamsDecl);
-        if (implTypeTemplateParams) {
-            ensureTemplateParametersDontShadow({implTypeTemplateParams, sig.templateParamsDecl});
+        if (implBlockTemplateParams) {
+            ensureTemplateParametersDontShadow({implBlockTemplateParams, sig.templateParamsDecl});
         }
     }
 }
@@ -386,7 +386,7 @@ void IRGenerator::preflightImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) 
     for (auto &funcDecl : implBlock->methods) {
         // invoking the template specializer w/ an empty mapping to get a deep copy of the impl block's type desc
         // using a copy is important so that each function gets its own typedesc, and they don't interfere w/ each other
-        auto implTypeDesc = TemplateSpecializer({}).resolveType(implBlock->typeDesc);
+        auto implBlockTypeDesc = TemplateSpecializer({}).resolveType(implBlock->typeDesc);
         
         if (isInstanceMethod(funcDecl)) {
             assertIsValidMemberFunction(*funcDecl, implBlock->templateParamsDecl);
@@ -397,7 +397,7 @@ void IRGenerator::preflightImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) 
             // substitute all uses of `Self` in the function
             // TODO this will mess up functions w/ a template parameter named "Self"
             funcDecl = TemplateSpecializer::specializeWithMapping(funcDecl, {
-                { "Self", implTypeDesc }
+                { "Self", implBlockTypeDesc }
             });
             
             if (implBlock->isTemplateDecl()) {
@@ -414,13 +414,10 @@ void IRGenerator::preflightImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) 
             }
         } else { // static method
             // TODO assert that the function's template parameters (if any) are distinct and don't shadow any of the impl block's
-            auto insert_front = [](auto &vec, const auto &elem) {
-                vec.insert(vec.begin(), elem);
-            };
             
             funcDecl->setFunctionKind(ast::FunctionKind::StaticMethod);
-            insert_front(funcDecl->signature.paramTypes, implTypeDesc);
-            insert_front(funcDecl->paramNames, makeIdent("__unused"));
+            util::vector::insert_at_front(funcDecl->signature.paramTypes, implBlockTypeDesc);
+            util::vector::insert_at_front(funcDecl->paramNames, makeIdent("__unused"));
             
             LKAssert(funcDecl->signature.numberOfParameters() > 0);
         }
@@ -444,11 +441,6 @@ std::optional<ResolvedCallable> IRGenerator::getResolvedFunctionWithName(const s
     return util::map::get_opt(resolvedFunctions, name);
 }
 
-
-// TODO come up w/ a better implementation than this!
-StructType* UselessStructTypeForTemplateStructCtor(std::string name, const lex::SourceLocation &SL) {
-    return StructType::create(name, "", {}, SL);
-}
 
 
 
@@ -485,7 +477,6 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         auto ctorFnDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::StaticMethod,
                                                               structName, ctorSig,
                                                               attributes::FunctionAttributes());
-        ctorFnDecl->setImplType(UselessStructTypeForTemplateStructCtor(structName, structDecl->getSourceLocation())); // TODO?
         ctorFnDecl->setSourceLocation(structDecl->getSourceLocation());
         ctorFnDecl->getAttributes().int_isCtor = true;
         ctorFnDecl->getAttributes().int_isSynthesized = true;
@@ -537,7 +528,6 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
 
         auto ctorFnDecl = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::StaticMethod,
                                                               structName, signature, attributes);
-        ctorFnDecl->setImplType(structTy);
         ctorFnDecl->setSourceLocation(structDecl->getSourceLocation());
         ctorFnDecl->getAttributes().int_isCtor = true;
         ctorFnDecl->getAttributes().int_isSynthesized = true;
@@ -688,21 +678,12 @@ void IRGenerator::handleStartupAndShutdownFunctions() {
 
 
 llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<ast::CallExpr> call, bool putInLocalScope, ValueKind VK) {
-    if (auto SD = util::map::get_opt(structTemplateDecls, structTy->getName())) {
-        if (!call->explicitTemplateArgs) {
-            LKFatalError("needs explicit args for instantiating template");
-        }
-        auto mapping = resolveStructTemplateParametersFromExplicitTemplateArgumentList(*SD, call->explicitTemplateArgs);
-        structTy = instantiateTemplateStruct(*SD, mapping);
-    }
-    
     emitDebugLocation(call);
     auto alloca = builder.CreateAlloca(getLLVMType(structTy));
     auto ident = currentFunction.getTmpIdent();
     alloca->setName(ident);
     
-    builder.CreateMemSet(alloca,
-                         llvm::ConstantInt::get(builtinTypes.llvm.i8, 0),
+    builder.CreateMemSet(alloca, llvm::ConstantInt::get(builtinTypes.llvm.i8, 0),
                          module->getDataLayout().getTypeAllocSize(alloca->getAllocatedType()),
                          alloca->getAlignment());
     
@@ -910,14 +891,9 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
                     return !decl->isOfKind(NK::FunctionDecl);
                 });
                 
-                
                 if (auto entry = nominalTypes.get(name)) {
                     return handleResolvedTy(*entry);
                 }
-                // TODO there must be a better solution than this !!!!!!
-//                if (auto entry = nominalTypes.get(mangling::mangleAsStruct(name))) {
-//                    return handleResolvedTy(*entry);
-//                }
                 
                 diagnostics::emitError(typeDesc->getSourceLocation(), util::fmt::format("unable to resolve nominal type '{}'", name));
             }
@@ -1697,7 +1673,6 @@ llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
     auto FD = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod, kInitializerMethodName, sig, attr);
     FD->setParamNames(paramNames);
     FD->setSourceLocation(SL);
-    FD->setImplType(ST);
     
     auto body = std::make_shared<ast::CompoundStmt>();
     body->setSourceLocation(SL);
@@ -1756,7 +1731,6 @@ llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::
     auto FD = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod, kInitializerMethodName, sig, attr);
     FD->setParamNames(paramNames);
     FD->setSourceLocation(SL);
-    FD->setImplType(ST);
     
     
     auto body = std::make_shared<ast::CompoundStmt>();
@@ -1808,7 +1782,6 @@ llvm::Value* IRGenerator::synthesizeDefaultDeallocMethod(std::shared_ptr<ast::St
     auto FD = std::make_shared<ast::FunctionDecl>(ast::FunctionKind::InstanceMethod, kSynthesizedDeallocMethodName, sig, attr);
     FD->setParamNames(paramNames);
     FD->setSourceLocation(SL);
-    FD->setImplType(ST);
     
     auto body = std::make_shared<ast::CompoundStmt>();
     body->setSourceLocation(SL);

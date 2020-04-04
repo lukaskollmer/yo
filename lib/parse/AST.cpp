@@ -357,8 +357,7 @@ Mirror Reflect(const FunctionDecl *FD) {
         { "name", FD->getName() },
         { "signature", FD->getSignature() },
         //{ "attributes", FD->getAttributes() }, // TODO
-        { "body", FD->getBody() },
-        { "implType", FD->getImplType() }
+        { "body", FD->getBody() }
     };
 }
 
