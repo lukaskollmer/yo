@@ -459,8 +459,6 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         
         ensureTemplateParametersAreDistinct(*structDecl->templateParamsDecl);
         
-        structTemplateDecls[structDecl->name] = structDecl;
-        
         ast::FunctionSignature ctorSig;
         ctorSig.returnType = ast::TypeDesc::makeNominalTemplated(structName, util::vector::map(structDecl->templateParamsDecl->getParams(), [](auto &param) {
             return ast::TypeDesc::makeNominal(param.name->value);
@@ -477,7 +475,7 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         ctorFnDecl->getAttributes().int_isSynthesized = true;
         ctorFnDecl->paramNames = { makeIdent("__unused") };
 
-        addAndRegisterFunction(ctorFnDecl);
+        addToAstAndRegister(ctorFnDecl);
         return nullptr;
     }
     
@@ -528,7 +526,7 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         ctorFnDecl->getAttributes().int_isSynthesized = true;
         ctorFnDecl->paramNames = { makeIdent("__unused") };
 
-        addAndRegisterFunction(ctorFnDecl);
+        addToAstAndRegister(ctorFnDecl);
 
         // TODO instead of this, find custom implementations, if provided, and codegen them instead
         synthesizeDefaultMemberwiseInitializer(structDecl, kSkipCodegen);
@@ -923,19 +921,55 @@ Type* IRGenerator::resolveTypeDesc(std::shared_ptr<ast::TypeDesc> typeDesc, bool
             registerNamedDecls(typeDesc->getName(), [](const std::shared_ptr<ast::TopLevelStmt> &decl) -> bool {
                 return !decl->isOfKind(NK::FunctionDecl);
             });
-            auto structDecl = util::map::get_opt(structTemplateDecls, typeDesc->getName());
-            if (!structDecl) {
+            
+            llvm::SmallVector<std::shared_ptr<ast::TopLevelStmt>, 2> matchingDecls;
+            
+            for (const auto &[name, declInfos] : namedDeclInfos) {
+                if (name != typeDesc->getName()) continue;
+                for (const NamedDeclInfo &DI : declInfos) {
+                    switch (DI.decl->getKind()) {
+                        case NK::StructDecl:
+                            if (llvm::cast<ast::StructDecl>(DI.decl)->isInstantiatedTemplateDecl()) {
+                                continue;
+                            }
+                            break;
+                        case NK::VariantDecl:
+                            if (llvm::cast<ast::VariantDecl>(DI.decl)->isInstantiatedTemplateDecl()) {
+                                continue;
+                            }
+                            break;
+                        default:
+                            continue;
+                    }
+                    matchingDecls.push_back(DI.decl);
+                }
+            }
+            if (matchingDecls.size() == 0) {
                 diagnostics::emitError(typeDesc->getSourceLocation(), "unable to resolve type");
+            } else if (matchingDecls.size() > 1) {
+                LKFatalError("multiple matching types?");
             }
+            LKAssert(matchingDecls.size() == 1);
             
-            // Make sure the template args are resolved in the current context, instead of the clean-slate context used for instantiating the template
-            // (this is important for example for decltype template args dependent on local variables)
-            for (auto tmplArg : typeDesc->getTemplateArgs()) {
+            auto argsList = std::make_shared<ast::TemplateParamArgList>();
+            argsList->setSourceLocation(typeDesc->getSourceLocation());
+            argsList->elements = util::vector::map(typeDesc->getTemplateArgs(), [&](auto &tmplArg) {
                 resolveTypeDesc(tmplArg, setInternalResolvedType);
-            }
+                return tmplArg;
+            });
             
-            StructType *ST = withCleanSlate(*this, [&]() { return instantiateTemplateStruct(*structDecl, typeDesc); });
-            return handleResolvedTy(ST);
+            auto &decl = matchingDecls[0];
+            
+            switch (decl->getKind()) {
+                case NK::StructDecl:
+                    return handleResolvedTy(instantiateTemplateDecl(llvm::cast<ast::StructDecl>(decl), argsList));
+                
+                case NK::VariantDecl:
+                    return handleResolvedTy(instantiateTemplateDecl(llvm::cast<ast::VariantDecl>(decl), argsList));
+                
+                default:
+                    LKFatalError("");
+            }
         }
     }
     
@@ -1520,70 +1554,46 @@ bool IRGenerator::typeIsDestructible(Type *type) {
 
 
 
-
-StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDecl> SD, std::shared_ptr<ast::TypeDesc> TD) {
-    LKAssert(SD->isTemplateDecl() && TD->isOfKind(ast::TypeDesc::Kind::NominalTemplated));
-    LKAssert(SD->getName() == TD->getName());
+template <typename T>
+Type* IRGenerator::instantiateTemplateDecl(const std::shared_ptr<T> &decl, const std::shared_ptr<ast::TemplateParamArgList> &tmplArgs) {
+    LKAssert(decl->isTemplateDecl());
     
-    // Build a mapping for all explicitly specified types and forward that to the actual implementation
+    TemplateTypeMapping tmplMapping = resolveTemplateDeclTemplateParamsFromExplicitArgs(decl, tmplArgs, false);
     
-    TemplateTypeMapping mapping;
-    auto &explicitArgs = TD->getTemplateArgs();
+    std::shared_ptr<T> specDecl;
     
-    for (uint64_t idx = 0; idx < SD->templateParamsDecl->size(); idx++) {
-        if (idx < explicitArgs.size()) {
-            mapping[SD->templateParamsDecl->getParams()[idx].name->value] = explicitArgs[idx];
-        }
+    if constexpr(std::is_same_v<T, ast::StructDecl>) {
+        specDecl = ASTRewriter(tmplMapping).handleStructDecl(decl);
+    } else if constexpr(std::is_same_v<T, ast::VariantDecl>) {
+        specDecl = ASTRewriter(tmplMapping).handleVariantDecl(decl);
+    } else {
+        static_assert(util::always_false_v<T>);
     }
     
-    return instantiateTemplateStruct(SD, mapping);
-}
-
-
-
-// TODO add a SourceLocation parameter?
-StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDecl> SD, const TemplateTypeMapping &mapping) {
-    LKAssert(SD->isTemplateDecl());
+    specDecl->templateParamsDecl = nullptr;
     
-    TemplateTypeMapping fullMapping;
-    
-    for (uint64_t idx = 0; idx < SD->templateParamsDecl->size(); idx++) {
-        Type *ty = nullptr;
-        auto &param = SD->templateParamsDecl->getParams()[idx];
-        
-        if (auto TD = util::map::get_opt(mapping, param.name->value)) {
-            ty = resolveTypeDesc(*TD, false);
-        } else if (auto defaultTD = param.defaultType) {
-            ty = resolveTypeDesc(defaultTD, false);
-        } else {
-            diagnostics::emitError(util::fmt::format("unable to resolve template parameter {}", param.name));
-        }
-        
-        fullMapping[param.name->value] = ast::TypeDesc::makeResolved(ty);
+    for (size_t idx = 0; idx < decl->numberOfTemplateParameters(); idx++) {
+        auto &name = decl->templateParamsDecl->getParams()[idx].name->value;
+        specDecl->templateInstantiationArguments.push_back(tmplMapping.at(name)->getResolvedType());
     }
     
-    auto specializedDecl = ASTRewriter(fullMapping).handleStructDecl(SD);
-    
-    for (uint64_t idx = 0; idx < SD->templateParamsDecl->size(); idx++) {
-        auto &name = SD->templateParamsDecl->getParams()[idx].name;
-        specializedDecl->templateInstantiationArguments.push_back(fullMapping.at(name->value)->getResolvedType());
-    }
-    
-    auto mangledName = mangling::mangleFullyResolved(specializedDecl);
-    
-    bool isTemporary = util::map::contains_where(fullMapping, [](const std::string &name, const std::shared_ptr<ast::TypeDesc> &TD) -> bool {
+    auto mangledName = mangling::mangleFullyResolved(specDecl);
+    bool isTemporary = util::map::contains_where(tmplMapping, [](const std::string &name, const std::shared_ptr<ast::TypeDesc> &TD) -> bool {
         return TD->getResolvedType() && TD->getResolvedType()->hasFlag(Type::Flags::IsTemporary);
     });
     if (isTemporary) {
-        return Type::createTemporary(mangledName, specializedDecl->name, specializedDecl->templateInstantiationArguments);
+        return Type::createTemporary(mangledName, specDecl->getName(), specDecl->templateInstantiationArguments);
     }
     
-    if (auto ST = nominalTypes.get(mangledName)) {
-        return llvm::dyn_cast<StructType>(*ST);
+    if (auto ty = nominalTypes.get(mangledName)) {
+        return *ty;
     }
     
-    return addAndRegisterStructDecl(specializedDecl);
+    return addToAstAndRegister(specDecl);
 }
+
+
+
 
 
 
@@ -1684,7 +1694,7 @@ llvm::Value* IRGenerator::synthesizeDefaultMemberwiseInitializer(std::shared_ptr
     
     FD->setBody(body);
     
-    addAndRegisterFunction(FD);
+    addToAstAndRegister(FD);
     
     if (codegenOption == kSkipCodegen) {
         return nullptr;
@@ -1746,7 +1756,7 @@ llvm::Value* IRGenerator::synthesizeDefaultCopyConstructor(std::shared_ptr<ast::
     
     FD->setBody(body);
     
-    addAndRegisterFunction(FD);
+    addToAstAndRegister(FD);
     
     if (codegenOption == kSkipCodegen) {
         return nullptr;
@@ -1822,7 +1832,7 @@ llvm::Value* IRGenerator::synthesizeDefaultDeallocMethod(std::shared_ptr<ast::St
     
     FD->setBody(body);
     
-    addAndRegisterFunction(FD);
+    addToAstAndRegister(FD);
     
     if (codegenOption == kSkipCodegen) {
         return nullptr;

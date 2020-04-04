@@ -243,9 +243,8 @@ private:
     // key: canonical name
     std::map<std::string, std::vector<NamedDeclInfo>> namedDeclInfos;
     
-    /// All registered non-template struct types
-    std::map<std::string, std::shared_ptr<ast::StructDecl>> structDecls;
-    std::map<std::string, std::shared_ptr<ast::StructDecl>> structTemplateDecls;
+    /// All non-template struct declarations, identified by their name (template instantiations by their folly mangled name)
+    std::map<std::string, std::shared_ptr<ast::StructDecl>> structDecls; // TODO can we get rid of this?
     
     // key: canonical function name
     std::map<std::string, std::vector<ResolvedCallable>> functions;
@@ -277,22 +276,29 @@ private:
     void preflightImplBlock(std::shared_ptr<ast::ImplBlock>);
     
     void registerNamedDecl(NamedDeclInfo &);
-    llvm::Function* registerFunction(std::shared_ptr<ast::FunctionDecl>, NamedDeclInfo &);
-    StructType* registerStructDecl(std::shared_ptr<ast::StructDecl>, NamedDeclInfo &);
-    void registerTypealias(std::shared_ptr<ast::TypealiasDecl>, NamedDeclInfo &);
-    VariantType* registerVariantDecl(std::shared_ptr<ast::VariantDecl>, NamedDeclInfo &);
+    llvm::Function* registerFunction(std::shared_ptr<ast::FunctionDecl>, NamedDeclInfo&);
+    StructType* registerStructDecl(std::shared_ptr<ast::StructDecl>, NamedDeclInfo&);
+    void registerTypealias(std::shared_ptr<ast::TypealiasDecl>, NamedDeclInfo&);
+    VariantType* registerVariantDecl(std::shared_ptr<ast::VariantDecl>, NamedDeclInfo&);
     
-    llvm::Function* addAndRegisterFunction(std::shared_ptr<ast::FunctionDecl> decl) {
+    llvm::Function* addToAstAndRegister(const std::shared_ptr<ast::FunctionDecl> &decl) {
         ast.push_back(decl);
         auto &info = namedDeclInfos[decl->getName()].emplace_back(decl);
         return registerFunction(decl, info);
     }
     
-    StructType* addAndRegisterStructDecl(std::shared_ptr<ast::StructDecl> decl) {
+    StructType* addToAstAndRegister(const std::shared_ptr<ast::StructDecl> &decl) {
         ast.push_back(decl);
-        auto &info = namedDeclInfos[decl->name].emplace_back(decl);
+        auto &info = namedDeclInfos[decl->getName()].emplace_back(decl);
         return registerStructDecl(decl, info);
     }
+    
+    VariantType* addToAstAndRegister(const std::shared_ptr<ast::VariantDecl> &decl) {
+        ast.push_back(decl);
+        auto &info = namedDeclInfos[decl->getName()].emplace_back(decl);
+        return registerVariantDecl(decl, info);
+    }
+    
     
     /// register all names decls for a given name
     void registerNamedDecls(const std::string &name) {
@@ -473,21 +479,23 @@ private:
     }
     
     
-    TemplateTypeMapping resolveStructTemplateParametersFromExplicitTemplateArgumentList(std::shared_ptr<ast::StructDecl>, std::shared_ptr<ast::TemplateParamArgList>);
+    TemplateTypeMapping resolveTemplateDeclTemplateParamsFromExplicitArgs(std::shared_ptr<ast::TemplateDecl>, std::shared_ptr<ast::TemplateParamArgList>, bool setInternalTypes);
     
     std::optional<TemplateTypeMapping>
     attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSignature&, std::shared_ptr<ast::CallExpr>, const std::vector<std::pair<Type *, std::shared_ptr<ast::Expr>>>&);
     
-    /// Instantiate a template struct, using a fully resolved typeDesc to resolve the template parameters
-    StructType* instantiateTemplateStruct(std::shared_ptr<ast::StructDecl>, std::shared_ptr<ast::TypeDesc>);
-    /// Instantiate a template struct from a type mapping
-    StructType* instantiateTemplateStruct(std::shared_ptr<ast::StructDecl>, const TemplateTypeMapping&);
+    
+    /// Instantiate a template declaration (ie, a struct or a variant type).
+    /// Template functions are handled separately
+    template <typename T>
+    Type* instantiateTemplateDecl(const std::shared_ptr<T>&, const std::shared_ptr<ast::TemplateParamArgList>&);
     
     Type* getType(std::shared_ptr<ast::Expr>);
     
-    bool valueIsTriviallyConvertible(std::shared_ptr<ast::NumberLiteral>, Type *);
+    bool valueIsTriviallyConvertible(std::shared_ptr<ast::NumberLiteral>, Type*);
     
-    bool equal(const ast::FunctionSignature &lhs, const ast::FunctionSignature &rhs);
+    bool equal(const ast::FunctionSignature&, const ast::FunctionSignature&);
+    
     
     
     // Globals etc

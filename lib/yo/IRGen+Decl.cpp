@@ -163,7 +163,7 @@ void IRGenerator::synthesizeVariantConstructor(VariantType *variantTy, const Var
     
     auto callExpr = std::make_shared<ast::CallExpr>(makeIdent("__trap"));
     B.push_back(std::make_shared<ast::ExprStmt>(callExpr));
-    addAndRegisterFunction(funcDecl);
+    addToAstAndRegister(funcDecl);
 }
 
 

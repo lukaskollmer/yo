@@ -187,20 +187,26 @@ std::shared_ptr<ast::FunctionDecl> ASTRewriter::handleFunctionDecl(std::shared_p
 
 
 
-std::shared_ptr<ast::StructDecl> ASTRewriter::handleStructDecl(std::shared_ptr<ast::StructDecl> SD) {
-    auto specDecl = std::make_shared<ast::StructDecl>();
-    specDecl->setSourceLocation(SD->getSourceLocation());
-    specDecl->name = SD->getName();
-    specDecl->attributes = SD->attributes;
-    specDecl->members.reserve(SD->members.size());
-    
-    for (auto member : SD->members) {
-        specDecl->members.push_back(handleVarDecl(member));
-    }
-    
-    return specDecl;
+std::shared_ptr<ast::StructDecl> ASTRewriter::handleStructDecl(std::shared_ptr<ast::StructDecl> decl) {
+    auto spec = std::make_shared<ast::StructDecl>(*decl);
+    spec->members = util::vector::map(decl->members, [this](const auto &member) {
+        return handleVarDecl(member);
+    });
+    return spec;
 }
 
+
+std::shared_ptr<ast::VariantDecl> ASTRewriter::handleVariantDecl(std::shared_ptr<ast::VariantDecl> decl) {
+    auto spec = std::make_shared<ast::VariantDecl>(*decl);
+    spec->name = handleIdent(decl->name);
+    spec->members = util::vector::map(decl->members, [this](const ast::VariantDecl::MemberDecl &member) {
+        ast::VariantDecl::MemberDecl spec(member);
+        spec.name = handleIdent(member.name);
+        spec.params = handleTypeDesc(member.params);
+        return spec;
+    });
+    return spec;
+}
 
 
 

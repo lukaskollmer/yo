@@ -64,7 +64,7 @@ public:
     };
     
 private:
-    using NominalTemplatedDataT = std::pair<std::string, std::vector<std::shared_ptr<TypeDesc>>>;
+    using NominalTemplatedDataT = std::pair<std::string, std::vector<std::shared_ptr<TypeDesc>>>; // TODO have this store an args list instead!!
     
     Kind kind;
     std::variant<

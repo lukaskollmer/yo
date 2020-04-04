@@ -201,6 +201,8 @@ const std::string TypeInfo<T>::name = demangle(typeid(T).name());
 } // namespace typeinfo
 
 
+template <typename T>
+inline constexpr bool always_false_v = std::false_type::value;
 
 
 

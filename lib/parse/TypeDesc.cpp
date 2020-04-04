@@ -52,7 +52,7 @@ std::string TypeDesc::str() const {
         
         case Kind::Resolved:
             return getResolvedType()->str_desc();
-            //return std::string("resolved(").append(getResolvedType()->str_desc()).append(")");
+//            return std::string("resolved(").append(getResolvedType()->str_desc()).append(")");
         
         case Kind::Decltype:
             //return util::fmt::format("decltype({})", getDecltypeExpr()->description());

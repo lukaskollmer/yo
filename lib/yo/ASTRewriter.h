@@ -22,7 +22,8 @@
 namespace yo::irgen {
 
 
-/// Basically just a bunch of functions for producing a copy of a part of the AST, with the option to substitute some type descs
+/// Basically just a bunch of functions for producing a copy of a part of the AST,
+/// with the option to substitute some type descs
 class ASTRewriter {
 public:
     using TmplParamMapping = std::map<std::string, std::shared_ptr<ast::TypeDesc>>;
@@ -41,6 +42,7 @@ public:
     DEF_FN(TypeDesc)
     DEF_FN(FunctionDecl)
     DEF_FN(StructDecl)
+    DEF_FN(VariantDecl)
     
     DEF_FN(VarDecl)
     DEF_FN(Assignment)

@@ -550,7 +550,7 @@ StructType* IRGenerator::synthesizeUnderlyingStructTypeForTupleType(TupleType *t
         SD->members.push_back(std::make_shared<ast::VarDecl>(name, type));
     }
     
-    auto ST = withCleanSlate(*this, [this, SD] { return addAndRegisterStructDecl(SD); });
+    auto ST = withCleanSlate(*this, [this, SD] { return addToAstAndRegister(SD); });
     ST->setFlag(Type::Flags::IsSynthesized);
     tupleTy->setUnderlyingStructType(ST);
     return ST;
@@ -671,7 +671,7 @@ StructType* IRGenerator::synthesizeLambdaExpr(std::shared_ptr<ast::LambdaExpr> l
         SD->members.push_back(decl);
     }
     
-    auto ST = withCleanSlate(*this, [&] { return addAndRegisterStructDecl(SD); });
+    auto ST = withCleanSlate(*this, [&] { return addToAstAndRegister(SD); });
     ST->setFlag(Type::Flags::IsSynthesized);
     lambdaExpr->_structType = ST;
     
@@ -694,7 +694,7 @@ StructType* IRGenerator::synthesizeLambdaExpr(std::shared_ptr<ast::LambdaExpr> l
     util::vector::insert_at_front(imp->paramNames, makeIdent("self", SL));
     imp->setSourceLocation(SL);
     
-    addAndRegisterFunction(imp);
+    addToAstAndRegister(imp);
     
     return ST;
 }
@@ -711,13 +711,11 @@ StructType* IRGenerator::synthesizeLambdaExpr(std::shared_ptr<ast::LambdaExpr> l
 // This only looks at the explicitly passed template arguments, not
 // This function returns fully resolved TypeDesc objects
 TemplateTypeMapping
-IRGenerator::resolveStructTemplateParametersFromExplicitTemplateArgumentList(std::shared_ptr<ast::StructDecl> SD, std::shared_ptr<ast::TemplateParamArgList> templateArgsList) {
-    
+IRGenerator::resolveTemplateDeclTemplateParamsFromExplicitArgs(std::shared_ptr<ast::TemplateDecl> decl, std::shared_ptr<ast::TemplateParamArgList> templateArgsList, bool setInternalTypes) {
     TemplateTypeMapping mapping;
     
     const auto &explicitArgs = templateArgsList->elements;
-    
-    auto &params = SD->templateParamsDecl->getParams();
+    auto &params = decl->templateParamsDecl->getParams();
     auto numParams = params.size();
     auto numArgs = explicitArgs.size();
     
@@ -731,11 +729,11 @@ IRGenerator::resolveStructTemplateParametersFromExplicitTemplateArgumentList(std
     for (size_t i = 0; i < numParams; i++) {
         auto &param = params[i];
         if (i < numArgs) {
-            mapping[param.name->value] = ast::TypeDesc::makeResolved(resolveTypeDesc(explicitArgs[i]));
+            mapping[param.name->value] = ast::TypeDesc::makeResolved(resolveTypeDesc(explicitArgs[i], setInternalTypes));
         } else if (auto defaultType = param.defaultType) {
             // TODO what if a default parameter depends on one of the previous params? (like what std::vector does?)
             // TODO issue? this resolves the type desc in the wrong context (caller vs callee!)
-            mapping[param.name->value] = ast::TypeDesc::makeResolved(resolveTypeDesc(defaultType));
+            mapping[param.name->value] = ast::TypeDesc::makeResolved(resolveTypeDesc(defaultType, setInternalTypes));
         } else {
             auto msg = util::fmt::format("unable to resolve template parameter '{}'", param.name->value);
             diagnostics::emitError(templateArgsList->getSourceLocation(), msg);
@@ -1038,7 +1036,7 @@ ResolvedCallable IRGenerator::specializeTemplateFunctionDeclForCallExpr(std::sha
     llvm::Function *llvmFunction = nullptr;
     if (codegenOption == kRunCodegen && !specializedDecl->getAttributes().intrinsic) {
         specializedDecl->getAttributes().int_isDelayed = false; // TODO what does this do?
-        llvmFunction = addAndRegisterFunction(specializedDecl);
+        llvmFunction = addToAstAndRegister(specializedDecl);
     }
     return ResolvedCallable(specializedDecl, llvmFunction, hasImplicitSelfArg);
 }
@@ -1476,7 +1474,7 @@ IRGenerator::resolveCall_imp(std::shared_ptr<ast::CallExpr> callExpr, SkipCodege
 
                         LKAssert(target.signature.isTemplateDecl() && target.funcDecl->getSignature().isTemplateDecl());
                         LKAssert(target.funcDecl->getAttributes().int_isCtor);
-                        auto tmplMapping = resolveStructTemplateParametersFromExplicitTemplateArgumentList(structDecl, callExpr->explicitTemplateArgs);
+                        auto tmplMapping = resolveTemplateDeclTemplateParamsFromExplicitArgs(structDecl, callExpr->explicitTemplateArgs, true);
                         auto specDecl = specializeTemplateFunctionDeclForCallExpr(target.funcDecl, tmplMapping, 0, kRunCodegen); // since this is a ctor, there won't be any codegen, it'll just register the function
                         resultStatus = ResolveCallResultStatus::Success;
                         return specDecl;

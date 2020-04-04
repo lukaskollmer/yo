@@ -79,13 +79,8 @@ enum class Operator : uint8_t {
 
 
 
-class Expr;
-class Ident;
 class VarDecl;
 class CompoundStmt;
-class StructDecl;
-class ImplBlock;
-
 
 
 class Node {
@@ -104,8 +99,12 @@ public:
         TemplateParamDeclList, TemplateParamArgList, FunctionSignature, IfStmtBranch, MatchExprBranch, MatchExprPattern
     };
     
-    Kind getKind() const { return kind; }
-    bool isOfKind(Kind NK) const { return kind == NK; }
+    Kind getKind() const {
+        return kind;
+    }
+    bool isOfKind(Kind NK) const {
+        return kind == NK;
+    }
     
     // TODO add a `str` function that prints the node, as it would look as source code?
     virtual std::string description() const; // TODO remove in favor of `ast::description`
@@ -153,6 +152,15 @@ public:
 
 // for llvm
 #define CLASSOF_IMP(NK) static bool classof(const Node *node) { return node->getKind() == NK; }
+
+
+class Ident : public Expr {
+public:
+    const std::string value;
+    
+    CLASSOF_IMP(Node::Kind::Ident)
+    explicit Ident(std::string value) : Expr(Node::Kind::Ident), value(value) {}
+};
 
 
 
@@ -402,6 +410,10 @@ public:
     
     CLASSOF_IMP(Node::Kind::VariantDecl)
     VariantDecl(std::shared_ptr<Ident> N) : TopLevelStmt(Node::Kind::VariantDecl), name(N) {}
+    
+    const std::string& getName() const {
+        return name->value;
+    }
 };
 
 
@@ -541,15 +553,6 @@ public:
     
     CLASSOF_IMP(Node::Kind::RawLLVMValueExpr)
     RawLLVMValueExpr(llvm::Value *value, yo::irgen::Type *ty) : Expr(Node::Kind::RawLLVMValueExpr), value(value), type(ty) {}
-};
-
-
-class Ident : public Expr {
-public:
-    const std::string value;
-    
-    CLASSOF_IMP(Node::Kind::Ident)
-    explicit Ident(std::string value) : Expr(Node::Kind::Ident), value(value) {}
 };
 
 
