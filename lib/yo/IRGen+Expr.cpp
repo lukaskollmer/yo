@@ -438,7 +438,6 @@ llvm::Value* IRGenerator::codegenSubscriptExpr(std::shared_ptr<ast::SubscriptExp
     callExpr->setSourceLocation(expr->getSourceLocation());
     callExpr->arguments = expr->args;
     
-    resolveCall(callExpr, kSkipCodegen);
     if (auto RC = resolveCall_opt(callExpr, kSkipCodegen)) {
         expr->isKnownAsTemporary = true; // TODO this shouldn't be necessary!!!!!!
         setOutType(resolveTypeDesc(RC->signature.returnType, false));
@@ -1051,6 +1050,76 @@ bool IRGenerator::isImplicitConversionAvailable(Type *src, Type *dst) {
 
 
 
+bool collectTempTypes(Type *type, std::set<Type *> &found) {
+    bool retval = false;
+    
+    if (type->hasFlag(Type::Flags::IsTemporary)) {
+        found.insert(type);
+        retval = true;
+    }
+    
+    switch (type->getTypeId()) {
+        case Type::TypeID::Void:
+        case Type::TypeID::Numerical:
+        case Type::TypeID::Variant:
+            break;
+        
+        case Type::TypeID::Pointer: {
+            auto ptrTy = llvm::cast<PointerType>(type);
+            if (collectTempTypes(ptrTy->getPointee(), found)) {
+                retval = true;
+            }
+            break;
+        }
+        
+        case Type::TypeID::Reference: {
+            auto refTy = llvm::cast<ReferenceType>(type);
+            if (collectTempTypes(refTy->getReferencedType(), found)) {
+                retval = true;
+            }
+            break;
+        }
+        
+        case Type::TypeID::Function: {
+            auto fnTy = llvm::cast<FunctionType>(type);
+            for (auto ty : fnTy->getParameterTypes()) {
+                if (collectTempTypes(ty, found)) {
+                    retval = true;
+                }
+            }
+            if (collectTempTypes(fnTy->getReturnType(), found)) {
+                retval = true;
+            }
+            break;
+        }
+        
+        case Type::TypeID::Struct: {
+            auto structTy = llvm::cast<StructType>(type);
+            for (auto ty : structTy->getTemplateArguments()) {
+                if (collectTempTypes(ty, found)) {
+                    retval = true;
+                }
+            }
+            break;
+        }
+        
+        case Type::TypeID::Tuple: {
+            auto tupleTy = llvm::cast<TupleType>(type);
+            for (auto ty : tupleTy->getMembers()) {
+                if (collectTempTypes(ty, found)) {
+                    retval = true;
+                }
+            }
+            break;
+        }
+    }
+    
+    if (retval) {
+        found.insert(type);
+    }
+    return retval;
+};
+
 
 
 /// This function assumes that both targets match the call (ie, are valid targets)
@@ -1152,78 +1221,6 @@ CandidateViabilityComparisonResult FunctionCallTargetCandidate::compare(IRGenera
             });
             
             auto deduction = irgen.attemptToResolveTemplateArgumentTypesForCall(rhs.getSignature(), tmpCallExpr, args);
-            
-            std::function<bool(Type *, std::set<Type *> &)> collectTempTypes;
-            collectTempTypes = [&](Type *type, std::set<Type *> &found) -> bool {
-                bool retval = false;
-                
-                if (type->hasFlag(Type::Flags::IsTemporary)) {
-                    found.insert(type);
-                    retval = true;
-                }
-                
-                switch (type->getTypeId()) {
-                    case Type::TypeID::Void:
-                    case Type::TypeID::Numerical:
-                    case Type::TypeID::Variant:
-                        break;
-                    
-                    case Type::TypeID::Pointer: {
-                        auto ptrTy = llvm::cast<PointerType>(type);
-                        if (collectTempTypes(ptrTy->getPointee(), found)) {
-                            retval = true;
-                        }
-                        break;
-                    }
-                    
-                    case Type::TypeID::Reference: {
-                        auto refTy = llvm::cast<ReferenceType>(type);
-                        if (collectTempTypes(refTy->getReferencedType(), found)) {
-                            retval = true;
-                        }
-                        break;
-                    }
-                    
-                    case Type::TypeID::Function: {
-                        auto fnTy = llvm::cast<FunctionType>(type);
-                        for (auto ty : fnTy->getParameterTypes()) {
-                            if (collectTempTypes(ty, found)) {
-                                retval = true;
-                            }
-                        }
-                        if (collectTempTypes(fnTy->getReturnType(), found)) {
-                            retval = true;
-                        }
-                        break;
-                    }
-                    
-                    case Type::TypeID::Struct: {
-                        auto structTy = llvm::cast<StructType>(type);
-                        for (auto ty : structTy->getTemplateArguments()) {
-                            if (collectTempTypes(ty, found)) {
-                                retval = true;
-                            }
-                        }
-                        break;
-                    }
-                    
-                    case Type::TypeID::Tuple: {
-                        auto tupleTy = llvm::cast<TupleType>(type);
-                        for (auto ty : tupleTy->getMembers()) {
-                            if (collectTempTypes(ty, found)) {
-                                retval = true;
-                            }
-                        }
-                        break;
-                    }
-                }
-                
-                if (retval) {
-                    found.insert(type);
-                }
-                return retval;
-            };
-            
             
             for (auto [type, id] : tmpTypes) {
                 irgen.nominalTypes.remove(id);
