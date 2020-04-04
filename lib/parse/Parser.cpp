@@ -310,6 +310,13 @@ std::shared_ptr<TypeDesc> Parser::parseType() {
                 return TypeDesc::makeTuple(types, SL);
             }
         }
+        case TK::OpeningSquareBrackets: { // `[T]` := `Array<T>`
+            auto loc = getCurrentSourceLocation();
+            consume();
+            auto elementType = parseType();
+            assertTkAndConsume(TK::ClosingSquareBrackets);
+            return TypeDesc::makeNominalTemplated("Array", { elementType }, loc);
+        }
         default:
             return nullptr;
     }

@@ -9,13 +9,14 @@ struct Array<Element> {
     capacity: i64
 }
 
-impl<Element> Array<Element> {
+//impl<Element> Array<Element> {
+impl<Element> [Element] {
     fn init(self: &Self) {
         self.data = alloc<Element>(10);
         self.capacity = 10;
     }
 
-    fn init(self: &Self, other: &Array<Element>) {
+    fn init(self: &Self, other: &Self) {
         self.capacity = other.capacity;
         self.data = alloc<Element>(cast<size_t>(self.capacity));
         while self.size < other.size {
@@ -98,7 +99,7 @@ impl<Element> Array<Element> {
     }
 
 
-    fn filtered<F>(self: &Self, f: F) -> Array<Element> {
+    fn filtered<F>(self: &Self, f: F) -> Self {
         let matched = Array<Element>();
         for &elem in self {
             if f(elem) {
@@ -131,7 +132,7 @@ impl<Element> Array<Element> {
     }
 
 
-    fn map<F>(self: &Self, f: F) -> Array<decltype(f(self.data[0]))> {
+    fn map<F>(self: &Self, f: F) -> [decltype(f(self.data[0]))] {
         let mapped = Array<decltype(f(self.data[0]))>();
         for &elem in self {
             mapped.append(f(elem));
@@ -151,7 +152,7 @@ impl<Element> Array<Element> {
 }
 
 
-fn operator == <T>(lhs: &Array<T>, rhs: &Array<T>) -> bool {
+fn operator == <T>(lhs: &[T], rhs: &[T]) -> bool {
     if lhs.size != rhs.size {
         return false;
     }
@@ -169,12 +170,12 @@ fn operator == <T>(lhs: &Array<T>, rhs: &Array<T>) -> bool {
 
 
 struct ArrayIterator<Element> {
-    array: &Array<Element>,
+    array: &[Element],
     idx: i64
 }
 
 impl<Element> ArrayIterator<Element> {
-    fn init(self: &Self, array: &Array<Element>) {
+    fn init(self: &Self, array: &[Element]) {
         self.init(array, 0);
     }
 

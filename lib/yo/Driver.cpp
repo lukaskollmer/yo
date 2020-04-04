@@ -132,7 +132,7 @@ bool emitModule(const Options &options, std::unique_ptr<llvm::Module> module, co
     module->setTargetTriple(targetTriple);
     
     
-    llvm::outs() << *module << '\n';
+//    llvm::outs() << *module << '\n';
     
     // Create and run passes
     
