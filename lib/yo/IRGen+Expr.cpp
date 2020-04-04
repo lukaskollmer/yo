@@ -1493,8 +1493,7 @@ IRGenerator::resolveCall_imp(std::shared_ptr<ast::CallExpr> callExpr, SkipCodege
     // find a matching target
     
     
-    if (//lookingForZeroResults &&
-        possibleTargets.empty()) {
+    if (possibleTargets.empty()) {
         resultStatus = ResolveCallResultStatus::NoCandidates;
         return std::nullopt;
     }
