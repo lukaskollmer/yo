@@ -9,7 +9,6 @@ struct Array<Element> {
     capacity: i64
 }
 
-//impl<Element> Array<Element> {
 impl<Element> [Element] {
     fn init(self: &Self) {
         self.data = alloc<Element>(10);
