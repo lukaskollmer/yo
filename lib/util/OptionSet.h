@@ -11,8 +11,7 @@
 #include <type_traits>
 #include <initializer_list>
 
-namespace yo {
-namespace util {
+namespace yo::util {
 
 
 /// An `OptionSet` is an object which stores a bitfield of enum values
@@ -52,6 +51,5 @@ public:
 
 
 
-}
-}
+} // ns yo::util
 

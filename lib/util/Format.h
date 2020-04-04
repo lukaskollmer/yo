@@ -14,7 +14,7 @@
 #include <iostream>
 #include <sstream>
 
-NS_START(yo::util::fmt)
+namespace yo::util::fmt {
 
 template <typename T>
 struct formatter {
@@ -95,4 +95,4 @@ void print(std::string_view format, Ts &&...args) {
 }
 
 
-NS_END // yo::util::fmt
+} // yo::util::fmt

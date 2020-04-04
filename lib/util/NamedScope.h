@@ -20,8 +20,7 @@
 #include <optional>
 
 
-namespace yo {
-namespace util {
+namespace yo::util {
 
 
 template <typename Value, typename Key = std::string>
@@ -122,5 +121,4 @@ public:
 };
 
 
-} // ns util
-} // ns yo
+} // ns yo::util

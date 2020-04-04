@@ -17,7 +17,7 @@
 #include <type_traits>
 
 
-NS_START(yo::util::vector)
+namespace yo::util::vector {
 
 template <typename T>
 inline bool contains(const std::vector<T> &vector, const T &element) {
@@ -131,4 +131,4 @@ void insert_at_front(std::vector<T> &vec, const T &elem) {
     vec.insert(vec.begin(), elem);
 }
 
-NS_END // yo::util::vector
+} // yo::util::vector

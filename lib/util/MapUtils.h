@@ -14,7 +14,7 @@
 #include <optional>
 
 
-NS_START(yo::util::map)
+namespace yo::util::map {
 
 template <typename K, typename V>
 inline bool has_key(const std::map<K, V> &map, const K &key) {
@@ -54,4 +54,4 @@ void iterl(const std::map<K, V> &map, F &&fn) {
     }
 }
 
-NS_END // yo::util::map
+} // yo::util::map

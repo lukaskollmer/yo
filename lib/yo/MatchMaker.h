@@ -17,8 +17,7 @@
 #include <cstdint>
 
 
-namespace yo {
-namespace irgen {
+namespace yo::irgen {
 
 class IRGenerator;
 enum ValueKind : uint8_t;
@@ -66,6 +65,5 @@ private:
 
 
 
-} // ns irgen
-} // ns yo
+} // ns yo::irgen
 

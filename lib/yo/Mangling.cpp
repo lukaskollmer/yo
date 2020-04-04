@@ -116,7 +116,7 @@
 
 using namespace yo;
 
-NS_START(yo::mangling)
+namespace yo::mangling {
 
 
 inline constexpr char kMangledFunctionCommonPrefix = '$';
@@ -766,4 +766,4 @@ std::string demangleCanonicalName(std::string_view name) {
     return OS.str();
 }
 
-NS_END
+}

@@ -14,8 +14,8 @@
 #include <vector>
 #include <variant>
 
-namespace yo {
-namespace attributes {
+namespace yo::attributes {
+
 class Attribute {
 public:
     enum class DataKind { Bool, String, Array };
@@ -104,6 +104,5 @@ struct VarDeclAttributes {
 };
 
 
-} // namespace attributes
-} // namespace yo
+} // namespace yo::attributes
 

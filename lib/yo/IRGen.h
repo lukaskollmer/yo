@@ -32,7 +32,7 @@
 #include <utility>
 
 
-NS_START(yo::irgen)
+namespace yo::irgen {
 
 enum class Intrinsic : uint8_t;
 class IRGenerator;
@@ -549,4 +549,4 @@ std::invoke_result_t<F> withCleanSlate(IRGenerator &irgen, F &&fn) {
     return fn();
 }
 
-NS_END
+}

@@ -17,13 +17,11 @@
 #include <csignal>
 
 
-#define NS_START(x) namespace x {
-#define NS_END }
 
 
 extern "C" bool LKCompilerInternalOptionSigabrtOnFatalError();
 
-NS_START(yo::util)
+namespace yo::util {
 
 inline void noop() {}
 
@@ -266,4 +264,4 @@ std::string path_get_filename(const std::string& path);
 }
 
 
-NS_END
+}

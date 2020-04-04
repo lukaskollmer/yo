@@ -13,8 +13,7 @@
 #include <iostream>
 
 
-namespace yo {
-namespace lex {
+namespace yo::lex {
 
 class SourceLocation {
     std::string filepath;
@@ -52,5 +51,4 @@ inline std::ostream& operator<<(std::ostream &OS, const SourceLocation &loc) {
     return OS << loc.getFilepath() << ":" << loc.getLine() << ":" << loc.getColumn();
 }
 
-} // ns lex
-} // ns yo
+} // ns yo::lex

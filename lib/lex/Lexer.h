@@ -14,8 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace yo {
-namespace lex {
+namespace yo::lex {
 
 
 class Lexer {
@@ -65,5 +64,4 @@ private:
 
 
 
-} // ns lex
-} // ns yo
+} // ns yo::lex

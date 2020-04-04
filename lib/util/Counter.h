@@ -10,8 +10,7 @@
 
 #include <cstdint>
 
-namespace yo {
-namespace util {
+namespace yo::util {
 
 
 template <typename T = uint64_t>
@@ -35,5 +34,4 @@ public:
 
 
 
-}
-}
+} // ns yo::util

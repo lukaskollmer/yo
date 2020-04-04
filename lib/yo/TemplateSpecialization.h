@@ -17,7 +17,7 @@
 
 
 
-NS_START(yo::irgen)
+namespace yo::irgen {
 
 
 class TemplateSpecializer {
@@ -70,4 +70,4 @@ public:
     ast::TemplateParamDeclList::Param specialize(const ast::TemplateParamDeclList::Param&);
 };
 
-NS_END
+}

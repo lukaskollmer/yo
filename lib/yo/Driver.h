@@ -14,7 +14,7 @@
 #include <string>
 
 
-NS_START(yo::driver)
+namespace yo::driver {
 
 enum class OutputFileType : uint8_t {
     Binary     = 1 << 0,
@@ -48,4 +48,4 @@ struct Options {
 
 bool run(Options);
 
-NS_END
+}

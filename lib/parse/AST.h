@@ -31,7 +31,7 @@ class StructType;
 }
 
 
-NS_START(yo::ast)
+namespace yo::ast {
 
 
 class TopLevelStmt;
@@ -831,4 +831,4 @@ public:
 
 
 #undef CLASSOF_IMP
-NS_END
+}

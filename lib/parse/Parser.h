@@ -20,7 +20,7 @@
 #include <optional>
 
 
-NS_START(yo::parser)
+namespace yo::parser {
 
 
 // Operator precedence groups, in increasing order
@@ -164,4 +164,4 @@ private:
     std::shared_ptr<ast::UnaryExpr> parseUnaryExpr();
 };
 
-NS_END
+}

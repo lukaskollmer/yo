@@ -14,8 +14,7 @@
 #include <string>
 
 
-namespace yo {
-namespace ast {
+namespace yo::ast {
 
 // TODO implement the visitor properly!!
 
@@ -23,5 +22,4 @@ namespace ast {
 void print_ast(const ast::AST&);
 
 
-} // namespace ast
-} // namespace yo
+} // ns yo::ast

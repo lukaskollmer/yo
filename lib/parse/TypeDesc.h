@@ -24,7 +24,7 @@ namespace yo::irgen {
 
 
 
-NS_START(yo::ast)
+namespace yo::ast {
 
 using lex::SourceLocation;
 
@@ -218,4 +218,4 @@ inline std::ostream& operator<<(std::ostream &OS, const std::shared_ptr<TypeDesc
 
 
 
-NS_END
+}

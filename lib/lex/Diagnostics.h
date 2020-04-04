@@ -13,7 +13,7 @@
 
 #include <string>
 
-NS_START(yo::diagnostics)
+namespace yo::diagnostics {
 
 void emit(std::string_view category, std::string_view msg);
 void emit(std::string_view category, const lex::SourceLocation&, std::string_view msg);
@@ -27,4 +27,4 @@ void emitError(std::string_view);
 [[noreturn]]
 void emitError(const lex::SourceLocation&, std::string_view);
 
-NS_END
+}

@@ -18,8 +18,7 @@
 #include <tuple>
 #include <utility>
 
-namespace yo {
-namespace irgen {
+namespace yo::irgen {
 
 class Type;
 class IRGenerator;
@@ -137,5 +136,4 @@ private:
 };
 
 
-}
-}
+} // ns yo::irgen

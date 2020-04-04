@@ -10,8 +10,7 @@
 
 #include <iostream>
 
-namespace yo {
-namespace lex {
+namespace yo::lex {
 
 enum class TokenKind;
 
@@ -59,5 +58,4 @@ enum class TokenKind {
 
 
 
-} // ns lex
-} // ns yo
+} // ns yo::lex

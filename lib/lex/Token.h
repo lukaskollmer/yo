@@ -14,8 +14,7 @@
 #include <string>
 #include <variant>
 
-namespace yo {
-namespace lex {
+namespace yo::lex {
 
 
 class Token {
@@ -67,5 +66,4 @@ public:
 
 
 
-} // ns lex
-} // ns yo
+} // ns yo::lex

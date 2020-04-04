@@ -24,7 +24,7 @@ namespace llvm {
 }
 
 
-NS_START(yo::irgen)
+namespace yo::irgen {
 
 
 class Type;
@@ -463,4 +463,4 @@ public:
     }
 };
 
-NS_END
+}
