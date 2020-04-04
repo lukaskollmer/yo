@@ -35,10 +35,9 @@ using TK = lex::TokenKind;
 #pragma mark - Token Collections
 
 
-class TokenSet {
-    std::vector<TK> tokens;
+struct TokenSet {
+    const std::vector<TK> tokens;
     
-public:
     TokenSet(std::initializer_list<TK> tokens) : tokens(tokens) {}
     
     bool contains(TK token) const {
@@ -48,15 +47,10 @@ public:
 
 
 template <typename T>
-class MappedTokenSet {
-    std::map<TK, T> mapping;
+struct MappedTokenSet {
+    const std::map<TK, T> mapping;
     
-public:
-    MappedTokenSet(std::initializer_list<std::pair<TK, T>> mapping) {
-        for (auto& pair : mapping) {
-            this->mapping.insert(pair);
-        }
-    }
+    MappedTokenSet(std::initializer_list<std::pair<const TK, T>> M) : mapping(M) {}
     
     bool contains(TK token) const {
         return mapping.find(token) != mapping.end();
