@@ -652,8 +652,8 @@ void IRGenerator::handleStartupAndShutdownFunctions() {
         for (const auto &fn : functions) {
             std::vector<llvm::Constant *> values = {
                 llvm::ConstantInt::get(builtinTypes.llvm.i32, 65535), // TODO how should this be ordered?
-                llvm::dyn_cast<llvm::Function>(fn.llvmValue),
-                llvm::ConstantPointerNull::get(llvm::dyn_cast<llvm::PointerType>(builtinTypes.llvm.i8Ptr))
+                llvm::cast<llvm::Function>(fn.llvmValue),
+                llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(builtinTypes.llvm.i8Ptr))
             };
             arrayElements.push_back(llvm::ConstantStruct::get(structTy, values));
         }
@@ -714,9 +714,31 @@ llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<
 
 
 llvm::Value* IRGenerator::constructCopyIfNecessary(Type *type, std::shared_ptr<ast::Expr> expr, bool *didConstructCopy) {
-    if (!isTemporary(expr) && (type->isStructTy() || (type->isReferenceTy() && static_cast<ReferenceType *>(type)->getReferencedType()->isStructTy()))) {
+    // TODO if we let the lambda mutate `type`, we can get rid of the unpacking below
+    auto shouldMakeCopy = [&, type]() mutable -> bool {
+        if (isTemporary(expr)) {
+            return false;
+        }
+        if (auto refTy = llvm::dyn_cast<ReferenceType>(type)) {
+            type = refTy->getReferencedType();
+        }
+        
+        if (llvm::isa<StructType>(type)) {
+            return true;
+        }
+        // TODO add support for all other types w/ value semantics (tuples, ?variants?)
+        return false;
+    };
+    
+    if (shouldMakeCopy()) {
         // TODO skip the copy constructor if the type is trivially copyable?
-        StructType *structTy = llvm::dyn_cast<StructType>(type) ?: static_cast<StructType *>(static_cast<ReferenceType *>(type)->getReferencedType());
+        StructType *structTy;
+        if (auto ST = llvm::dyn_cast<StructType>(type)) {
+            structTy = ST;
+        } else {
+            auto refTy = llvm::cast<ReferenceType>(type);
+            structTy = llvm::cast<StructType>(refTy->getReferencedType());
+        }
         auto call = std::make_shared<ast::CallExpr>(nullptr);
         call->setSourceLocation(expr->getSourceLocation());
         call->arguments = { expr };
@@ -1380,7 +1402,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
         }
         
         case NK::ArrayLiteralExpr: {
-            auto literal = llvm::dyn_cast<ast::ArrayLiteralExpr>(expr);
+            auto literal = llvm::cast<ast::ArrayLiteralExpr>(expr);
             if (literal->elements.empty()) {
                 diagnostics::emitError(literal->getSourceLocation(), "unable to deduce type from empty array literal");
             }
@@ -1402,47 +1424,6 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
             return llvm::cast<ast::RawLLVMValueExpr>(expr)->type;
         
         case NK::SubscriptExpr: {
-//            auto subscriptExpr = llvm::dyn_cast<ast::SubscriptExpr>(expr);
-//            auto targetTy = getType(subscriptExpr->target);
-//
-//            // Note: `typeIsSubscriptable` also returns true for pointers, but we have a separate check
-//            // since pointer subscripts shouldn't get resolved to custom subscript overloads (same for tuples)
-//            if (targetTy->isPointerTy()) {
-//                return llvm::cast<PointerType>(targetTy)->getPointee()->getReferenceTo();
-//
-//            } else if (targetTy->isTupleTy() || (targetTy->isReferenceTy() && llvm::cast<ReferenceType>(targetTy)->getReferencedType()->isTupleTy())) {
-//                auto diag_invalid_offset = [&]() {
-//                    diagnostics::emitError(subscriptExpr->getSourceLocation(), "tuple subscript offset expression must be an integer literal");
-//                };
-//
-//                if (auto offsetExprNumLiteral = llvm::dyn_cast<ast::NumberLiteral>(subscriptExpr->offset)) {
-//                    if (offsetExprNumLiteral->type != ast::NumberLiteral::NumberType::Integer) {
-//                        diag_invalid_offset();
-//                    }
-//                    //auto tupleTy = llvm::cast<TupleType>(targetTy);
-//                    TupleType *tupleTy = llvm::cast<TupleType>(targetTy->isTupleTy() ? targetTy : llvm::cast<ReferenceType>(targetTy)->getReferencedType());
-//                    auto index = offsetExprNumLiteral->value;
-//
-//                    if (auto ty = tupleTy->getTypeOfElementAtIndex(index)) {
-//                        return ty;
-//                    } else {
-//                        auto msg = util::fmt::format("tuple type '{}' has no member at index {}", tupleTy, index);
-//                        diagnostics::emitError(subscriptExpr->getSourceLocation(), msg);
-//                    }
-//
-//                } else {
-//                    diag_invalid_offset();
-//                }
-//
-//            //} else if (typeIsSubscriptable(targetTy)) {
-//            } else if (memberFunctionCallResolves(targetTy, mangling::encodeOperator(ast::Operator::Subscript), {subscriptExpr->offset})) {
-//                auto callExpr = subscriptExprToCall(subscriptExpr);
-//                return resolveTypeDesc(resolveCall(callExpr, kSkipCodegen).signature.returnType);
-//
-//            } else {
-//                auto msg = util::fmt::format("type '{}' is not subscriptable", targetTy);
-//                diagnostics::emitError(subscriptExpr->getSourceLocation(), msg);
-//            }
             auto subscriptExpr = llvm::cast<ast::SubscriptExpr>(expr);
             Type *type = nullptr;
             codegenSubscriptExpr(subscriptExpr, RValue, kSkipCodegen, &type);
@@ -1460,7 +1441,7 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
         case NK::UnaryExpr: {
             using Op = ast::UnaryExpr::Operation;
             
-            auto unaryExpr = llvm::dyn_cast<ast::UnaryExpr>(expr);
+            auto unaryExpr = llvm::cast<ast::UnaryExpr>(expr);
             switch (unaryExpr->op) {
                 case Op::LogicalNegation:
                     return builtinTypes.yo.Bool;
@@ -1496,12 +1477,12 @@ Type* IRGenerator::getType(std::shared_ptr<ast::Expr> expr) {
         }
         
         case NK::LambdaExpr: {
-            auto lambdaExpr = llvm::dyn_cast<ast::LambdaExpr>(expr);
+            auto lambdaExpr = llvm::cast<ast::LambdaExpr>(expr);
             return synthesizeLambdaExpr(lambdaExpr);
         }
         
         case NK::TupleExpr: {
-            auto tupleExpr = llvm::dyn_cast<ast::TupleExpr>(expr);
+            auto tupleExpr = llvm::cast<ast::TupleExpr>(expr);
             auto elementTys = util::vector::map(tupleExpr->elements, [&](auto E) { return getType(E); });
             return TupleType::get(elementTys);
         }

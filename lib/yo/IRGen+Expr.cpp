@@ -370,13 +370,10 @@ llvm::Value* IRGenerator::codegenSubscriptExpr(std::shared_ptr<ast::SubscriptExp
     if (auto ptrTy = llvm::dyn_cast<PointerType>(targetTy)) {
         setOutType(ptrTy->getPointee()->getReferenceTo());
         if (expr->args.size() != 1) {
-//            diagnostics::emitError(expr->getSourceLocation(), "pointer subscript must have exactly one argument");
             diag_invaild_argc("pointer");
         }
         if (auto type = llvm::dyn_cast<NumericalType>(getType(expr->args[0]))) {
             if (!type->isIntegerTy()) {
-//                auto msg = util::fmt::format("invalid type '{}' for pointer subscript (offset must be integral type)", type);
-//                diagnostics::emitError(expr->getSourceLocation(), msg);
                 diag_arg_not_integral(type, "pointer");
             }
         }
@@ -455,11 +452,9 @@ bool isValidUnaryOpLogicalNegType(Type *ty) {
     if (ty == Type::getBoolType() || ty->isPointerTy()) {
         return true;
     }
-    
     if (auto numTy = llvm::dyn_cast<NumericalType>(ty)) {
         return numTy->isIntegerTy();
     }
-    
     return false;
 }
 
@@ -819,7 +814,7 @@ IRGenerator::attemptToResolveTemplateArgumentTypesForCall(const ast::FunctionSig
         
         } else if (prevDeduction.reason != reason && reason == DeductionReason::Literal) {
             // Prev wasn't a literal, but current is
-            auto argExpr = llvm::dyn_cast<ast::NumberLiteral>(arg);
+            auto argExpr = llvm::cast<ast::NumberLiteral>(arg);
             return valueIsTriviallyConvertible(argExpr, prevDeduction.type);
         
         } else if (prevDeduction.reason == DeductionReason::Literal && reason != prevDeduction.reason) {
@@ -1609,7 +1604,7 @@ IRGenerator::resolveCall_imp(std::shared_ptr<ast::CallExpr> callExpr, SkipCodege
                 }
                 // TODO  we reach here bc we're passing an arg that cannot become an lvalue to a function expecting an lvalue reference, add that to the reason!
             } else if (!expectedTy->isReferenceTy() && argTy->isReferenceTy()) {
-                if (llvm::dyn_cast<ReferenceType>(argTy)->getReferencedType() == expectedTy) {
+                if (llvm::cast<ReferenceType>(argTy)->getReferencedType() == expectedTy) {
                     continue;
                 }
             }
@@ -1805,7 +1800,7 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
         std::shared_ptr<ast::Expr> implicitSelfArg;
         
         if (call->target->isOfKind(NK::MemberExpr) && !resolvedTarget.funcDecl->isCallOperatorOverload()) {
-            implicitSelfArg = llvm::dyn_cast<ast::MemberExpr>(call->target)->target;
+            implicitSelfArg = llvm::cast<ast::MemberExpr>(call->target)->target;
         } else {
             implicitSelfArg = call->target;
         }
