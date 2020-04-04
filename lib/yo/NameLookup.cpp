@@ -10,7 +10,7 @@
 #include "IRGen.h"
 #include "Type.h"
 #include "Mangling.h"
-#include "TemplateSpecialization.h"
+#include "ASTRewriter.h"
 
 #include "util/util.h"
 #include "util/Format.h"
@@ -243,7 +243,7 @@ bool NameLookup::isAcceptableFirstParam(Type *type, const std::shared_ptr<ast::F
         // if the function has template params inserted from its impl block (ie, template params which are used in the first argument),
         // remove all other data from the signature and see whether the first argument can resolve to the type
         
-        auto sig = TemplateSpecializer({}).specialize(decl->getSignature());
+        auto sig = ASTRewriter().handleFunctionSignature(decl->getSignature());
         LKAssert(sig.isTemplateDecl());
         // remove all parameters except the first (implicit self)
         sig.paramTypes.erase(sig.paramTypes.begin() + 1, sig.paramTypes.end());

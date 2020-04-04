@@ -1,6 +1,8 @@
 yo_add_lib(
     yo
 
+    ASTRewriter.h
+    ASTRewriter.cpp
     Driver.h
     Driver.cpp
     IRGen.h
@@ -14,8 +16,6 @@ yo_add_lib(
     MatchMaker.cpp
     NameLookup.h
     NameLookup.cpp
-    TemplateSpecialization.h
-    TemplateSpecialization.cpp
     Type.h
     Type.cpp
     util_llvm.h

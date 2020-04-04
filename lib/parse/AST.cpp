@@ -540,9 +540,9 @@ Mirror Reflect(const ast::TypealiasDecl *typealias) {
 
 Mirror Reflect(const ast::BinOp *binop) {
     return {
-        { "op", binop->getOperator() },
-        { "lhs", binop->getLhs() },
-        { "rhs", binop->getRhs() }
+        { "op", binop->op },
+        { "lhs", binop->lhs },
+        { "rhs", binop->rhs }
     };
 }
 

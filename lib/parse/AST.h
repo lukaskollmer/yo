@@ -746,21 +746,31 @@ public:
 
 // A BinOp's source location refers to the location of the operator
 class BinOp : public Expr {
+public:
     Operator op;
     std::shared_ptr<Expr> lhs;
     std::shared_ptr<Expr> rhs;
     bool _isInPlaceBinop = false;
     
-public:
     CLASSOF_IMP(Node::Kind::BinOp)
     BinOp(Operator op, std::shared_ptr<Expr> lhs, std::shared_ptr<Expr> rhs)
     : Expr(Node::Kind::BinOp), op(op), lhs(lhs), rhs(rhs) {}
     
-    Operator getOperator() const { return op; }
-    std::shared_ptr<Expr> getLhs() const { return lhs; }
-    std::shared_ptr<Expr> getRhs() const { return rhs; }
-    bool isInPlaceBinop() const { return _isInPlaceBinop; }
-    void setIsInPlaceBinop(bool val) { _isInPlaceBinop = val; }
+    Operator getOperator() {
+        return op;
+    }
+    std::shared_ptr<Expr>& getLhs() {
+        return lhs;
+    }
+    std::shared_ptr<Expr>& getRhs() {
+        return rhs;
+    }
+    bool isInPlaceBinop() {
+        return _isInPlaceBinop;
+    }
+    void setIsInPlaceBinop(bool val) {
+        _isInPlaceBinop = val;
+    }
 };
 
 

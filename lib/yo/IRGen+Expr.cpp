@@ -8,7 +8,7 @@
 
 #include "IRGen.h"
 #include "Mangling.h"
-#include "TemplateSpecialization.h"
+#include "ASTRewriter.h"
 #include "lex/Diagnostics.h"
 #include "util_llvm.h"
 #include "util/llvm_casting.h"
@@ -994,7 +994,8 @@ ast::FunctionSignature makeFunctionSignatureFromFunctionTypeInfo(const FunctionT
 
 
 ResolvedCallable IRGenerator::specializeTemplateFunctionDeclForCallExpr(std::shared_ptr<ast::FunctionDecl> funcDecl, TemplateTypeMapping templateArgMapping, bool hasImplicitSelfArg, SkipCodegenOption codegenOption) {
-    auto specializedDecl = TemplateSpecializer::specializeWithMapping(funcDecl, templateArgMapping);
+    //auto specializedDecl = ASTRewriter::specializeWithMapping(funcDecl, templateArgMapping);
+    auto specializedDecl = ASTRewriter(templateArgMapping).handleFunctionDecl(funcDecl);
     
 //    std::vector<Type *> templateArgTypes;
 //    for (const auto &param : funcDecl->getSignature().templateParamsDecl->getParams()) {
@@ -1134,7 +1135,7 @@ CandidateViabilityComparisonResult FunctionCallTargetCandidate::compare(IRGenera
                 mapping[param.name->value] = ast::TypeDesc::makeNominal(tmpName);
             }
             
-            auto specSig = TemplateSpecializer(mapping).specialize(lhs.getSignature());
+            auto specSig = ASTRewriter(mapping).handleFunctionSignature(lhs.getSignature());
             
             for (const auto &[_ignored_name, typeDesc] : mapping) {
                 auto name = typeDesc->getName();

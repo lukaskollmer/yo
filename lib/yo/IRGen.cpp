@@ -9,7 +9,7 @@
 #include "IRGen.h"
 
 #include "Mangling.h"
-#include "TemplateSpecialization.h"
+#include "ASTRewriter.h"
 #include "lex/Diagnostics.h"
 #include "parse/Attributes.h"
 #include "util_llvm.h"
@@ -30,12 +30,10 @@ using NK = ast::Node::Kind;
 
 
 #define unhandled_node(node) \
-{ std::cout << __PRETTY_FUNCTION__ << ": Unhandled Node: " << util::typeinfo::getTypename(*(node)) << std::endl; \
-throw; }
+LKFatalError("Unhandled Node: '%s'", ast::nodeKindToString(node->getKind()).c_str());
 
 
-
-// just to make sure our additions to llvm's casting APIs are picked up correctly
+// just to make sure the additions to llvm's casting APIs are picked up correctly
 static_assert(std::is_same_v<decltype(llvm::cast<yo::ast::Expr>(std::declval<std::shared_ptr<yo::ast::Node>&>())), std::shared_ptr<yo::ast::Expr>>);
 
 
@@ -384,9 +382,8 @@ void IRGenerator::preflightImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) 
     };
     
     for (auto &funcDecl : implBlock->methods) {
-        // invoking the template specializer w/ an empty mapping to get a deep copy of the impl block's type desc
-        // using a copy is important so that each function gets its own typedesc, and they don't interfere w/ each other
-        auto implBlockTypeDesc = TemplateSpecializer({}).resolveType(implBlock->typeDesc);
+        // using a copy is important here so that each function gets its own typedesc, and they don't interfere w/ each other
+        auto implBlockTypeDesc = ASTRewriter().handleTypeDesc(implBlock->typeDesc);
         
         if (isInstanceMethod(funcDecl)) {
             assertIsValidMemberFunction(*funcDecl, implBlock->templateParamsDecl);
@@ -396,9 +393,7 @@ void IRGenerator::preflightImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) 
             
             // substitute all uses of `Self` in the function
             // TODO this will mess up functions w/ a template parameter named "Self"
-            funcDecl = TemplateSpecializer::specializeWithMapping(funcDecl, {
-                { "Self", implBlockTypeDesc }
-            });
+            funcDecl = ASTRewriter({{ "Self", implBlockTypeDesc }}).handleFunctionDecl(funcDecl);
             
             if (implBlock->isTemplateDecl()) {
                 funcDecl->hasInsertedImplBlockTemplateParams = true;
@@ -470,7 +465,7 @@ StructType* IRGenerator::registerStructDecl(std::shared_ptr<ast::StructDecl> str
         ctorSig.returnType = ast::TypeDesc::makeNominalTemplated(structName, util::vector::map(structDecl->templateParamsDecl->getParams(), [](auto &param) {
             return ast::TypeDesc::makeNominal(param.name->value);
         }));
-        ctorSig.paramTypes = { TemplateSpecializer({}).resolveType(ctorSig.returnType) };
+        ctorSig.paramTypes.push_back(ASTRewriter().handleTypeDesc(ctorSig.returnType));
         ctorSig.templateParamsDecl = std::make_shared<ast::TemplateParamDeclList>(*structDecl->templateParamsDecl);
         ctorSig.setSourceLocation(structDecl->getSourceLocation());
 
@@ -1567,7 +1562,7 @@ StructType* IRGenerator::instantiateTemplateStruct(std::shared_ptr<ast::StructDe
         fullMapping[param.name->value] = ast::TypeDesc::makeResolved(ty);
     }
     
-    auto specializedDecl = TemplateSpecializer::specializeWithMapping(SD, fullMapping);
+    auto specializedDecl = ASTRewriter(fullMapping).handleStructDecl(SD);
     
     for (uint64_t idx = 0; idx < SD->templateParamsDecl->size(); idx++) {
         auto &name = SD->templateParamsDecl->getParams()[idx].name;
