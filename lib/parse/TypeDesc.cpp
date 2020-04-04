@@ -85,3 +85,14 @@ std::string TypeDesc::str() const {
         }
     }
 }
+
+
+
+void TypeDesc::setSourceLocationNested(const SourceLocation &loc) {
+    setSourceLocation(loc);
+    switch (kind) {
+        case Kind::Nominal:
+        case Kind::Resolved:
+            return;
+    }
+}

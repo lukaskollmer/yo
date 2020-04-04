@@ -385,14 +385,18 @@ void IRGenerator::preflightImplBlock(std::shared_ptr<ast::ImplBlock> implBlock) 
         // using a copy is important here so that each function gets its own typedesc, and they don't interfere w/ each other
         auto implBlockTypeDesc = ASTRewriter().handleTypeDesc(implBlock->typeDesc);
         
+        // substitute all uses of `Self` in the function
+        // TODO this will mess up functions w/ a template parameter named "Self"
+        
         if (isInstanceMethod(funcDecl)) {
             assertIsValidMemberFunction(*funcDecl, implBlock->templateParamsDecl);
+            
+            // TODO this will cause the arrow to be correct, but there should also be a note saying smth like "resolved to xxx" where xxx is the impl block type desc
+//            implBlockTypeDesc->setSourceLocationNested(funcDecl->signature.paramTypes[0]->getPointee()->getSourceLocation);
             
             // TODO if this is a type desc which for some reason cannot be resolved, the diag when registering a function will point to the impl block, instead of the func decl
             funcDecl->setFunctionKind(ast::FunctionKind::InstanceMethod);
             
-            // substitute all uses of `Self` in the function
-            // TODO this will mess up functions w/ a template parameter named "Self"
             funcDecl = ASTRewriter({{ "Self", implBlockTypeDesc }}).handleFunctionDecl(funcDecl);
             
             if (implBlock->isTemplateDecl()) {

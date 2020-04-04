@@ -196,6 +196,7 @@ public:
     void setSourceLocation(SourceLocation SL) {
         srcLoc = SL;
     }
+    void setSourceLocationNested(const SourceLocation&);
     
     std::shared_ptr<Expr> getDecltypeExpr() const {
         return std::get<std::shared_ptr<Expr>>(data);
