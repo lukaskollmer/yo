@@ -191,9 +191,10 @@ llvm::Value* IRGenerator::codegenVarDecl(std::shared_ptr<ast::VarDecl> varDecl) 
                                                       debugInfo.lexicalBlocks.back()->getFile(),
                                                       varDecl->getSourceLocation().getLine(),
                                                       getDIType(type));
+        auto &SL = varDecl->getSourceLocation();
         debugInfo.builder.insertDeclare(alloca, D,
                                         debugInfo.builder.createExpression(),
-                                        llvm::DebugLoc::get(varDecl->getSourceLocation().getLine(), 0, currentFunction.llvmFunction->getSubprogram()),
+                                        llvm::DILocation::get(C, SL.getLine(), SL.getColumn(), currentFunction.llvmFunction->getSubprogram()),
                                         builder.GetInsertBlock());
     }
     

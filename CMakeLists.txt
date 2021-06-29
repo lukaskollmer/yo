@@ -13,7 +13,8 @@ option(BUILD_TESTS "Build tests" OFF)
 
 
 # find_package(LLVM 9 REQUIRED CONFIG)
-find_package(LLVM 8 REQUIRED PATHS /usr/local/opt/llvm@8)
+#find_package(LLVM 8 REQUIRED PATHS /usr/local/opt/llvm@8)
+find_package(LLVM 12 REQUIRED CONFIG)
 add_definitions(${LLVM_DEFINITIONS})
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in ${LLVM_DIR}")

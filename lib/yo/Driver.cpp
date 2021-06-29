@@ -22,6 +22,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/TargetRegistry.h"
@@ -45,9 +46,9 @@ using namespace yo::driver;
 
 
 void addOptimizationPasses(const Options &options, llvm::PassRegistry &PR, llvm::legacy::PassManager &MPM, llvm::legacy::FunctionPassManager &FPM) {
-    llvm::initializeIPO(PR);
-    llvm::initializeRegToMemPass(PR);
-    llvm::initializeSimpleInlinerPass(PR);
+//    llvm::initializeIPO(PR);
+//    llvm::initializeRegToMemPass(PR);
+//    llvm::initializeSimpleInlinerPass(PR);
 //    llvm::initializeStripDeadPrototypesLegacyPassPass(PR);
     
     llvm::PassManagerBuilder PMBuilder;
@@ -76,7 +77,7 @@ void addOptimizationPasses(const Options &options, llvm::PassRegistry &PR, llvm:
 
 
 
-bool emit(llvm::Module &M, llvm::TargetMachine *TM, llvm::raw_pwrite_stream &OS, llvm::TargetMachine::CodeGenFileType CGFT) {
+bool emit(llvm::Module &M, llvm::TargetMachine *TM, llvm::raw_pwrite_stream &OS, llvm::CodeGenFileType CGFT) {
     llvm::legacy::PassManager PM;
     
     if (TM->addPassesToEmitFile(PM, OS, nullptr, CGFT)) {
@@ -103,7 +104,7 @@ bool emitModule(const Options &options, std::unique_ptr<llvm::Module> module, co
     llvm::InitializeNativeTargetAsmPrinter();
     
     llvm::PassRegistry &PR = *llvm::PassRegistry::getPassRegistry();
-    llvm::initializeCore(PR);
+    //llvm::initializeCore(PR);
     
     std::string error;
     std::error_code EC;
@@ -180,13 +181,13 @@ bool emitModule(const Options &options, std::unique_ptr<llvm::Module> module, co
     
     if (options.outputFileTypes.contains(OutputFileType::Assembly)) {
         llvm::raw_fd_ostream OS(util::fmt::format("{}.s", filename), EC);
-        emit(*module, targetMachine, OS, llvm::TargetMachine::CodeGenFileType::CGFT_AssemblyFile);
+        emit(*module, targetMachine, OS, llvm::CodeGenFileType::CGFT_AssemblyFile);
     }
     
     if (options.outputFileTypes.contains(OutputFileType::ObjectFile)) {
         objectFilePath = util::fmt::format("{}.o", filename);
         llvm::raw_fd_ostream OS(objectFilePath, EC);
-        emit(*module, targetMachine, OS, llvm::TargetMachine::CodeGenFileType::CGFT_ObjectFile);
+        emit(*module, targetMachine, OS, llvm::CodeGenFileType::CGFT_ObjectFile);
     }
     
     if (options.outputFileTypes.contains(OutputFileType::LLVM_BC)) {
@@ -232,6 +233,10 @@ static bool shouldSigabrtOnFatalError = false;
 
 extern "C" bool LKCompilerInternalOptionSigabrtOnFatalError() {
     return shouldSigabrtOnFatalError;
+}
+
+extern "C" void LKCompilerSetInternalOptionSigabrtOnFatalError(bool newValue) {
+    shouldSigabrtOnFatalError = newValue;
 }
 
 

@@ -1851,7 +1851,7 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
     
     emitDebugLocation(call);
     // TODO do we need to take VK into account here?
-    return builder.CreateCall(llvmFunction, args);
+    return builder.CreateCall(llvm::FunctionCallee(llvmFunctionTy, llvmFunction), args);
 }
 
 
@@ -1971,7 +1971,7 @@ llvm::Value *IRGenerator::codegen_HandleIntrinsic(std::shared_ptr<ast::FunctionD
         }
         
         case Intrinsic::Trap:
-            return builder.CreateIntrinsic(llvm::Intrinsic::ID::trap, {}, {});
+            return builder.CreateIntrinsic(llvm::Intrinsic::trap, {}, {});
         
         case Intrinsic::Typename: {
             auto ty = resolveTypeDesc(call->explicitTemplateArgs->at(0));

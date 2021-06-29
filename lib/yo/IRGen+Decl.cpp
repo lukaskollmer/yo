@@ -476,7 +476,7 @@ llvm::Value* IRGenerator::codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>
             auto D = debugInfo.builder.createAutoVariable(SP, kRetvalAllocaIdentifier, SP->getFile(),
                                                           sig.getSourceLocation().getLine(), returnType->getLLVMDIType());
             debugInfo.builder.insertDeclare(retvalAlloca, D, debugInfo.builder.createExpression(),
-                                            llvm::DebugLoc::get(sig.getSourceLocation().getLine(), 0, SP), entryBB);
+                                            llvm::DILocation::get(C, sig.getSourceLocation().getLine(), 0, SP), entryBB);
         }
     }
     

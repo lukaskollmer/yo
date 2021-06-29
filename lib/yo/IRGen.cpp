@@ -144,7 +144,7 @@ llvm::DIFile* irgen::DIFileForSourceLocation(llvm::DIBuilder& builder, const lex
 llvm::LLVMContext IRGenerator::C;
 
 IRGenerator::IRGenerator(ast::AST &ast, const std::string &translationUnitPath, const driver::Options &options)
-    : ast(ast), module(llvm::make_unique<llvm::Module>(util::fs::path_get_filename(translationUnitPath), C)),
+    : ast(ast), module(std::make_unique<llvm::Module>(util::fs::path_get_filename(translationUnitPath), C)),
     builder(C),
     debugInfo{llvm::DIBuilder(*module), nullptr, {}},
     driverOptions(options)
@@ -206,7 +206,7 @@ void IRGenerator::emitDebugLocation(const std::shared_ptr<ast::Node> &node) {
         return;
     }
     const auto &SL = node->getSourceLocation();
-    builder.SetCurrentDebugLocation(llvm::DebugLoc::get(SL.getLine(), SL.getColumn(), debugInfo.lexicalBlocks.back()));
+    builder.SetCurrentDebugLocation(llvm::DILocation::get(C, SL.getLine(), SL.getColumn(), debugInfo.lexicalBlocks.back()));
 }
 
 
@@ -682,7 +682,7 @@ llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<
     
     builder.CreateMemSet(alloca, llvm::ConstantInt::get(builtinTypes.llvm.i8, 0),
                          module->getDataLayout().getTypeAllocSize(alloca->getAllocatedType()),
-                         alloca->getAlignment());
+                         alloca->getAlign());
     
     auto id = localScope.insert(ident, ValueBinding(structTy, alloca, [=]() {
         emitDebugLocation(call);
