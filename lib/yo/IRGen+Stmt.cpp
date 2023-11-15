@@ -57,7 +57,8 @@ llvm::Value* IRGenerator::codegenAssignment(std::shared_ptr<ast::Assignment> ass
         
         auto lhsLValue = codegenExpr(binop->getLhs(), LValue, /*insertImplicitLoadInst*/ false);
         llvmTargetLValue = lhsLValue;
-        auto lhsRValue = builder.CreateLoad(lhsLValue);
+        LKFatalError("dafuq");
+        auto lhsRValue = builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, lhsLValue);
         
         auto newLhs = std::make_shared<ast::RawLLVMValueExpr>(lhsRValue, lhsTy);
         newLhs->setSourceLocation(assignment->target->getSourceLocation());
@@ -103,7 +104,8 @@ ok:
             ))
     {
         emitDebugLocation(assignment);
-        llvmTargetLValue = builder.CreateLoad(llvmTargetLValue);
+        LKFatalError("");
+        llvmTargetLValue = builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, llvmTargetLValue);
     }
     
     if (assignment->shouldDestructOldValue) {
@@ -115,13 +117,15 @@ ok:
     
     if (lhsTy->isReferenceTy() && assignment->overwriteReferences) {
         llvmRhsVal = codegenExpr(rhsExpr, LValue, /*insertImplicitLoadInst*/ false);
-        llvmRhsVal = builder.CreateLoad(llvmRhsVal);
+        LKFatalError("");
+        llvmRhsVal = builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, llvmRhsVal);
     } else {
         bool didConstructCopy;
         llvmRhsVal = constructCopyIfNecessary(rhsTy, rhsExpr, &didConstructCopy);
         if (!didConstructCopy && rhsTy->isReferenceTy()) {
             emitDebugLocation(assignment);
-            llvmRhsVal = builder.CreateLoad(llvmRhsVal);
+            LKFatalError("");
+            llvmRhsVal = builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, llvmRhsVal);
         }
     }
     
@@ -200,9 +204,10 @@ llvm::Value* IRGenerator::codegenVarDecl(std::shared_ptr<ast::VarDecl> varDecl) 
     
     localScope.insert(varDecl->getName(), ValueBinding(
         type, alloca, [=]() -> llvm::Value* {
-            return builder.CreateLoad(alloca);
+            LKFatalError("");
+            return builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, alloca);
         }, [=](llvm::Value *V) {
-            LKAssert(V->getType() == alloca->getType()->getPointerElementType());
+            //LKAssert(V->getType() == alloca->getType()->getPointerElementType());
             builder.CreateStore(V, alloca);
         },
         ValueBinding::Flags::ReadWrite
@@ -346,7 +351,8 @@ llvm::Value* IRGenerator::codegenIfStmt(std::shared_ptr<ast::IfStmt> ifStmt) {
         }
         if (i > 0) {
             auto BB = branchConditionBlocks[i];
-            F->getBasicBlockList().push_back(BB);
+            F->insert(F->end(), BB);
+            //F->getBasicBlockList().push_back(BB);
             builder.SetInsertPoint(BB);
         }
         
@@ -386,7 +392,8 @@ llvm::Value* IRGenerator::codegenIfStmt(std::shared_ptr<ast::IfStmt> ifStmt) {
     
     auto codegenBodyBranch = [&](uint64_t index) {
         auto BB = branchBodyBlocks[index];
-        F->getBasicBlockList().push_back(BB);
+        //F->getBasicBlockList().push_back(BB);
+        F->insert(F->end(), BB);
         builder.SetInsertPoint(BB);
         
         codegenCompoundStmt(ifStmt->branches[index]->body);
@@ -418,7 +425,8 @@ llvm::Value* IRGenerator::codegenIfStmt(std::shared_ptr<ast::IfStmt> ifStmt) {
     
     
     if (needsMergeBB) {
-        F->getBasicBlockList().push_back(mergeBB);
+        //F->getBasicBlockList().push_back(mergeBB);
+        F->insert(F->end(), mergeBB);
         builder.SetInsertPoint(mergeBB);
     }
     
@@ -438,13 +446,15 @@ llvm::Value* IRGenerator::codegenWhileStmt(std::shared_ptr<ast::WhileStmt> while
     auto bodyBB = llvm::BasicBlock::Create(C, "while_body");
     auto mergeBB = llvm::BasicBlock::Create(C, "while_merge");
     
-    F->getBasicBlockList().push_back(condBB);
+    //F->getBasicBlockList().push_back(condBB);
+    F->insert(F->end(), condBB);
     builder.CreateBr(condBB);
     builder.SetInsertPoint(condBB);
     
     builder.CreateCondBr(codegenExpr(whileStmt->condition), bodyBB, mergeBB);
     
-    F->getBasicBlockList().push_back(bodyBB);
+    //F->getBasicBlockList().push_back(bodyBB);
+    F->insert(F->end(), bodyBB);
     builder.SetInsertPoint(bodyBB);
     
     currentFunction.breakContDestinations.push({mergeBB, condBB});
@@ -454,7 +464,8 @@ llvm::Value* IRGenerator::codegenWhileStmt(std::shared_ptr<ast::WhileStmt> while
     
     currentFunction.breakContDestinations.pop();
     
-    F->getBasicBlockList().push_back(mergeBB);
+    //F->getBasicBlockList().push_back(mergeBB);
+    F->insert(F->end(), mergeBB);
     builder.SetInsertPoint(mergeBB);
     
     return nullptr;

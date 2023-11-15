@@ -327,18 +327,20 @@ handle_as_expr:
         includeInStackDestruction(targetTy, targetV);
     }
     
+    LKFatalError("");
     emitDebugLocation(memberExpr);
     if (needsLoad) {
-        targetV = builder.CreateLoad(targetV);
+        targetV = builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, targetV);
     }
     
-    auto V = builder.CreateGEP(targetV, offsets);
+    auto V = builder.CreateGEP(/*TODO*/this->builtinTypes.llvm.Void, targetV, offsets);
     
     switch (returnValueKind) {
         case LValue:
             return V;
         case RValue:
-            return builder.CreateLoad(V);
+            LKFatalError("");
+            return builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, V);
     }
 }
 
@@ -381,18 +383,19 @@ llvm::Value* IRGenerator::codegenSubscriptExpr(std::shared_ptr<ast::SubscriptExp
             return nullptr;
         }
         
+        LKFatalError("");
         auto target = codegenExpr(expr->target);
         auto offset = codegenExpr(expr->args[0]);
         if (needsLoad) {
-            target = builder.CreateLoad(target);
+            target = builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, target);
         }
         
         emitDebugLocation(expr);
-        auto GEP = builder.CreateGEP(target, offset);
+        auto GEP = builder.CreateGEP(/*TODO*/this->builtinTypes.llvm.Void, target, offset);
         
         switch (VK) {
             case LValue: return GEP;
-            case RValue: return builder.CreateLoad(GEP);
+            case RValue: return builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, GEP);
         }
     }
     
@@ -500,7 +503,8 @@ llvm::Value* IRGenerator::codegenBoolComp(std::shared_ptr<ast::Expr> expr) {
     if (type == builtinTypes.yo.Bool) {
         return codegenExpr(expr);
     } else if (type == builtinTypes.yo.Bool->getReferenceTo()) {
-        return builder.CreateLoad(codegenExpr(expr));
+        LKFatalError("");
+        return builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, codegenExpr(expr));
     } else {
         LKFatalError("TODO?");
     }
@@ -1789,7 +1793,8 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
             LKAssert(argTy->isReferenceTy());
             if (!didConstructCopy) {
                 //  only insert a load if no copy was made. otherwise, the copy constructor already returns a non-reference object
-                V = builder.CreateLoad(V);
+                LKFatalError("");
+                V = builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, V);
             }
         }
         args.push_back(V);
@@ -1828,7 +1833,8 @@ llvm::Value* IRGenerator::codegenCallExpr(std::shared_ptr<ast::CallExpr> call, V
             auto V = codegenExpr(arg, RValue);
             
             if (auto refTy = llvm::dyn_cast<ReferenceType>(argTy)) {
-                V = builder.CreateLoad(V);
+                LKFatalError("");
+                V = builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, V);
                 argTy = refTy->getReferencedType();
             }
             
@@ -2317,12 +2323,14 @@ llvm::Value* IRGenerator::codegen_HandleLogOpIntrinsic(Intrinsic I, std::shared_
                          isAnd ? mergeBB : rhsBB);
     
     
-    F->getBasicBlockList().push_back(rhsBB);
+    //F->getBasicBlockList().push_back(rhsBB);
+    F->insert(F->end(), rhsBB);
     builder.SetInsertPoint(rhsBB);
     auto rhsVal = builder.CreateICmpEQ(codegenExpr(rhs), llvmTrueVal);
     builder.CreateBr(mergeBB);
     
-    F->getBasicBlockList().push_back(mergeBB);
+    //F->getBasicBlockList().push_back(mergeBB);
+    F->insert(F->end(), mergeBB);
     builder.SetInsertPoint(mergeBB);
     
     emitDebugLocation(call);

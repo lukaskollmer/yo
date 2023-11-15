@@ -34,7 +34,7 @@ LKFatalError("Unhandled Node: '%s'", ast::nodeKindToString(node->getKind()).c_st
 
 
 // just to make sure the additions to llvm's casting APIs are picked up correctly
-static_assert(std::is_same_v<decltype(llvm::cast<yo::ast::Expr>(std::declval<std::shared_ptr<yo::ast::Node>&>())), std::shared_ptr<yo::ast::Expr>>);
+static_assert(std::is_same_v<decltype(llvm::cast<yo::ast::NumberLiteral>(std::declval<std::shared_ptr<yo::ast::Node>&>())), std::shared_ptr<yo::ast::NumberLiteral>>);
 
 
 
@@ -612,13 +612,15 @@ llvm::Value *IRGenerator::codegenExpr(std::shared_ptr<ast::Expr> expr, ValueKind
     }
 #undef CASE
     
-    if (
-        insertImplicitLoadInst && V && VK == LValue && getType(expr)->isReferenceTy()
-        && (llvm::isa<llvm::AllocaInst>(V) || llvm::isa<llvm::GetElementPtrInst>(V)) // TODO this line isn't really needed, right?
-        && V->getType()->isPointerTy() && V->getType()->getPointerElementType() == getType(expr)->getLLVMType()
-    ) {
-        V = builder.CreateLoad(V);
-    }
+    LKFatalError("");
+//    if (
+//        insertImplicitLoadInst && V && VK == LValue && getType(expr)->isReferenceTy()
+//        && (llvm::isa<llvm::AllocaInst>(V) || llvm::isa<llvm::GetElementPtrInst>(V)) // TODO this line isn't really needed, right?
+//        && V->getType()->isPointerTy() && V->getType()->getPointerElementType() == getType(expr)->getLLVMType()
+//    ) {
+//        LKFatalError("");
+//        V = builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, V);
+//    }
     return V;
 }
 
@@ -686,7 +688,8 @@ llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<
     
     auto id = localScope.insert(ident, ValueBinding(structTy, alloca, [=]() {
         emitDebugLocation(call);
-        return builder.CreateLoad(alloca);
+        LKFatalError("");
+        return builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, alloca);
     }, [=](llvm::Value *V) {
         LKFatalError("use references to write to object?");
     }, ValueBinding::Flags::ReadWrite));
@@ -708,7 +711,8 @@ llvm::Value* IRGenerator::constructStruct(StructType *structTy, std::shared_ptr<
 //            LKFatalError("why?");
             return alloca;
         case RValue:
-            return builder.CreateLoad(alloca);
+            LKFatalError("");
+            return builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, alloca);
     }
 }
 
@@ -829,7 +833,8 @@ llvm::Value* IRGenerator::constructVariant(VariantType *type, const std::string 
     
     auto underlyingStructType = llvm::cast<StructType>(type->getUnderlyingType());
     auto alloca = builder.CreateAlloca(getLLVMType(underlyingStructType));
-    auto ptr = builder.CreateStructGEP(alloca, 0);
+    LKFatalError("");
+    auto ptr = builder.CreateStructGEP(/*TODO*/this->builtinTypes.llvm.Void, alloca, 0);
     auto TagType = llvm::cast<llvm::IntegerType>(getLLVMType(underlyingStructType->getMember("__index").second)); // todo extract __index into a global constant!
     builder.CreateStore(llvm::ConstantInt::get(TagType, tagValue), ptr);
     return alloca;

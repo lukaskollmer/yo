@@ -426,7 +426,8 @@ llvm::Value* IRGenerator::codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>
         
         localScope.insert(name, ValueBinding{
             type, alloca, [=]() -> llvm::Value* {
-                return builder.CreateLoad(alloca);
+                LKFatalError("");
+                return builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, alloca);
             }, [=](llvm::Value *V) {
                 // TODO turn this into an assignment-side error
                 LKFatalError("Function arguments are read-only (%s in %s)", name.c_str(), resolvedName.c_str());
@@ -495,7 +496,8 @@ llvm::Value* IRGenerator::codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>
     
     codegenCompoundStmt(functionDecl->getBody());
     
-    F->getBasicBlockList().push_back(returnBB);
+    //F->getBasicBlockList().push_back(returnBB);
+    F->insert(F->end(), returnBB);
     builder.SetInsertPoint(returnBB);
     
     // These were alreadu\y destructed (either by returning from the local scope, or by reaching the end of the function body)
@@ -509,7 +511,8 @@ llvm::Value* IRGenerator::codegenFunctionDecl(std::shared_ptr<ast::FunctionDecl>
     if (returnType->isVoidTy()) {
         builder.CreateRetVoid();
     } else {
-        builder.CreateRet(builder.CreateLoad(retvalAlloca));
+        LKFatalError("");
+        builder.CreateRet(builder.CreateLoad(/*TODO*/this->builtinTypes.llvm.Void, retvalAlloca));
     }
     
     

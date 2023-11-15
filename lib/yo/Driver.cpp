@@ -17,15 +17,15 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+//#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/Program.h"
 
 #include <fstream>
@@ -46,27 +46,28 @@ using namespace yo::driver;
 
 
 void addOptimizationPasses(const Options &options, llvm::PassRegistry &PR, llvm::legacy::PassManager &MPM, llvm::legacy::FunctionPassManager &FPM) {
-//    llvm::initializeIPO(PR);
-//    llvm::initializeRegToMemPass(PR);
-//    llvm::initializeSimpleInlinerPass(PR);
-//    llvm::initializeStripDeadPrototypesLegacyPassPass(PR);
-    
-    llvm::PassManagerBuilder PMBuilder;
-    PMBuilder.OptLevel = options.optimize ? 1 : 0;
-    PMBuilder.SizeLevel = 0;
-    
-    if (!options.fnoInline) {
-        if (PMBuilder.OptLevel > 1) {
-            PMBuilder.Inliner = llvm::createFunctionInliningPass(PMBuilder.OptLevel, PMBuilder.SizeLevel, false);
-        } else {
-            PMBuilder.Inliner = llvm::createAlwaysInlinerLegacyPass();
-        }
-    }
-    
-    PMBuilder.populateFunctionPassManager(FPM);
-    PMBuilder.populateModulePassManager(MPM);
-    
-//    MPM.add(llvm::createStripDeadPrototypesPass()); // TODO
+    // TODO https://llvm.org/docs/NewPassManager.html
+////    llvm::initializeIPO(PR);
+////    llvm::initializeRegToMemPass(PR);
+////    llvm::initializeSimpleInlinerPass(PR);
+////    llvm::initializeStripDeadPrototypesLegacyPassPass(PR);
+//    
+//    llvm::PassManagerBuilder PMBuilder;
+//    PMBuilder.OptLevel = options.optimize ? 1 : 0;
+//    PMBuilder.SizeLevel = 0;
+//    
+//    if (!options.fnoInline) {
+//        if (PMBuilder.OptLevel > 1) {
+//            PMBuilder.Inliner = llvm::createFunctionInliningPass(PMBuilder.OptLevel, PMBuilder.SizeLevel, false);
+//        } else {
+//            PMBuilder.Inliner = llvm::createAlwaysInlinerLegacyPass();
+//        }
+//    }
+//    
+//    PMBuilder.populateFunctionPassManager(FPM);
+//    PMBuilder.populateModulePassManager(MPM);
+//    
+////    MPM.add(llvm::createStripDeadPrototypesPass()); // TODO
 }
 
 
@@ -115,7 +116,6 @@ bool emitModule(const Options &options, std::unique_ptr<llvm::Module> module, co
     if (llvm::Triple(targetTriple).isOSDarwin()) {
         module->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);
     }
-    
     auto target = llvm::TargetRegistry::lookupTarget(targetTriple, error);
     if (!target) {
         llvm::errs() << error;
@@ -126,7 +126,7 @@ bool emitModule(const Options &options, std::unique_ptr<llvm::Module> module, co
     auto features = "";
     
     llvm::TargetOptions opt;
-    auto RM = llvm::Optional<llvm::Reloc::Model>();
+    auto RM = std::optional<llvm::Reloc::Model>();
     auto targetMachine = target->createTargetMachine(targetTriple, hostCPU, features, opt, RM);
     
     module->setDataLayout(targetMachine->createDataLayout());

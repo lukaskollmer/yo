@@ -112,7 +112,8 @@ llvm::Value* MatchMaker::run() {
     
     auto addBBAndSetAsInsertPoint = [&](llvm::BasicBlock *BB) {
         auto F = irgen.currentFunction.llvmFunction;
-        F->getBasicBlockList().push_back(BB);
+        F->insert(F->end(), BB);
+        //F->getBasicBlockList().push_back(BB);
         irgen.builder.SetInsertPoint(BB);
     };
     
